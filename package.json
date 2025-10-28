@@ -178,7 +178,7 @@
     ]
   },
   "dependencies": {
-    "@ndonfris/tree-sitter-fish": "^3.6.0-dev.1759885298139",
+    "@ndonfris/tree-sitter-fish": "^3.6.0-patch.0",
     "chalk": "^5.5.0",
     "commander": "^12.0.0",
     "deepmerge": "^4.3.1",

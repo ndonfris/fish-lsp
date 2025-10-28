@@ -504,33 +504,50 @@ export function getVariableModifiers(variableName: string, documentUri?: string)
   return calculateModifiersMask(...modifiers);
 }
 
-export function getCommandModifiers(commandNode: SyntaxNode, documentUri?: string): number {
+/**
+ * Information about a command's definition and modifiers
+ */
+export type CommandModifierInfo = {
+  modifiers: number;
+  isDefinedInDocument: boolean;
+};
+
+/**
+ * Get semantic token modifiers for a command and check if it's defined in the current document
+ * @param commandNode - The command node
+ * @param documentUri - Optional document URI to search for local symbols
+ * @returns Object with modifiers bitmask and whether symbol is defined in this document
+ */
+export function getCommandModifierInfo(commandNode: SyntaxNode, documentUri?: string): CommandModifierInfo {
   const commandName = commandNode.firstNamedChild?.text;
 
   if (!commandName) {
-    return 0;
+    return { modifiers: 0, isDefinedInDocument: false };
   }
 
   // Check if it's a builtin command
   if (isBuiltin(commandName)) {
-    // Note: We can't check isBuiltinCommand without a node, so builtins are handled separately
-    return calculateModifiersMask('builtin');
+    return { modifiers: calculateModifiersMask('builtin'), isDefinedInDocument: false };
   }
 
   const allCommands = PrebuiltDocumentationMap.getByType('command');
   if (allCommands.some(s => commandName === s.name)) {
-    return calculateModifiersMask('global');
+    return { modifiers: calculateModifiersMask('global'), isDefinedInDocument: false };
   }
 
   // Look up the command in both local and global symbols
   let symbols = analyzer.globalSymbols.find(commandName);
+  let isDefinedInDocument = false;
 
   // If we have a document URI, also check local symbols
-  if (documentUri && symbols.length === 0) {
+  if (documentUri) {
     const localSymbols = analyzer.cache.getFlatDocumentSymbols(documentUri);
-    const localMatches = localSymbols.filter(s => s.name === commandName);
+    const localMatches = localSymbols.filter(s =>
+      s.name === commandName && (s.fishKind === 'FUNCTION' || s.fishKind === 'ALIAS'),
+    );
     if (localMatches.length > 0) {
       symbols = localMatches;
+      isDefinedInDocument = true;
     }
   }
 
@@ -538,12 +555,10 @@ export function getCommandModifiers(commandNode: SyntaxNode, documentUri?: strin
 
   if (symbols.length === 0) {
     // No definition found - could be an external command or not found
-
     if (firstGlobal) {
-      return calculateModifiersMask('global');
+      return { modifiers: calculateModifiersMask('global'), isDefinedInDocument: false };
     }
-
-    return 0;
+    return { modifiers: 0, isDefinedInDocument: false };
   }
 
   // Use the first symbol found (most relevant)
@@ -564,7 +579,7 @@ export function getCommandModifiers(commandNode: SyntaxNode, documentUri?: strin
       modifiers.push('local');
     }
 
-    return calculateModifiersMask(...modifiers);
+    return { modifiers: calculateModifiersMask(...modifiers), isDefinedInDocument };
   }
 
   // Check if it's an alias
@@ -574,10 +589,14 @@ export function getCommandModifiers(commandNode: SyntaxNode, documentUri?: strin
       modifiers.push('global');
     }
     modifiers.push('script');
-    return calculateModifiersMask(...modifiers);
+    return { modifiers: calculateModifiersMask(...modifiers), isDefinedInDocument };
   }
 
-  return 0;
+  return { modifiers: 0, isDefinedInDocument };
+}
+
+export function getCommandModifiers(commandNode: SyntaxNode, documentUri?: string): number {
+  return getCommandModifierInfo(commandNode, documentUri).modifiers;
 }
 
 // ============================================================================

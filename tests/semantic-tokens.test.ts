@@ -48,7 +48,7 @@ import { provideSemanticTokens, semanticTokensHandlerCallback } from '../src/sem
 
 const treeSitterSemanticTokensProvider = (LspDocument: LspDocument, range?: Range) => {
   if (range) {
-    return provideSemanticTokens(LspDocument, range );
+    return provideSemanticTokens(LspDocument, range);
   } else {
     return provideSemanticTokens(LspDocument);
   }
@@ -340,44 +340,6 @@ describe('Semantic Tokens', () => {
       config.fish_lsp_semantic_handler_type = 'mini';
     });
 
-    describe('builtin commands', () => {
-      it('should highlight builtin commands with builtin modifier', () => {
-        const content = 'echo "hello"\nset foo bar\nread -l my_var';
-        const doc = new LspDocument({ uri: 'test://builtin.fish', languageId: 'fish', version: 1, text: content });
-        analyzer.analyze(doc);
-
-        const result = provideSemanticTokens(doc);
-        const tokens = decodeSemanticTokens(result, content);
-
-        // Should have tokens for echo, set, read
-        const echoToken = expectTokenExists(tokens, { text: 'echo', tokenType: 'function' });
-        const setToken = expectTokenExists(tokens, { text: 'set', tokenType: 'function' });
-        const readToken = expectTokenExists(tokens, { text: 'read', tokenType: 'function' });
-
-        // All should have builtin modifier
-        expect(echoToken.modifiers).toContain('builtin');
-        expect(setToken.modifiers).toContain('builtin');
-        expect(readToken.modifiers).toContain('builtin');
-      });
-    });
-
-
-    describe('test command brackets', () => {
-      it('should highlight [ and ] in test commands', () => {
-        const content = '[ -d /tmp ] && [ -f /tmp/file.fish ]';
-        const doc = new LspDocument({ uri: 'test://brackets.fish', languageId: 'fish', version: 1, text: content });
-        analyzer.analyze(doc);
-
-        const result = provideSemanticTokens(doc);
-        const tokens = decodeSemanticTokens(result, content);
-
-        // Should have tokens for [ and ]
-        const brackets = tokens.filter(t => t.text === '[' || t.text === ']');
-        expect(brackets.length).toBeGreaterThanOrEqual(2);
-        expect(brackets.every(t => t.tokenType === 'function')).toBe(true);
-      });
-    });
-
     describe('user-defined functions', () => {
       it('should highlight function calls', () => {
         const content = `function my_func
@@ -398,7 +360,6 @@ my_func`;
       });
     });
 
-
     describe('command modifiers', () => {
       it('should apply modifiers to commands based on their definition', () => {
         const content = `function my_global_func
@@ -417,12 +378,32 @@ my_global_func`;
         expect(funcTokens.length).toBeGreaterThan(0);
       });
     });
-
   });
 
   describe('full', () => {
     beforeEach(() => {
       config.fish_lsp_semantic_handler_type = 'full';
+    });
+
+    describe('builtin commands', () => {
+      it('should highlight builtin commands with builtin modifier', () => {
+        const content = 'echo "hello"\nset foo bar\nread -l my_var';
+        const doc = new LspDocument({ uri: 'test://builtin.fish', languageId: 'fish', version: 1, text: content });
+        analyzer.analyze(doc);
+
+        const result = provideSemanticTokens(doc);
+        const tokens = decodeSemanticTokens(result, content);
+
+        // Should have tokens for echo, set, read
+        const echoToken = expectTokenExists(tokens, { text: 'echo', tokenType: 'function' });
+        const setToken = expectTokenExists(tokens, { text: 'set', tokenType: 'function' });
+        const readToken = expectTokenExists(tokens, { text: 'read', tokenType: 'function' });
+
+        // All should have builtin modifier
+        expect(echoToken.modifiers).toContain('builtin');
+        expect(setToken.modifiers).toContain('builtin');
+        expect(readToken.modifiers).toContain('builtin');
+      });
     });
 
     describe('keywords', () => {
@@ -559,6 +540,22 @@ echo "enabled"`;
       });
     });
 
+    describe('test command brackets', () => {
+      it('should highlight [ and ] in test commands', () => {
+        const content = '[ -d /tmp ] && [ -f /tmp/file.fish ]';
+        const doc = new LspDocument({ uri: 'test://brackets.fish', languageId: 'fish', version: 1, text: content });
+        analyzer.analyze(doc);
+
+        const result = provideSemanticTokens(doc);
+        const tokens = decodeSemanticTokens(result, content);
+
+        // Should have tokens for [ and ]
+        const brackets = tokens.filter(t => t.text === '[' || t.text === ']');
+        expect(brackets.length).toBeGreaterThanOrEqual(2);
+        expect(brackets.every(t => t.tokenType === 'function')).toBe(true);
+      });
+    });
+
     describe('strings and words', () => {
       it('should highlight plain words as strings', () => {
         const content = 'echo hello world';
@@ -633,7 +630,6 @@ echo "enabled"`;
       it('should have correct legend with variable types and scope modifiers', () => {
         expect(FISH_SEMANTIC_TOKENS_LEGEND.tokenTypes).toContain('variable');
         expect(FISH_SEMANTIC_TOKENS_LEGEND.tokenTypes).toContain('function');
-        expect(FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers).toContain('definition');
         expect(FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers).toContain('local');
         expect(FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers).toContain('global');
         expect(FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers).toContain('universal');
@@ -648,22 +644,19 @@ echo "enabled"`;
 
       it('should provide reverse modifier lookup functionality', () => {
         // Test bitmask with multiple modifiers
-        const definitionIndex = FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.indexOf('definition');
         const localIndex = FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.indexOf('local');
         const exportIndex = FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.indexOf('export');
 
-        expect(definitionIndex).toBeGreaterThanOrEqual(0);
         expect(localIndex).toBeGreaterThanOrEqual(0);
         expect(exportIndex).toBeGreaterThanOrEqual(0);
 
         // Create bitmask for definition + local + export
-        const bitmask = 1 << definitionIndex | 1 << localIndex | 1 << exportIndex;
+        const bitmask = 1 << localIndex | 1 << exportIndex;
         const modifiers = getModifiersFromMask(bitmask);
 
-        expect(modifiers).toContain('definition');
         expect(modifiers).toContain('local');
         expect(modifiers).toContain('export');
-        expect(modifiers.length).toBe(3);
+        expect(modifiers.length).toBe(2);
       });
 
       it('should correctly identify scope modifiers in semantic tokens', () => {
@@ -671,7 +664,7 @@ echo "enabled"`;
         const tokens = decodeSemanticTokens(result, vardef_doc.getText());
 
         // Check that we have tokens with definition modifiers
-        const definitionTokens = findTokensWithModifiers(tokens, 'definition');
+        const definitionTokens = findTokensWithModifiers(tokens, 'export');
         expect(definitionTokens.length).toBeGreaterThan(0);
 
         // Check that we have tokens with scope modifiers
@@ -697,7 +690,6 @@ echo "enabled"`;
       });
 
       it('should have all Fish-specific modifiers defined', () => {
-        expect(FishSemanticTokenModifiers.definition).toBe('definition');
         expect(FishSemanticTokenModifiers.local).toBe('local');
         expect(FishSemanticTokenModifiers.global).toBe('global');
         expect(FishSemanticTokenModifiers.universal).toBe('universal');
@@ -719,7 +711,7 @@ echo "enabled"`;
         const tokens = decodeSemanticTokens(result, vardef_doc.getText());
 
         // Check that we have tokens with both global and export modifiers (for aliases)
-        const globalExportTokens = findTokensWithModifiers(tokens, 'global', 'export', 'definition');
+        const globalExportTokens = findTokensWithModifiers(tokens, 'global', 'export');
         expect(globalExportTokens.length).toBeGreaterThan(0);
       });
 
@@ -732,7 +724,7 @@ echo "enabled"`;
         expect(exportTokens.length).toBeGreaterThan(0);
 
         // Verify export tokens also have definition and global modifiers
-        const exportDefinitionTokens = findTokensWithModifiers(tokens, 'export', 'definition', 'global');
+        const exportDefinitionTokens = findTokensWithModifiers(tokens, 'export', 'global');
         expect(exportDefinitionTokens.length).toBeGreaterThan(0);
       });
 
@@ -776,7 +768,7 @@ echo "enabled"`;
         const eventTokens = tokensWithModifiers.filter(t => t.tokenType === 'event');
         if (eventTokens.length > 0) {
           const globalEventTokens = eventTokens.filter(t =>
-            t.modifiers.includes('definition') && t.modifiers.includes('global'),
+            t.modifiers.includes('global'),
           );
           expect(globalEventTokens.length).toBeGreaterThan(0);
         }
@@ -812,18 +804,6 @@ echo "enabled"`;
         // SemanticTokensBuilder uses delta encoding, so we need to decode to verify ranges
         // For now, just verify that range filtering reduces the token count
         expect(rangeTokens.data.length).toBeGreaterThanOrEqual(0);
-      });
-
-      it.skip('should return empty tokens for range outside document content (range not supported in mini handler)', () => {
-        // Mini handler doesn't support range-based filtering, returns full document tokens
-        const range = {
-          start: { line: 1000, character: 0 },
-          end: { line: 1100, character: 0 },
-        };
-        const rangeTokens = treeSitterSemanticTokensProvider(vardef_doc, range);
-
-        // Should return empty or very few tokens
-        expect(rangeTokens.data.length).toBeLessThanOrEqual(5); // At most 1 token (5 values)
       });
 
       it('should handle single-line ranges correctly', () => {
@@ -891,11 +871,6 @@ echo "Next line has diagnostics disabled"
     });
 
     describe('Fish LSP Directive Comments', () => {
-      it.skip('should include fish-lsp-directive modifier in the legend (not in mini handler)', () => {
-        // Mini handler doesn't use fish-lsp-directive modifier
-        expect(FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers).toContain('fish-lsp-directive');
-      });
-
       it('should use keyword token type for fish-lsp directive comments', () => {
         // Use the properly initialized directive_doc from testWorkspace
         const tokens = treeSitterSemanticTokensProvider(directive_doc);
@@ -915,37 +890,6 @@ echo "Next line has diagnostics disabled"
     });
 
     describe('Echo and Alias Name Highlighting', () => {
-      it.skip('should highlight echo command arguments as parameters (not supported in mini handler)', () => {
-        // Mini handler treats echo arguments as strings, not parameters
-        const testContent = 'echo b';
-        const document = new LspDocument({
-          uri: 'file:///test-echo-arg.fish',
-          languageId: 'fish',
-          version: 1,
-          text: testContent,
-        });
-
-        const tokens = treeSitterSemanticTokensProvider(document);
-        expect(tokens.data).toBeDefined();
-
-        // Find parameter token type index
-        const parameterTypeIndex = getTokenTypeIndex('parameter');
-        expect(parameterTypeIndex).toBeGreaterThanOrEqual(0);
-
-        // Decode tokens to find parameter tokens
-        const data = tokens.data;
-        let hasParameterToken = false;
-        for (let i = 0; i < data.length; i += 5) {
-          const tokenType = data[i + 3];
-          if (tokenType === parameterTypeIndex) {
-            hasParameterToken = true;
-            break;
-          }
-        }
-
-        expect(hasParameterToken).toBe(true);
-      });
-
       it('should provide tokens for alias statement', () => {
         // Use the properly initialized alias_doc from testWorkspace
         const tokens = treeSitterSemanticTokensProvider(alias_doc);
@@ -956,321 +900,5 @@ echo "Next line has diagnostics disabled"
         expect(tokens.data.length).toBeGreaterThan(0);
       });
     });
-
-    describe('Export Command Name Highlighting', () => {
-      it.skip('should highlight export command name as function (not supported in mini - uses FishSymbols)', () => {
-        const testContent = `alias foo=bar
-export VAR=value`;
-        const document = new LspDocument({
-          uri: 'file:///test-export-command.fish',
-          languageId: 'fish',
-          version: 1,
-          text: testContent,
-        });
-
-        const tokens = treeSitterSemanticTokensProvider(document);
-        expect(tokens.data).toBeDefined();
-
-        // Find function token type index
-        const functionTypeIndex = getTokenTypeIndex('function');
-        expect(functionTypeIndex).toBeGreaterThanOrEqual(0);
-
-        // Decode tokens and find both alias and export command names
-        const data = tokens.data;
-        const results: Array<{ text: string; type: string; modifiers: string[]; }> = [];
-
-        let line = 0;
-        let char = 0;
-        for (let i = 0; i < data.length; i += 5) {
-          const lineDelta = data[i] || 0;
-          const charDelta = data[i + 1] || 0;
-
-          line += lineDelta;
-          char = lineDelta === 0 ? char + charDelta : charDelta;
-
-          const length = data[i + 2]!;
-          const tokenType = data[i + 3]!;
-          const modifiersMask = data[i + 4]!;
-
-          const text = testContent.split('\n')[line]?.substring(char, char + (length || 0));
-          const tokenTypeName = FISH_SEMANTIC_TOKENS_LEGEND.tokenTypes[tokenType!];
-
-          const modifiers: string[] = [];
-          for (let j = 0; j < FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.length; j++) {
-            if (modifiersMask & 1 << j) {
-              modifiers.push(FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers[j] || '');
-            }
-          }
-
-          if (text === 'alias' || text === 'export') {
-            results.push({ text, type: tokenTypeName || '', modifiers });
-          }
-        }
-
-        // Both alias and export should be highlighted as function
-        const aliasToken = results.find(r => r.text === 'alias');
-        const exportToken = results.find(r => r.text === 'export');
-
-        expect(aliasToken).toBeDefined();
-        expect(exportToken).toBeDefined();
-
-        // Both should have function type
-        expect(aliasToken?.type).toBe('function');
-        expect(exportToken?.type).toBe('function');
-
-        // Both should have same modifiers (defaultLibrary, builtin)
-        expect(aliasToken?.modifiers.sort()).toEqual(exportToken?.modifiers.sort());
-      });
-    });
-
-    describe('Export Variable Highlighting', () => {
-      it.skip('should highlight both export command and variable name (not supported in mini - uses FishSymbols)', () => {
-        const testContent = 'export ff=\'bar\'';
-        const document = new LspDocument({
-          uri: 'file:///test-export-quotes.fish',
-          languageId: 'fish',
-          version: 1,
-          text: testContent,
-        });
-
-        const tokens = treeSitterSemanticTokensProvider(document);
-        expect(tokens.data).toBeDefined();
-
-        // Decode all tokens
-        const data = tokens.data;
-        const results: Array<{ text: string; type: string; line: number; char: number; }> = [];
-
-        let line = 0;
-        let char = 0;
-        for (let i = 0; i < data.length; i += 5) {
-          const lineDelta = data[i]!;
-          const charDelta = data[i + 1]!;
-
-          line += lineDelta!;
-          char = lineDelta === 0 ? char + charDelta : charDelta;
-
-          const length = data[i + 2]!;
-          const tokenType = data[i + 3]!;
-
-          const text = testContent.split('\n')[line]?.substring(char, char + length) || '';
-          const tokenTypeName = FISH_SEMANTIC_TOKENS_LEGEND.tokenTypes[tokenType];
-
-          results.push({ text, type: tokenTypeName || '', line, char });
-        }
-
-        // Find export command name and ff variable name
-        const exportCommand = results.find(r => r.text === 'export' && r.char === 0);
-        const varName = results.find(r => r.text === 'ff');
-
-        // Export command should be present at position 0
-        expect(exportCommand).toBeDefined();
-        expect(exportCommand?.type).toBe('function');
-
-        // Variable name should be present after export
-        expect(varName).toBeDefined();
-        expect(varName?.type).toBe('variable');
-      });
-
-      it.skip('should highlight export variable name with space syntax (not supported in mini - uses FishSymbols)', () => {
-        const testContent = 'export ff \'bar\'';
-        const document = new LspDocument({
-          uri: 'file:///test-export-space.fish',
-          languageId: 'fish',
-          version: 1,
-          text: testContent,
-        });
-
-        const tokens = treeSitterSemanticTokensProvider(document);
-        expect(tokens.data).toBeDefined();
-
-        // Find variable token type index
-        const variableTypeIndex = getTokenTypeIndex('variable');
-        expect(variableTypeIndex).toBeGreaterThanOrEqual(0);
-
-        // Find definition and export modifiers
-        const definitionModifierIndex = FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.indexOf('definition');
-        const exportModifierIndex = FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.indexOf('export');
-        expect(definitionModifierIndex).toBeGreaterThanOrEqual(0);
-        expect(exportModifierIndex).toBeGreaterThanOrEqual(0);
-
-        // Decode tokens to find variable token with definition+export modifiers
-        const data = tokens.data;
-        let hasExportVariable = false;
-        for (let i = 0; i < data.length; i += 5) {
-          const tokenType = data[i + 3];
-          const modifiersMask = data[i + 4]!;
-
-          if (tokenType === variableTypeIndex &&
-            modifiersMask & 1 << definitionModifierIndex &&
-            modifiersMask & 1 << exportModifierIndex) {
-            hasExportVariable = true;
-            break;
-          }
-        }
-
-        expect(hasExportVariable).toBe(true);
-      });
-
-      it.skip('should highlight export variable name with = syntax (not supported in mini - uses FishSymbols)', () => {
-        const testContent = 'export f=\'bar\'';
-        const document = new LspDocument({
-          uri: 'file:///test-export-equals.fish',
-          languageId: 'fish',
-          version: 1,
-          text: testContent,
-        });
-
-        const tokens = treeSitterSemanticTokensProvider(document);
-        expect(tokens.data).toBeDefined();
-
-        // Find variable token type index
-        const variableTypeIndex = getTokenTypeIndex('variable');
-        expect(variableTypeIndex).toBeGreaterThanOrEqual(0);
-
-        // Find definition and export modifiers
-        const definitionModifierIndex = FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.indexOf('definition');
-        const exportModifierIndex = FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.indexOf('export');
-
-        // Decode tokens to find variable token with definition+export modifiers
-        const data = tokens.data;
-        let hasExportVariable = false;
-        for (let i = 0; i < data.length; i += 5) {
-          const tokenType = data[i + 3]!;
-          const modifiersMask = data[i + 4]!;
-
-          if (tokenType === variableTypeIndex &&
-            modifiersMask & 1 << definitionModifierIndex &&
-            modifiersMask & 1 << exportModifierIndex) {
-            hasExportVariable = true;
-            break;
-          }
-        }
-
-        expect(hasExportVariable).toBe(true);
-      });
-    });
-
-    describe('Alias and Export Equals Operator', () => {
-      it.skip('should highlight = operator in alias (may be in highlights.scm queries)', () => {
-        const testContent = 'alias f=bar\\ baz\\ qux';
-        const document = new LspDocument({
-          uri: 'file:///test-alias-escaped.fish',
-          languageId: 'fish',
-          version: 1,
-          text: testContent,
-        });
-
-        const tokens = treeSitterSemanticTokensProvider(document);
-        expect(tokens.data).toBeDefined();
-
-        // Find operator token type index
-        const operatorTypeIndex = getTokenTypeIndex('operator');
-        expect(operatorTypeIndex).toBeGreaterThanOrEqual(0);
-
-        // Decode tokens to find the = operator
-        const data = tokens.data;
-        let hasEqualsOperator = false;
-        for (let i = 0; i < data.length; i += 5) {
-          const tokenType = data[i + 3];
-          if (tokenType === operatorTypeIndex) {
-            hasEqualsOperator = true;
-            break;
-          }
-        }
-
-        expect(hasEqualsOperator).toBe(true);
-      });
-
-      it.skip('should highlight = operator in export (may be in highlights.scm queries)', () => {
-        const testContent = 'export PATH=/usr/bin';
-        const document = new LspDocument({
-          uri: 'file:///test-export-equals.fish',
-          languageId: 'fish',
-          version: 1,
-          text: testContent,
-        });
-
-        const tokens = treeSitterSemanticTokensProvider(document);
-        expect(tokens.data).toBeDefined();
-
-        // Find operator token type index
-        const operatorTypeIndex = getTokenTypeIndex('operator');
-        expect(operatorTypeIndex).toBeGreaterThanOrEqual(0);
-
-        // Decode tokens to find the = operator
-        const data = tokens.data;
-        let hasEqualsOperator = false;
-        for (let i = 0; i < data.length; i += 5) {
-          const tokenType = data[i + 3];
-          if (tokenType === operatorTypeIndex) {
-            hasEqualsOperator = true;
-            break;
-          }
-        }
-
-        expect(hasEqualsOperator).toBe(true);
-      });
-
-      it.skip('should highlight string values in alias (may work via highlights.scm)', () => {
-        const testContent = 'alias f=bar\\ baz\\ qux';
-        const document = new LspDocument({
-          uri: 'file:///test-alias-first-word.fish',
-          languageId: 'fish',
-          version: 1,
-          text: testContent,
-        });
-
-        const tokens = treeSitterSemanticTokensProvider(document);
-        expect(tokens.data).toBeDefined();
-
-        // Find string token type index
-        const stringTypeIndex = getTokenTypeIndex('string');
-        expect(stringTypeIndex).toBeGreaterThanOrEqual(0);
-
-        // Decode tokens to find string tokens
-        const data = tokens.data;
-        let stringTokenCount = 0;
-        for (let i = 0; i < data.length; i += 5) {
-          const tokenType = data[i + 3];
-          if (tokenType === stringTypeIndex) {
-            stringTokenCount++;
-          }
-        }
-
-        // Should have at least 3 string tokens: "bar", "baz", "qux"
-        expect(stringTokenCount).toBeGreaterThanOrEqual(3);
-      });
-
-      it.skip('should highlight = in command flags (may be in highlights.scm queries)', () => {
-        const testContent = 'ls --sort=size';
-        const document = new LspDocument({
-          uri: 'file:///test-flag-equals.fish',
-          languageId: 'fish',
-          version: 1,
-          text: testContent,
-        });
-
-        const tokens = treeSitterSemanticTokensProvider(document);
-        expect(tokens.data).toBeDefined();
-
-        // Find operator token type index
-        const operatorTypeIndex = getTokenTypeIndex('operator');
-        expect(operatorTypeIndex).toBeGreaterThanOrEqual(0);
-
-        // Decode tokens to find the = operator
-        const data = tokens.data;
-        let hasEqualsOperator = false;
-        for (let i = 0; i < data.length; i += 5) {
-          const tokenType = data[i + 3];
-          if (tokenType === operatorTypeIndex) {
-            hasEqualsOperator = true;
-            break;
-          }
-        }
-
-        expect(hasEqualsOperator).toBe(true);
-      });
-    });
-
   }); // end of 'full' describe block
 });

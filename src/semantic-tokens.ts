@@ -18,18 +18,19 @@ import {
   getQueriesList,
   getCaptureToTokenMapping,
   getCommandModifiers,
+  getCommandModifierInfo,
   getVariableModifiers,
   createTokensFromMatches,
   getTextMatchPositions,
   nodeIntersectsRange,
   isNodeCoveredByTokens,
-  hasModifier,
 } from './utils/semantics';
 import { FishSymbolToSemanticToken, getSymbolModifiers } from './parsing/symbol-modifiers';
 import { collectNodesByTypes, getNamedChildNodes } from './utils/tree-sitter';
 import { highlights } from '@ndonfris/tree-sitter-fish';
 import { BuiltInList } from './utils/builtins';
 import { config } from './config';
+import { getReferences } from './references';
 
 // ============================================================================
 // Type Definitions
@@ -159,20 +160,21 @@ const semanticTokenHandlers: NodeTokenHandler[] = [
     ['full'],
   ],
   // Function calls and user-defined commands - exclude 'alias' and '['
-  // In mini mode: only highlight calls to local functions defined in this document
+  // In mini mode: only highlight calls to functions/aliases defined in this document
   // In full mode: highlight all function calls
+  // All calls use the exact same modifiers as their definitions
   [
     isFunctionCall,
     (node, ctx) => {
-      const modifiers = getCommandModifiers(node, ctx.document.uri);
+      const modifierInfo = getCommandModifierInfo(node, ctx.document.uri);
 
-      // In mini mode, only add token if it's a local function
-      if (config.fish_lsp_semantic_handler_type === 'mini' && !hasModifier(modifiers, 'local')) {
+      // In mini mode, only add token if the symbol is defined in this document
+      if (config.fish_lsp_semantic_handler_type === 'mini' && !modifierInfo.isDefinedInDocument) {
         return;
       }
 
       ctx.tokens.push(
-        SemanticToken.fromNode(node.firstNamedChild!, TokenTypes.function, modifiers),
+        SemanticToken.fromNode(node.firstNamedChild!, TokenTypes.function, modifierInfo.modifiers),
       );
     },
 
@@ -210,10 +212,14 @@ const semanticTokenHandlers: NodeTokenHandler[] = [
   [
     isVariableName,
     (node, ctx) => {
+      const variableName = node.text.replace(/^\$/, '');
+      const modifiers = getVariableModifiers(variableName, ctx.document.uri);
+
       ctx.tokens.push(
         ...createTokensFromMatches(
           getTextMatchPositions(node, /[^$]+/),
           TokenTypes.variable,
+          modifiers,
         ),
       );
     },
@@ -312,8 +318,12 @@ export function provideSemanticTokens(
     return buildTokens(tokens);
   }
 
-  // Process FishSymbols
+  // Process FishSymbol definitions
   processFishSymbols(context, range);
+
+  // Process all references to symbols defined in this document
+  // This ensures references use the same modifiers as their definitions
+  processSymbolReferences(context, range);
 
   // Process all syntax nodes in a single traversal using getNamedChildNodes
   processAllSyntaxNodes(context, tree, range);
@@ -372,6 +382,67 @@ function processFishSymbols(context: TokenTransformContext, filterRange?: LSP.Ra
           modifiersMask,
         ),
       );
+    }
+  }
+}
+
+/**
+ * Process all references to symbols defined in the document
+ * Each reference gets the same modifiers as its definition
+ * In mini mode: only process references for symbols defined in this document
+ * @param context - The token transform context
+ * @param filterRange - Optional range to filter tokens within
+ */
+function rangeIntersects(range1: LSP.Range, range2: LSP.Range): boolean {
+  return !(
+    range1.end.line < range2.start.line ||
+    range1.end.line === range2.start.line && range1.end.character < range2.start.character ||
+    range1.start.line > range2.end.line ||
+    range1.start.line === range2.end.line && range1.start.character > range2.end.character
+  );
+}
+
+function processSymbolReferences(context: TokenTransformContext, filterRange?: LSP.Range): void {
+  const symbols = analyzer.cache.getFlatDocumentSymbols(context.document.uri);
+
+  for (const symbol of symbols) {
+    const tokenTypeKey = FishSymbolToSemanticToken[symbol.fishKind];
+    const tokenIndex = getTokenTypeIndex(tokenTypeKey);
+
+    if (tokenIndex === -1) continue;
+
+    const modifiers = getSymbolModifiers(symbol);
+    const modifiersMask = calculateModifiersMask(...modifiers);
+
+    // Get all references for this symbol (only in current document)
+    const references = getReferences(context.document, symbol.selectionRange.start, {
+      excludeDefinition: true,  // Don't include the definition itself (already handled)
+      localOnly: true,           // Only search in current document
+      loggingEnabled: false,
+    });
+
+    // Add a token for each reference
+    for (const ref of references) {
+      // Skip references outside the requested range
+      if (filterRange && !rangeIntersects(ref.range, filterRange)) {
+        continue;
+      }
+
+      const startRow = ref.range.start.line;
+      const startCol = ref.range.start.character;
+      const length = ref.range.end.character - ref.range.start.character;
+
+      if (length > 0) {
+        context.tokens.push(
+          SemanticToken.create(
+            startRow,
+            startCol,
+            length,
+            tokenIndex,
+            modifiersMask,
+          ),
+        );
+      }
     }
   }
 }
