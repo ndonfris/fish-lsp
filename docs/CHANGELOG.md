@@ -1,3 +1,26 @@
+## <small>1.1.1-pre.2 (2025-10-28)</small>
+
+* fix(src/semantic-tokens.ts): reuse def modifier on semantic token ([9d14620](https://github.com/ndonfris/fish-lsp/commit/9d14620))
+* feat: `server.linkedEditingRange()` handler ([19d8321](https://github.com/ndonfris/fish-lsp/commit/19d8321))
+* feat: add `{src,tests}/mini-semantic-handler{test,}.ts` ([4cfe970](https://github.com/ndonfris/fish-lsp/commit/4cfe970))
+* feat: added initial inline-variable parser support ([a480d2d](https://github.com/ndonfris/fish-lsp/commit/a480d2d))
+* feat: added selectionRange handler `src/selection-range.ts` ([57902d6](https://github.com/ndonfris/fish-lsp/commit/57902d6))
+* feat: semantic tokens implemented more thoroughly ([3baac83](https://github.com/ndonfris/fish-lsp/commit/3baac83))
+* feat: updated snippet generation for `{envVariables,specialFishVariables}.json` ([a3669ec](https://github.com/ndonfris/fish-lsp/commit/a3669ec))
+* feat: updates to semanticTokens ([79b8f6f](https://github.com/ndonfris/fish-lsp/commit/79b8f6f))
+* feat(src/cli.ts): added `info --dump-semantic-tokens` and `mini`|`full` opts ([e201ab9](https://github.com/ndonfris/fish-lsp/commit/e201ab9))
+* feat(src/config.ts): add fish_lsp_semantic_handler_type config option + docs ([2cd4a01](https://github.com/ndonfris/fish-lsp/commit/2cd4a01))
+* revert: removed `linkedEditingRange` handler ([6f70614](https://github.com/ndonfris/fish-lsp/commit/6f70614))
+* revert(src/mini-semantic-tokens.ts): use previous complete working version ([e414be4](https://github.com/ndonfris/fish-lsp/commit/e414be4))
+* refactor: semantic tokens + bump `v1.1.1-pre.1` + docs ([963efb8](https://github.com/ndonfris/fish-lsp/commit/963efb8))
+* chore: auto-commit fish-lsp@1.1.1-pre.0 ([df8b264](https://github.com/ndonfris/fish-lsp/commit/df8b264))
+* chore: initial semantic-tokens support using tree-sitter ([5bca0c7](https://github.com/ndonfris/fish-lsp/commit/5bca0c7))
+* test: `tests/helpers.ts` file includes `setupStartupMock()` to mock connection ([4634637](https://github.com/ndonfris/fish-lsp/commit/4634637))
+* docs: added automatic `README.md` replace code-block automation ([01c1eb6](https://github.com/ndonfris/fish-lsp/commit/01c1eb6))
+* build: `yarn dev` <-> `yarn build` ([4c72cb1](https://github.com/ndonfris/fish-lsp/commit/4c72cb1))
+
+
+
 ## <small>1.1.1-pre.1 (2025-10-22)</small>
 
 * revert: removed `linkedEditingRange` handler ([5aa1820](https://github.com/ndonfris/fish-lsp/commit/5aa1820))

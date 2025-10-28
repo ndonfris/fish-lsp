@@ -1,4 +1,4 @@
-.TH "FISH\-LSP" "1" "October 2025" "1.1.1-pre.1" "fish-lsp"
+.TH "FISH\-LSP" "1" "October 2025" "1.1.1-pre.2" "fish-lsp"
 .SH "NAME"
 \fBfish-lsp\fR \- A language server for the fish shell
 .SH SYNOPSIS
@@ -113,7 +113,9 @@ show the build info of fish\-lsp
 .br
 \fB\-\-dump\-parse\-tree <FILE>\fP  show the tree\-sitter AST for the specified file
 .br
-\fB\-\-no\-color\fP                disable color output in the \fBfish\-lsp info \-\-dump\-file\-tree\fP output
+\fB\-\-dump\-semantic\-tokens <FILE>\fP  show the semantic\-tokens for the specified file
+.br
+\fB\-\-no\-color\fP                disable color output in the \fBfish\-lsp info \-\-dump\-file\-tree\fP/\fBfish\-lsp info \-\-semantic\-tokens\fP output
 .SS \fBurl\fP
 .P
 show a helpful url related to the fish\-lsp
