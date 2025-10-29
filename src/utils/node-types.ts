@@ -7,7 +7,6 @@ import { isBuiltin as checkBuiltinName, BuiltInList } from './builtins';
 import { PrebuiltDocumentationMap } from './snippets';
 
 // use the `../parsing/barrel` barrel file's imports for finding the definition names
-
 export {
   isVariableDefinitionName,
   isFunctionDefinitionName,
@@ -40,6 +39,9 @@ export function isComment(node: SyntaxNode): boolean {
 export function isShebang(node: SyntaxNode) {
   const parent = node.parent;
   if (!parent || !isProgram(parent)) {
+    return false;
+  }
+  if (node.startPosition.row !== 0) {
     return false;
   }
   const firstLine = parent.firstChild;
@@ -905,4 +907,40 @@ export function isBuiltinCommand(node: SyntaxNode): boolean {
   if (!commandName || !isCommandName(commandName)) return false;
 
   return checkBuiltinName(commandName.text);
+}
+
+/**
+ * Checks if a node is a redirection (stream_redirect or file_redirect)
+ */
+export function isRedirect(n: SyntaxNode): boolean {
+  // current grammar names we care about
+  return n.type === 'stream_redirect' || n.type === 'file_redirect';
+}
+
+/**
+ * For file_redirect, return only the operator child (direction)
+ * For stream_redirect, return the whole node (covers cases like >&2)
+ *
+ * If the grammar changes (e.g. adds a specific child for stream_redirect),
+ * just swap the logic here without touching the handler.
+ */
+export function getRedirectOperatorNode(n: SyntaxNode): SyntaxNode | null {
+  if (n.type === 'file_redirect') {
+    // Tree-sitter fish exposes the operator as a named child of type "direction"
+    // Example from your AST:
+    // (file_redirect
+    //   operator: (direction) ; [1, 12] - [1, 13]
+    //   destination: (word))
+    const op = n.namedChildren.find((c) => c.type === 'direction');
+    return op ?? null;
+  }
+
+  if (n.type === 'stream_redirect') {
+    // Example from your AST (no child details shown):
+    // redirect: (stream_redirect) ; [0, 12] - [0, 15]   -> ">&2"
+    // Using the whole node as the operator token meets your requirement
+    return n;
+  }
+
+  return null;
 }

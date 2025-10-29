@@ -10,6 +10,10 @@ import {
   isShebang,
   isEscapeSequence,
   isOption,
+  isEndStdinCharacter,
+  isSemicolon,
+  isRedirect,
+  getRedirectOperatorNode,
 } from './utils/node-types';
 import {
   getTokenTypeIndex,
@@ -26,7 +30,7 @@ import {
   isNodeCoveredByTokens,
 } from './utils/semantics';
 import { FishSymbolToSemanticToken, getSymbolModifiers } from './parsing/symbol-modifiers';
-import { collectNodesByTypes, getNamedChildNodes } from './utils/tree-sitter';
+import { collectNodesByTypes, getChildNodes } from './utils/tree-sitter';
 import { highlights } from '@ndonfris/tree-sitter-fish';
 import { BuiltInList } from './utils/builtins';
 import { config } from './config';
@@ -103,6 +107,25 @@ const isSemanticWord = (n: SyntaxNode) => {
 
   return true;
 };
+
+// `>&2` `2> /dev/tmp` `>>file.txt` `2>&1` etc.
+// const isRedirectOperator = (n: SyntaxNode) => {
+//   // words can't be redirect operators
+//   if (n.type === 'word') return false;
+//   // a stream redirect is exactly a redirect operator
+//   if (n.type === 'stream_redirect') {
+//     return true;
+//   }
+//   // a file redirect may contain a destination after the operator so we want to
+//   // only match the operator itself
+//   if (n.parent && n.parent.type === 'file_redirect') {
+//     if (n.type === 'direction' && n.parent.firstNamedChild?.equals(n)) {
+//       return true;
+//     }
+//   }
+//
+//   return false;
+// }
 
 // ============================================================================
 // Token Transform Handlers Map
@@ -258,6 +281,41 @@ const semanticTokenHandlers: NodeTokenHandler[] = [
 
       ctx.tokens.push(
         SemanticToken.fromNode(node, tokenType, 0),
+      );
+    },
+    ['full'],
+  ],
+
+  // Semicolon operators
+  [
+    isSemicolon,
+    (node, ctx) => {
+      ctx.tokens.push(
+        SemanticToken.fromNode(node, TokenTypes.operator, 0),
+      );
+    },
+    ['full'],
+  ],
+
+  /// End-of-stdin character (--) used in some commands like 'read'
+  [
+    isEndStdinCharacter,
+    (node, ctx) => {
+      ctx.tokens.push(
+        SemanticToken.fromNode(node, TokenTypes.operator, 0),
+      );
+    },
+    ['full'],
+  ],
+
+  // Redirect operators (>, >>, <, 2>, etc.)
+  [
+    isRedirect,
+    (node, ctx) => {
+      const opNode = getRedirectOperatorNode(node);
+      if (!opNode) return;
+      ctx.tokens.push(
+        SemanticToken.fromNode(opNode, TokenTypes.operator, 0),
       );
     },
     ['full'],
@@ -521,7 +579,7 @@ function processAllSyntaxNodes(
   tree: Tree,
   filterRange?: LSP.Range,
 ) {
-  const allNodes = getNamedChildNodes(tree.rootNode);
+  const allNodes = getChildNodes(tree.rootNode);
   const handlers = semanticTokenHandlers.filter(([, , modes]) =>
     modes.includes(config.fish_lsp_semantic_handler_type),
   );

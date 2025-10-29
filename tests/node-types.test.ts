@@ -1228,4 +1228,34 @@ complete -c foo -s d -l describe -d 'describe'`);
       expect(results.length).toBe(1);
     });
   });
+  describe('redirects', () => {
+    it('>&2', () => {
+      const { rootNode } = parser.parse('echo "error message" >&2');
+      const fileName = getChildNodes(rootNode).find(child => NodeTypes.isRedirect(child));
+      console.log(fileName?.text);
+      // expect(NodeTypes.isFilepath(fileName)).toBeTruthy();
+    });
+
+    it('isDirectorypath(node)', () => {
+      const { rootNode } = parser.parse('alias foo /usr/local/bin/');
+      const results: SyntaxNode[] = [];
+      for (const child of getChildNodes(rootNode)) {
+        if (NodeTypes.isDirectoryPath(child)) {
+          results.push(child);
+        }
+      }
+      expect(results.length).toBe(1);
+    });
+
+    it('isPath', () => {
+      const { rootNode } = parser.parse('alias foo /usr/local/bin/fish');
+      const results: SyntaxNode[] = [];
+      for (const child of getChildNodes(rootNode)) {
+        if (NodeTypes.isPath(child)) {
+          results.push(child);
+        }
+      }
+      expect(results.length).toBe(1);
+    });
+  });
 });
