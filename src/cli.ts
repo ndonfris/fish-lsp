@@ -115,8 +115,8 @@ commandBin.command('start')
     '',
     'Examples:',
     '\t>_ fish-lsp start --disable hover  # only disable the hover feature',
-    '\t>_ fish-lsp start --disable complete logging index hover --dump',
-    '\t>_ fish-lsp start --enable --disable logging complete codeAction',
+    '\t>_ fish-lsp start --disable complete hover --dump',
+    '\t>_ fish-lsp start --enable --disable complete codeAction',
     '\t>_ fish-lsp start --socket 3000  # start TCP server on port 3000 (useful for Docker)',
   ].join('\n'))
   .allowUnknownOption(false)
@@ -284,7 +284,7 @@ commandBin.command('info')
       }
       // handle `[--man-file | --log-file] (--show)?`
       if (args.manFile || args.logFile || args.logsFile) {
-        exitCode = CommanderSubcommand.info.handleFileArgs(args);
+        exitCode = CommanderSubcommand.info.handleFileArgs(args) || 0;
         shouldExit = true;
       }
       // handle `--virtual-fs`
