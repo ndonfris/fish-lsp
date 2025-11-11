@@ -1,3 +1,4 @@
+import { Config } from '../config';
 import { AutoloadedPathVariables } from './process-env';
 
 /**
@@ -151,6 +152,24 @@ export class EnvManager {
 
   public getFirstValueInArray(key: string): string | undefined {
     return this.getAsArray(key).at(0);
+  }
+
+  public getAsTypedArray(key: string): Config.ConfigValueType | undefined {
+    if (!this.has(key)) return undefined;
+    const arrayValues = this.getAsArray(key);
+    if (Array.isArray(arrayValues) && arrayValues.length === 0) return [];
+    const isAllNumbers = arrayValues.every((val) => Number.isInteger(Number(val)));
+    if (isAllNumbers) {
+      return arrayValues.map((val) => Number(val) as number);
+    }
+    if (arrayValues.length > 0) return arrayValues;
+
+    const singleValue = this.get(key);
+    if (singleValue !== undefined) {
+      if (Number.isInteger(Number(singleValue))) return Number(singleValue) as number;
+      return singleValue;
+    }
+    return undefined;
   }
 
   public static isArrayValue(value: string): boolean {

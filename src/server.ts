@@ -41,6 +41,7 @@ import { getReferences } from './references';
 import { getRenames } from './renames';
 import { getReferenceCountCodeLenses } from './code-lens';
 import { PkgJson } from './utils/commander-cli-subcommands';
+import { ProgressNotification } from './utils/progress-notification';
 
 export type SupportedFeatures = {
   codeActionDisabledSupport: boolean;
@@ -284,7 +285,8 @@ export default class FishServer {
     this.analyzeDocument({ uri: doc.uri });
     workspaceManager.handleUpdateDocument(doc);
     if (workspaceManager.needsAnalysis() && workspaceManager.allAnalysisDocuments().length > 0) {
-      const progress = await connection.window.createWorkDoneProgress();
+      // const progress = await connection.window.createWorkDoneProgress();
+      const progress = await ProgressNotification.create();
       progress.begin('[fish-lsp] analysis');
       await workspaceManager.analyzePendingDocuments(progress, (str) => logger.info('didOpen', str));
       progress.done();
@@ -295,7 +297,7 @@ export default class FishServer {
   async didChangeTextDocument(params: LSP.DidChangeTextDocumentParams): Promise<void> {
     this.logParams('didChangeTextDocument', params);
 
-    const progress = await connection.window.createWorkDoneProgress();
+    const progress = await ProgressNotification.create();
     const path = uriToPath(params.textDocument.uri);
     let doc = documents.get(path);
     if (!doc) {
@@ -370,6 +372,12 @@ export default class FishServer {
    */
   async onInitialized(params: any): Promise<{ result: number; }> {
     logger.log('onInitialized', params);
+    logger.info('SERVER INITIALIZED', {
+      buildPath: PkgJson.path,
+      buildVersion: PkgJson.version,
+      buildTime: PkgJson.buildTime,
+      executedAt: new Date().toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' }),
+    });
     if (hasWorkspaceFolderCapability) {
       connection.workspace.onDidChangeWorkspaceFolders(event => {
         logger.info({
@@ -396,7 +404,8 @@ export default class FishServer {
   private async handleWorkspaceFolderChanges(event: WorkspaceFoldersChangeEvent) {
     this.logParams('handleWorkspaceFolderChanges', event);
     // Show progress for added workspaces
-    const progress = await connection.window.createWorkDoneProgress();
+    //const progress = await connection.window.createWorkDoneProgress();
+    const progress = await ProgressNotification.create();
     progress.begin(`[fish-lsp] analyzing workspaces [${event.added.map(s => s.name).join(',')}] added`);
     workspaceManager.handleWorkspaceChangeEvent(event, progress);
     workspaceManager.analyzePendingDocuments(progress);
