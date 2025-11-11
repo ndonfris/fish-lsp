@@ -2,7 +2,7 @@ import { PathLike, accessSync, appendFileSync, closeSync, constants, existsSync,
 import { TextDocumentItem } from 'vscode-languageserver';
 import { LspDocument } from '../document';
 import { pathToUri } from './translation';
-import { basename, dirname, extname } from 'path';
+import { basename, dirname, extname, normalize } from 'path';
 import { env } from './env-manager';
 import * as promises from 'fs/promises';
 import { logger } from '../logger';
@@ -94,6 +94,19 @@ export class SyncFileHelper {
       return env.get(envVarName) || '';
     });
     return filePathString;
+  }
+
+  /**
+   * Expands environment variables and normalizes the path
+   * - First expands ~ and $VARS using expandEnvVars()
+   * - Then normalizes the path using path.normalize()
+   * - Preserves relative vs absolute path semantics
+   * @param filePath The path to expand and normalize
+   * @returns The expanded and normalized path
+   */
+  static expandNormalize(filePath: PathLike): string {
+    const expandedPath = this.expandEnvVars(filePath);
+    return normalize(expandedPath);
   }
 
   static isExpandable(filePath: PathLike): boolean {
