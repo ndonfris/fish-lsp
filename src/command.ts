@@ -1,4 +1,4 @@
-import { Connection, ExecuteCommandParams, MessageType, /** Position, */ Range, Location, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
+import { Connection, ExecuteCommandParams, MessageType, /** Position, */ Range, Location, TextEdit, WorkspaceEdit, /** ProgressToken,*/ Position } from 'vscode-languageserver';
 import { Analyzer } from './analyze';
 import { codeActionHandlers } from './code-actions/code-action-handler';
 import { createFixAllAction } from './code-actions/quick-fixes';
@@ -10,10 +10,12 @@ import { logger } from './logger';
 import { env } from './utils/env-manager';
 import { execAsync, execAsyncF, execAsyncFish } from './utils/exec';
 import { EnvVariableJson, PrebuiltDocumentationMap } from './utils/snippets';
-import { pathToUri, uriToReadablePath } from './utils/translation';
+import { pathToUri, uriToPath, uriToReadablePath } from './utils/translation';
 import { getRange } from './utils/tree-sitter';
 import { workspaceManager } from './utils/workspace-manager';
 import { PkgJson } from './utils/commander-cli-subcommands';
+import FishServer from './server';
+import { SyncFileHelper } from './utils/file-operations';
 
 // Define command name constants to avoid string literals
 export const CommandNames = {
@@ -52,7 +54,8 @@ export type CommandArgs = {
   [CommandNames.FIX_ALL]: [path: string];
   [CommandNames.TOGGLE_SINGLE_WORKSPACE_SUPPORT]: [];
   [CommandNames.GENERATE_ENV_VARIABLES]: [path: string];
-  [CommandNames.SHOW_REFERENCES]: [path: string, references: Location[]];  // Add this line
+  // Formats: [path, line, character] or [path, "line,character"] or [symbolName]
+  [CommandNames.SHOW_REFERENCES]: string[];
   [CommandNames.SHOW_INFO]: [];
 };
 
@@ -357,38 +360,213 @@ export function createExecuteCommandHandler(
     connection.workspace.applyEdit(workspaceEdit);
   }
 
-  async function showReferences(path: string = '/home/ndonfris/.config/fish/config.fish', references: Location[] = []) {
-    const uri = pathToUri(path);
+  type ParsedShowReferencesArgs =
+    | { type: 'symbol'; name: string; }
+    | { type: 'location'; path: string; line: string; char: string; }
+    | { type: 'invalid'; reason: string; };
 
-    const res1 = await connection.sendRequest('textDocument/references', {
+  function parseShowReferencesArgs(args: string[]): ParsedShowReferencesArgs {
+    switch (args.length) {
+      case 1: {
+        const [arg] = args;
+        if (!arg) {
+          return { type: 'invalid', reason: 'Missing argument' };
+        }
+        // Check if this looks like a path (contains /, ~, or $ENV_VAR)
+        // OR if it can be expanded to a different value (meaning it has expandable components)
+        const isPathLike = arg.includes('/') || arg.startsWith('~') || arg.includes('$');
+        const canExpand = SyncFileHelper.isExpandable(arg);
+
+        if (isPathLike || canExpand) {
+          return { type: 'invalid', reason: 'Path provided without line/character position' };
+        }
+        return { type: 'symbol', name: arg };
+      }
+      case 2: {
+        const [pathArg, posArg] = args;
+        if (!pathArg || !posArg) {
+          return { type: 'invalid', reason: 'Missing path or position argument' };
+        }
+        const coords = posArg.split(',');
+        if (coords.length !== 2) {
+          return { type: 'invalid', reason: 'Position must be in format: <line>,<character>' };
+        }
+        const [lineStr, charStr] = coords;
+        if (!lineStr || !charStr) {
+          return { type: 'invalid', reason: 'Both line and character must be provided' };
+        }
+        return { type: 'location', path: pathArg, line: lineStr, char: charStr };
+      }
+      case 3: {
+        const [pathArg, lineStr, charStr] = args;
+        if (!pathArg || !lineStr || !charStr) {
+          return { type: 'invalid', reason: 'Missing path, line, or character argument' };
+        }
+        return { type: 'location', path: pathArg, line: lineStr, char: charStr };
+      }
+      default:
+        return { type: 'invalid', reason: args.length === 0 ? 'No arguments provided' : 'Too many arguments' };
+    }
+  }
+
+  async function showReferences(...args: string[]) {
+    logger.log('showReferences called with args:', args);
+
+    const parsed = parseShowReferencesArgs(args);
+
+    if (parsed.type === 'invalid') {
+      logger.warning('Invalid showReferences arguments:', { args, reason: parsed.reason });
+      showMessage(
+        `Invalid arguments: ${parsed.reason}\n\n` +
+        'Usage:\n' +
+        '  fish-lsp.showReferences <symbolName>\n' +
+        '  fish-lsp.showReferences <path> <line>,<character>\n' +
+        '  fish-lsp.showReferences <path> <line> <character>\n\n' +
+        'Examples:\n' +
+        '  fish-lsp.showReferences my_function\n' +
+        '  fish-lsp.showReferences ~/.config/fish/config.fish 7,10\n' +
+        '  fish-lsp.showReferences $XDG_CONFIG_HOME/fish/config.fish 7 10\n' +
+        '  fish-lsp.showReferences /absolute/path/to/file.fish 7 10',
+        MessageType.Error,
+      );
+      return [];
+    }
+
+    let uri: string;
+    let position: Position;
+
+    if (parsed.type === 'symbol') {
+      logger.log('Searching for global symbol:', parsed.name);
+
+      const globalSymbol = analyzer.globalSymbols.findFirst(parsed.name);
+
+      if (!globalSymbol) {
+        showMessage(`No global symbol found with name: ${parsed.name}`, MessageType.Error);
+        return [];
+      }
+
+      logger.log('Found global symbol:', {
+        name: globalSymbol.name,
+        uri: globalSymbol.uri,
+        range: globalSymbol.range,
+      });
+
+      uri = globalSymbol.uri;
+      position = globalSymbol.toPosition();
+    } else if (parsed.type === 'location') {
+      // Use SyncFileHelper to properly expand path (handles ~, $ENV_VARS, etc.)
+      const expandedPath = SyncFileHelper.expandEnvVars(parsed.path);
+
+      const line = parseInt(parsed.line, 10);
+      const character = parseInt(parsed.char, 10);
+
+      if (isNaN(line) || isNaN(character)) {
+        showMessage('Invalid line or character number', MessageType.Error);
+        return [];
+      }
+
+      // Convert 1-indexed (user-facing) line numbers to 0-indexed (LSP) positions
+      // Users see line 7 in their editor, but LSP uses 0-indexed positions (line 6)
+      uri = pathToUri(expandedPath);
+      position = Position.create(line - 1, character);
+    } else {
+      // TypeScript exhaustiveness check - this should never happen
+      // const _exhaustive: never = parsed;
+      return [];
+    }
+
+    logger.log('showReferences', { uri, position });
+
+    // Call server.onReferences() directly to get references
+    const references = await FishServer.instance.onReferences({
       textDocument: { uri },
-      position: {
-        line: 7,
-        character: 13,
+      position: position,
+      context: {
+        includeDeclaration: true,
       },
     });
 
-    showMessage(` Fish LSP sent textDocument/references notification ${res1}`, MessageType.Info);
-
-    const resp = await connection.sendRequest('textDocument/references', {
-      textDocument: { uri },
-      position: {
-        line: 7,
-        character: 13,
-      },
-    });
-    logger.debug({
-      showReferences_resp: resp,
-      path,
-      positions: references,
+    logger.log('showReferences result', {
+      count: references.length,
+      references: references.map(loc => ({
+        uri: loc.uri,
+        range: loc.range,
+      })),
     });
 
-    // logger.log('handleShowReferences', { path, uri, position, references });
-    connection.sendNotification('window/showMessage', {
-      type: MessageType.Info,  // Info, Warning, Error, Log
-      message: ` Fish LSP found ${references.length} references to this symbol `,
-    });
-    showMessage(` Fish LSP found ${references.length} references to this symbol `, MessageType.Info);
+    if (references.length === 0) {
+      showMessage(
+        `No references found at ${uriToReadablePath(uri)}:${position.line + 1}:${position.character + 1}`,
+        MessageType.Info,
+      );
+      return references;
+    } else {
+      // Format references as a readable message
+      const refMessage = references.map((loc, idx) => {
+        const locPath = uriToReadablePath(loc.uri);
+        const line = loc.range.start.line + 1;
+        const char = loc.range.start.character + 1;
+        return `  [${idx + 1}] ${locPath}:${line}:${char}`;
+      }).join('\n');
+
+      const message = `Found ${references.length} reference(s):\n${refMessage}`;
+      showMessage(message, MessageType.Info);
+    }
+
+    // Group references by URI to find the first reference in each document
+    const referencesByUri = new Map<string, Location[]>();
+    for (const ref of references) {
+      const existing = referencesByUri.get(ref.uri) || [];
+      existing.push(ref);
+      referencesByUri.set(ref.uri, existing);
+    }
+
+    // Navigate to the first reference in each document
+    for (const [refUri, refs] of referencesByUri.entries()) {
+      // Ensure document is un-opened
+      if (docs.isOpen(uriToPath(refUri)) || uri === refUri) {
+        logger.log(`Document already open, skipping: ${uriToReadablePath(refUri)}`);
+        continue;
+      }
+
+      // Verify the document exists before trying to open it
+      const refPath = uriToPath(refUri);
+      const refDoc = docs.get(refPath) || analyzer.analyzePath(refPath)?.document;
+
+      if (!refDoc) {
+        logger.warning(`Skipping non-existent document: ${uriToReadablePath(refUri)}`);
+        continue;
+      }
+
+      // Sort references by line number to get the first one in the document
+      const sortedRefs = refs.sort((a, b) => {
+        if (a.range.start.line !== b.range.start.line) {
+          return a.range.start.line - b.range.start.line;
+        }
+        return a.range.start.character - b.range.start.character;
+      });
+
+      const firstRef = sortedRefs[0];
+      if (!firstRef) continue;
+
+      if (workspaceManager.current?.getUris().includes(refUri) === false) {
+        logger.log(`Reference URI not in current workspace, skipping: ${uriToReadablePath(refUri)}`);
+        continue;
+      }
+
+      // Use window/showDocument to open and navigate to the first reference
+      try {
+        await connection.sendRequest('window/showDocument', {
+          uri: refUri,
+          takeFocus: false, // Don't steal focus from current document
+          selection: firstRef?.range, // Highlight the first reference
+        });
+        logger.log(`Opened ${uriToReadablePath(refUri)} at line ${firstRef!.range.start.line + 1}`);
+      } catch (error) {
+        logger.error(`Failed to show document ${refUri}:`, error);
+      }
+    }
+
     return references;
   }
 
@@ -501,8 +679,7 @@ export function createExecuteCommandHandler(
   }
 
   // Command handler mapping
-  const commandHandlers: Record<string, (...args: any[]) => Promise<void> | void | Promise<Location[]>> = {
-    // 'fish-lsp.showReferences': handleShowReferences,
+  const commandHandlers: Record<string, (...args: any[]) => Promise<void> | void | Promise<Location[]> | Promise<Location[] | undefined>> = {
     'fish-lsp.executeRange': executeRange,
     'fish-lsp.executeLine': executeLine,
     'fish-lsp.executeBuffer': executeBuffer,

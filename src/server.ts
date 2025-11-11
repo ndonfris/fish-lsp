@@ -49,6 +49,8 @@ export type SupportedFeatures = {
   codeActionDisabledSupport: boolean;
 };
 
+export let server: FishServer;
+
 /**
  * The globally accessible configuration setting. Set from the client, and used by the server.
  * When enabled, the analyzer will search through the current workspace, and update it's
@@ -196,7 +198,7 @@ export default class FishServer {
 
     const completions = await initializeCompletionPager(logger, completionsMap);
 
-    const server = new FishServer(
+    server = new FishServer(
       completions,
       completionsMap,
       cache,
@@ -1105,6 +1107,11 @@ export default class FishServer {
    */
   public get info() {
     return PkgJson;
+  }
+
+  public static get instance(): FishServer {
+    if (!server) throw new Error('FishServer instance not initialized yet.');
+    return server;
   }
 
   /////////////////////////////////////////////////////////////////////////////////////
