@@ -42,22 +42,264 @@ export type CommandName = typeof CommandNames[keyof typeof CommandNames];
 
 // Type for command arguments
 export type CommandArgs = {
-  // [CommandNames.SHOW_REFERENCES]: [uri: string, position: Position, references: Location[]];
-  [CommandNames.EXECUTE_RANGE]: [path: string, startLine: number, endLine: number];
-  [CommandNames.EXECUTE_LINE]: [path: string, line: number];
-  [CommandNames.EXECUTE]: [path: string];
-  [CommandNames.EXECUTE_BUFFER]: [path: string];
-  [CommandNames.CREATE_THEME]: [path: string, asVariables?: boolean];
-  [CommandNames.SHOW_STATUS_DOCS]: [statusCode: string];
+  // All commands now use variadic string[] with parser functions
+  [CommandNames.EXECUTE_RANGE]: string[]; // [path, "start,end"] or [path, start, end]
+  [CommandNames.EXECUTE_LINE]: string[];  // [path, line]
+  [CommandNames.EXECUTE]: string[];  // [path] (alias for EXECUTE_BUFFER)
+  [CommandNames.EXECUTE_BUFFER]: string[];  // [path]
+  [CommandNames.CREATE_THEME]: string[];  // [path, asVariables?]
+  [CommandNames.SHOW_STATUS_DOCS]: [statusCode: string];  // Not converted yet
   [CommandNames.SHOW_WORKSPACE_MESSAGE]: [];
-  [CommandNames.UPDATE_WORKSPACE]: [path: string];
-  [CommandNames.FIX_ALL]: [path: string];
+  [CommandNames.UPDATE_WORKSPACE]: string[];  // [path, ...flags]
+  [CommandNames.FIX_ALL]: string[];  // [path]
   [CommandNames.TOGGLE_SINGLE_WORKSPACE_SUPPORT]: [];
-  [CommandNames.GENERATE_ENV_VARIABLES]: [path: string];
-  // Formats: [path, line, character] or [path, "line,character"] or [symbolName]
-  [CommandNames.SHOW_REFERENCES]: string[];
+  [CommandNames.GENERATE_ENV_VARIABLES]: string[];  // [path]
+  [CommandNames.SHOW_REFERENCES]: string[];  // [symbolName] or [path, line, char] or [path, "line,char"]
   [CommandNames.SHOW_INFO]: [];
+  [CommandNames.SHOW_ENV_VARIABLES]: string[];  // [...opts]
 };
+
+// Command help messages for user-facing documentation
+const CommandHelpMessages = {
+  [CommandNames.EXECUTE_RANGE]: {
+    usage: [
+      'fish-lsp.executeRange <path> <startLine>,<endLine>',
+      'fish-lsp.executeRange <path> <startLine> <endLine>',
+    ],
+    examples: [
+      'fish-lsp.executeRange ~/.config/fish/config.fish 1,10',
+      'fish-lsp.executeRange ~/.config/fish/config.fish 1 10',
+      'fish-lsp.executeRange $XDG_CONFIG_HOME/fish/config.fish 5 15',
+    ],
+    description: 'Execute a range of lines from a Fish script',
+  },
+  [CommandNames.EXECUTE_LINE]: {
+    usage: 'fish-lsp.executeLine <path> <line>',
+    examples: [
+      'fish-lsp.executeLine ~/.config/fish/config.fish 7',
+      'fish-lsp.executeLine /path/to/script.fish 42',
+    ],
+    description: 'Execute a single line from a Fish script',
+  },
+  [CommandNames.EXECUTE_BUFFER]: {
+    usage: 'fish-lsp.executeBuffer <path>',
+    examples: [
+      'fish-lsp.executeBuffer ~/.config/fish/config.fish',
+    ],
+    description: 'Execute the entire Fish script buffer',
+  },
+  [CommandNames.CREATE_THEME]: {
+    usage: 'fish-lsp.createTheme <path> [asVariables]',
+    examples: [
+      'fish-lsp.createTheme ~/.config/fish/theme.fish',
+      'fish-lsp.createTheme ~/theme.fish true',
+    ],
+    description: 'Create a Fish theme configuration file',
+  },
+  [CommandNames.SHOW_STATUS_DOCS]: {
+    usage: 'fish-lsp.showStatusDocs <statusCode>',
+    examples: [
+      'fish-lsp.showStatusDocs 0',
+      'fish-lsp.showStatusDocs 127',
+    ],
+    description: 'Show documentation for a Fish exit status code',
+  },
+  [CommandNames.FIX_ALL]: {
+    usage: 'fish-lsp.fixAll <path>',
+    examples: [
+      'fish-lsp.fixAll ~/.config/fish/config.fish',
+    ],
+    description: 'Apply all available quick fixes to a Fish script',
+  },
+  [CommandNames.SHOW_REFERENCES]: {
+    usage: [
+      'fish-lsp.showReferences <symbolName>',
+      'fish-lsp.showReferences <path> <line>,<character>',
+      'fish-lsp.showReferences <path> <line> <character>',
+    ],
+    examples: [
+      'fish-lsp.showReferences my_function',
+      'fish-lsp.showReferences ~/.config/fish/config.fish 7,10',
+      'fish-lsp.showReferences $XDG_CONFIG_HOME/fish/config.fish 7 10',
+      'fish-lsp.showReferences /absolute/path/to/file.fish 7 10',
+    ],
+    description: 'Find all references to a symbol or location in Fish scripts',
+  },
+} as const;
+
+// Helper to format command help message
+function formatCommandHelp(commandName: CommandName, reason?: string): string {
+  const help = CommandHelpMessages[commandName as keyof typeof CommandHelpMessages];
+  if (!help) {
+    return `No help available for command: ${commandName}`;
+  }
+
+  const usageLines = (Array.isArray(help.usage) ? help.usage : [help.usage]) as string[];
+  const reasonText = reason ? `Invalid arguments: ${reason}\n\n` : '';
+
+  return (
+    reasonText +
+    `${help.description}\n\n` +
+    'Usage:\n' +
+    usageLines.map((u: string) => `  ${u}`).join('\n') +
+    '\n\nExamples:\n' +
+    help.examples.map((e: string) => `  ${e}`).join('\n')
+  );
+}
+
+// Utility for parsing number arguments (handles string/number inputs and quoted strings)
+type ParsedNumber =
+  | { success: true; value: number; }
+  | { success: false; error: string; };
+
+function parseNumberArg(value: string | number, argName: string = 'argument'): ParsedNumber {
+  if (typeof value === 'number') {
+    return { success: true, value };
+  }
+
+  if (typeof value === 'string') {
+    // Remove leading/trailing single or double quotes
+    const stripped = value.replace(/^['"]|['"]$/g, '');
+    const num = parseInt(stripped, 10);
+
+    if (isNaN(num)) {
+      return { success: false, error: `${argName} must be a number, got: "${value}"` };
+    }
+
+    return { success: true, value: num };
+  }
+
+  return { success: false, error: `${argName} must be a string or number, got: ${typeof value}` };
+}
+
+/**
+ * Converts a 1-indexed line number (user-facing) to 0-indexed (LSP internal).
+ * User sees line 7 in editor → LSP uses line 6.
+ *
+ * @param line - 1-indexed line number from user input
+ * @returns 0-indexed line number for LSP operations
+ * @example toZeroIndexed(7) // returns 6
+ */
+function toZeroIndexed(line: number): number {
+  return line - 1;
+}
+
+/**
+ * Parses and validates a path argument from command arguments.
+ * Automatically expands environment variables and tilde.
+ *
+ * @param args - Array of command arguments
+ * @param argIndex - Index of the path argument (default: 0)
+ * @returns Parsed path with expansion applied, or error
+ *
+ * @example
+ * parsePathArg(['~/.config/fish/config.fish'])
+ * // { success: true, path: '/home/user/.config/fish/config.fish' }
+ *
+ * parsePathArg(['$HOME/script.fish'])
+ * // { success: true, path: '/home/user/script.fish' }
+ *
+ * parsePathArg([])
+ * // { success: false, error: 'Missing path argument' }
+ */
+type ParsedPath =
+  | { success: true; path: string; }
+  | { success: false; error: string; };
+
+function parsePathArg(args: string[], argIndex: number = 0): ParsedPath {
+  if (argIndex >= args.length) {
+    return { success: false, error: 'Missing path argument' };
+  }
+
+  const pathArg = args[argIndex];
+  if (!pathArg || typeof pathArg !== 'string') {
+    return { success: false, error: 'Path must be a string' };
+  }
+
+  // Expand path immediately (handles ~, $ENV_VARS, etc.)
+  const expandedPath = SyncFileHelper.expandEnvVars(pathArg);
+
+  return { success: true, path: expandedPath };
+}
+
+/**
+ * Parses a pair of numbers from flexible input formats.
+ * Supports: "7,10" (comma-separated) or "7" "10" (space-separated)
+ *
+ * NOTE: This is a reusable utility that can be applied to other commands in the future.
+ * Consider refactoring other multi-number parameter commands to use this pattern.
+ *
+ * @param args - Array of arguments that may contain the number pair
+ * @param startIndex - Index in args where the pair starts
+ * @param firstName - Name of first number (for error messages)
+ * @param secondName - Name of second number (for error messages)
+ * @returns Parsed number pair or error
+ *
+ * @example
+ * parseNumberPair(['7,10'], 0, 'start', 'end') // { success: true, first: 7, second: 10 }
+ * parseNumberPair(['7', '10'], 0, 'line', 'char') // { success: true, first: 7, second: 10 }
+ */
+type ParsedNumberPair =
+  | { success: true; first: number; second: number; }
+  | { success: false; error: string; };
+
+function parseNumberPair(
+  args: (string | number)[],
+  startIndex: number,
+  firstName: string = 'first',
+  secondName: string = 'second',
+): ParsedNumberPair {
+  // Case 1: Comma-separated in single argument - "7,10"
+  if (startIndex < args.length && typeof args[startIndex] === 'string') {
+    const arg = args[startIndex] as string;
+    if (arg.includes(',')) {
+      const parts = arg.split(',');
+      if (parts.length !== 2) {
+        return { success: false, error: `Expected format: "${firstName},${secondName}"` };
+      }
+
+      const [firstStr, secondStr] = parts;
+      if (!firstStr || !secondStr) {
+        return { success: false, error: `Missing ${firstName} or ${secondName}` };
+      }
+
+      const firstResult = parseNumberArg(firstStr, firstName);
+      if (!firstResult.success) {
+        return { success: false, error: (firstResult as { success: false; error: string; }).error };
+      }
+
+      const secondResult = parseNumberArg(secondStr, secondName);
+      if (!secondResult.success) {
+        return { success: false, error: (secondResult as { success: false; error: string; }).error };
+      }
+
+      return { success: true, first: firstResult.value, second: secondResult.value };
+    }
+  }
+
+  // Case 2: Space-separated in two arguments - "7" "10"
+  if (startIndex + 1 < args.length) {
+    const firstArg = args[startIndex];
+    const secondArg = args[startIndex + 1];
+
+    if (firstArg === undefined || secondArg === undefined) {
+      return { success: false, error: `Missing ${firstName} or ${secondName}` };
+    }
+    const firstResult = parseNumberArg(firstArg, firstName);
+    if (!firstResult.success) {
+      return { success: false, error: (firstResult as { success: false; error: string; }).error };
+    }
+
+    const secondResult = parseNumberArg(secondArg, secondName);
+    if (!secondResult.success) {
+      return { success: false, error: (secondResult as { success: false; error: string; }).error };
+    }
+
+    return { success: true, first: firstResult.value, second: secondResult.value };
+  }
+
+  return { success: false, error: `Expected either "${firstName},${secondName}" or "${firstName}" "${secondName}"` };
+}
 
 // Function to create the command handler with dependencies injected
 export function createExecuteCommandHandler(
@@ -65,8 +307,6 @@ export function createExecuteCommandHandler(
   docs: LspDocuments,
   analyzer: Analyzer,
 ) {
-  // const codeActionHandler = createCodeActionHandler(docs, analyzer);
-
   const showMessage = (message: string, type: MessageType = MessageType.Info) => {
     if (type === MessageType.Info) {
       connection.window.showInformationMessage(message);
@@ -85,15 +325,69 @@ export function createExecuteCommandHandler(
     }
   };
 
-  async function executeRange(path: string, startLine: number, endLine: number) {
+  // Parse executeRange arguments with flexible position formats
+  type ParsedExecuteRangeArgs =
+    | { type: 'valid'; path: string; startLine: number; endLine: number; }
+    | { type: 'invalid'; reason: string; };
+
+  function parseExecuteRangeArgs(args: string[]): ParsedExecuteRangeArgs {
+    // Need at least 2 args: path + range
+    if (args.length < 2) {
+      return { type: 'invalid', reason: 'Missing arguments (need path and line range)' };
+    }
+
+    const [pathArg, ...restArgs] = args;
+    if (!pathArg) {
+      return { type: 'invalid', reason: 'Missing path argument' };
+    }
+
+    // Parse the line range starting from index 0 of restArgs
+    const pairResult = parseNumberPair(restArgs, 0, 'startLine', 'endLine');
+
+    if (!pairResult.success) {
+      return { type: 'invalid', reason: (pairResult as { success: false; error: string; }).error };
+    }
+
+    // TypeScript now knows pairResult.success is true
+    return {
+      type: 'valid',
+      path: pathArg,
+      startLine: pairResult.first,
+      endLine: pairResult.second,
+    };
+  }
+
+  async function executeRange(...args: string[]) {
+    logger.log('executeRange called with args:', args);
+
+    const parsed = parseExecuteRangeArgs(args);
+
+    if (parsed.type === 'invalid') {
+      logger.warning('Invalid executeRange arguments:', { args, reason: parsed.reason });
+      showMessage(
+        formatCommandHelp(CommandNames.EXECUTE_RANGE, parsed.reason),
+        MessageType.Error,
+      );
+      return;
+    }
+
+    let { path } = parsed;
+    const { startLine, endLine } = parsed; // Lines are 1-indexed from user
+
+    // Expand path (handles ~, $ENV_VARS, etc.)
+    path = SyncFileHelper.expandEnvVars(path);
+
     // could also do executeLine() on every line in the range
     const cached = analyzer.analyzePath(path);
-    if (!cached) return;
+    if (!cached) {
+      showMessage(`File not found or could not be analyzed: ${path}`, MessageType.Error);
+      return;
+    }
     const { document } = cached;
     const current = document;
     if (!current) return;
-    const start = current.getLineStart(startLine - 1);
-    const end = current.getLineEnd(endLine - 1);
+    const start = current.getLineStart(toZeroIndexed(startLine));
+    const end = current.getLineEnd(toZeroIndexed(endLine));
     const range = Range.create(start.line, start.character, end.line, end.character);
     logger.log('executeRange', current.uri, range);
 
@@ -106,16 +400,64 @@ export function createExecuteCommandHandler(
     useMessageKind(connection, response);
   }
 
-  async function executeLine(path: string, line: number) {
+  // Parse executeLine arguments
+  type ParsedExecuteLineArgs =
+    | { type: 'valid'; path: string; line: number; }
+    | { type: 'invalid'; reason: string; };
+
+  function parseExecuteLineArgs(args: string[]): ParsedExecuteLineArgs {
+    // Parse path (index 0)
+    const pathResult = parsePathArg(args, 0);
+
+    if (!pathResult.success) {
+      return { type: 'invalid', reason: (pathResult as { success: false; error: string; }).error };
+    }
+
+    // Parse line number (index 1)
+    if (args.length < 2) {
+      return { type: 'invalid', reason: 'Missing line number argument' };
+    }
+    const line = args[1];
+    if (!line) {
+      return { type: 'invalid', reason: 'Line number must be provided' };
+    }
+
+    const lineResult = parseNumberArg(line, 'line');
+    if (!lineResult.success) {
+      return { type: 'invalid', reason: (lineResult as { success: false; error: string; }).error };
+    }
+
+    return { type: 'valid', path: pathResult.path, line: lineResult.value };
+  }
+
+  async function executeLine(...args: string[]) {
+    logger.log('executeLine called with args:', args);
+
+    const parsed = parseExecuteLineArgs(args);
+
+    if (parsed.type === 'invalid') {
+      logger.warning('Invalid executeLine arguments:', { args, reason: parsed.reason });
+      showMessage(
+        formatCommandHelp(CommandNames.EXECUTE_LINE, parsed.reason),
+        MessageType.Error,
+      );
+      return;
+    }
+
+    const { path, line: lineNumber } = parsed; // Path already expanded by parsePathArg
+
     const cached = analyzer.analyzePath(path);
-    if (!cached) return;
+    if (!cached) {
+      showMessage(`File not found or could not be analyzed: ${path}`, MessageType.Error);
+      return;
+    }
     const { document } = cached;
-    logger.log('executeLine', document.uri, line);
+    logger.log('executeLine', document.uri, lineNumber);
     if (!document) return;
 
-    const numberLine = Number.parseInt(line.toString()) - 1;
+    const zeroIndexedLine = toZeroIndexed(lineNumber);
 
-    const text = document.getLine(numberLine);
+    const text = document.getLine(zeroIndexedLine);
     const cmdOutput = await execAsyncF(`${text}; echo "\\$status: $status"`);
     logger.log('executeLine.cmdOutput', cmdOutput);
     const output = buildExecuteNotificationResponse(text, { stdout: cmdOutput, stderr: '' });
@@ -126,7 +468,47 @@ export function createExecuteCommandHandler(
     useMessageKind(connection, output);
   }
 
-  async function createTheme(path: string, asVariables: boolean = true) {
+  // Parse createTheme arguments
+  type ParsedCreateThemeArgs =
+    | { type: 'valid'; path: string; asVariables: boolean; }
+    | { type: 'invalid'; reason: string; };
+
+  function parseCreateThemeArgs(args: string[]): ParsedCreateThemeArgs {
+    const pathResult = parsePathArg(args, 0);
+
+    if (!pathResult.success) {
+      return { type: 'invalid', reason: (pathResult as { success: false; error: string; }).error };
+    }
+
+    // Optional second argument for asVariables (default: true)
+    let asVariables = true;
+    if (args.length >= 2) {
+      const asVarArg = args[1];
+      // Accept various boolean representations (all args are strings from LSP)
+      if (asVarArg === 'false' || asVarArg === '0') {
+        asVariables = false;
+      }
+    }
+
+    return { type: 'valid', path: pathResult.path, asVariables };
+  }
+
+  async function createTheme(...args: string[]) {
+    logger.log('createTheme called with args:', args);
+
+    const parsed = parseCreateThemeArgs(args);
+
+    if (parsed.type === 'invalid') {
+      logger.warning('Invalid createTheme arguments:', { args, reason: parsed.reason });
+      showMessage(
+        formatCommandHelp(CommandNames.CREATE_THEME, parsed.reason),
+        MessageType.Error,
+      );
+      return;
+    }
+
+    const { path, asVariables } = parsed; // Path already expanded by parsePathArg
+
     const cached = analyzer.analyzePath(path);
     if (!cached) return;
     const { document } = cached;
@@ -173,7 +555,37 @@ export function createExecuteCommandHandler(
     });
   }
 
-  async function executeBuffer(path: string) {
+  // Parse executeBuffer arguments
+  type ParsedExecuteBufferArgs =
+    | { type: 'valid'; path: string; }
+    | { type: 'invalid'; reason: string; };
+
+  function parseExecuteBufferArgs(args: string[]): ParsedExecuteBufferArgs {
+    const pathResult = parsePathArg(args, 0);
+
+    if (!pathResult.success) {
+      return { type: 'invalid', reason: (pathResult as { success: false; error: string; }).error };
+    }
+
+    return { type: 'valid', path: pathResult.path };
+  }
+
+  async function executeBuffer(...args: string[]) {
+    logger.log('executeBuffer called with args:', args);
+
+    const parsed = parseExecuteBufferArgs(args);
+
+    if (parsed.type === 'invalid') {
+      logger.warning('Invalid executeBuffer arguments:', { args, reason: parsed.reason });
+      showMessage(
+        formatCommandHelp(CommandNames.EXECUTE_BUFFER, parsed.reason),
+        MessageType.Error,
+      );
+      return;
+    }
+
+    const { path } = parsed; // Path already expanded by parsePathArg
+
     const output = await execEntireBuffer(path);
     // Append the longest line to the file
     useMessageKind(connection, output);
@@ -229,18 +641,44 @@ export function createExecuteCommandHandler(
     logger.log('showWorkspaceMessage',
       config,
     );
-    // Using the notification method directly
-    // connection.window.showInformationMessage(message);
-    // connection.sendNotification('window/showMessage', {
-    //   message: message,
-    //   type: MessageType.Info,
-    // });
     showMessage(message, MessageType.Info);
     return undefined;
   }
 
-  async function _updateWorkspace(path: string, ...args: string[]) {
-    const silence = args.includes('--quiet') || args.includes('-q');
+  // Parse _updateWorkspace arguments
+  type ParsedUpdateWorkspaceArgs =
+    | { type: 'valid'; path: string; flags: string[]; }
+    | { type: 'invalid'; reason: string; };
+
+  function parseUpdateWorkspaceArgs(args: string[]): ParsedUpdateWorkspaceArgs {
+    const pathResult = parsePathArg(args, 0);
+
+    if (!pathResult.success) {
+      return { type: 'invalid', reason: (pathResult as { success: false; error: string; }).error };
+    }
+
+    // Remaining args are flags
+    const flags = args.slice(1);
+
+    return { type: 'valid', path: pathResult.path, flags };
+  }
+
+  async function _updateWorkspace(...args: string[]) {
+    logger.log('_updateWorkspace called with args:', args);
+
+    const parsed = parseUpdateWorkspaceArgs(args);
+
+    if (parsed.type === 'invalid') {
+      logger.warning('Invalid _updateWorkspace arguments:', { args, reason: parsed.reason });
+      showMessage(
+        formatCommandHelp(CommandNames.UPDATE_WORKSPACE, parsed.reason),
+        MessageType.Error,
+      );
+      return;
+    }
+
+    const { path, flags } = parsed; // Path already expanded by parsePathArg
+    const silence = flags.includes('--quiet') || flags.includes('-q');
 
     const uri = pathToUri(path);
     workspaceManager.handleUpdateDocument(uri);
@@ -255,19 +693,48 @@ export function createExecuteCommandHandler(
     if (silence) return undefined;
 
     // Using the notification method directly
-    // connection.sendNotification('window/showMessage', {
-    //   message: message,
-    //   type: MessageType.Info,
-    // });
     showMessage(message, MessageType.Info);
     return undefined;
   }
 
-  async function fixAllDiagnostics(path: string) {
+  // Parse fixAllDiagnostics arguments
+  type ParsedFixAllDiagnosticsArgs =
+    | { type: 'valid'; path: string; }
+    | { type: 'invalid'; reason: string; };
+
+  function parseFixAllDiagnosticsArgs(args: string[]): ParsedFixAllDiagnosticsArgs {
+    const pathResult = parsePathArg(args, 0);
+
+    if (!pathResult.success) {
+      return { type: 'invalid', reason: (pathResult as { success: false; error: string; }).error };
+    }
+
+    return { type: 'valid', path: pathResult.path };
+  }
+
+  async function fixAllDiagnostics(...args: string[]) {
+    logger.log('fixAllDiagnostics called with args:', args);
+
+    const parsed = parseFixAllDiagnosticsArgs(args);
+
+    if (parsed.type === 'invalid') {
+      logger.warning('Invalid fixAllDiagnostics arguments:', { args, reason: parsed.reason });
+      showMessage(
+        formatCommandHelp(CommandNames.FIX_ALL, parsed.reason),
+        MessageType.Error,
+      );
+      return;
+    }
+
+    const { path } = parsed; // Path already expanded by parsePathArg
+
     const uri = pathToUri(path);
     logger.log('fixAllDiagnostics', uri);
     const cached = analyzer.analyzePath(path);
-    if (!cached) return;
+    if (!cached) {
+      showMessage(`File not found or could not be analyzed: ${path}`, MessageType.Error);
+      return;
+    }
     const { document } = cached;
     const root = analyzer.getRootNode(uri);
     if (!document || !root) return;
@@ -330,7 +797,46 @@ export function createExecuteCommandHandler(
     });
   }
 
-  function outputFishLspEnv(path: string) {
+  // Parse outputFishLspEnv arguments
+  type ParsedOutputFishLspEnvArgs =
+    | { type: 'valid'; path: string; }
+    | { type: 'invalid'; reason: string; };
+
+  function parseOutputFishLspEnvArgs(args: string[]): ParsedOutputFishLspEnvArgs {
+    const pathResult = parsePathArg(args, 0);
+
+    if (!pathResult.success) {
+      return { type: 'invalid', reason: (pathResult as { success: false; error: string; }).error };
+    }
+
+    return { type: 'valid', path: pathResult.path };
+  }
+
+  const envOutputOptions = {
+    confd: false,
+    comments: true,
+    global: true,
+    local: false,
+    export: true,
+    json: false,
+    only: undefined,
+  };
+
+  function outputFishLspEnv(...args: string[]) {
+    logger.log('outputFishLspEnv called with args:', args);
+
+    const parsed = parseOutputFishLspEnvArgs(args);
+
+    if (parsed.type === 'invalid') {
+      logger.warning('Invalid outputFishLspEnv arguments:', { args, reason: parsed.reason });
+      showMessage(
+        formatCommandHelp(CommandNames.GENERATE_ENV_VARIABLES, parsed.reason),
+        MessageType.Error,
+      );
+      return;
+    }
+
+    const { path } = parsed; // Path already expanded by parsePathArg
     const cached = analyzer.analyzePath(path);
     if (!cached) return;
     const { document } = cached;
@@ -339,15 +845,7 @@ export function createExecuteCommandHandler(
     const outputCallback = (s: string) => {
       output.push(s);
     };
-    handleEnvOutput('show', outputCallback, {
-      confd: false,
-      comments: true,
-      global: true,
-      local: false,
-      export: true,
-      json: false,
-      only: undefined,
-    });
+    handleEnvOutput('show', outputCallback, envOutputOptions);
     showMessage(`${fishLspPromptIcon} Appending fish-lsp environment variables to the end of the file`, MessageType.Info);
     const docsEnd = document.positionAt(document.getLines());
     const workspaceEdit: WorkspaceEdit = {
@@ -362,51 +860,51 @@ export function createExecuteCommandHandler(
 
   type ParsedShowReferencesArgs =
     | { type: 'symbol'; name: string; }
-    | { type: 'location'; path: string; line: string; char: string; }
+    | { type: 'location'; path: string; line: number; char: number; }
     | { type: 'invalid'; reason: string; };
 
   function parseShowReferencesArgs(args: string[]): ParsedShowReferencesArgs {
-    switch (args.length) {
-      case 1: {
-        const [arg] = args;
-        if (!arg) {
-          return { type: 'invalid', reason: 'Missing argument' };
-        }
-        // Check if this looks like a path (contains /, ~, or $ENV_VAR)
-        // OR if it can be expanded to a different value (meaning it has expandable components)
-        const isPathLike = arg.includes('/') || arg.startsWith('~') || arg.includes('$');
-        const canExpand = SyncFileHelper.isExpandable(arg);
+    // Case 1: Single argument - could be symbol name only
+    if (args.length === 1) {
+      const [arg] = args;
+      if (!arg) {
+        return { type: 'invalid', reason: 'Missing argument' };
+      }
+      // Check if this looks like a path (contains /, ~, or $ENV_VAR)
+      // OR if it can be expanded to a different value (meaning it has expandable components)
+      const isPathLike = arg.includes('/') || arg.startsWith('~') || arg.includes('$');
+      const canExpand = SyncFileHelper.isExpandable(arg);
 
-        if (isPathLike || canExpand) {
-          return { type: 'invalid', reason: 'Path provided without line/character position' };
-        }
-        return { type: 'symbol', name: arg };
+      if (isPathLike || canExpand) {
+        return { type: 'invalid', reason: 'Path provided without line/character position' };
       }
-      case 2: {
-        const [pathArg, posArg] = args;
-        if (!pathArg || !posArg) {
-          return { type: 'invalid', reason: 'Missing path or position argument' };
-        }
-        const coords = posArg.split(',');
-        if (coords.length !== 2) {
-          return { type: 'invalid', reason: 'Position must be in format: <line>,<character>' };
-        }
-        const [lineStr, charStr] = coords;
-        if (!lineStr || !charStr) {
-          return { type: 'invalid', reason: 'Both line and character must be provided' };
-        }
-        return { type: 'location', path: pathArg, line: lineStr, char: charStr };
-      }
-      case 3: {
-        const [pathArg, lineStr, charStr] = args;
-        if (!pathArg || !lineStr || !charStr) {
-          return { type: 'invalid', reason: 'Missing path, line, or character argument' };
-        }
-        return { type: 'location', path: pathArg, line: lineStr, char: charStr };
-      }
-      default:
-        return { type: 'invalid', reason: args.length === 0 ? 'No arguments provided' : 'Too many arguments' };
+      return { type: 'symbol', name: arg };
     }
+
+    // Case 2 & 3: Path with position - use parseNumberPair for flexibility
+    if (args.length >= 2) {
+      const [pathArg, ...positionArgs] = args;
+      if (!pathArg) {
+        return { type: 'invalid', reason: 'Missing path argument' };
+      }
+
+      // Use the generic parseNumberPair utility to handle both "line,char" and "line" "char"
+      const pairResult = parseNumberPair(positionArgs, 0, 'line', 'character');
+
+      if (!pairResult.success) {
+        return { type: 'invalid', reason: (pairResult as { success: false; error: string; }).error };
+      }
+
+      // TypeScript now knows pairResult.success is true
+      return {
+        type: 'location',
+        path: pathArg,
+        line: pairResult.first,
+        char: pairResult.second,
+      };
+    }
+
+    return { type: 'invalid', reason: 'No arguments provided' };
   }
 
   async function showReferences(...args: string[]) {
@@ -417,16 +915,7 @@ export function createExecuteCommandHandler(
     if (parsed.type === 'invalid') {
       logger.warning('Invalid showReferences arguments:', { args, reason: parsed.reason });
       showMessage(
-        `Invalid arguments: ${parsed.reason}\n\n` +
-        'Usage:\n' +
-        '  fish-lsp.showReferences <symbolName>\n' +
-        '  fish-lsp.showReferences <path> <line>,<character>\n' +
-        '  fish-lsp.showReferences <path> <line> <character>\n\n' +
-        'Examples:\n' +
-        '  fish-lsp.showReferences my_function\n' +
-        '  fish-lsp.showReferences ~/.config/fish/config.fish 7,10\n' +
-        '  fish-lsp.showReferences $XDG_CONFIG_HOME/fish/config.fish 7 10\n' +
-        '  fish-lsp.showReferences /absolute/path/to/file.fish 7 10',
+        formatCommandHelp(CommandNames.SHOW_REFERENCES, parsed.reason),
         MessageType.Error,
       );
       return [];
@@ -457,21 +946,11 @@ export function createExecuteCommandHandler(
       // Use SyncFileHelper to properly expand path (handles ~, $ENV_VARS, etc.)
       const expandedPath = SyncFileHelper.expandEnvVars(parsed.path);
 
-      const line = parseInt(parsed.line, 10);
-      const character = parseInt(parsed.char, 10);
-
-      if (isNaN(line) || isNaN(character)) {
-        showMessage('Invalid line or character number', MessageType.Error);
-        return [];
-      }
-
+      // Numbers are already parsed and validated by parseShowReferencesArgs
       // Convert 1-indexed (user-facing) line numbers to 0-indexed (LSP) positions
-      // Users see line 7 in their editor, but LSP uses 0-indexed positions (line 6)
       uri = pathToUri(expandedPath);
-      position = Position.create(line - 1, character);
+      position = Position.create(toZeroIndexed(parsed.line), parsed.char);
     } else {
-      // TypeScript exhaustiveness check - this should never happen
-      // const _exhaustive: never = parsed;
       return [];
     }
 
@@ -680,20 +1159,20 @@ export function createExecuteCommandHandler(
 
   // Command handler mapping
   const commandHandlers: Record<string, (...args: any[]) => Promise<void> | void | Promise<Location[]> | Promise<Location[] | undefined>> = {
-    'fish-lsp.executeRange': executeRange,
-    'fish-lsp.executeLine': executeLine,
-    'fish-lsp.executeBuffer': executeBuffer,
-    'fish-lsp.execute': executeBuffer,
-    'fish-lsp.createTheme': createTheme,
-    'fish-lsp.showStatusDocs': handleShowStatusDocs,
-    'fish-lsp.showWorkspaceMessage': showWorkspaceMessage,
-    'fish-lsp.updateWorkspace': _updateWorkspace,
-    'fish-lsp.fixAll': fixAllDiagnostics,
-    'fish-lsp.toggleSingleWorkspaceSupport': toggleSingleWorkspaceSupport,
-    'fish-lsp.generateEnvVariables': outputFishLspEnv,
-    'fish-lsp.showEnvVariables': showEnvVariables,
-    'fish-lsp.showReferences': showReferences,
-    'fish-lsp.showInfo': showInfo,
+    [CommandNames.EXECUTE_RANGE]: executeRange,
+    [CommandNames.EXECUTE_LINE]: executeLine,
+    [CommandNames.EXECUTE_BUFFER]: executeBuffer,
+    [CommandNames.EXECUTE]: executeBuffer,
+    [CommandNames.CREATE_THEME]: createTheme,
+    [CommandNames.SHOW_STATUS_DOCS]: handleShowStatusDocs,
+    [CommandNames.SHOW_WORKSPACE_MESSAGE]: showWorkspaceMessage,
+    [CommandNames.UPDATE_WORKSPACE]: _updateWorkspace,
+    [CommandNames.FIX_ALL]: fixAllDiagnostics,
+    [CommandNames.TOGGLE_SINGLE_WORKSPACE_SUPPORT]: toggleSingleWorkspaceSupport,
+    [CommandNames.GENERATE_ENV_VARIABLES]: outputFishLspEnv,
+    [CommandNames.SHOW_ENV_VARIABLES]: showEnvVariables,
+    [CommandNames.SHOW_REFERENCES]: showReferences,
+    [CommandNames.SHOW_INFO]: showInfo,
   };
 
   // Main command handler function
