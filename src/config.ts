@@ -231,6 +231,45 @@ function buildOutput(confd: boolean, result: string[]) {
 }
 
 /**
+ * Transforms a fish-lsp env variable value from shell string to array
+ */
+export namespace EnvVariableTransformers {
+
+  /**
+   * convertValueToShellOutput - Converts a value to valid fish-shell code
+   * @param {Config.ConfigValueType} value - the value to convert
+   * @returns string - the converted value
+   */
+  export function convertValueToShellOutput(value: Config.ConfigValueType) {
+    if (!Array.isArray(value)) return escapeValue(value) + '\n';
+
+    // For arrays
+    if (value.length === 0) return '\n'; // empty array -> ''
+    return value.map(v => escapeValue(v)).join(' ') + '\n'; // escape and join array
+  }
+
+  export function getDefaultValueAsShellOutput(
+    key: Config.ConfigKeyType,
+    opts: { json: boolean; } = { json: false },
+  ) {
+    const value = Config.getDefaultValue(key);
+    if (opts.json) {
+      return JSON.stringify(value, null, 2);
+    }
+    return convertValueToShellOutput(value);
+  }
+
+  export function getEnvVariableJsonObject(
+    result: {[k in Config.ConfigKeyType]: Config.ConfigValueType},
+    key: Config.ConfigKeyType,
+    value?: Config.ConfigValueType,
+  ) {
+    result[key] = value ?? config[key];
+    return result;
+  }
+}
+
+/**
  * Handles building the output for the `fish-lsp env` command
  */
 export function handleEnvOutput(
@@ -267,7 +306,7 @@ export function handleEnvOutput(
   };
 
   // Gets the default value for an environment variable, from the zod schema
-  const getDefaultValueAsShellOutput = (key: Config.ConvigKeyType) => {
+  const getDefaultValueAsShellOutput = (key: Config.ConfigKeyType) => {
     const value = Config.getDefaultValue(key);
     if (opts.json) {
       return JSON.stringify(value, null, 2);
@@ -280,7 +319,7 @@ export function handleEnvOutput(
   const buildBasicLine = (
     entry: EnvVariableJson,
     command: EnvVariableCommand,
-    key: Config.ConvigKeyType,
+    key: Config.ConfigKeyType,
   ) => {
     if (!opts.comments) return `${command} ${key} `;
     return [
@@ -293,7 +332,7 @@ export function handleEnvOutput(
   const buildOutputSection = (
     entry: EnvVariableJson,
     command: EnvVariableCommand,
-    key: Config.ConvigKeyType,
+    key: Config.ConfigKeyType,
     value: Config.ConfigValueType,
   ) => {
     let line = buildBasicLine(entry, command, key);
@@ -474,7 +513,7 @@ export namespace Config {
   }
 
   export type ConfigValueType = string | number | boolean | string[] | number[]; // Config[keyof Config] | string[] | number[];
-  export type ConvigKeyType = keyof Config;
+  export type ConfigKeyType = keyof Config;
 
   export function getDefaultValue(key: keyof Config): Config[keyof Config] {
     const defaults = ConfigSchema.parse({});

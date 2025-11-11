@@ -1,15 +1,15 @@
-import { Connection, ExecuteCommandParams, MessageType, Position, Range, Location, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
+import { Connection, ExecuteCommandParams, MessageType, /** Position, */ Range, Location, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
 import { Analyzer } from './analyze';
 import { codeActionHandlers } from './code-actions/code-action-handler';
 import { createFixAllAction } from './code-actions/quick-fixes';
-import { config, handleEnvOutput } from './config';
+import { Config, config, EnvVariableTransformers, getDefaultConfiguration, handleEnvOutput } from './config';
 import { getDiagnostics } from './diagnostics/validate';
 import { LspDocuments } from './document';
 import { buildExecuteNotificationResponse, execEntireBuffer, fishLspPromptIcon, useMessageKind } from './execute-handler';
 import { logger } from './logger';
 import { env } from './utils/env-manager';
 import { execAsync, execAsyncF, execAsyncFish } from './utils/exec';
-import { PrebuiltDocumentationMap } from './utils/snippets';
+import { EnvVariableJson, PrebuiltDocumentationMap } from './utils/snippets';
 import { pathToUri, uriToReadablePath } from './utils/translation';
 import { getRange } from './utils/tree-sitter';
 import { workspaceManager } from './utils/workspace-manager';
@@ -28,6 +28,7 @@ export const CommandNames = {
   FIX_ALL: 'fish-lsp.fixAll',
   TOGGLE_SINGLE_WORKSPACE_SUPPORT: 'fish-lsp.toggleSingleWorkspaceSupport',
   GENERATE_ENV_VARIABLES: 'fish-lsp.generateEnvVariables',
+  SHOW_ENV_VARIABLES: 'fish-lsp.showEnvVariables',
   CHECK_HEALTH: 'fish-lsp.checkHealth',
   SHOW_REFERENCES: 'fish-lsp.showReferences',
   SHOW_INFO: 'fish-lsp.showInfo',
@@ -51,7 +52,7 @@ export type CommandArgs = {
   [CommandNames.FIX_ALL]: [path: string];
   [CommandNames.TOGGLE_SINGLE_WORKSPACE_SUPPORT]: [];
   [CommandNames.GENERATE_ENV_VARIABLES]: [path: string];
-  [CommandNames.SHOW_REFERENCES]: [path: string, position: Position, references: Location[]];  // Add this line
+  [CommandNames.SHOW_REFERENCES]: [path: string, references: Location[]];  // Add this line
   [CommandNames.SHOW_INFO]: [];
 };
 
@@ -62,6 +63,24 @@ export function createExecuteCommandHandler(
   analyzer: Analyzer,
 ) {
   // const codeActionHandler = createCodeActionHandler(docs, analyzer);
+
+  const showMessage = (message: string, type: MessageType = MessageType.Info) => {
+    if (type === MessageType.Info) {
+      connection.window.showInformationMessage(message);
+      connection.sendNotification('window/showMessage', {
+        message: message,
+        type: MessageType.Info,
+      });
+      logger.info(message);
+    } else {
+      connection.window.showErrorMessage(message);
+      connection.sendNotification('window/showMessage', {
+        message: message,
+        type: MessageType.Error,
+      });
+      logger.error(message);
+    }
+  };
 
   async function executeRange(path: string, startLine: number, endLine: number) {
     // could also do executeLine() on every line in the range
@@ -157,12 +176,48 @@ export function createExecuteCommandHandler(
     useMessageKind(connection, output);
   }
 
-  function handleShowStatusDocs(statusCode: string) {
+  function handleShowStatusDocs(statusCode?: string | number) {
+    if (!statusCode) {
+      logger.log('handleShowStatusDocs', 'No status code provided');
+      showMessage('No status code provided', MessageType.Error);
+      return;
+    }
+    if (typeof statusCode === 'string' && statusCode.startsWith("'") && statusCode.endsWith("'")) {
+      statusCode = statusCode.slice(1, -1).toString();
+      logger.log('handleShowStatusDocs', 'statusCode is string', statusCode);
+    }
+    statusCode = Number.parseInt(statusCode.toString()).toString();
     const statusInfo = PrebuiltDocumentationMap.getByType('status')
       .find(item => item.name === statusCode);
 
+    logger.log('handleShowStatusDocs', statusCode, {
+      foundStatusInfo: PrebuiltDocumentationMap.getByType('status').map(item => item.name),
+      statusParam: statusCode,
+      statusInfoFound: statusInfo,
+    });
+
     if (statusInfo) {
-      connection.window.showInformationMessage(statusInfo.description);
+      let docMessage = `Status Code: ${statusInfo.name}\n\n`;
+      const description = statusInfo.description.split(' ');
+      let lineLen = 0;
+      for (let i = 0; i < description.length; i++) {
+        const word = description[i];
+        if (!word) continue;
+        if (lineLen + word?.length > 80) {
+          docMessage += '\n' + word;
+          lineLen = 0;
+          continue;
+        } else if (lineLen === 0) {
+          docMessage += word;
+          lineLen += word.length;
+        } else {
+          docMessage += ' ' + word;
+          lineLen += word.length + 1;
+        }
+      }
+      showMessage(docMessage, MessageType.Info);
+    } else {
+      showMessage(`No documentation found for status code: ${statusCode}`, MessageType.Error);
     }
   }
 
@@ -172,10 +227,12 @@ export function createExecuteCommandHandler(
       config,
     );
     // Using the notification method directly
-    connection.sendNotification('window/showMessage', {
-      message: message,
-      type: MessageType.Info,
-    });
+    // connection.window.showInformationMessage(message);
+    // connection.sendNotification('window/showMessage', {
+    //   message: message,
+    //   type: MessageType.Info,
+    // });
+    showMessage(message, MessageType.Info);
     return undefined;
   }
 
@@ -195,10 +252,11 @@ export function createExecuteCommandHandler(
     if (silence) return undefined;
 
     // Using the notification method directly
-    connection.sendNotification('window/showMessage', {
-      message: message,
-      type: MessageType.Info,
-    });
+    // connection.sendNotification('window/showMessage', {
+    //   message: message,
+    //   type: MessageType.Info,
+    // });
+    showMessage(message, MessageType.Info);
     return undefined;
   }
 
@@ -287,10 +345,7 @@ export function createExecuteCommandHandler(
       json: false,
       only: undefined,
     });
-    connection.sendNotification('window/showMessage', {
-      type: MessageType.Info,  // Info, Warning, Error, Log
-      message: ` Fish LSP Environment Variables: \n ${env.getAutoloadedKeys().join('\n')} `,
-    });
+    showMessage(`${fishLspPromptIcon} Appending fish-lsp environment variables to the end of the file`, MessageType.Info);
     const docsEnd = document.positionAt(document.getLines());
     const workspaceEdit: WorkspaceEdit = {
       changes: {
@@ -302,14 +357,138 @@ export function createExecuteCommandHandler(
     connection.workspace.applyEdit(workspaceEdit);
   }
 
-  async function showReferences(path: string, position: Position, references: Location[]) {
+  async function showReferences(path: string = '/home/ndonfris/.config/fish/config.fish', references: Location[] = []) {
     const uri = pathToUri(path);
-    logger.log('handleShowReferences', { path, uri, position, references });
+
+    const res1 = await connection.sendRequest('textDocument/references', {
+      textDocument: { uri },
+      position: {
+        line: 7,
+        character: 13,
+      },
+    });
+
+    showMessage(` Fish LSP sent textDocument/references notification ${res1}`, MessageType.Info);
+
+    const resp = await connection.sendRequest('textDocument/references', {
+      textDocument: { uri },
+      position: {
+        line: 7,
+        character: 13,
+      },
+    });
+    logger.debug({
+      showReferences_resp: resp,
+      path,
+      positions: references,
+    });
+
+    // logger.log('handleShowReferences', { path, uri, position, references });
     connection.sendNotification('window/showMessage', {
       type: MessageType.Info,  // Info, Warning, Error, Log
       message: ` Fish LSP found ${references.length} references to this symbol `,
     });
+    showMessage(` Fish LSP found ${references.length} references to this symbol `, MessageType.Info);
     return references;
+  }
+
+  function showEnvVariables(...opts: string[]) {
+    if (!opts.some(o => ['all', 'changed', 'default', 'unchanged'].includes(o))) {
+      opts = ['all', ...opts];
+    }
+    const mode = opts[0] || 'all';
+    const noComments: boolean = opts.find(o => o === '--no-comments') ? true : false;
+    const noValues: boolean = opts.find(o => o === '--no-values') ? true : false;
+    const asJson: boolean = opts.find(o => o === '--json') ? true : false;
+
+    let variables = PrebuiltDocumentationMap
+      .getByType('variable', 'fishlsp')
+      .filter((v) => EnvVariableJson.is(v) ? !v.isDeprecated : false)
+      .map(v => v as EnvVariableJson);
+
+    const allVars = variables;
+    const changedVars = variables.filter(v => env.has(v.name));
+    const unchangedVars = allVars.filter(v => !changedVars.map(c => c.name).includes(v.name));
+    const defaultVars = variables.filter(v => {
+      const defConfig = getDefaultConfiguration();
+      return v.name in defConfig;
+    });
+
+    const defaultConfig = getDefaultConfiguration();
+
+    let resVars: EnvVariableJson[] = [];
+    if (mode === 'all') {
+      resVars = allVars;
+    } else if (mode === 'changed') {
+      resVars = variables.filter(v => env.has(v.name));
+    } else if (mode === 'unchanged') {
+      resVars = variables.filter(v => !changedVars.map(c => c.name).includes(v.name));
+    } else if (mode === 'default') {
+      variables = Object.entries(getDefaultConfiguration()).map(([key, _]) => {
+        const EnvVar = variables.find(v => v.name === key);
+        if (EnvVar) return EnvVar;
+      }).filter((v): v is EnvVariableJson => v !== undefined);
+      resVars = variables.filter((v): v is EnvVariableJson => v !== undefined);
+    }
+
+    const logArr = (resVars: EnvVariableJson[]) => ({
+      names: resVars.map(v => v.name),
+      len: resVars.length,
+    });
+
+    logger.log('showEnvVariables', {
+      totalVariables: variables.length,
+      all: logArr(allVars),
+      changedVariables: logArr(changedVars),
+      unchangedVariables: logArr(unchangedVars),
+      defaultVariables: logArr(defaultVars),
+    });
+
+    if (asJson) {
+      const results: Record<Config.ConfigKeyType, Config.ConfigValueType> = {} as Record<Config.ConfigKeyType, Config.ConfigValueType>;
+      resVars.forEach(v => {
+        const { name } = v as { name: Config.ConfigKeyType; };
+        if (!name || !(name in config)) return;
+        if (mode === 'default') results[name] = defaultConfig[name];
+        else results[name] = config[name];
+      });
+      showMessage(
+        [
+          '\n{',
+          Object.entries(results).map(([key, value]) => {
+            const k = JSON.stringify(key);
+            const v = JSON.stringify(value).replaceAll('\n', ' ').trim() + ',';
+            return `  ${k}: ${v}`;
+          }).join('\n'),
+          '}',
+        ].join('\n'),
+        MessageType.Info,
+      );
+      return;
+    }
+
+    const filteredAllVars = (vals: EnvVariableJson[]) => {
+      const res = vals.map(v => {
+        const value = noValues ? '' : EnvVariableTransformers.convertValueToShellOutput(config[v.name as Config.ConfigKeyType]);
+        const comment = noComments ? '' : `# ${v.description.replace(/\n/g, ' ')}\n`;
+        if (noValues && noComments) return `${v.name}`;
+        return `${comment}set ${v.name} ${value}\n`;
+      });
+      return res.join('\n');
+    };
+
+    let message = '\n';
+    if (mode === 'all' || !mode) {
+      message += filteredAllVars(allVars);
+    } else if (mode === 'changed') {
+      message += filteredAllVars(changedVars);
+    } else if (mode === 'unchanged') {
+      message += filteredAllVars(unchangedVars);
+    } else if (mode === 'default') {
+      message += filteredAllVars(defaultVars);
+    }
+
+    showMessage(message.trimEnd(), MessageType.Info);
   }
 
   function showInfo() {
@@ -318,15 +497,7 @@ export function createExecuteCommandHandler(
       buildTime: PkgJson.buildTime,
       repo: PkgJson.path,
     }, null, 2);
-    if (config.fish_lsp_show_client_popups) {
-      connection.window.showInformationMessage(message);
-    } else {
-      connection.sendNotification('window/showMessage', {
-        type: MessageType.Info,  // Info, Warning, Error, Log
-        message: message,
-      });
-      logger.log('showInfo', message);
-    }
+    showMessage(message, MessageType.Info);
   }
 
   // Command handler mapping
@@ -343,6 +514,7 @@ export function createExecuteCommandHandler(
     'fish-lsp.fixAll': fixAllDiagnostics,
     'fish-lsp.toggleSingleWorkspaceSupport': toggleSingleWorkspaceSupport,
     'fish-lsp.generateEnvVariables': outputFishLspEnv,
+    'fish-lsp.showEnvVariables': showEnvVariables,
     'fish-lsp.showReferences': showReferences,
     'fish-lsp.showInfo': showInfo,
   };

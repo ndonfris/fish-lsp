@@ -5,6 +5,7 @@ import { documents, LspDocument } from '../document';
 import { analyzer } from '../analyze';
 import { config } from '../config';
 import { isPath, PathLike, pathToUri } from './translation';
+import { ProgressNotification } from './progress-notification';
 
 export class WorkspaceManager {
   private stack: WorkspaceStack = new WorkspaceStack();
@@ -319,7 +320,7 @@ export class WorkspaceManager {
    * This method will update the map of all workspaces and the resulting workspaces will be
    * re-analyzed.
    */
-  public handleWorkspaceChangeEvent(event: WorkspaceFoldersChangeEvent, progress?: WorkDoneProgressServerReporter): void {
+  public handleWorkspaceChangeEvent(event: WorkspaceFoldersChangeEvent, progress?: WorkDoneProgressServerReporter | ProgressNotification): void {
     progress?.begin('[fish-lsp] indexing files', 0, `Analyzing workspaces [+${event.added.length} | -${event.removed.length}]`, true);
     logger.info(
       'workspaceManager.handleWorkspaceChangeEvent()',
@@ -370,7 +371,7 @@ export class WorkspaceManager {
    * @returns An object containing the analyzed items, total documents, and duration of analysis.
    */
   public async analyzePendingDocuments(
-    progress: WorkDoneProgressServerReporter | undefined = undefined,
+    progress: WorkDoneProgressServerReporter | ProgressNotification | undefined = undefined,
     callbackfn: (str: string) => void = (s) => logger.log(s),
   ) {
     logger.info('workspaceManager.analyzePendingDocuments()');
