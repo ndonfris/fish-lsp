@@ -527,6 +527,7 @@ export namespace FishUriWorkspace {
   export function initializeEnvWorkspaces(): FishUriWorkspace[] {
     // if (config.fish_lsp_single_workspace_support) return [];
     return config.fish_lsp_all_indexed_paths
+      .map(path => SyncFileHelper.expandEnvVars(path)) // Expand environment variables first
       .map(path => create(pathToUri(path)))
       .filter((ws): ws is FishUriWorkspace => ws !== null);
   }
