@@ -395,7 +395,11 @@ export default class FishServer {
    * the onDidChangeWorkspaceFolders handler if the client supports it.
    * It will also try to analyze the current workspaces' pending documents.
    */
-  async onInitialized(params: any): Promise<{ result: number; }> {
+  async onInitialized(params: any): Promise<{
+    totalDocuments: number;
+    items: { [path: string]: string[]; };
+    counts: { [path: string]: number; };
+  }> {
     const supportsProgress = this.initializeParams.capabilities.window?.workDoneProgress;
     logger.log('Progress support:', supportsProgress);
     logger.log('onInitialized', params);
@@ -418,13 +422,15 @@ export default class FishServer {
           });
           this.handleWorkspaceFolderChanges(event);
         });
-      } catch (error) {
+      } catch (_) {
         // Connection doesn't support workspace folder changes (e.g., in test/diagnostic modes)
-        logger.debug('Workspace folder change events not supported by this connection', error);
+        logger.debug('Workspace folder change events not supported by this connection');
       }
     }
 
     let totalDocuments = 0;
+    let items: { [path: string]: string[]; } = {};
+    const counts: { [path: string]: number; } = {};
     try {
       // Set flag BEFORE creating progress to prevent interference
       this.backgroundAnalysisInProgress = true;
@@ -438,6 +444,10 @@ export default class FishServer {
 
       const result = await workspaceManager.analyzePendingDocuments(progress, (str) => logger.info('onInitialized', str));
       totalDocuments = result.totalDocuments;
+      items = result.items;
+      Object.entries(items).forEach(([key, value]) => {
+        counts[key] = value.length;
+      });
 
       progress.done();
       this.backgroundAnalysisComplete = true;
@@ -449,15 +459,10 @@ export default class FishServer {
       logger.error('Error during background analysis onInitialized', error);
     }
     logger.info(`Initial analysis complete. Analyzed ${totalDocuments} documents.`);
-    // const result = await connection.window.createWorkDoneProgress().then(async (progress) => {
-    //   progress.begin('[fish-lsp] analyzing workspaces');
-    //   const { totalDocuments } = await workspaceManager.analyzePendingDocuments(progress, (str) => logger.info('onInitialized', str));
-    //   progress.done();
-    //   this.backgroundAnalysisComplete = true;
-    //   return totalDocuments;
-    // });
     return {
-      result: totalDocuments,
+      totalDocuments,
+      items,
+      counts,
     };
   }
 
