@@ -11,8 +11,8 @@ import { createConnection, InitializeParams, InitializeResult, StreamMessageRead
 import * as Browser from 'vscode-languageserver/browser';
 import { Connection } from 'vscode-languageserver';
 import { workspaceManager } from './workspace-manager';
-import { Workspace } from './workspace';
 import { SyncFileHelper } from './file-operations';
+import { env } from './env-manager';
 
 // Define proper types for the connection options
 export type ConnectionType = 'stdio' | 'node-ipc' | 'socket' | 'pipe';
@@ -288,9 +288,18 @@ export async function timeServerStartup(
 
   // 1. Time server creation and startup
   await timeOperation(async () => {
+    // Create a null writable stream to discard JSON-RPC messages
+    // This prevents them from polluting stdout during timing operations
+    const { Writable } = await import('stream');
+    const nullStream = new Writable({
+      write(chunk, encoding, callback) {
+        callback(); // Discard the data
+      },
+    });
+
     const connection = createConnection(
       new StreamMessageReader(process.stdin),
-      new StreamMessageWriter(process.stdout),
+      new StreamMessageWriter(nullStream),
     );
     const startUri = path.join(os.homedir(), '.config', 'fish');
     const startupParams: InitializeParams = {
@@ -317,7 +326,8 @@ export async function timeServerStartup(
       },
     };
     ({ server } = await FishServer.create(connection, startupParams));
-    connection.listen();
+    // Don't call connection.listen() - we're just timing, not handling LSP messages
+    // This prevents JSON-RPC output from polluting stdout
 
     return server;
   }, 'Server Start Time');
@@ -326,34 +336,44 @@ export async function timeServerStartup(
   const items: { [key: string]: number; } = {};
   const files: { [key: string]: string[]; } = {};
 
-  // clear any existing workspaces, use the env variables if they are set,
-  // otherwise use their default values (since there isn't a client)
-  workspaceManager.clear();
-  const allPaths = startPath ? [startPath] : config.fish_lsp_all_indexed_paths;
-  for (const pathLike of allPaths) {
-    const fullPath = SyncFileHelper.expandEnvVars(pathLike);
-    const workspace = Workspace.syncCreateFromUri(pathToUri(fullPath));
-    if (!workspace) {
-      logger.logToStderr(`Failed to create workspace for path: ${pathLike}`);
-      continue;
-    }
-    workspaceManager.add(workspace);
-  }
-
   // 2. Time server initialization and background analysis
+  // Call onInitialized() exactly as a real client would - this matches the real server flow 1:1
   await timeOperation(async () => {
-    // analyze all documents from the workspaces created above
-    const result = await workspaceManager.analyzePendingDocuments();
-    if (result) {
-      all = result.totalDocuments;
-      for (const [path, uris] of Object.entries(result.items)) {
-        items[path] = uris.length;
-        files[path] = [...uris
-          .map(u => uriToReadablePath(u))
-          .map(p => p.replace(os.homedir(), '~'))
-          .map(p => opts.workspacePath ? p.replace(process.cwd().replace(os.homedir(), '~'), '$PWD') : p),
-        ];
+    if (!server) {
+      throw new Error('Server not initialized');
+    }
+
+    // Call onInitialized() which handles background analysis with proper flag management
+    const initResult = await server.onInitialized({});
+    all = initResult.result;
+
+    // Extract workspace information for display
+    const workspaces = workspaceManager.all;
+    for (const workspace of workspaces) {
+      const uris = Array.from(workspace.allUris);
+
+      // Expand environment variables in workspace paths for display
+      // e.g., /$__fish_config_dir → /home/user/.config/fish
+      let displayPath = workspace.path;
+      if (displayPath.startsWith('/$__fish_config_dir')) {
+        displayPath = env.get('__fish_config_dir') || displayPath;
+      } else if (displayPath.startsWith('/$__fish_data_dir')) {
+        displayPath = env.get('__fish_data_dir') || displayPath;
       }
+
+      // Merge file counts for workspaces with the same expanded path
+      // (e.g., __fish_config_dir and $__fish_config_dir both map to /home/user/.config/fish)
+      items[displayPath] = (items[displayPath] || 0) + uris.length;
+
+      // Merge file lists for the same workspace
+      if (!files[displayPath]) {
+        files[displayPath] = [];
+      }
+      files[displayPath].push(...uris
+        .map(u => uriToReadablePath(u))
+        .map(p => p.replace(os.homedir(), '~'))
+        .map(p => opts.workspacePath ? p.replace(process.cwd().replace(os.homedir(), '~'), '$PWD') : p),
+      );
     }
   }, 'Background Analysis Time');
 
