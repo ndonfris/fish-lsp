@@ -236,9 +236,13 @@ export class WorkspaceManager {
     analyzer.analyze(document);
     newWorkspace.add(...Array.from(analyzer.collectAllSources(documentUri)));
     this.setCurrent(newWorkspace);
+
+    // Mark workspace as needing analysis, but DON'T analyze synchronously here
+    // The background analysis in onInitialized will pick it up
     if (newWorkspace.needsAnalysis()) {
-      logger.info(`workspaceManager.handleOpenDocument() - Workspace('${newWorkspace.name}').needsAnalysis()`);
-      analyzer.analyzeWorkspace(newWorkspace);
+      logger.info(`workspaceManager.handleOpenDocument() - Workspace('${newWorkspace.name}').needsAnalysis() - will be analyzed in background`);
+      // REMOVED: analyzer.analyzeWorkspace(newWorkspace);
+      // This synchronous call blocked the main thread and happened before progress reporting started
     }
     return this.current as Workspace;
   }
@@ -428,7 +432,9 @@ export class WorkspaceManager {
 
       if (isLastItem || isBatchEnd && timeToUpdate) {
         const percentage = Math.ceil((idx + 1) / maxSize * 100);
-        progress?.report(`${percentage}% Analyzing ${idx + 1}/${maxSize} ${maxSize > 1 ? 'documents' : 'document'}`);
+        const message = `Analyzing ${idx + 1}/${maxSize} ${maxSize > 1 ? 'documents' : 'document'}`;
+        // Report with both percentage number and descriptive message
+        progress?.report(percentage, message);
         lastUpdateTime = currentTime;
 
         // Add a small delay for visual perception

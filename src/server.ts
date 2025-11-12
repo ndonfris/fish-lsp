@@ -209,6 +209,7 @@ export default class FishServer {
   protected features: SupportedFeatures;
   public clientSupportsShowDocument: boolean;
   public backgroundAnalysisComplete: boolean;
+  private backgroundAnalysisInProgress: boolean;
 
   constructor(
     private completion: CompletionPager,
@@ -220,6 +221,7 @@ export default class FishServer {
     this.features = { codeActionDisabledSupport: true };
     this.clientSupportsShowDocument = false;
     this.backgroundAnalysisComplete = false;
+    this.backgroundAnalysisInProgress = false;
   }
 
   /**
@@ -290,11 +292,16 @@ export default class FishServer {
     currentDocument = documents.openPath(path, params.textDocument);
     workspaceManager.handleOpenDocument(currentDocument);
     this.analyzeDocument({ uri: currentDocument.uri });
-    if (workspaceManager.needsAnalysis()) {
-      const progress = await ProgressNotification.create();
-      progress.begin(`[fish-lsp] analyzing ${workspaceManager.allAnalysisDocuments().length} documents`, 0, undefined, true);
+
+    // Only create progress if background analysis is NOT already in progress
+    if (workspaceManager.needsAnalysis() && !this.backgroundAnalysisInProgress) {
+      logger.info('didOpenTextDocument: Starting workspace analysis with progress');
+      const progress = await ProgressNotification.create('didOpenTextDocument');
+      progress.begin(`[fish-lsp] analyzing ${workspaceManager.allAnalysisDocuments().length} documents`, 0, 'open', true);
       await workspaceManager.analyzePendingDocuments(progress, (str) => logger.info('didOpen', str));
       progress.done();
+    } else if (this.backgroundAnalysisInProgress) {
+      logger.info('didOpenTextDocument: Skipping analysis - background analysis already in progress');
     }
   }
 
@@ -373,6 +380,7 @@ export default class FishServer {
     documents.clear();
     currentDocument = null;
     this.backgroundAnalysisComplete = false;
+    this.backgroundAnalysisInProgress = false;
   }
 
   /**
@@ -381,7 +389,11 @@ export default class FishServer {
    * It will also try to analyze the current workspaces' pending documents.
    */
   async onInitialized(params: any): Promise<{ result: number; }> {
+    const supportsProgress = this.initializeParams.capabilities.window?.workDoneProgress;
+    logger.log('Progress support:', supportsProgress);
     logger.log('onInitialized', params);
+    connection.console.log('onInitialized fired');
+    logger.log({ 'server.onInitialized': 'fired' });
     logger.info('SERVER INITIALIZED', {
       buildPath: PkgJson.path,
       buildVersion: PkgJson.version,
@@ -399,22 +411,48 @@ export default class FishServer {
         this.handleWorkspaceFolderChanges(event);
       });
     }
-    const result = await connection.window.createWorkDoneProgress().then(async (progress) => {
-      progress.begin('[fish-lsp] analyzing workspaces');
-      const { totalDocuments } = await workspaceManager.analyzePendingDocuments(progress, (str) => logger.info('onInitialized', str));
+
+    let totalDocuments = 0;
+    try {
+      // Set flag BEFORE creating progress to prevent interference
+      this.backgroundAnalysisInProgress = true;
+      logger.info('Starting background analysis in onInitialized');
+
+      const progress = await ProgressNotification.create('onInitialized');
+      connection.console.log('Progress created');
+
+      // Begin progress immediately
+      progress.begin('[fish-lsp] analyzing workspaces', 0);
+
+      const result = await workspaceManager.analyzePendingDocuments(progress, (str) => logger.info('onInitialized', str));
+      totalDocuments = result.totalDocuments;
+
       progress.done();
       this.backgroundAnalysisComplete = true;
-      return totalDocuments;
-    });
+      this.backgroundAnalysisInProgress = false;
+      logger.info('Background analysis complete');
+    } catch (error) {
+      this.backgroundAnalysisInProgress = false;
+      this.backgroundAnalysisComplete = false;
+      logger.error('Error during background analysis onInitialized', error);
+    }
+    logger.info(`Initial analysis complete. Analyzed ${totalDocuments} documents.`);
+    // const result = await connection.window.createWorkDoneProgress().then(async (progress) => {
+    //   progress.begin('[fish-lsp] analyzing workspaces');
+    //   const { totalDocuments } = await workspaceManager.analyzePendingDocuments(progress, (str) => logger.info('onInitialized', str));
+    //   progress.done();
+    //   this.backgroundAnalysisComplete = true;
+    //   return totalDocuments;
+    // });
     return {
-      result,
+      result: totalDocuments,
     };
   }
 
   private async handleWorkspaceFolderChanges(event: WorkspaceFoldersChangeEvent) {
     this.logParams('handleWorkspaceFolderChanges', event);
     // Show progress for added workspaces
-    const progress = await ProgressNotification.create();
+    const progress = await ProgressNotification.create('handleWorkspaceFolderChanges');
     progress.begin(`[fish-lsp] analyzing workspaces [${event.added.map(s => s.name).join(',')}] added`);
     workspaceManager.handleWorkspaceChangeEvent(event, progress);
     workspaceManager.analyzePendingDocuments(progress);

@@ -132,7 +132,7 @@ export const ConfigSchema = z.object({
   fish_lsp_max_background_files: z.number().default(10000),
 
   /** show startup analysis notification */
-  fish_lsp_show_client_popups: z.boolean().default(false),
+  fish_lsp_show_client_popups: z.boolean().default(true),
 
   /** single workspace support */
   fish_lsp_single_workspace_support: z.boolean().default(false),
