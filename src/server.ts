@@ -401,15 +401,20 @@ export default class FishServer {
       executedAt: new Date().toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' }),
     });
     if (hasWorkspaceFolderCapability) {
-      connection.workspace.onDidChangeWorkspaceFolders(event => {
-        logger.info({
-          'connection.workspace.onDidChangeWorkspaceFolders': 'analyzer.onInitialized',
-          added: event.added.map(folder => folder.name),
-          removed: event.removed.map(folder => folder.name),
-          hasWorkspaceFolderCapability: hasWorkspaceFolderCapability,
+      try {
+        connection.workspace.onDidChangeWorkspaceFolders(event => {
+          logger.info({
+            'connection.workspace.onDidChangeWorkspaceFolders': 'analyzer.onInitialized',
+            added: event.added.map(folder => folder.name),
+            removed: event.removed.map(folder => folder.name),
+            hasWorkspaceFolderCapability: hasWorkspaceFolderCapability,
+          });
+          this.handleWorkspaceFolderChanges(event);
         });
-        this.handleWorkspaceFolderChanges(event);
-      });
+      } catch (error) {
+        // Connection doesn't support workspace folder changes (e.g., in test/diagnostic modes)
+        logger.debug('Workspace folder change events not supported by this connection', error);
+      }
     }
 
     let totalDocuments = 0;
