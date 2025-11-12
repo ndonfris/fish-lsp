@@ -3,7 +3,7 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
 import { getChildNodes, getRange } from '../utils/tree-sitter';
 import { isMatchingOption, Option } from '../parsing/options';
-import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage, isDotSourceCommand, isMatchingAbbrFunction, isFunctionWithEventHookCallback, isVariableDefinitionWithExpansionCharacter, isPosixCommandInsteadOfFishCommand, getFishBuiltinEquivalentCommandName, getAutoloadedFunctionsWithoutDescription, isWrapperFunction } from './node-types';
+import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage, isDotSourceCommand, isMatchingAbbrFunction, isFunctionWithEventHookCallback, isVariableDefinitionWithExpansionCharacter, isPosixCommandInsteadOfFishCommand, getFishBuiltinEquivalentCommandName, getAutoloadedFunctionsWithoutDescription, isWrapperFunction, isKnownCommand } from './node-types';
 import { ErrorCodes } from './error-codes';
 import { config } from '../config';
 import { DiagnosticCommentsHandler } from './comments-handler';
@@ -420,6 +420,31 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     for (const diagnostic of noExecuteDiagnostics) {
       if (handler.isCodeEnabledAtNode(ErrorCodes.syntaxError, diagnostic.data.node)) {
         diagnostics.push(diagnostic);
+      }
+    }
+  }
+
+  // 7001 -> unknown command
+  if (handler.isCodeEnabled(ErrorCodes.unknownCommand)) {
+    for (const commandNode of commandNames) {
+      const commandName = commandNode.text.trim();
+
+      // Skip empty commands or commands that are already errors
+      if (!commandName || commandNode.isError) {
+        continue;
+      }
+
+      // Check if command is known
+      if (!isKnownCommand(commandName, doc)) {
+        if (handler.isCodeEnabledAtNode(ErrorCodes.unknownCommand, commandNode)) {
+          diagnostics.push(
+            FishDiagnostic.create(
+              ErrorCodes.unknownCommand,
+              commandNode,
+              `'${commandName}' is not a known builtin, function, or command`,
+            ),
+          );
+        }
       }
     }
   }
