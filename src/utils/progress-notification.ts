@@ -3,6 +3,11 @@ import { config } from '../config';
 import { WorkDoneProgressReporter } from 'vscode-languageserver';
 import { logger } from '../logger';
 
+/**
+ * Simplified progress notification wrapper that only shows progress
+ * when the config allows it. Used for long-running operations like
+ * workspace analysis.
+ */
 export class ProgressNotification implements WorkDoneProgressReporter {
   private reporter: WorkDoneProgressReporter | null = null;
 
@@ -14,14 +19,21 @@ export class ProgressNotification implements WorkDoneProgressReporter {
     return !!config.fish_lsp_show_client_popups;
   }
 
+  public isReporterAvailable(): boolean {
+    return this.reporter !== null;
+  }
+
+  /**
+   * Create a progress notification if supported by config
+   */
   public static async create(): Promise<ProgressNotification> {
     const progress = new ProgressNotification();
     logger.debug(`SHOULD CREATE \`progress\` NOTIFICATION: ${ProgressNotification.isSupported()}`);
     if (ProgressNotification.isSupported()) {
-      logger.debug('CREATED \`progress\` NOTIFICATION');
+      logger.debug('CREATED `progress` NOTIFICATION');
       progress.reporter = await connection.window.createWorkDoneProgress();
     } else {
-      logger.debug('SKIPPING CREATION OF \`progress\` NOTIFICATION');
+      logger.debug('SKIPPING CREATION OF `progress` NOTIFICATION');
     }
     return progress;
   }
@@ -54,4 +66,3 @@ export class ProgressNotification implements WorkDoneProgressReporter {
     }
   }
 }
-

@@ -361,8 +361,8 @@ export class WorkspaceManager {
    * NOTE: if the user sets an arbitrarily low value for fish_lsp_max_background_files, this method will need to be called multiple times.
    *
    * ```typescript
-        * while (workspaceManager.needsAnalysis()) {
-   * workspaceManager.analyzePendingDocuments();
+   * while (workspaceManager.needsAnalysis()) {
+   *    workspaceManager.analyzePendingDocuments();
    * }
    * ```
    * ___

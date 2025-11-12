@@ -31,6 +31,8 @@ export namespace ErrorCodes {
 
   export const fishLspDeprecatedEnvName = 6001;
 
+  export const unknownCommand = 7001;
+
   export const invalidDiagnosticCode = 8001;
 
   export const syntaxError = 9999;
@@ -42,6 +44,7 @@ export namespace ErrorCodes {
     4001 | 4002 | 4003 | 4004 | 4005 | 4006 | 4007 | 4008 |
     5001 | 5555 |
     6001 |
+    7001 |
     8001 |
     9999;
 
@@ -221,6 +224,13 @@ export namespace ErrorCodes {
       codeDescription: { href: 'https://github.com/ndonfris/fish-lsp#environment-variables' },
       source: 'fish-lsp',
       message: 'Deprecated fish-lsp environment variable name',
+    },
+    [unknownCommand]: {
+      severity: DiagnosticSeverity.Warning,
+      code: unknownCommand,
+      codeDescription: { href: 'https://fishshell.com/docs/current/language.html#commands' },
+      source: 'fish-lsp',
+      message: 'Unknown command',
     },
     [invalidDiagnosticCode]: {
       severity: DiagnosticSeverity.Warning,
