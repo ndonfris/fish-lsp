@@ -44,6 +44,7 @@ import { getSelectionRanges } from './selection-range';
 // import { getLinkedEditingRanges } from './linked-editing';
 import { PkgJson } from './utils/commander-cli-subcommands';
 import { ProgressNotification } from './utils/progress-notification';
+import { getDiagnostics } from './diagnostics/validate';
 
 export type SupportedFeatures = {
   codeActionDisabledSupport: boolean;
@@ -300,16 +301,13 @@ export default class FishServer {
 
   async didOpenTextDocument(params: LSP.DidOpenTextDocumentParams) {
     this.logParams('didOpenTextDocument', params);
-    const path = uriToPath(params.textDocument.uri);
-    const doc = documents.openPath(path, params.textDocument);
-    workspaceManager.handleOpenDocument(doc);
-    currentDocument = doc;
-    this.analyzeDocument({ uri: doc.uri });
-    workspaceManager.handleUpdateDocument(doc);
-    if (workspaceManager.needsAnalysis() && workspaceManager.allAnalysisDocuments().length > 0) {
-      // const progress = await connection.window.createWorkDoneProgress();
+    const { path } = this.getUriAndPath(params);
+    currentDocument = documents.openPath(path, params.textDocument);
+    workspaceManager.handleOpenDocument(currentDocument);
+    this.analyzeDocument({ uri: currentDocument.uri });
+    if (workspaceManager.needsAnalysis()) {
       const progress = await ProgressNotification.create();
-      progress.begin('[fish-lsp] analysis');
+      progress.begin(`[fish-lsp] analyzing ${workspaceManager.allAnalysisDocuments().length} documents`, 0, undefined, true);
       await workspaceManager.analyzePendingDocuments(progress, (str) => logger.info('didOpen', str));
       progress.done();
     } else if (this.backgroundAnalysisInProgress) {
@@ -320,8 +318,11 @@ export default class FishServer {
   async didChangeTextDocument(params: LSP.DidChangeTextDocumentParams): Promise<void> {
     this.logParams('didChangeTextDocument', params);
 
-    const progress = await ProgressNotification.create();
-    const path = uriToPath(params.textDocument.uri);
+    const { uri, path } = this.getUriAndPath(params);
+
+    const oldDoc = documents.get(path);
+    const oldVersion = oldDoc?.version || 0;
+
     let doc = documents.get(path);
     if (!doc) doc = analyzer.analyzePath(path)?.document;
 
@@ -469,7 +470,6 @@ export default class FishServer {
   private async handleWorkspaceFolderChanges(event: WorkspaceFoldersChangeEvent) {
     this.logParams('handleWorkspaceFolderChanges', event);
     // Show progress for added workspaces
-    //const progress = await connection.window.createWorkDoneProgress();
     const progress = await ProgressNotification.create();
     progress.begin(`[fish-lsp] analyzing workspaces [${event.added.map(s => s.name).join(',')}] added`);
     workspaceManager.handleWorkspaceChangeEvent(event, progress);
