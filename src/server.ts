@@ -423,9 +423,9 @@ export default class FishServer {
           });
           this.handleWorkspaceFolderChanges(event);
         });
-      } catch (_) {
+      } catch (error) {
         // Connection doesn't support workspace folder changes (e.g., in test/diagnostic modes)
-        logger.debug('Workspace folder change events not supported by this connection');
+        logger.debug('Workspace folder change events not supported by this connection', error);
       }
     }
 
