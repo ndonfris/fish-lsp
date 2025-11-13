@@ -406,6 +406,7 @@ export default class FishServer {
     const supportsProgress = this.initializeParams.capabilities.window?.workDoneProgress;
     logger.log(`Progress support: ${supportsProgress}`);
     logger.log('onInitialized', params);
+    logger.log('onInitialized fired');
     logger.info('SERVER INITIALIZED', {
       buildPath: PkgJson.path,
       buildVersion: PkgJson.version,
