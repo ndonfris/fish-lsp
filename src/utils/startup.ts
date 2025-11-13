@@ -254,8 +254,10 @@ export async function timeServerStartup(
 ): Promise<void> {
   // define a local server instance
   let server: FishServer | undefined;
-
+  // fix the start path if a relative path is given
   const startPath = fixupStartPath(opts.workspacePath);
+  // silence the logger for initial timing operations
+  logger.setSilent(true);
 
   if (opts.warning && !opts.timeOnly) {
     // Title - centered
@@ -292,7 +294,7 @@ export async function timeServerStartup(
     // This prevents them from polluting stdout during timing operations
     const { Writable } = await import('stream');
     const nullStream = new Writable({
-      write(chunk, encoding, callback) {
+      write(_chunk, _encoding, callback) {
         callback(); // Discard the data
       },
     });
