@@ -394,10 +394,9 @@ export default class FishServer {
     counts: { [path: string]: number; };
   }> {
     const supportsProgress = this.initializeParams.capabilities.window?.workDoneProgress;
-    logger.log('Progress support:', supportsProgress);
+    logger.log(`Progress support: ${supportsProgress}`);
     logger.log('onInitialized', params);
-    connection.console.log('onInitialized fired');
-    logger.log({ 'server.onInitialized': 'fired' });
+    logger.log('onInitialized fired');
     logger.info('SERVER INITIALIZED', {
       buildPath: PkgJson.path,
       buildVersion: PkgJson.version,
@@ -430,7 +429,7 @@ export default class FishServer {
       logger.info('Starting background analysis in onInitialized');
 
       const progress = await ProgressNotification.create('onInitialized');
-      connection.console.log('Progress created');
+      logger.log('Progress created');
 
       // Begin progress immediately
       progress.begin('[fish-lsp] analyzing workspaces', 0);
