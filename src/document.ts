@@ -402,6 +402,17 @@ export class LspDocument implements TextDocument {
     );
   }
 
+  /**
+   * @TODO check that this correctly handles range creation for both starting and ending positions
+   * If this doesn't work as expected, we could alternatively create the range manually with
+   * `getRange(analyzedDocument.root)`
+   */
+  get fileRange(): Range {
+    const start = Position.create(0, 0);
+    const end = this.positionAt(this.getText().length);
+    return Range.create(start, end);
+  }
+
   hasShebang(): boolean {
     const firstLine = this.getLine(0);
     return firstLine.startsWith('#!');
