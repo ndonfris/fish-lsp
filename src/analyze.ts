@@ -863,9 +863,10 @@ export class Analyzer {
     }
     if (symbol) return [symbol.toLocation()];
 
-    // This is currently the only location where `config.fish_lsp_single_workspace_support` is used.
-    // It allows users to go-to-definition on commands that are not in the current workspace.
-    if (!config.fish_lsp_single_workspace_support && workspaceManager.current) {
+    // allow execCommandLocations to provide location for command when no other
+    // definition has been found. Previously, config.fish_lsp_single_workspace_support
+    // was used to prevent this case from being hit but now we always allow it.
+    if (workspaceManager.current) {
       const node = this.nodeAtPoint(document.uri, position.line, position.character);
       if (node && isCommandName(node)) {
         const text = node.text.toString();
