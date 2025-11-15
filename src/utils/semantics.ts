@@ -137,7 +137,7 @@ export const SemanticTokenTypes = {
 export type SemanticTokenType = (typeof SemanticTokenTypes)[keyof typeof SemanticTokenTypes];
 
 export const SemanticTokenModifiers = {
-  ['local']: "local",                    // Local scope variables/functions
+  ['local']: 'local',                    // Local scope variables/functions
   ['inherit']: 'inherit',                // Inherited variables
   ['function']: 'function',              // Function modifier
   ['global']: 'global',                  // Global scope variables/functions
@@ -163,11 +163,9 @@ export namespace FishSemanticTokens {
   export const legend: SemanticTokensLegend = {
     tokenTypes: Object.values(SemanticTokenTypes),
     tokenModifiers: Object.values(SemanticTokenModifiers),
-  }
+  };
 
 }
-
-
 
 /**
  * Standard LSP semantic token modifiers
