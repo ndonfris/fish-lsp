@@ -4,14 +4,15 @@ import * as LSP from 'vscode-languageserver';
 import { logger } from './logger';
 import { FishSymbol } from './parsing/symbol';
 import { flattenNested } from './utils/flatten';
-import { createTokensFromMatches, getTextMatchPositions, getTokenTypeIndex, getVariableModifiers, SemanticToken, SemanticTokenTypes } from './utils/semantics';
+import { calculateModifiersMask, createTokensFromMatches, FISH_SEMANTIC_TOKENS_LEGEND, getTextMatchPositions, getVariableModifiers, SemanticToken, SemanticTokenModifier, FishSemanticTokens } from './utils/semantics';
 import { isCommandName, isCommandWithName, isEndStdinCharacter, isShebang, isVariableExpansion } from './utils/node-types';
 import { LspDocument } from './document';
-import { ModifierTypes, TokenTypes } from './semantic-tokens';
 import { BuiltInList } from './utils/builtins';
 import { isDiagnosticComment } from './diagnostics/comments-handler';
 import { getRange, isNodeWithinRange } from './utils/tree-sitter';
-import { rangeContainsSyntaxNode } from './parsing/equality-utils';
+import { getSymbolModifiers } from './parsing/symbol-modifiers';
+import { PrebuiltDocumentationMap } from './utils/snippets';
+import { AutoloadedPathVariables } from './utils/process-env';
 
 /**
  * We only want to return the semantic tokens that clients aren't highlighting, since
@@ -35,16 +36,30 @@ import { rangeContainsSyntaxNode } from './parsing/equality-utils';
  * how they would like to handle them.
  */
 
+/**
+ * Convert modifier names to bitmask, filtering out unsupported modifiers.
+ */
+function modifiersToBitmask(modifiers: SemanticTokenModifier[]): number {
+  return modifiers.reduce((mask, mod) => {
+    const idx = FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.indexOf(mod);
+    return idx >= 0 ? mask | (1 << idx) : mask;
+  }, 0);
+}
+
 function symbolToSemanticToken(symbol: FishSymbol): SemanticToken | null {
   if (symbol.isFunction()) {
+    // Get modifiers from the symbol using getSymbolModifiers
+    // This filters to only supported modifiers (no autoloaded, not-autoloaded, script, etc.)
+    const mods = getSymbolModifiers(symbol);
+
     // Highlight alias names as functions (the alias name itself, not the 'alias' keyword)
     // The 'alias' keyword is handled by the keyword handler
     return {
       line: symbol.selectionRange.start.line,
       startChar: symbol.selectionRange.start.character,
       length: symbol.selectionRange.end.character - symbol.selectionRange.start.character,
-      tokenType: getTokenTypeIndex(SemanticTokenTypes.function),
-      tokenModifiers: 0,
+      tokenType: FishSemanticTokens.types.function,
+      tokenModifiers: modifiersToBitmask(mods),
     };
   } else if (symbol.isVariable()) {
     // Use selectionRange which excludes the $ prefix
@@ -56,28 +71,81 @@ function symbolToSemanticToken(symbol: FishSymbol): SemanticToken | null {
       return null;
     }
 
+    // Get modifiers from the symbol
+    const mods = getSymbolModifiers(symbol);
+
     return {
       line: symbol.selectionRange.start.line,
       startChar,
       length,
-      tokenType: getTokenTypeIndex(SemanticTokenTypes.variable),
-      tokenModifiers: 0,
+      tokenType: FishSemanticTokens.types.variable,
+      tokenModifiers: modifiersToBitmask(mods),
     };
   }
   return null;
 }
 
-const isKeyword = (n: SyntaxNode) => [
-  ...BuiltInList,
-  'in', // for loop keyword: "for item in list"
-].includes(n.type) || isCommandWithName(n, 'alias');
+/**
+ * Structural keywords that modify control flow or define blocks.
+ * These are highlighted as keywords, not functions.
+ */
+const STRUCTURAL_KEYWORDS = [
+  'function', 'end',
+  'if', 'else',
+  'for', 'while', 'in',
+  'switch', 'case',
+  'and', 'or', 'not',
+  'break', 'continue', 'return', 'exit',
+  'begin',
+  'alias',
+];
 
-const isCommandCall = (n: SyntaxNode) => {
-  if (isKeyword(n)) return false;
-  // Don't match [ test command here - it has special handling
-  if (isCommandWithName(n, '[')) return false;
-  if (isCommandName(n)) return true;
+/**
+ * Check if a node is a structural keyword.
+ * These are block-modifying keywords like `if`, `for`, `function`, etc.
+ */
+const isStructuralKeyword = (n: SyntaxNode): boolean => {
+  // Direct node type match (e.g., 'function', 'end', 'in')
+  if (STRUCTURAL_KEYWORDS.includes(n.type)) {
+    return true;
+  }
+
+  // For command nodes, check the command name
+  if (n.type === 'command' || isCommandName(n)) {
+    const cmdName = n.type === 'command' && n.firstNamedChild
+      ? n.firstNamedChild.text
+      : n.text;
+    return STRUCTURAL_KEYWORDS.includes(cmdName);
+  }
+
   return false;
+};
+
+/**
+ * Check if a command is a builtin function (not a structural keyword).
+ * These are commands from `builtin -n` that aren't structural keywords.
+ * Examples: echo, set, path, source, fish_key_reader
+ */
+const isBuiltinFunction = (n: SyntaxNode): boolean => {
+  if (n.type !== 'command') return false;
+
+  const cmdName = n.firstNamedChild;
+  if (!cmdName) return false;
+
+  // Must be in builtin list and NOT a structural keyword
+  return BuiltInList.includes(cmdName.text) && !STRUCTURAL_KEYWORDS.includes(cmdName.text);
+};
+
+/**
+ * Check if a command is a user-defined or fish-shipped function call.
+ * Excludes structural keywords and builtin functions.
+ */
+const isUserFunction = (n: SyntaxNode): boolean => {
+  if (n.type !== 'command') return false;
+  if (isStructuralKeyword(n)) return false;
+  if (isBuiltinFunction(n)) return false;
+  if (isCommandWithName(n, '[')) return false; // Special handling for bracket test
+  return true;
 };
 
 const isBracketTestCommand = (n: SyntaxNode) => isCommandWithName(n, '[');
@@ -90,7 +158,7 @@ const nodeToTokenHandler: NodeToToken[] = [
   // `#!/usr/bin/env fish`
   [isShebang, (n, ctx) => {
     ctx.tokens.push(
-      SemanticToken.fromNode(n, TokenTypes.decorator, ModifierTypes.decorator),
+      SemanticToken.fromNode(n, FishSemanticTokens.types.decorator, 0),
     );
   }],
 
@@ -99,8 +167,8 @@ const nodeToTokenHandler: NodeToToken[] = [
     ctx.tokens.push(
       ...createTokensFromMatches(
         getTextMatchPositions(n, /@fish-lsp-(enable|disable)(?:-next-line)?/g),
-        TokenTypes.keyword,
-        ModifierTypes.keyword,
+        FishSemanticTokens.types.keyword,
+        0,
       ),
     );
   }],
@@ -115,7 +183,7 @@ const nodeToTokenHandler: NodeToToken[] = [
       const openBracket = firstChild.firstChild;
       if (openBracket && openBracket.type === '[') {
         ctx.tokens.push(
-          SemanticToken.fromNode(openBracket, TokenTypes.command, ModifierTypes.command),
+          SemanticToken.fromNode(openBracket, FishSemanticTokens.types.function, calculateModifiersMask('builtin')),
         );
       }
     }
@@ -126,28 +194,76 @@ const nodeToTokenHandler: NodeToToken[] = [
       const closeBracket = lastChild.firstChild;
       if (closeBracket && closeBracket.type === ']') {
         ctx.tokens.push(
-          SemanticToken.fromNode(closeBracket, TokenTypes.command, ModifierTypes.command),
+          SemanticToken.fromNode(closeBracket, FishSemanticTokens.types.function, calculateModifiersMask('builtin')),
         );
       }
     }
   }],
 
-  // built-in keywords: `if`, `else`, `for`, etc.
-  [isKeyword, (n, ctx) => {
+  // Structural keywords: `if`, `for`, `function`, `alias`, etc.
+  [isStructuralKeyword, (n, ctx) => {
     // For command nodes, only highlight the first child (the keyword itself)
     // For non-command nodes (like standalone keywords), highlight the whole node
     const targetNode = n.type === 'command' && n.firstNamedChild ? n.firstNamedChild : n;
     ctx.tokens.push(
-      SemanticToken.fromNode(targetNode, TokenTypes.keyword, ModifierTypes.keyword),
+      SemanticToken.fromNode(targetNode, FishSemanticTokens.types.keyword, 0),
     );
   }],
 
-  // command calls (excluding [ test command which has special handling above)
-  [isCommandCall, (n, ctx) => {
+  // Builtin functions: `echo`, `set`, `path`, `source`, etc.
+  // These are commands from `builtin -n` but not structural keywords
+  [isBuiltinFunction, (n, ctx) => {
     const cmd = n.firstNamedChild;
     if (!cmd) return;
     ctx.tokens.push(
-      SemanticToken.fromNode(cmd, TokenTypes.command, ModifierTypes.command),
+      SemanticToken.fromNode(cmd, FishSemanticTokens.types.function, calculateModifiersMask('builtin')),
+    );
+  }],
+
+  // User-defined or fish-shipped function calls
+  [isUserFunction, (n, ctx) => {
+    const cmd = n.firstNamedChild;
+    if (!cmd) return;
+
+    // Look up the function symbol to get its modifiers
+    let modifiers = 0;
+    const localSymbols = analyzer.cache.getFlatDocumentSymbols(ctx.document.uri);
+    const funcSymbol = localSymbols.find(s => s.isFunction() && s.name === cmd.text);
+
+    if (funcSymbol) {
+      // Use getSymbolModifiers and filter to supported modifiers
+      const mods = getSymbolModifiers(funcSymbol).filter(m =>
+        FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.includes(m as any)
+      );
+      modifiers = modifiersToBitmask(mods);
+    } else {
+      // Check global symbols
+      const globalSymbols = analyzer.globalSymbols.find(cmd.text);
+      const globalFunc = globalSymbols.find(s => s.isFunction());
+      if (globalFunc) {
+        const mods = getSymbolModifiers(globalFunc).filter(m =>
+          FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.includes(m as any)
+        );
+        modifiers = modifiersToBitmask(mods);
+      } else {
+        // Check if it's a fish-shipped function
+        const fishShippedDocs = PrebuiltDocumentationMap.getByName(cmd.text);
+        const isFishShipped = fishShippedDocs.some(doc => doc.type === 'function');
+        if (isFishShipped) {
+          modifiers = calculateModifiersMask('defaultLibrary');
+        } else {
+          // Last resort: check if this could be an autoloaded function
+          // by searching fish_function_path directories
+          const autoloadedPath = AutoloadedPathVariables.findAutoloadedFunctionPath(cmd.text);
+          if (autoloadedPath) {
+            modifiers = calculateModifiersMask('global');
+          }
+        }
+      }
+    }
+
+    ctx.tokens.push(
+      SemanticToken.fromNode(cmd, FishSemanticTokens.types.function, modifiers),
     );
   }],
 
@@ -159,7 +275,7 @@ const nodeToTokenHandler: NodeToToken[] = [
     ctx.tokens.push(
       ...createTokensFromMatches(
         getTextMatchPositions(n, /[^$]+/),
-        TokenTypes.variable,
+        FishSemanticTokens.types.variable,
         modifiers,
       ),
     );
@@ -168,7 +284,14 @@ const nodeToTokenHandler: NodeToToken[] = [
   // special end-of-stdin character `--`
   [isEndStdinCharacter, (n, ctx) => {
     ctx.tokens.push(
-      SemanticToken.fromNode(n, TokenTypes.operator, ModifierTypes.operator),
+      SemanticToken.fromNode(n, FishSemanticTokens.types.operator, 0),
+    );
+  }],
+
+  // number literals: integers and floats
+  [(n) => n.type === 'integer' || n.type === 'float', (n, ctx) => {
+    ctx.tokens.push(
+      SemanticToken.fromNode(n, FishSemanticTokens.types.number, 0),
     );
   }],
 
@@ -247,7 +370,7 @@ class SemanticTokenContext {
     private seenTokens: Map<string, SemanticToken> = new Map<string, SemanticToken>(),
   ) { }
 
-  public static create({document, tokens = []}: {
+  public static create({ document, tokens = [] }: {
     document: LspDocument;
     tokens?: SemanticToken[];
   }): SemanticTokenContext {
@@ -370,7 +493,7 @@ export function semanticTokenHandler(params: SemanticTokensParams): LSP.Semantic
   }
 
   /* handle our 2 use cases */
-  
+
   if (Semantics.params.isRange(params)) {
     return getSemanticTokensSimplest(cachedDoc, params.range);
   } else if (Semantics.params.isFull(params)) {

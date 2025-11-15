@@ -5,7 +5,7 @@ import { CompleteOptions } from './complete';
 import { FunctionOptions, FunctionVariableOptions } from './function';
 import { FishSymbolKind } from './symbol-kinds';
 import { Option } from './options';
-import { FishSemanticTokenModifier, FishSemanticTokenType } from '../utils/semantics';
+import { SemanticTokenModifier, SemanticTokenType } from '../utils/semantics';
 import { FishSymbol } from './symbol';
 
 export const SymbolModifiers: Record<FishSymbolKind, Option[]> = {
@@ -24,10 +24,10 @@ export const SymbolModifiers: Record<FishSymbolKind, Option[]> = {
   INLINE_VARIABLE: [Option.create('-x', '--export')],
 };
 
-function getSetReadModifiers(symbol: FishSymbol): FishSemanticTokenModifier[] {
+function getSetReadModifiers(symbol: FishSymbol): SemanticTokenModifier[] {
   const options: Option[] = symbol.options || [];
-  const result = new Set<FishSemanticTokenModifier>();
-  result.add(symbol.scopeTag as FishSemanticTokenModifier);
+  const result = new Set<SemanticTokenModifier>();
+  result.add(symbol.scopeTag as SemanticTokenModifier);
   for (const opt of options) {
     if (opt.isOption('-g', '--global')) {
       result.add('global');
@@ -46,7 +46,7 @@ function getSetReadModifiers(symbol: FishSymbol): FishSemanticTokenModifier[] {
     }
   }
   if (!result.has(symbol.scopeTag)) {
-    result.add(symbol.scopeTag as FishSemanticTokenModifier);
+    result.add(symbol.scopeTag as SemanticTokenModifier);
   }
   if (result.size === 0) {
     result.add('local');
@@ -54,17 +54,17 @@ function getSetReadModifiers(symbol: FishSymbol): FishSemanticTokenModifier[] {
   return Array.from([...result]);
 }
 
-export const scopeTagToModifierMap: Record<string, FishSemanticTokenModifier> = {
-  global: 'global',
-  local: 'local',
-  universal: 'universal',
-  function: 'function',
-  inherit: 'inherit',
+export const scopeTagToModifierMap: Record<string, SemanticTokenModifier> = {
+  'global': 'global',
+  'local': 'local',
+  'universal': 'universal',
+  'function': 'function',
+  'inherit': 'inherit',
 };
 
-export function getSymbolModifiers(symbol: FishSymbol): FishSemanticTokenModifier[] {
+export function getSymbolModifiers(symbol: FishSymbol): SemanticTokenModifier[] {
   // const mods: FishSemanticTokenModifier[] = ['definition'];
-  const mods: FishSemanticTokenModifier[] = [];
+  const mods: SemanticTokenModifier[] = [];
   switch (symbol.fishKind) {
     case 'SET':
     case 'READ':
@@ -75,9 +75,9 @@ export function getSymbolModifiers(symbol: FishSymbol): FishSemanticTokenModifie
         && symbol.document.isAutoloaded()
         && symbol.name === symbol.document.getAutoLoadName()
       ) {
-        mods.push('global', 'autoloaded');
+        mods.push('global', /*'autoloaded'*/);
       } else if (symbol.isLocal() && symbol.document.isAutoloadedUri()) {
-        mods.push('local', 'not-autoloaded');
+        mods.push('local', /*'not-autoloaded'*/);
       } else if (symbol.isLocal()) {
         mods.push('local');
       }
@@ -91,7 +91,7 @@ export function getSymbolModifiers(symbol: FishSymbol): FishSemanticTokenModifie
       return [...mods, 'local'];
     case 'ALIAS':
       if (symbol.document.isAutoloaded() && symbol.scope.scopeTag === 'global') mods.push('global');
-      mods.push('script');
+      mods.push(/*'script'*/);
       return mods;
     case 'EXPORT':
       return [...mods, 'global', 'export'];
@@ -121,7 +121,7 @@ export function getSymbolModifiers(symbol: FishSymbol): FishSemanticTokenModifie
   }
 }
 
-export const FishSymbolToSemanticToken: Record<FishSymbolKind, FishSemanticTokenType> = {
+export const FishSymbolToSemanticToken: Record<FishSymbolKind, SemanticTokenType> = {
   SET: 'variable',
   READ: 'variable',
   FOR: 'variable',

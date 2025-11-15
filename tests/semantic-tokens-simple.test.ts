@@ -15,12 +15,22 @@ import {
   findTokensByText,
   findTokensByType,
   expectTokenExists,
+  printTokens,
   type DecodedToken,
 } from './semantic-tokens-helpers';
 import FishServer from '../src/server';
 import { connection, startServer } from '../src/utils/startup';
 import { getSemanticTokensSimplest, semanticTokenHandler } from '../src/semantic-tokens-simple';
 import { getRange } from '../src/utils/tree-sitter';
+import { PrebuiltDocumentationMap } from '../src/utils/snippets';
+import { CompletionItemMap } from '../src/utils/completion/startup-cache';
+import { FishCompletionItemKind } from '../src/utils/completion/types';
+import { logger } from '../src/logger';
+import { pathToUri } from '../src/utils/translation';
+import { existsSync } from 'fs';
+import { setLogger } from './helpers';
+import { join } from 'path';
+setLogger();
 
 /**
  * Test suite for the simplified semantic token handler.
@@ -159,6 +169,21 @@ end
 set -g DATA_DIR /var/data
 process -- $DATA_DIR/input.txt $DATA_DIR/output.txt
 `),
+  TestFile.completion('source_fish', `
+complete -c source_fish -s f -l force -d 'Force reload of fish config'
+complete -c source_fish -s h -l help -d 'Show help'
+complete -c source_fish -s q -l quiet -d 'Silence'
+complete -c source_fish -l no-parse -d 'Skip parsing check'
+complete -c source_fish -l sleep -d 'Add sleep delay'
+complete -c source_fish -s e -l edit -d 'Edit ~/.config/fish/{functions,completions}/source_fish.fish files'
+`),
+  TestFile.completion('deployctl', `
+complete -c deployctl -s s -l stage -d 'Stage to target'
+complete -c deployctl -s r -l region -d 'Region to deploy'
+complete -c deployctl -s f -l force -d 'Skip confirmation'
+complete -c deployctl -l dry-run -d 'Preview actions'
+complete -c deployctl -l retries -d 'Retry count'
+`),
 ).initialize();
 
 describe('Simplified Semantic Tokens', () => {
@@ -170,6 +195,8 @@ describe('Simplified Semantic Tokens', () => {
   let operators_doc: LspDocument;
   let commands_doc: LspDocument;
   let mixed_doc: LspDocument;
+  let source_completion_doc: LspDocument;
+  let deploy_completion_doc: LspDocument;
 
   beforeAll(async () => {
     await Analyzer.initialize();
@@ -186,6 +213,8 @@ describe('Simplified Semantic Tokens', () => {
     operators_doc = testWorkspace.getDocument('operators.fish')!;
     commands_doc = testWorkspace.getDocument('commands.fish')!;
     mixed_doc = testWorkspace.getDocument('mixed.fish')!;
+    source_completion_doc = testWorkspace.getDocument('completions/source_fish.fish')!;
+    deploy_completion_doc = testWorkspace.getDocument('completions/deployctl.fish')!;
   });
 
   describe('SETUP', () => {
@@ -1478,6 +1507,114 @@ set incomplete`;
       const result = semanticTokenHandler(params);
       expect(result.data).toBeDefined();
       expect(result.data.length).toBe(0);
+    });
+  });
+
+  describe('complete', () => {
+    const logCompletionTokens = (label: string, doc: LspDocument) => {
+      const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
+      if (!analyzed) {
+        logger.warning(`[semantic-tokens.complete:${label}]`, 'document not analyzed');
+        return;
+      }
+      const result = getSemanticTokensSimplest(analyzed, getRange(analyzed.root));
+      const tokens = decodeSemanticTokens(result, doc.getText());
+      logger.log(
+        `[semantic-tokens.complete:${label}]`,
+        tokens.map(token => ({
+          line: token.line,
+          startChar: token.startChar,
+          text: token.text,
+          type: token.tokenType,
+          modifiers: token.modifiers,
+        })),
+      );
+      printTokens(tokens, `complete:${label}`);
+    };
+
+    it('logs tokens for source_fish completions file', () => {
+      logCompletionTokens('source_fish', source_completion_doc);
+    });
+
+    it('logs tokens for deployctl completions file', () => {
+      logCompletionTokens('deployctl', deploy_completion_doc);
+    });
+  });
+
+  describe('function.defaultLibrary', () => {
+    const functionNamesToCheck = [
+      'fish_add_path',
+      'fish_config',
+      'fish_default_key_bindings',
+      'fish_mode_prompt',
+      'fish_opt',
+      'fish_prompt',
+      'fish_title',
+      'fish_update_completions',
+      'fish_vcs_prompt',
+      '__fish_print_help',
+      '__fish_contains_opt',
+      'isatty',
+      'open',
+    ];
+    const fishFunctionsDir = '/usr/share/fish/functions';
+    let prebuiltCommandNames: Set<string> = new Set();
+    let analyzerSymbolNames: Set<string> = new Set();
+    let startupCompletionMap: CompletionItemMap | null = null;
+
+    const logCoverage = (source: string, predicate: (name: string) => boolean) => {
+      functionNamesToCheck.forEach(name => {
+        const found = predicate(name);
+        console.log(`[function.defaultLibrary:${source}]`, { name, found });
+      });
+    };
+
+    beforeAll(async () => {
+      prebuiltCommandNames = new Set(
+        PrebuiltDocumentationMap.getByType('command').map(entry => entry.name),
+      );
+      PrebuiltDocumentationMap.getByType('command').map(entry => console.log(entry.name)),
+
+        functionNamesToCheck.forEach(name => {
+          const fsPath = join(fishFunctionsDir, `${name}.fish`);
+        if (!existsSync(fsPath)) {
+          console.warn(`[function.defaultLibrary] missing file: ${fsPath}`);
+          return;
+        }
+        analyzer.analyzePath(pathToUri(fsPath));
+        });
+
+      analyzerSymbolNames = new Set(analyzer.globalSymbols.allNames);
+
+      try {
+        startupCompletionMap = await CompletionItemMap.initialize();
+      } catch (error) {
+        console.error('[function.defaultLibrary] CompletionItemMap.initialize failed', error);
+      }
+    });
+
+    it('logs PrebuiltDocumentationMap command coverage', () => {
+      logCoverage('prebuilt', name => prebuiltCommandNames.has(name));
+    });
+
+    it('logs analyzer global symbol coverage', () => {
+      logCoverage('analyzer', name => analyzerSymbolNames.has(name));
+    });
+
+    it('logs completion startup cache coverage', () => {
+      if (!startupCompletionMap) {
+        logger.warning('[function.defaultLibrary:startup-cache] Completion map unavailable');
+        return;
+      }
+      logCoverage('startup-cache', name =>
+        Boolean(
+          startupCompletionMap?.findLabel(
+            name,
+            FishCompletionItemKind.FUNCTION,
+            FishCompletionItemKind.BUILTIN,
+          ),
+        ),
+      );
     });
   });
 

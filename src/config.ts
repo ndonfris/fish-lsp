@@ -1,12 +1,12 @@
 import { z } from 'zod';
-import { Connection, FormattingOptions, InitializeParams, InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
+import { Connection, FormattingOptions, InitializeParams, InitializeResult, SemanticTokens, TextDocumentSyncKind } from 'vscode-languageserver';
 import { createServerLogger, logger } from './logger';
 import { PrebuiltDocumentationMap, EnvVariableJson } from './utils/snippets';
 import { AllSupportedActions } from './code-actions/action-kinds';
 import { LspCommands } from './command';
 import { PackageVersion, SubcommandEnv } from './utils/commander-cli-subcommands';
 import { ErrorCodes } from './diagnostics/error-codes';
-import { FISH_SEMANTIC_TOKENS_LEGEND } from './utils/semantics';
+import { FishSemanticTokens } from './utils/semantics';
 
 /********************************************
  **********  Handlers/Providers   ***********
@@ -628,7 +628,7 @@ export namespace Config {
         documentHighlightProvider: configHandlers.highlight,
         inlayHintProvider: configHandlers.inlayHint,
         semanticTokensProvider: configHandlers.semanticTokens ? {
-          legend: FISH_SEMANTIC_TOKENS_LEGEND,
+          legend: FishSemanticTokens.legend,
           range: true,
           full: { delta: false },
         } : undefined,

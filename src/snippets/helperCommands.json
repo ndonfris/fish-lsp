@@ -224,6 +224,10 @@
     "description": "output Subversion information for use in a prompt"
   },
   {
+    "name": "fish_tab_title",
+    "description": "define the terminal tab’s title"
+  },
+  {
     "name": "fish_title",
     "description": "define the terminal’s title"
   },
