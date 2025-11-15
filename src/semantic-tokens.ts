@@ -29,7 +29,7 @@ import { AutoloadedPathVariables } from './utils/process-env';
  *   - Special comments:
  *      - Disable diagnostics comments: `# @fish-lsp-disable ...`
  *      - Shebangs: `#!/usr/bin/env fish`
- * 
+ *
  * We really don't care about modifier support at this time. Since we've already worked
  * pretty significantly to resolve these correctly directly from a FishSymbol, we can
  * determine what/which modifiers to include once more language clients clarify
@@ -42,7 +42,7 @@ import { AutoloadedPathVariables } from './utils/process-env';
 function modifiersToBitmask(modifiers: SemanticTokenModifier[]): number {
   return modifiers.reduce((mask, mod) => {
     const idx = FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.indexOf(mod);
-    return idx >= 0 ? mask | (1 << idx) : mask;
+    return idx >= 0 ? mask | 1 << idx : mask;
   }, 0);
 }
 
@@ -233,7 +233,7 @@ const nodeToTokenHandler: NodeToToken[] = [
     if (funcSymbol) {
       // Use getSymbolModifiers and filter to supported modifiers
       const mods = getSymbolModifiers(funcSymbol).filter(m =>
-        FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.includes(m as any)
+        FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.includes(m as any),
       );
       modifiers = modifiersToBitmask(mods);
     } else {
@@ -242,7 +242,7 @@ const nodeToTokenHandler: NodeToToken[] = [
       const globalFunc = globalSymbols.find(s => s.isFunction());
       if (globalFunc) {
         const mods = getSymbolModifiers(globalFunc).filter(m =>
-          FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.includes(m as any)
+          FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.includes(m as any),
         );
         modifiers = modifiersToBitmask(mods);
       } else {
@@ -298,7 +298,6 @@ const nodeToTokenHandler: NodeToToken[] = [
 ];
 
 export function getSemanticTokensSimplest(analyzedDoc: EnsuredAnalyzeDocument, range: LSP.Range) {
-
   const nodes = analyzer.getNodes(analyzedDoc.document.uri);
   const symbols = flattenNested(...analyzedDoc.documentSymbols);
 
@@ -329,7 +328,6 @@ export function getSemanticTokensSimplest(analyzedDoc: EnsuredAnalyzeDocument, r
       continue;
     }
     // ^^^ consider avoiding this till the end to limit runtime complexity? ^^^
-
 
     nodeToTokenHandler.find(([isMatch, toToken]) => {
       if (isMatch(node)) {
@@ -472,19 +470,17 @@ export namespace Semantics {
     },
     isRange(params: SemanticTokensParams): params is LSP.SemanticTokensRangeParams {
       return (params as LSP.SemanticTokensRangeParams).range !== undefined;
-    }
+    },
   };
   export const response = {
     empty: (): LSP.SemanticTokens => ({ data: [] }),
   };
 }
 
-
 /**
  * Main handler for semantic token requests.
  */
 export function semanticTokenHandler(params: SemanticTokensParams): LSP.SemanticTokens {
-
   // retrieve the analyzed document for the requested URI
   const cachedDoc = analyzer.cache.getDocument(params.textDocument.uri)?.ensureParsed();
   if (!cachedDoc) {
