@@ -55,11 +55,11 @@ function getSetReadModifiers(symbol: FishSymbol): SemanticTokenModifier[] {
 }
 
 export const scopeTagToModifierMap: Record<string, SemanticTokenModifier> = {
-  'global': 'global',
-  'local': 'local',
-  'universal': 'universal',
-  'function': 'function',
-  'inherit': 'inherit',
+  global: 'global',
+  local: 'local',
+  universal: 'universal',
+  function: 'function',
+  inherit: 'inherit',
 };
 
 export function getSymbolModifiers(symbol: FishSymbol): SemanticTokenModifier[] {
@@ -75,9 +75,9 @@ export function getSymbolModifiers(symbol: FishSymbol): SemanticTokenModifier[] 
         && symbol.document.isAutoloaded()
         && symbol.name === symbol.document.getAutoLoadName()
       ) {
-        mods.push('global', /*'autoloaded'*/);
+        mods.push('global' /*'autoloaded'*/);
       } else if (symbol.isLocal() && symbol.document.isAutoloadedUri()) {
-        mods.push('local', /*'not-autoloaded'*/);
+        mods.push('local' /*'not-autoloaded'*/);
       } else if (symbol.isLocal()) {
         mods.push('local');
       }

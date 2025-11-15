@@ -1,3 +1,5 @@
+import { join } from 'path';
+import { existsSync } from 'fs';
 import { PrebuiltDocumentationMap } from './snippets';
 import { md } from './markdown-builder';
 import { env } from './env-manager';
@@ -170,9 +172,6 @@ export namespace AutoloadedPathVariables {
    * @returns The absolute path to the function file, or null if not found
    */
   export function findAutoloadedFunctionPath(functionName: string): string | null {
-    const { existsSync } = require('fs');
-    const { join } = require('path');
-
     // Get all function paths from fish_function_path
     const functionPaths = get('fish_function_path');
 

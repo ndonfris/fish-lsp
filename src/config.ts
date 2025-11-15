@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Connection, FormattingOptions, InitializeParams, InitializeResult, SemanticTokens, TextDocumentSyncKind } from 'vscode-languageserver';
+import { Connection, FormattingOptions, InitializeParams, InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
 import { createServerLogger, logger } from './logger';
 import { PrebuiltDocumentationMap, EnvVariableJson } from './utils/snippets';
 import { AllSupportedActions } from './code-actions/action-kinds';
