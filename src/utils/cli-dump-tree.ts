@@ -5,8 +5,8 @@ import { SyncFileHelper } from './file-operations';
 import path from 'path';
 import chalk from 'chalk';
 import { CommanderSubcommand } from './commander-cli-subcommands';
-import { provideSemanticTokens } from '../semantic-tokens';
-import { FISH_SEMANTIC_TOKENS_LEGEND } from './semantics';
+import { semanticTokenHandler } from '../semantic-tokens-simple';
+import { FISH_SEMANTIC_TOKENS_LEGEND, FishSemanticTokens } from './semantics';
 import { createInterface } from 'node:readline';
 import { startServer } from './startup';
 
@@ -334,7 +334,7 @@ function formatSemanticTokens(data: number[], source: string, useColors: boolean
   }
 
   const lines = source.split('\n');
-  const legend = FISH_SEMANTIC_TOKENS_LEGEND;
+  const legend = FishSemanticTokens.legend;
   const results: string[] = [];
 
   // Semantic tokens are encoded as a flat array of integers
@@ -401,8 +401,10 @@ function formatSemanticTokens(data: number[], source: string, useColors: boolean
 export function debugSemanticTokens(document: LspDocument, useColors: boolean = true): SemanticTokensOutput {
   const source = document.getText();
 
-  // Get semantic tokens for the document
-  const semanticTokens = provideSemanticTokens(document);
+  // Get semantic tokens for the document using the simplified handler
+  const semanticTokens = semanticTokenHandler({
+    textDocument: { uri: document.uri },
+  });
 
   // Format the semantic tokens into a readable string
   const tokens = formatSemanticTokens(semanticTokens.data, source, useColors);

@@ -28,7 +28,7 @@ import { enrichToMarkdown, handleBraceExpansionHover, handleEndStdinHover, handl
 import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getDefaultSignatures, getFunctionSignatureHelp, isRegexStringSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
-import { semanticTokensHandlerCallback } from './semantic-tokens';
+import { semanticTokenHandler } from './semantic-tokens-simple';
 import { buildCommentCompletions } from './utils/completion/comment-completions';
 import { codeActionHandlers } from './code-actions/code-action-handler';
 import { createExecuteCommandHandler } from './command';
@@ -238,8 +238,8 @@ export default class FishServer {
     // setup handlers
     const { onCodeAction } = codeActionHandlers(documents, analyzer);
     const documentHighlightHandler = getDocumentHighlights(analyzer);
-    // Semantic tokens handler using tree-sitter queries
-    const { semanticTokensHandler, semanticTokensRangeHandler } = semanticTokensHandlerCallback();
+    // Semantic tokens handler using simplified unified handler
+    // The semanticTokenHandler handles both full document and range requests internally
     const commandCallback = createExecuteCommandHandler(connection, documents, analyzer);
 
     // register the handlers
@@ -273,8 +273,8 @@ export default class FishServer {
 
     connection.onDocumentHighlight(documentHighlightHandler);
     connection.languages.inlayHint.on(this.onInlayHints.bind(this));
-    connection.languages.semanticTokens.on(semanticTokensHandler);
-    connection.languages.semanticTokens.onRange(semanticTokensRangeHandler);
+    connection.languages.semanticTokens.on(semanticTokenHandler);
+    connection.languages.semanticTokens.onRange(semanticTokenHandler);
 
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.onExecuteCommand(commandCallback);

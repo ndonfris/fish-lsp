@@ -7,14 +7,17 @@ import localeVariablesJson from '../snippets/localeVariables.json';
 import specialVariablesJson from '../snippets/specialFishVariables.json';
 import pipeCharactersJson from '../snippets/pipesAndRedirects.json';
 import fishlspEnvVariablesJson from '../snippets/fishlspEnvVariables.json';
+import functionsJson from '../snippets/functions.json';
 import { md } from './markdown-builder';
 
 interface BaseJson {
   name: string;
   description: string;
+  file?: string;        // Optional: path to function definition file
+  flags?: string[];     // Optional: function flags/options
 }
 
-type JsonType = 'command' | 'pipe' | 'status' | 'variable';
+type JsonType = 'command' | 'function' | 'pipe' | 'status' | 'variable';
 type SpecialType = 'fishlsp' | 'env' | 'locale' | 'special' | 'theme';
 type AllTypes = JsonType | SpecialType;
 
@@ -316,6 +319,14 @@ const allData: ExtendedBaseJson[] = [
   ...envVariablesJson.map((item: BaseJson) => ExtendedBaseJson.create(item, 'variable', 'env')),
   ...localeVariablesJson.map((item: BaseJson) => ExtendedBaseJson.create(item, 'variable', 'locale')),
   ...specialVariablesJson.map((item: BaseJson) => ExtendedBaseJson.create(item, 'variable', 'special')),
+  // Fish-shipped functions from functions.json (transform to BaseJson structure)
+  // Preserve file and flags fields for browser/tooling use
+  ...functionsJson.map((item: any) => ExtendedBaseJson.create({
+    name: item.name,
+    description: item.description || `Fish function: ${item.name}`,
+    file: item.file,
+    flags: item.flags,
+  }, 'function')),
 ];
 
 export const PrebuiltDocumentationMap = new DocumentationMap(allData);

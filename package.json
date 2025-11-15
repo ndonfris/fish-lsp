@@ -105,6 +105,7 @@
     "all-contributors": "npx -s -y all-contributors-cli -c .all-contributorsrc",
     "generate:commands": "tsx ./scripts/fish-commands-scrapper.ts --write-to-snippets || true",
     "generate:commands:check": "tsx ./scripts/fish-commands-scrapper.ts",
+    "generate:snippets": "tsx ./scripts/fish-commands-scrapper.ts",
     "create:man:dir": "mkdir -p ./man",
     "generate:man": "run-s create:man:dir generate:man:actual",
     "generate:man:cat": "npx marked-man --date \"$(date)\"  --manual fish-lsp --section 1 -i ./docs/MAN_FILE.md -o ./man/fish-lsp.1 2>/dev/null",
