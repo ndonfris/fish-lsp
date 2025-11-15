@@ -20,7 +20,7 @@ import {
 } from './semantic-tokens-helpers';
 import FishServer from '../src/server';
 import { connection, startServer } from '../src/utils/startup';
-import { getSemanticTokensSimplest, semanticTokenHandler } from '../src/semantic-tokens-simple';
+import { getSemanticTokensSimplest, semanticTokenHandler } from '../src/semantic-tokens';
 import { getRange } from '../src/utils/tree-sitter';
 import { PrebuiltDocumentationMap } from '../src/utils/snippets';
 import { CompletionItemMap } from '../src/utils/completion/startup-cache';
@@ -245,7 +245,7 @@ describe('Simplified Semantic Tokens', () => {
 
       const shebangToken = expectTokenExists(tokens, {
         text: '#!/usr/bin/env fish',
-        tokenType: 'decorator'
+        tokenType: 'decorator',
       });
       expect(shebangToken).toBeDefined();
       expect(shebangToken.line).toBe(0);
@@ -257,7 +257,7 @@ describe('Simplified Semantic Tokens', () => {
         uri: 'test://no-shebang.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -277,7 +277,7 @@ describe('Simplified Semantic Tokens', () => {
       const tokens = decodeSemanticTokens(result, diagnostics_doc.getText());
 
       const disableTokens = tokens.filter(t =>
-        t.text?.includes('@fish-lsp-disable') && t.tokenType === 'keyword'
+        t.text?.includes('@fish-lsp-disable') && t.tokenType === 'keyword',
       );
       expect(disableTokens.length).toBeGreaterThan(0);
     });
@@ -288,7 +288,7 @@ describe('Simplified Semantic Tokens', () => {
       const tokens = decodeSemanticTokens(result, diagnostics_doc.getText());
 
       const enableTokens = tokens.filter(t =>
-        t.text?.includes('@fish-lsp-enable') && t.tokenType === 'keyword'
+        t.text?.includes('@fish-lsp-enable') && t.tokenType === 'keyword',
       );
       expect(enableTokens.length).toBeGreaterThan(0);
     });
@@ -299,7 +299,7 @@ describe('Simplified Semantic Tokens', () => {
       const tokens = decodeSemanticTokens(result, diagnostics_doc.getText());
 
       const nextLineTokens = tokens.filter(t =>
-        t.text?.includes('@fish-lsp-disable-next-line') && t.tokenType === 'keyword'
+        t.text?.includes('@fish-lsp-disable-next-line') && t.tokenType === 'keyword',
       );
       expect(nextLineTokens.length).toBeGreaterThan(0);
     });
@@ -311,7 +311,7 @@ describe('Simplified Semantic Tokens', () => {
 
       // Regular comments should not appear as keyword tokens
       const regularCommentTokens = tokens.filter(t =>
-        t.text === '# Regular comment' && t.tokenType === 'keyword'
+        t.text === '# Regular comment' && t.tokenType === 'keyword',
       );
       expect(regularCommentTokens.length).toBe(0);
     });
@@ -362,12 +362,12 @@ describe('Simplified Semantic Tokens', () => {
     });
 
     it('should highlight else if keyword combination', () => {
-      const content = `if true; echo 'stuff...'; else if true || false; echo 'in else if'; else; echo 'in else...'; end`;
+      const content = 'if true; echo \'stuff...\'; else if true || false; echo \'in else if\'; else; echo \'in else...\'; end';
       const doc = new LspDocument({
         uri: 'test://else-if.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -414,7 +414,7 @@ describe('Simplified Semantic Tokens', () => {
         uri: 'test://alias.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -433,7 +433,7 @@ describe('Simplified Semantic Tokens', () => {
         uri: 'test://logical-ops.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -459,7 +459,7 @@ describe('Simplified Semantic Tokens', () => {
         uri: 'test://not-op.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -486,7 +486,7 @@ describe('Simplified Semantic Tokens', () => {
         uri: 'test://alias-def.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -511,7 +511,7 @@ describe('Simplified Semantic Tokens', () => {
         uri: 'test://alias-quoted.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -538,7 +538,7 @@ alias gp="git push"`;
         uri: 'test://aliases-multiple.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -567,7 +567,7 @@ alias gp="git push"`;
         uri: 'test://alias-space.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -592,7 +592,7 @@ alias gp="git push"`;
         uri: 'test://alias-complex.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -618,7 +618,7 @@ myalias`;
         uri: 'test://alias-usage.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -664,7 +664,7 @@ myalias`;
         uri: 'test://export-var.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -692,7 +692,7 @@ export LANG=en_US.UTF-8`;
         uri: 'test://exports-multiple.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -720,7 +720,7 @@ export LANG=en_US.UTF-8`;
         uri: 'test://export-quoted.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -744,7 +744,7 @@ export LANG=en_US.UTF-8`;
         uri: 'test://export-expansion.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -793,7 +793,7 @@ export LANG=en_US.UTF-8`;
         uri: 'test://nested-var.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -813,7 +813,7 @@ export LANG=en_US.UTF-8`;
         uri: 'test://for-loop-var.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -846,7 +846,7 @@ export LANG=en_US.UTF-8`;
         uri: 'test://for-loop-multi.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -884,7 +884,7 @@ export LANG=en_US.UTF-8`;
         uri: 'test://func-args.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -948,7 +948,7 @@ export LANG=en_US.UTF-8`;
         uri: 'test://bracket-test.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -974,7 +974,7 @@ export LANG=en_US.UTF-8`;
         uri: 'test://bracket-dir-test.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -993,7 +993,7 @@ export LANG=en_US.UTF-8`;
         uri: 'test://bracket-string-test.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -1015,7 +1015,7 @@ export LANG=en_US.UTF-8`;
         uri: 'test://array-index.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -1045,7 +1045,7 @@ export LANG=en_US.UTF-8`;
         uri: 'test://multiple-brackets.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -1067,7 +1067,7 @@ export LANG=en_US.UTF-8`;
         uri: 'test://bracket-if.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -1093,7 +1093,7 @@ export LANG=en_US.UTF-8`;
         uri: 'test://cmd-sub-parens.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -1123,7 +1123,7 @@ export LANG=en_US.UTF-8`;
         uri: 'test://cmd-sub-dollar.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -1149,7 +1149,7 @@ export LANG=en_US.UTF-8`;
         uri: 'test://cmd-sub-nested.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -1183,7 +1183,7 @@ export LANG=en_US.UTF-8`;
         uri: 'test://nested-test.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -1216,7 +1216,7 @@ export LANG=en_US.UTF-8`;
         uri: 'test://deeply-nested.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -1241,7 +1241,7 @@ export LANG=en_US.UTF-8`;
         uri: 'test://var-in-cmd-sub.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -1275,7 +1275,7 @@ export LANG=en_US.UTF-8`;
       const tokens = decodeSemanticTokens(result, operators_doc.getText());
 
       const operatorTokens = tokens.filter(t =>
-        t.text === '--' && t.tokenType === 'operator'
+        t.text === '--' && t.tokenType === 'operator',
       );
       expect(operatorTokens.length).toBeGreaterThan(0);
     });
@@ -1288,7 +1288,7 @@ set -- args a b c`;
         uri: 'test://operators-context.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -1297,7 +1297,7 @@ set -- args a b c`;
       const tokens = decodeSemanticTokens(result, content);
 
       const operatorTokens = tokens.filter(t =>
-        t.text === '--' && t.tokenType === 'operator'
+        t.text === '--' && t.tokenType === 'operator',
       );
       // Should have at least one -- operator token
       expect(operatorTokens.length).toBeGreaterThan(0);
@@ -1398,7 +1398,7 @@ set -- args a b c`;
         uri: 'test://empty.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -1420,7 +1420,7 @@ set -- args a b c`;
         uri: 'test://comments-only.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -1442,7 +1442,7 @@ set incomplete`;
         uri: 'test://syntax-error.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -1461,7 +1461,7 @@ set incomplete`;
         uri: 'test://long-var.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -1575,14 +1575,14 @@ set incomplete`;
       );
       PrebuiltDocumentationMap.getByType('command').map(entry => console.log(entry.name)),
 
-        functionNamesToCheck.forEach(name => {
-          const fsPath = join(fishFunctionsDir, `${name}.fish`);
+      functionNamesToCheck.forEach(name => {
+        const fsPath = join(fishFunctionsDir, `${name}.fish`);
         if (!existsSync(fsPath)) {
           console.warn(`[function.defaultLibrary] missing file: ${fsPath}`);
           return;
         }
         analyzer.analyzePath(pathToUri(fsPath));
-        });
+      });
 
       analyzerSymbolNames = new Set(analyzer.globalSymbols.allNames);
 
@@ -1628,7 +1628,7 @@ test_func`;
         uri: 'test://dedup.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
@@ -1654,7 +1654,7 @@ echo $my_var`;
         uri: 'test://symbol-node.fish',
         languageId: 'fish',
         version: 1,
-        text: content
+        text: content,
       });
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();

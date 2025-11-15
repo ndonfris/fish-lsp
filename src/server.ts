@@ -28,7 +28,7 @@ import { enrichToMarkdown, handleBraceExpansionHover, handleEndStdinHover, handl
 import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getDefaultSignatures, getFunctionSignatureHelp, isRegexStringSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
-import { semanticTokenHandler } from './semantic-tokens-simple';
+import { semanticTokenHandler } from './semantic-tokens';
 import { buildCommentCompletions } from './utils/completion/comment-completions';
 import { codeActionHandlers } from './code-actions/code-action-handler';
 import { createExecuteCommandHandler } from './command';

@@ -5,7 +5,7 @@ import { SyncFileHelper } from './file-operations';
 import path from 'path';
 import chalk from 'chalk';
 import { CommanderSubcommand } from './commander-cli-subcommands';
-import { semanticTokenHandler } from '../semantic-tokens-simple';
+import { semanticTokenHandler } from '../semantic-tokens';
 import { FISH_SEMANTIC_TOKENS_LEGEND, FishSemanticTokens } from './semantics';
 import { createInterface } from 'node:readline';
 import { startServer } from './startup';
