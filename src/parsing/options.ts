@@ -321,6 +321,128 @@ export class Option {
     }
     return '';
   }
+
+  /**
+   * Parses a flag string from functions.json into an OptionParseResult
+   *
+   * The input format from the scraper preserves quotes:
+   * - "--description 'multi word desc'"
+   * - '-d "another description"'
+   * - "--argument-names arg1 arg2 arg3"
+   * - "-a 'quoted arg' unquoted"
+   *
+   * @param input The flag string to parse
+   * @returns Parsed result with option and value(s), or undefined if no match
+   */
+  parseString(input: string): OptionParseResult | undefined {
+    if (!input || input.toString().trim() === '') return;
+
+    // Extract flag and value parts using smart tokenization
+    const tokens = this.tokenizePreservingQuotes(input);
+    if (tokens.length === 0) return;
+
+    const flagPart = tokens[0];
+    if (!flagPart || !this.getAllFlags().includes(flagPart)) return;
+
+    const valueParts = tokens.slice(1);
+
+    if (this.acceptsMultipleArguments) {
+      // Return array of values (with quotes stripped)
+      return {
+        option: this,
+        value: valueParts.map(v => this.stripQuotes(v)),
+      };
+    } else if (this.requiresArgument || this.optionalArgument) {
+      // Return single value (with quotes stripped if present)
+      if (valueParts.length === 0) {
+        return {
+          option: this,
+          value: null,
+        };
+      }
+      // If there's a quoted value, use it as-is (stripped)
+      // Otherwise join all parts
+      const firstValue = valueParts[0];
+      if (this.isQuoted(firstValue)) {
+        return {
+          option: this,
+          value: this.stripQuotes(firstValue),
+        };
+      }
+      return {
+        option: this,
+        value: valueParts.join(' '),
+      };
+    } else {
+      // Switch option (no value)
+      return {
+        option: this,
+        value: null,
+      };
+    }
+  }
+
+  /**
+   * Tokenizes a string while preserving quoted sections
+   * "foo 'bar baz' qux" -> ["foo", "'bar baz'", "qux"]
+   */
+  private tokenizePreservingQuotes(input: string): string[] {
+    const tokens: string[] = [];
+    let current = '';
+    let quote: string | null = null;
+
+    for (let i = 0; i < input.length; i++) {
+      const char = input[i];
+
+      if (quote) {
+        current += char;
+        if (char === quote && (i === 0 || input[i - 1] !== '\\')) {
+          quote = null;
+        }
+      } else if (char === '"' || char === "'") {
+        if (current && current.trim()) {
+          tokens.push(current.trim());
+          current = '';
+        }
+        current = char;
+        quote = char;
+      } else if (char === ' ') {
+        if (current.trim()) {
+          tokens.push(current.trim());
+          current = '';
+        }
+      } else {
+        current += char;
+      }
+    }
+
+    if (current.trim()) {
+      tokens.push(current.trim());
+    }
+
+    return tokens;
+  }
+
+  /**
+   * Checks if a string is quoted
+   */
+  private isQuoted(str?: string): boolean {
+    if (!str || str.length < 2) return false;
+    return (
+      str.startsWith('"') && str.endsWith('"') ||
+      str.startsWith("'") && str.endsWith("'")
+    );
+  }
+
+  /**
+   * Strips surrounding quotes from a string
+   */
+  private stripQuotes(str: string): string {
+    if (this.isQuoted(str)) {
+      return str.slice(1, -1);
+    }
+    return str;
+  }
 }
 
 export type OptionValueMatch = {
@@ -426,4 +548,19 @@ export function isMatchingOptionValue(node: SyntaxNode, ...options: Option[]): b
     return options.some(option => option.matchesValue(node));
   }
   return false;
+}
+
+export interface OptionParseResult {
+  option: Option;
+  value: string | string[] | null;
+}
+
+export function convertStringToOption(input: string, opts: Option[]): OptionParseResult | undefined {
+  for (const option of opts) {
+    const parsed = option.parseString(input);
+    if (parsed) {
+      return parsed;
+    }
+  }
+  return undefined;
 }

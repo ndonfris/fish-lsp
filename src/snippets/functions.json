@@ -1,68 +1,67 @@
 [
   {
     "name": "__fish_any_arg_in",
-    "file": "$__fish_data_dir/functions/__fish_any_arg_in.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_any_arg_in.fish"
   },
   {
     "name": "__fish_anyeditor",
-    "file": "$__fish_data_dir/functions/__fish_anyeditor.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_anyeditor.fish"
   },
   {
     "name": "__fish_anypager",
     "file": "$__fish_data_dir/functions/__fish_anypager.fish",
     "flags": [
-      "--description Print a pager to use"
+      "--description \"Print a pager to use\""
     ],
     "description": "Print a pager to use"
   },
   {
     "name": "__fish_anypython",
-    "file": "$__fish_data_dir/functions/__fish_anypython.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_anypython.fish"
   },
   {
     "name": "__fish_append",
     "file": "$__fish_data_dir/functions/__fish_append.fish",
     "flags": [
-      "-d Internal completion function for appending string to the commandline",
+      "-d \"Internal completion function for appending string to the commandline\"",
       "--argument-names sep"
     ],
     "description": "Internal completion function for appending string to the commandline"
   },
   {
     "name": "__fish_apropos",
-    "file": "$__fish_data_dir/functions/__fish_apropos.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_apropos.fish"
   },
   {
     "name": "__fish_argcomplete_complete",
-    "file": "$__fish_data_dir/functions/__fish_argcomplete_complete.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_argcomplete_complete.fish"
   },
   {
     "name": "__fish_cache_put",
-    "file": "$__fish_data_dir/functions/__fish_cache_put.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_cache_put.fish"
   },
   {
     "name": "__fish_cache_sourced_completions",
-    "file": "$__fish_data_dir/functions/__fish_cache_sourced_completions.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_cache_sourced_completions.fish"
   },
   {
     "name": "__fish_cached",
     "file": "$__fish_data_dir/functions/__fish_cached.fish",
     "flags": [
-      "--description Cache the command output for a given amount of time"
+      "--description \"Cache the command output for a given amount of time\""
     ],
     "description": "Cache the command output for a given amount of time"
   },
   {
     "name": "__fish_cancel_commandline",
-    "file": "$__fish_data_dir/functions/__fish_cancel_commandline.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_cancel_commandline.fish"
+  },
+  {
+    "name": "__fish_canonicalize_builtin",
+    "file": "$__fish_data_dir/functions/__fish_canonicalize_builtin.fish",
+    "flags": [
+      "-a cmd"
+    ]
   },
   {
     "name": "__fish_change_key_bindings",
@@ -73,14 +72,13 @@
   },
   {
     "name": "__fish_cmd__complete_args",
-    "file": "$__fish_data_dir/functions/__fish_cmd__complete_args.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_cmd__complete_args.fish"
   },
   {
     "name": "__fish_commandline_is_singlequoted",
     "file": "$__fish_data_dir/functions/__fish_commandline_is_singlequoted.fish",
     "flags": [
-      "--description Return 0 if the current token has an open single-quote"
+      "--description \"Return 0 if the current token has an open single-quote\""
     ],
     "description": "Return 0 if the current token has an open single-quote"
   },
@@ -88,38 +86,35 @@
     "name": "__fish_complete_atool_archive_contents",
     "file": "$__fish_data_dir/functions/__fish_complete_atool_archive_contents.fish",
     "flags": [
-      "--description List archive contents"
+      "--description 'List archive contents'"
     ],
     "description": "List archive contents"
   },
   {
     "name": "__fish_complete_bittorrent",
-    "file": "$__fish_data_dir/functions/__fish_complete_bittorrent.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_complete_bittorrent.fish"
   },
   {
     "name": "__fish_complete_blockdevice",
-    "file": "$__fish_data_dir/functions/__fish_complete_blockdevice.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_complete_blockdevice.fish"
   },
   {
     "name": "__fish_complete_cd",
     "file": "$__fish_data_dir/functions/__fish_complete_cd.fish",
     "flags": [
-      "-d Completions for the cd command"
+      "-d \"Completions for the cd command\""
     ],
     "description": "Completions for the cd command"
   },
   {
     "name": "__fish_complete_clang",
-    "file": "$__fish_data_dir/functions/__fish_complete_clang.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_complete_clang.fish"
   },
   {
     "name": "__fish_complete_command",
     "file": "$__fish_data_dir/functions/__fish_complete_command.fish",
     "flags": [
-      "--description Complete using all available commands"
+      "--description 'Complete using all available commands'"
     ],
     "description": "Complete using all available commands"
   },
@@ -127,7 +122,7 @@
     "name": "__fish_complete_convert_options",
     "file": "$__fish_data_dir/functions/__fish_complete_convert_options.fish",
     "flags": [
-      "--description Complete Convert options",
+      "--description 'Complete Convert options'",
       "--argument-names what"
     ],
     "description": "Complete Convert options"
@@ -136,8 +131,8 @@
     "name": "__fish_complete_directories",
     "file": "$__fish_data_dir/functions/__fish_complete_directories.fish",
     "flags": [
-      "-d Complete directory prefixes",
-      "--argument-names comp"
+      "-d \"Complete directory prefixes\"",
+      "--argument-names comp desc"
     ],
     "description": "Complete directory prefixes"
   },
@@ -152,7 +147,7 @@
     "name": "__fish_complete_freedesktop_icons",
     "file": "$__fish_data_dir/functions/__fish_complete_freedesktop_icons.fish",
     "flags": [
-      "-d List installed icon names according to `https://specifications.freedesktop.org/icon-theme-spec/0.13/`"
+      "-d 'List installed icon names according to `https://specifications.freedesktop.org/icon-theme-spec/0.13/`'"
     ],
     "description": "List installed icon names according to `https://specifications.freedesktop.org/icon-theme-spec/0.13/`"
   },
@@ -174,8 +169,8 @@
     "name": "__fish_complete_gpg_key_id",
     "file": "$__fish_data_dir/functions/__fish_complete_gpg_key_id.fish",
     "flags": [
-      "-d Complete using gpg key ids",
-      "-a __fish_complete_gpg_command"
+      "-d 'Complete using gpg key ids'",
+      "-a __fish_complete_gpg_command list_arg"
     ],
     "description": "Complete using gpg key ids"
   },
@@ -183,8 +178,8 @@
     "name": "__fish_complete_gpg_user_id",
     "file": "$__fish_data_dir/functions/__fish_complete_gpg_user_id.fish",
     "flags": [
-      "-d Complete using gpg user ids",
-      "-a __fish_complete_gpg_command"
+      "-d \"Complete using gpg user ids\"",
+      "-a __fish_complete_gpg_command list_arg"
     ],
     "description": "Complete using gpg user ids"
   },
@@ -192,7 +187,7 @@
     "name": "__fish_complete_group_ids",
     "file": "$__fish_data_dir/functions/__fish_complete_group_ids.fish",
     "flags": [
-      "--description Complete group IDs with group name as description"
+      "--description \"Complete group IDs with group name as description\""
     ],
     "description": "Complete group IDs with group name as description"
   },
@@ -200,7 +195,7 @@
     "name": "__fish_complete_groups",
     "file": "$__fish_data_dir/functions/__fish_complete_groups.fish",
     "flags": [
-      "--description Print a list of local groups, with group members as the description"
+      "--description \"Print a list of local groups, with group members as the description\""
     ],
     "description": "Print a list of local groups, with group members as the description"
   },
@@ -208,7 +203,7 @@
     "name": "__fish_complete_job_pids",
     "file": "$__fish_data_dir/functions/__fish_complete_job_pids.fish",
     "flags": [
-      "--description Print a list of job PIDs and their commands"
+      "--description \"Print a list of job PIDs and their commands\""
     ],
     "description": "Print a list of job PIDs and their commands"
   },
@@ -216,14 +211,14 @@
     "name": "__fish_complete_list",
     "file": "$__fish_data_dir/functions/__fish_complete_list.fish",
     "flags": [
-      "--argument-names div"
+      "--argument-names div cmd prefix iprefix"
     ]
   },
   {
     "name": "__fish_complete_lpr",
     "file": "$__fish_data_dir/functions/__fish_complete_lpr.fish",
     "flags": [
-      "-d Complete lpr common options",
+      "-d 'Complete lpr common options'",
       "--argument-names cmd"
     ],
     "description": "Complete lpr common options"
@@ -232,48 +227,43 @@
     "name": "__fish_complete_lpr_option",
     "file": "$__fish_data_dir/functions/__fish_complete_lpr_option.fish",
     "flags": [
-      "--description Complete lpr option"
+      "--description 'Complete lpr option'"
     ],
     "description": "Complete lpr option"
   },
   {
     "name": "__fish_complete_magick",
-    "file": "$__fish_data_dir/functions/__fish_complete_magick.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_complete_magick.fish"
   },
   {
     "name": "__fish_complete_man",
-    "file": "$__fish_data_dir/functions/__fish_complete_man.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_complete_man.fish"
   },
   {
     "name": "__fish_complete_netcat",
-    "file": "$__fish_data_dir/functions/__fish_complete_netcat.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_complete_netcat.fish"
   },
   {
     "name": "__fish_complete_path",
     "file": "$__fish_data_dir/functions/__fish_complete_path.fish",
     "flags": [
-      "--description Complete using path"
+      "--description \"Complete using path\""
     ],
     "description": "Complete using path"
   },
   {
     "name": "__fish_complete_pg_database",
-    "file": "$__fish_data_dir/functions/__fish_complete_pg_database.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_complete_pg_database.fish"
   },
   {
     "name": "__fish_complete_pg_user",
-    "file": "$__fish_data_dir/functions/__fish_complete_pg_user.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_complete_pg_user.fish"
   },
   {
     "name": "__fish_complete_pgrep",
     "file": "$__fish_data_dir/functions/__fish_complete_pgrep.fish",
     "flags": [
-      "-d Complete pgrep/pkill",
+      "-d 'Complete pgrep/pkill'",
       "--argument-names cmd"
     ],
     "description": "Complete pgrep/pkill"
@@ -282,7 +272,7 @@
     "name": "__fish_complete_pids",
     "file": "$__fish_data_dir/functions/__fish_complete_pids.fish",
     "flags": [
-      "-d Print a list of process identifiers along with brief descriptions"
+      "-d \"Print a list of process identifiers along with brief descriptions\""
     ],
     "description": "Print a list of process identifiers along with brief descriptions"
   },
@@ -290,20 +280,19 @@
     "name": "__fish_complete_ppp_peer",
     "file": "$__fish_data_dir/functions/__fish_complete_ppp_peer.fish",
     "flags": [
-      "--description Complete isp name for pon/poff"
+      "--description 'Complete isp name for pon/poff'"
     ],
     "description": "Complete isp name for pon/poff"
   },
   {
     "name": "__fish_complete_proc",
-    "file": "$__fish_data_dir/functions/__fish_complete_proc.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_complete_proc.fish"
   },
   {
     "name": "__fish_complete_ssh",
     "file": "$__fish_data_dir/functions/__fish_complete_ssh.fish",
     "flags": [
-      "-d common completions for ssh commands",
+      "-d \"common completions for ssh commands\"",
       "--argument-names command"
     ],
     "description": "common completions for ssh commands"
@@ -312,7 +301,7 @@
     "name": "__fish_complete_subcommand",
     "file": "$__fish_data_dir/functions/__fish_complete_subcommand.fish",
     "flags": [
-      "-d Complete subcommand",
+      "-d \"Complete subcommand\"",
       "--no-scope-shadowing"
     ],
     "description": "Complete subcommand"
@@ -321,7 +310,7 @@
     "name": "__fish_complete_suffix",
     "file": "$__fish_data_dir/functions/__fish_complete_suffix.fish",
     "flags": [
-      "-d Complete using files"
+      "-d \"Complete using files\""
     ],
     "description": "Complete using files"
   },
@@ -329,7 +318,7 @@
     "name": "__fish_complete_user_at_hosts",
     "file": "$__fish_data_dir/functions/__fish_complete_user_at_hosts.fish",
     "flags": [
-      "-d Print list host-names with user@"
+      "-d \"Print list host-names with user@\""
     ],
     "description": "Print list host-names with user@"
   },
@@ -337,7 +326,7 @@
     "name": "__fish_complete_user_ids",
     "file": "$__fish_data_dir/functions/__fish_complete_user_ids.fish",
     "flags": [
-      "--description Complete user IDs with user name as description"
+      "--description \"Complete user IDs with user name as description\""
     ],
     "description": "Complete user IDs with user name as description"
   },
@@ -345,43 +334,39 @@
     "name": "__fish_complete_users",
     "file": "$__fish_data_dir/functions/__fish_complete_users.fish",
     "flags": [
-      "--description Print a list of local users, with the real user name as a description"
+      "--description \"Print a list of local users, with the real user name as a description\""
     ],
     "description": "Print a list of local users, with the real user name as a description"
   },
   {
     "name": "__fish_complete_zfs_mountpoint_properties",
-    "file": "$__fish_data_dir/functions/__fish_complete_zfs_mountpoint_properties.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_complete_zfs_mountpoint_properties.fish"
   },
   {
     "name": "__fish_complete_zfs_pools",
     "file": "$__fish_data_dir/functions/__fish_complete_zfs_pools.fish",
     "flags": [
-      "-d Completes with available ZFS pools"
+      "-d \"Completes with available ZFS pools\""
     ],
     "description": "Completes with available ZFS pools"
   },
   {
     "name": "__fish_complete_zfs_ro_properties",
-    "file": "$__fish_data_dir/functions/__fish_complete_zfs_ro_properties.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_complete_zfs_ro_properties.fish"
   },
   {
     "name": "__fish_complete_zfs_rw_properties",
-    "file": "$__fish_data_dir/functions/__fish_complete_zfs_rw_properties.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_complete_zfs_rw_properties.fish"
   },
   {
     "name": "__fish_complete_zfs_write_once_properties",
-    "file": "$__fish_data_dir/functions/__fish_complete_zfs_write_once_properties.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_complete_zfs_write_once_properties.fish"
   },
   {
     "name": "__fish_concat_completions",
     "file": "$__fish_data_dir/functions/__fish_concat_completions.fish",
     "flags": [
-      "-d Generate completions that are specified as comma-separated values from stdin source"
+      "-d \"Generate completions that are specified as comma-separated values from stdin source\""
     ],
     "description": "Generate completions that are specified as comma-separated values from stdin source"
   },
@@ -389,7 +374,7 @@
     "name": "__fish_config_interactive",
     "file": "$__fish_data_dir/functions/__fish_config_interactive.fish",
     "flags": [
-      "-d Initializations that should be performed when entering interactive mode"
+      "-d \"Initializations that should be performed when entering interactive mode\""
     ],
     "description": "Initializations that should be performed when entering interactive mode"
   },
@@ -397,7 +382,7 @@
     "name": "__fish_contains_opt",
     "file": "$__fish_data_dir/functions/__fish_contains_opt.fish",
     "flags": [
-      "-d Checks if a specific option has been given in the current commandline"
+      "-d \"Checks if a specific option has been given in the current commandline\""
     ],
     "description": "Checks if a specific option has been given in the current commandline"
   },
@@ -405,7 +390,7 @@
     "name": "__fish_crux_packages",
     "file": "$__fish_data_dir/functions/__fish_crux_packages.fish",
     "flags": [
-      "-d Obtain a list of installed packages"
+      "-d 'Obtain a list of installed packages'"
     ],
     "description": "Obtain a list of installed packages"
   },
@@ -413,7 +398,7 @@
     "name": "__fish_cursor_konsole",
     "file": "$__fish_data_dir/functions/__fish_cursor_konsole.fish",
     "flags": [
-      "-d Set cursor (konsole)"
+      "-d 'Set cursor (konsole)'"
     ],
     "description": "Set cursor (konsole)"
   },
@@ -421,26 +406,36 @@
     "name": "__fish_cursor_xterm",
     "file": "$__fish_data_dir/functions/__fish_cursor_xterm.fish",
     "flags": [
-      "-d Set cursor (xterm)"
+      "-d 'Set cursor (xterm)'"
     ],
     "description": "Set cursor (xterm)"
   },
   {
+    "name": "__fish_data_list_files",
+    "file": "$__fish_data_dir/functions/__fish_data_list_files.fish"
+  },
+  {
+    "name": "__fish_data_with_directory",
+    "file": "$__fish_data_dir/functions/__fish_data_with_directory.fish"
+  },
+  {
+    "name": "__fish_data_with_file",
+    "file": "$__fish_data_dir/functions/__fish_data_with_file.fish"
+  },
+  {
     "name": "__fish_default_command_not_found_handler",
-    "file": "$__fish_data_dir/functions/fish_command_not_found.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/fish_command_not_found.fish"
   },
   {
     "name": "__fish_describe_command",
-    "file": "$__fish_data_dir/functions/__fish_describe_command.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_describe_command.fish"
   },
   {
     "name": "__fish_echo",
     "file": "$__fish_data_dir/functions/__fish_echo.fish",
     "flags": [
-      "--inherit-variable erase_line",
-      "--description run the given command after the current commandline and redraw the prompt"
+      "--inherit-variable erase_to_end_of_screen",
+      "--description 'run the given command after the current commandline and redraw the prompt'"
     ],
     "description": "run the given command after the current commandline and redraw the prompt"
   },
@@ -448,25 +443,23 @@
     "name": "__fish_edit_command_if_at_cursor",
     "file": "$__fish_data_dir/functions/__fish_edit_command_if_at_cursor.fish",
     "flags": [
-      "--description If cursor is at the command token, edit the command source file"
+      "--description 'If cursor is at the command token, edit the command source file'"
     ],
     "description": "If cursor is at the command token, edit the command source file"
   },
   {
     "name": "__fish_first_token",
-    "file": "$__fish_data_dir/functions/__fish_first_token.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_first_token.fish"
   },
   {
     "name": "__fish_git_prompt",
-    "file": "$__fish_data_dir/functions/__fish_git_prompt.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_git_prompt.fish"
   },
   {
     "name": "__fish_git_prompt_show_upstream",
     "file": "$__fish_data_dir/functions/fish_git_prompt.fish",
     "flags": [
-      "--description Helper function for fish_git_prompt"
+      "--description \"Helper function for fish_git_prompt\""
     ],
     "description": "Helper function for fish_git_prompt"
   },
@@ -474,14 +467,13 @@
     "name": "__fish_gnu_complete",
     "file": "$__fish_data_dir/functions/__fish_gnu_complete.fish",
     "flags": [
-      "-d Wrapper for the complete built-in. Skips the long completions on non-GNU systems"
+      "-d \"Wrapper for the complete built-in. Skips the long completions on non-GNU systems\""
     ],
     "description": "Wrapper for the complete built-in. Skips the long completions on non-GNU systems"
   },
   {
     "name": "__fish_hg_prompt",
-    "file": "$__fish_data_dir/functions/__fish_hg_prompt.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_hg_prompt.fish"
   },
   {
     "name": "__fish_indent",
@@ -493,14 +485,13 @@
   },
   {
     "name": "__fish_is_first_arg",
-    "file": "$__fish_data_dir/functions/__fish_is_first_arg.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_is_first_arg.fish"
   },
   {
     "name": "__fish_is_first_token",
     "file": "$__fish_data_dir/functions/__fish_is_first_token.fish",
     "flags": [
-      "-d Test if no non-switch argument has been specified yet"
+      "-d 'Test if no non-switch argument has been specified yet'"
     ],
     "description": "Test if no non-switch argument has been specified yet"
   },
@@ -508,7 +499,7 @@
     "name": "__fish_is_git_repository",
     "file": "$__fish_data_dir/functions/__fish_is_git_repository.fish",
     "flags": [
-      "--description Check if the current directory is a git repository"
+      "--description 'Check if the current directory is a git repository'"
     ],
     "description": "Check if the current directory is a git repository"
   },
@@ -516,21 +507,27 @@
     "name": "__fish_is_nth_token",
     "file": "$__fish_data_dir/functions/__fish_is_nth_token.fish",
     "flags": [
-      "--description Test if current token is the Nth (ignoring command and switches/flags)",
+      "--description 'Test if current token is the Nth (ignoring command and switches/flags)'",
       "--argument-names n"
     ],
     "description": "Test if current token is the Nth (ignoring command and switches/flags)"
   },
   {
+    "name": "__fish_is_standalone",
+    "file": "$__fish_data_dir/functions/__fish_is_standalone.fish",
+    "flags": [
+      "-V is_standalone"
+    ]
+  },
+  {
     "name": "__fish_is_switch",
-    "file": "$__fish_data_dir/functions/__fish_is_switch.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_is_switch.fish"
   },
   {
     "name": "__fish_is_token_n",
     "file": "$__fish_data_dir/functions/__fish_is_token_n.fish",
     "flags": [
-      "--description Test if current token is on Nth place",
+      "--description 'Test if current token is on Nth place'",
       "--argument-names n"
     ],
     "description": "Test if current token is on Nth place"
@@ -538,21 +535,37 @@
   {
     "name": "__fish_is_zfs_feature_enabled",
     "file": "$__fish_data_dir/functions/__fish_is_zfs_feature_enabled.fish",
-    "flags": []
+    "flags": [
+      "-a feature pool",
+      "-d \"Returns 0 if the given ZFS pool feature is active or enabled for the given pool or for any pool if none specified\""
+    ],
+    "description": "Returns 0 if the given ZFS pool feature is active or enabled for the given pool or for any pool if none specified"
   },
   {
     "name": "__fish_list_current_token",
     "file": "$__fish_data_dir/functions/__fish_list_current_token.fish",
     "flags": [
-      "-d List contents of token under the cursor if it is a directory, otherwise list the contents of the current directory"
+      "-d \"List contents of token under the cursor if it is a directory, otherwise list the contents of the current directory\""
     ],
     "description": "List contents of token under the cursor if it is a directory, otherwise list the contents of the current directory"
+  },
+  {
+    "name": "__fish_locale_vars",
+    "file": "$__fish_data_dir/functions/__fish_locale_vars.fish"
+  },
+  {
+    "name": "__fish_macos_set_env",
+    "file": "$__fish_data_dir/functions/__fish_macos_set_env.fish",
+    "flags": [
+      "-d \"set an environment variable like path_helper does (macOS only)\""
+    ],
+    "description": "set an environment variable like path_helper does (macOS only)"
   },
   {
     "name": "__fish_make_cache_dir",
     "file": "$__fish_data_dir/functions/__fish_make_cache_dir.fish",
     "flags": [
-      "--description Create and return XDG_CACHE_HOME"
+      "--description \"Create and return XDG_CACHE_HOME\""
     ],
     "description": "Create and return XDG_CACHE_HOME"
   },
@@ -560,30 +573,27 @@
     "name": "__fish_make_completion_signals",
     "file": "$__fish_data_dir/functions/__fish_make_completion_signals.fish",
     "flags": [
-      "--description Make list of kill signals for completion"
+      "--description 'Make list of kill signals for completion'"
     ],
     "description": "Make list of kill signals for completion"
   },
   {
     "name": "__fish_man_page",
-    "file": "$__fish_data_dir/functions/__fish_man_page.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_man_page.fish"
   },
   {
     "name": "__fish_md5",
-    "file": "$__fish_data_dir/functions/__fish_md5.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_md5.fish"
   },
   {
     "name": "__fish_mktemp_relative",
-    "file": "$__fish_data_dir/functions/__fish_mktemp_relative.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_mktemp_relative.fish"
   },
   {
     "name": "__fish_move_last",
     "file": "$__fish_data_dir/functions/__fish_move_last.fish",
     "flags": [
-      "-d Move the last element of a directory history from src to dest"
+      "-d \"Move the last element of a directory history from src to dest\""
     ],
     "description": "Move the last element of a directory history from src to dest"
   },
@@ -598,7 +608,7 @@
     "name": "__fish_no_arguments",
     "file": "$__fish_data_dir/functions/__fish_no_arguments.fish",
     "flags": [
-      "-d Internal fish function"
+      "-d \"Internal fish function\""
     ],
     "description": "Internal fish function"
   },
@@ -606,7 +616,7 @@
     "name": "__fish_not_contain_opt",
     "file": "$__fish_data_dir/functions/__fish_not_contain_opt.fish",
     "flags": [
-      "-d Checks that a specific option is not in the current command line"
+      "-d \"Checks that a specific option is not in the current command line\""
     ],
     "description": "Checks that a specific option is not in the current command line"
   },
@@ -614,15 +624,14 @@
     "name": "__fish_nth_token",
     "file": "$__fish_data_dir/functions/__fish_nth_token.fish",
     "flags": [
-      "--description Prints the Nth token (ignoring command and switches/flags)",
+      "--description 'Prints the Nth token (ignoring command and switches/flags)'",
       "--argument-names n"
     ],
     "description": "Prints the Nth token (ignoring command and switches/flags)"
   },
   {
     "name": "__fish_number_of_cmd_args_wo_opts",
-    "file": "$__fish_data_dir/functions/__fish_number_of_cmd_args_wo_opts.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_number_of_cmd_args_wo_opts.fish"
   },
   {
     "name": "__fish_opt_validate_args",
@@ -635,38 +644,35 @@
     "name": "__fish_paginate",
     "file": "$__fish_data_dir/functions/__fish_paginate.fish",
     "flags": [
-      "-d Paginate the current command using the users default pager"
+      "-d \"Paginate the current command using the users default pager\""
     ],
     "description": "Paginate the current command using the users default pager"
   },
   {
     "name": "__fish_parent_directories",
-    "file": "$__fish_data_dir/functions/__fish_parent_directories.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_parent_directories.fish"
   },
   {
     "name": "__fish_paste",
-    "file": "$__fish_data_dir/functions/__fish_paste.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_paste.fish"
   },
   {
     "name": "__fish_prepend_sudo",
     "file": "$__fish_data_dir/functions/__fish_prepend_sudo.fish",
     "flags": [
-      "-d  DEPRECATED: use fish_commandline_prepend instead. Prepend 'sudo ' to the beginning of the current commandline"
+      "-d \" DEPRECATED: use fish_commandline_prepend instead. Prepend 'sudo ' to the beginning of the current commandline\""
     ],
-    "description": "DEPRECATED: use fish_commandline_prepend instead. Prepend 'sudo ' to the beginning of the current commandline"
+    "description": " DEPRECATED: use fish_commandline_prepend instead. Prepend 'sudo ' to the beginning of the current commandline"
   },
   {
     "name": "__fish_prev_arg_in",
-    "file": "$__fish_data_dir/functions/__fish_prev_arg_in.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_prev_arg_in.fish"
   },
   {
     "name": "__fish_preview_current_file",
     "file": "$__fish_data_dir/functions/__fish_preview_current_file.fish",
     "flags": [
-      "--description Open the file at the cursor in a pager"
+      "--description \"Open the file at the cursor in a pager\""
     ],
     "description": "Open the file at the cursor in a pager"
   },
@@ -674,66 +680,59 @@
     "name": "__fish_print_addresses",
     "file": "$__fish_data_dir/functions/__fish_print_addresses.fish",
     "flags": [
-      "--description List own network addresses with interface as description"
+      "--description \"List own network addresses with interface as description\""
     ],
     "description": "List own network addresses with interface as description"
   },
   {
     "name": "__fish_print_apt_packages",
-    "file": "$__fish_data_dir/functions/__fish_print_apt_packages.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_print_apt_packages.fish"
   },
   {
     "name": "__fish_print_cmd_args",
-    "file": "$__fish_data_dir/functions/__fish_print_cmd_args.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_print_cmd_args.fish"
   },
   {
     "name": "__fish_print_cmd_args_without_options",
-    "file": "$__fish_data_dir/functions/__fish_print_cmd_args_without_options.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_print_cmd_args_without_options.fish"
   },
   {
     "name": "__fish_print_commands",
     "file": "$__fish_data_dir/functions/__fish_print_commands.fish",
     "flags": [
-      "--description Print a list of documented fish commands"
+      "--description \"Print a list of documented fish commands\""
     ],
     "description": "Print a list of documented fish commands"
   },
   {
     "name": "__fish_print_debian_apache_confs",
-    "file": "$__fish_data_dir/functions/__fish_print_debian_apache_confs.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_print_debian_apache_confs.fish"
   },
   {
     "name": "__fish_print_debian_apache_mods",
-    "file": "$__fish_data_dir/functions/__fish_print_debian_apache_mods.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_print_debian_apache_mods.fish"
   },
   {
     "name": "__fish_print_debian_apache_sites",
-    "file": "$__fish_data_dir/functions/__fish_print_debian_apache_sites.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_print_debian_apache_sites.fish"
   },
   {
     "name": "__fish_print_encodings",
     "file": "$__fish_data_dir/functions/__fish_print_encodings.fish",
     "flags": [
-      "-d Complete using available character encodings"
+      "-d \"Complete using available character encodings\""
     ],
     "description": "Complete using available character encodings"
   },
   {
     "name": "__fish_print_eopkg_packages",
-    "file": "$__fish_data_dir/functions/__fish_print_eopkg_packages.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_print_eopkg_packages.fish"
   },
   {
     "name": "__fish_print_filesystems",
     "file": "$__fish_data_dir/functions/__fish_print_filesystems.fish",
     "flags": [
-      "-d Print a list of all known filesystem types"
+      "-d \"Print a list of all known filesystem types\""
     ],
     "description": "Print a list of all known filesystem types"
   },
@@ -741,7 +740,7 @@
     "name": "__fish_print_gpg_algo",
     "file": "$__fish_data_dir/functions/__fish_print_gpg_algo.fish",
     "flags": [
-      "-d Complete using all algorithms of the type specified in argv[2] supported by gpg. argv[2] is a regexp",
+      "-d \"Complete using all algorithms of the type specified in argv[2] supported by gpg. argv[2] is a regexp\"",
       "-a __fish_complete_gpg_command"
     ],
     "description": "Complete using all algorithms of the type specified in argv[2] supported by gpg. argv[2] is a regexp"
@@ -750,7 +749,7 @@
     "name": "__fish_print_groups",
     "file": "$__fish_data_dir/functions/__fish_print_groups.fish",
     "flags": [
-      "--description Print a list of local groups"
+      "--description \"Print a list of local groups\""
     ],
     "description": "Print a list of local groups"
   },
@@ -758,7 +757,7 @@
     "name": "__fish_print_help",
     "file": "$__fish_data_dir/functions/__fish_print_help.fish",
     "flags": [
-      "--description Print help for the specified fish function or builtin"
+      "--description \"Print help for the specified fish function or builtin\""
     ],
     "description": "Print help for the specified fish function or builtin"
   },
@@ -766,7 +765,7 @@
     "name": "__fish_print_hostnames",
     "file": "$__fish_data_dir/functions/__fish_print_hostnames.fish",
     "flags": [
-      "-d Print a list of known hostnames"
+      "-d \"Print a list of known hostnames\""
     ],
     "description": "Print a list of known hostnames"
   },
@@ -774,7 +773,7 @@
     "name": "__fish_print_interfaces",
     "file": "$__fish_data_dir/functions/__fish_print_interfaces.fish",
     "flags": [
-      "--description Print a list of known network interfaces"
+      "--description \"Print a list of known network interfaces\""
     ],
     "description": "Print a list of known network interfaces"
   },
@@ -782,7 +781,7 @@
     "name": "__fish_print_lpr_options",
     "file": "$__fish_data_dir/functions/__fish_print_lpr_options.fish",
     "flags": [
-      "--description Print lpr options"
+      "--description 'Print lpr options'"
     ],
     "description": "Print lpr options"
   },
@@ -790,43 +789,39 @@
     "name": "__fish_print_lpr_printers",
     "file": "$__fish_data_dir/functions/__fish_print_lpr_printers.fish",
     "flags": [
-      "--description Print lpr printers"
+      "--description 'Print lpr printers'"
     ],
     "description": "Print lpr printers"
   },
   {
     "name": "__fish_print_modules",
-    "file": "$__fish_data_dir/functions/__fish_print_modules.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_print_modules.fish"
   },
   {
     "name": "__fish_print_mounted",
     "file": "$__fish_data_dir/functions/__fish_print_mounted.fish",
     "flags": [
-      "--description Print mounted devices"
+      "--description 'Print mounted devices'"
     ],
     "description": "Print mounted devices"
   },
   {
     "name": "__fish_print_opkg_packages",
-    "file": "$__fish_data_dir/functions/__fish_print_opkg_packages.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_print_opkg_packages.fish"
   },
   {
     "name": "__fish_print_packages",
-    "file": "$__fish_data_dir/functions/__fish_print_packages.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_print_packages.fish"
   },
   {
     "name": "__fish_print_pacman_packages",
-    "file": "$__fish_data_dir/functions/__fish_print_pacman_packages.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_print_pacman_packages.fish"
   },
   {
     "name": "__fish_print_pacman_repos",
     "file": "$__fish_data_dir/functions/__fish_print_pacman_repos.fish",
     "flags": [
-      "--description Print the repositories configured for arch's pacman package manager"
+      "--description \"Print the repositories configured for arch's pacman package manager\""
     ],
     "description": "Print the repositories configured for arch's pacman package manager"
   },
@@ -834,30 +829,27 @@
     "name": "__fish_print_pipestatus",
     "file": "$__fish_data_dir/functions/__fish_print_pipestatus.fish",
     "flags": [
-      "--description Print pipestatus for prompt"
+      "--description \"Print pipestatus for prompt\""
     ],
     "description": "Print pipestatus for prompt"
   },
   {
     "name": "__fish_print_pkg_add_packages",
-    "file": "$__fish_data_dir/functions/__fish_print_pkg_add_packages.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_print_pkg_add_packages.fish"
   },
   {
     "name": "__fish_print_pkg_packages",
-    "file": "$__fish_data_dir/functions/__fish_print_pkg_packages.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_print_pkg_packages.fish"
   },
   {
     "name": "__fish_print_port_packages",
-    "file": "$__fish_data_dir/functions/__fish_print_port_packages.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_print_port_packages.fish"
   },
   {
     "name": "__fish_print_portage_available_pkgs",
     "file": "$__fish_data_dir/functions/__fish_print_portage_available_pkgs.fish",
     "flags": [
-      "--description Print all available packages"
+      "--description 'Print all available packages'"
     ],
     "description": "Print all available packages"
   },
@@ -865,33 +857,31 @@
     "name": "__fish_print_portage_installed_pkgs",
     "file": "$__fish_data_dir/functions/__fish_print_portage_installed_pkgs.fish",
     "flags": [
-      "--description Print all installed packages (non-deduplicated)"
+      "--description 'Print all installed packages (non-deduplicated)'"
     ],
     "description": "Print all installed packages (non-deduplicated)"
   },
   {
     "name": "__fish_print_portage_packages",
-    "file": "$__fish_data_dir/functions/__fish_print_portage_packages.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_print_portage_packages.fish"
   },
   {
     "name": "__fish_print_portage_repository_paths",
     "file": "$__fish_data_dir/functions/__fish_print_portage_repository_paths.fish",
     "flags": [
-      "--description Print the paths of all configured repositories"
+      "--description 'Print the paths of all configured repositories'"
     ],
     "description": "Print the paths of all configured repositories"
   },
   {
     "name": "__fish_print_rpm_packages",
-    "file": "$__fish_data_dir/functions/__fish_print_rpm_packages.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_print_rpm_packages.fish"
   },
   {
     "name": "__fish_print_service_names",
     "file": "$__fish_data_dir/functions/__fish_print_service_names.fish",
     "flags": [
-      "-d All services known to the system"
+      "-d 'All services known to the system'"
     ],
     "description": "All services known to the system"
   },
@@ -899,33 +889,31 @@
     "name": "__fish_print_svn_rev",
     "file": "$__fish_data_dir/functions/__fish_print_svn_rev.fish",
     "flags": [
-      "--description Print svn revisions"
+      "--description 'Print svn revisions'"
     ],
     "description": "Print svn revisions"
   },
   {
     "name": "__fish_print_user_ids",
-    "file": "$__fish_data_dir/functions/__fish_complete_mount_opts.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_complete_mount_opts.fish"
   },
   {
     "name": "__fish_print_users",
     "file": "$__fish_data_dir/functions/__fish_print_users.fish",
     "flags": [
-      "--description Print a list of local users"
+      "--description \"Print a list of local users\""
     ],
     "description": "Print a list of local users"
   },
   {
     "name": "__fish_print_VBox_vms",
-    "file": "$__fish_data_dir/functions/__fish_print_VBox_vms.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_print_VBox_vms.fish"
   },
   {
     "name": "__fish_print_windows_drives",
     "file": "$__fish_data_dir/functions/__fish_print_windows_drives.fish",
     "flags": [
-      "--description Print Windows drives"
+      "--description 'Print Windows drives'"
     ],
     "description": "Print Windows drives"
   },
@@ -933,20 +921,19 @@
     "name": "__fish_print_windows_users",
     "file": "$__fish_data_dir/functions/__fish_print_windows_users.fish",
     "flags": [
-      "--description Print Windows user names"
+      "--description 'Print Windows user names'"
     ],
     "description": "Print Windows user names"
   },
   {
     "name": "__fish_print_xbps_packages",
-    "file": "$__fish_data_dir/functions/__fish_print_xbps_packages.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_print_xbps_packages.fish"
   },
   {
     "name": "__fish_print_xdg_applications_directories",
     "file": "$__fish_data_dir/functions/__fish_print_xdg_applications_directories.fish",
     "flags": [
-      "--description Print directories where desktop files are stored"
+      "--description 'Print directories where desktop files are stored'"
     ],
     "description": "Print directories where desktop files are stored"
   },
@@ -954,7 +941,7 @@
     "name": "__fish_print_xdg_mimetypes",
     "file": "$__fish_data_dir/functions/__fish_print_xdg_mimetypes.fish",
     "flags": [
-      "--description Print XDG mime types"
+      "--description 'Print XDG mime types'"
     ],
     "description": "Print XDG mime types"
   },
@@ -962,7 +949,7 @@
     "name": "__fish_print_xwindows",
     "file": "$__fish_data_dir/functions/__fish_print_xwindows.fish",
     "flags": [
-      "--description Print X windows"
+      "--description 'Print X windows'"
     ],
     "description": "Print X windows"
   },
@@ -970,74 +957,67 @@
     "name": "__fish_print_zfs_snapshots",
     "file": "$__fish_data_dir/functions/__fish_print_zfs_snapshots.fish",
     "flags": [
-      "-d Lists ZFS snapshots"
+      "-d \"Lists ZFS snapshots\""
     ],
     "description": "Lists ZFS snapshots"
   },
   {
     "name": "__fish_protontricks_complete_appid",
-    "file": "$__fish_data_dir/functions/__fish_protontricks_complete_appid.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_protontricks_complete_appid.fish"
   },
   {
     "name": "__fish_ps",
-    "file": "$__fish_data_dir/functions/__fish_ps.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_ps.fish"
   },
   {
     "name": "__fish_pwd",
     "file": "$__fish_data_dir/functions/__fish_pwd.fish",
     "flags": [
-      "--description Show current path"
+      "--description \"Show current path\""
     ],
     "description": "Show current path"
   },
   {
     "name": "__fish_reg__complete_keys",
-    "file": "$__fish_data_dir/functions/__fish_reg__complete_keys.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_reg__complete_keys.fish"
   },
   {
     "name": "__fish_seen_argument",
     "file": "$__fish_data_dir/functions/__fish_seen_argument.fish",
     "flags": [
-      "--description Check whether argument is used"
+      "--description 'Check whether argument is used'"
     ],
     "description": "Check whether argument is used"
   },
   {
     "name": "__fish_seen_subcommand_from",
-    "file": "$__fish_data_dir/functions/__fish_seen_subcommand_from.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_seen_subcommand_from.fish"
   },
   {
     "name": "__fish_set_locale",
-    "file": "$__fish_data_dir/functions/__fish_set_locale.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_set_locale.fish"
   },
   {
     "name": "__fish_shared_key_bindings",
     "file": "$__fish_data_dir/functions/__fish_shared_key_bindings.fish",
     "flags": [
-      "-d Bindings shared between emacs and vi mode"
+      "-d \"Bindings shared between emacs and vi mode\""
     ],
     "description": "Bindings shared between emacs and vi mode"
   },
   {
     "name": "__fish_should_complete_switches",
-    "file": "$__fish_data_dir/functions/__fish_should_complete_switches.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_should_complete_switches.fish"
   },
   {
     "name": "__fish_svn_prompt",
-    "file": "$__fish_data_dir/functions/__fish_svn_prompt.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_svn_prompt.fish"
   },
   {
     "name": "__fish_svn_prompt_parse_status",
     "file": "$__fish_data_dir/functions/fish_svn_prompt.fish",
     "flags": [
-      "--description helper function that does pretty formatting on svn status"
+      "--description \"helper function that does pretty formatting on svn status\""
     ],
     "description": "helper function that does pretty formatting on svn status"
   },
@@ -1045,30 +1025,27 @@
     "name": "__fish_systemctl",
     "file": "$__fish_data_dir/functions/__fish_systemctl.fish",
     "flags": [
-      "--description Call systemctl with some options from the current commandline"
+      "--description 'Call systemctl with some options from the current commandline'"
     ],
     "description": "Call systemctl with some options from the current commandline"
   },
   {
     "name": "__fish_systemctl_services",
-    "file": "$__fish_data_dir/functions/__fish_systemctl_services.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_systemctl_services.fish"
   },
   {
     "name": "__fish_systemd_machine_images",
-    "file": "$__fish_data_dir/functions/__fish_systemd_machine_images.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_systemd_machine_images.fish"
   },
   {
     "name": "__fish_systemd_machines",
-    "file": "$__fish_data_dir/functions/__fish_systemd_machines.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_systemd_machines.fish"
   },
   {
     "name": "__fish_toggle_comment_commandline",
     "file": "$__fish_data_dir/functions/__fish_toggle_comment_commandline.fish",
     "flags": [
-      "--description Comment/uncomment the current command"
+      "--description 'Comment/uncomment the current command'"
     ],
     "description": "Comment/uncomment the current command"
   },
@@ -1076,68 +1053,69 @@
     "name": "__fish_tokenizer_state",
     "file": "$__fish_data_dir/functions/__fish_tokenizer_state.fish",
     "flags": [
-      "--description Print the state of the tokenizer at the end of the given string"
+      "--description \"Print the state of the tokenizer at the end of the given string\""
     ],
     "description": "Print the state of the tokenizer at the end of the given string"
   },
   {
     "name": "__fish_umask_add",
-    "file": "$__fish_data_dir/functions/umask.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/umask.fish"
   },
   {
     "name": "__fish_uname",
-    "file": "$__fish_data_dir/functions/__fish_uname.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_uname.fish"
   },
   {
     "name": "__fish_use_subcommand",
     "file": "$__fish_data_dir/functions/__fish_use_subcommand.fish",
     "flags": [
-      "-d Test if a non-switch argument has been given in the current commandline"
+      "-d \"Test if a non-switch argument has been given in the current commandline\""
     ],
     "description": "Test if a non-switch argument has been given in the current commandline"
   },
   {
     "name": "__fish_vcs_prompt",
-    "file": "$__fish_data_dir/functions/__fish_vcs_prompt.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_vcs_prompt.fish"
   },
   {
     "name": "__fish_whatis",
-    "file": "$__fish_data_dir/functions/__fish_whatis.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_whatis.fish"
   },
   {
     "name": "__fish_whatis_current_token",
     "file": "$__fish_data_dir/functions/__fish_whatis_current_token.fish",
     "flags": [
-      "-d Show man page entries or function description related to the token under the cursor"
+      "-d \"Show man page entries or function description related to the token under the cursor\""
     ],
     "description": "Show man page entries or function description related to the token under the cursor"
   },
   {
     "name": "__fish_wireshark_choices",
-    "file": "$__fish_data_dir/functions/__fish_complete_wireshark.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_complete_wireshark.fish"
+  },
+  {
+    "name": "__fish_with_status",
+    "file": "$__fish_data_dir/functions/__fish_with_status.fish"
+  },
+  {
+    "name": "__fish_without_manpager",
+    "file": "$__fish_data_dir/functions/__fish_without_manpager.fish"
   },
   {
     "name": "__npm_helper_installed",
-    "file": "$__fish_data_dir/functions/__fish_npm_helper.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__fish_npm_helper.fish"
   },
   {
     "name": "__ssh_history_completions",
     "file": "$__fish_data_dir/functions/__ssh_history_completions.fish",
     "flags": [
-      "-d Retrieve `user@host` entries from history"
+      "-d \"Retrieve `user@host` entries from history\""
     ],
     "description": "Retrieve `user@host` entries from history"
   },
   {
     "name": "__terlar_git_prompt",
-    "file": "$__fish_data_dir/functions/__terlar_git_prompt.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/__terlar_git_prompt.fish"
   },
   {
     "name": "_validate_int",
@@ -1150,7 +1128,7 @@
     "name": "alias",
     "file": "$__fish_data_dir/functions/alias.fish",
     "flags": [
-      "--description Creates a function wrapping a command"
+      "--description 'Creates a function wrapping a command'"
     ],
     "description": "Creates a function wrapping a command"
   },
@@ -1158,7 +1136,7 @@
     "name": "cd",
     "file": "$__fish_data_dir/functions/cd.fish",
     "flags": [
-      "--description Change directory"
+      "--description \"Change directory\""
     ],
     "description": "Change directory"
   },
@@ -1166,7 +1144,7 @@
     "name": "cdh",
     "file": "$__fish_data_dir/functions/cdh.fish",
     "flags": [
-      "--description Menu based cd command"
+      "--description \"Menu based cd command\""
     ],
     "description": "Menu based cd command"
   },
@@ -1174,20 +1152,19 @@
     "name": "contains_seq",
     "file": "$__fish_data_dir/functions/contains_seq.fish",
     "flags": [
-      "--description Return true if array contains a sequence"
+      "--description 'Return true if array contains a sequence'"
     ],
     "description": "Return true if array contains a sequence"
   },
   {
     "name": "diff",
-    "file": "$__fish_data_dir/functions/diff.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/diff.fish"
   },
   {
     "name": "dirh",
     "file": "$__fish_data_dir/functions/dirh.fish",
     "flags": [
-      "--description Print the current directory history (the prev and next lists)"
+      "--description \"Print the current directory history (the prev and next lists)\""
     ],
     "description": "Print the current directory history (the prev and next lists)"
   },
@@ -1195,7 +1172,7 @@
     "name": "dirs",
     "file": "$__fish_data_dir/functions/dirs.fish",
     "flags": [
-      "--description Print directory stack"
+      "--description 'Print directory stack'"
     ],
     "description": "Print directory stack"
   },
@@ -1203,7 +1180,7 @@
     "name": "down-or-search",
     "file": "$__fish_data_dir/functions/down-or-search.fish",
     "flags": [
-      "-d search forward or move down 1 line"
+      "-d \"search forward or move down 1 line\""
     ],
     "description": "search forward or move down 1 line"
   },
@@ -1211,7 +1188,7 @@
     "name": "edit_command_buffer",
     "file": "$__fish_data_dir/functions/edit_command_buffer.fish",
     "flags": [
-      "--description Edit the command buffer in an external editor"
+      "--description 'Edit the command buffer in an external editor'"
     ],
     "description": "Edit the command buffer in an external editor"
   },
@@ -1219,7 +1196,7 @@
     "name": "export",
     "file": "$__fish_data_dir/functions/export.fish",
     "flags": [
-      "--description Set env variable. Alias for `set -gx` for bash compatibility."
+      "--description 'Set env variable. Alias for `set -gx` for bash compatibility.'"
     ],
     "description": "Set env variable. Alias for `set -gx` for bash compatibility."
   },
@@ -1227,7 +1204,7 @@
     "name": "fish_add_path",
     "file": "$__fish_data_dir/functions/fish_add_path.fish",
     "flags": [
-      "--description Add paths to the PATH"
+      "--description \"Add paths to the PATH\""
     ],
     "description": "Add paths to the PATH"
   },
@@ -1235,25 +1212,23 @@
     "name": "fish_breakpoint_prompt",
     "file": "$__fish_data_dir/functions/fish_breakpoint_prompt.fish",
     "flags": [
-      "--description A right prompt to be used when `breakpoint` is executed"
+      "--description \"A right prompt to be used when `breakpoint` is executed\""
     ],
     "description": "A right prompt to be used when `breakpoint` is executed"
   },
   {
     "name": "fish_clipboard_copy",
-    "file": "$__fish_data_dir/functions/fish_clipboard_copy.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/fish_clipboard_copy.fish"
   },
   {
     "name": "fish_clipboard_paste",
-    "file": "$__fish_data_dir/functions/fish_clipboard_paste.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/fish_clipboard_paste.fish"
   },
   {
     "name": "fish_commandline_append",
     "file": "$__fish_data_dir/functions/fish_commandline_append.fish",
     "flags": [
-      "--description Append the given string to the command-line, or remove the suffix if already there"
+      "--description \"Append the given string to the command-line, or remove the suffix if already there\""
     ],
     "description": "Append the given string to the command-line, or remove the suffix if already there"
   },
@@ -1261,7 +1236,7 @@
     "name": "fish_commandline_prepend",
     "file": "$__fish_data_dir/functions/fish_commandline_prepend.fish",
     "flags": [
-      "--description Prepend the given string to the command-line, or remove the prefix if already there"
+      "--description \"Prepend the given string to the command-line, or remove the prefix if already there\""
     ],
     "description": "Prepend the given string to the command-line, or remove the prefix if already there"
   },
@@ -1269,7 +1244,7 @@
     "name": "fish_config",
     "file": "$__fish_data_dir/functions/fish_config.fish",
     "flags": [
-      "--description Launch fish's web based configuration"
+      "--description \"Launch fish's web based configuration\""
     ],
     "description": "Launch fish's web based configuration"
   },
@@ -1277,7 +1252,7 @@
     "name": "fish_default_key_bindings",
     "file": "$__fish_data_dir/functions/fish_default_key_bindings.fish",
     "flags": [
-      "-d emacs-like key binds"
+      "-d \"emacs-like key binds\""
     ],
     "description": "emacs-like key binds"
   },
@@ -1285,33 +1260,31 @@
     "name": "fish_default_mode_prompt",
     "file": "$__fish_data_dir/functions/fish_default_mode_prompt.fish",
     "flags": [
-      "--description Display vi prompt mode"
+      "--description \"Display vi prompt mode\""
     ],
     "description": "Display vi prompt mode"
   },
   {
     "name": "fish_delta",
-    "file": "$__fish_data_dir/functions/fish_delta.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/fish_delta.fish"
   },
   {
     "name": "fish_fossil_prompt",
     "file": "$__fish_data_dir/functions/fish_fossil_prompt.fish",
     "flags": [
-      "--description Write out the fossil prompt"
+      "--description 'Write out the fossil prompt'"
     ],
     "description": "Write out the fossil prompt"
   },
   {
     "name": "fish_greeting",
-    "file": "$__fish_data_dir/functions/fish_greeting.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/fish_greeting.fish"
   },
   {
     "name": "fish_hg_prompt",
     "file": "$__fish_data_dir/functions/fish_hg_prompt.fish",
     "flags": [
-      "--description Write out the hg prompt"
+      "--description 'Write out the hg prompt'"
     ],
     "description": "Write out the hg prompt"
   },
@@ -1319,7 +1292,7 @@
     "name": "fish_hybrid_key_bindings",
     "file": "$__fish_data_dir/functions/fish_hybrid_key_bindings.fish",
     "flags": [
-      "--description Vi-style bindings that inherit emacs-style bindings in all modes"
+      "--description \"Vi-style bindings that inherit emacs-style bindings in all modes\""
     ],
     "description": "Vi-style bindings that inherit emacs-style bindings in all modes"
   },
@@ -1327,27 +1300,26 @@
     "name": "fish_is_root_user",
     "file": "$__fish_data_dir/functions/fish_is_root_user.fish",
     "flags": [
-      "--description Check if the user is root"
+      "--description \"Check if the user is root\""
     ],
     "description": "Check if the user is root"
   },
   {
     "name": "fish_jj_prompt",
-    "file": "$__fish_data_dir/functions/fish_jj_prompt.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/fish_jj_prompt.fish"
   },
   {
     "name": "fish_job_summary",
     "file": "$__fish_data_dir/functions/fish_job_summary.fish",
     "flags": [
-      "-a job_id"
+      "-a job_id is_foreground cmd_line signal_or_end_name signal_desc proc_pid proc_name"
     ]
   },
   {
     "name": "fish_mode_prompt",
     "file": "$__fish_data_dir/functions/fish_mode_prompt.fish",
     "flags": [
-      "--description Displays the current mode"
+      "--description \"Displays the current mode\""
     ],
     "description": "Displays the current mode"
   },
@@ -1360,14 +1332,13 @@
   },
   {
     "name": "fish_print_hg_root",
-    "file": "$__fish_data_dir/functions/fish_print_hg_root.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/fish_print_hg_root.fish"
   },
   {
     "name": "fish_prompt",
     "file": "$__fish_data_dir/functions/fish_prompt.fish",
     "flags": [
-      "--description Write out the prompt"
+      "--description 'Write out the prompt'"
     ],
     "description": "Write out the prompt"
   },
@@ -1375,20 +1346,19 @@
     "name": "fish_status_to_signal",
     "file": "$__fish_data_dir/functions/fish_status_to_signal.fish",
     "flags": [
-      "--description Convert exit code to signal name"
+      "--description \"Convert exit code to signal name\""
     ],
     "description": "Convert exit code to signal name"
   },
   {
     "name": "fish_title",
-    "file": "$__fish_data_dir/functions/fish_title.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/fish_title.fish"
   },
   {
     "name": "fish_update_completions",
     "file": "$__fish_data_dir/functions/fish_update_completions.fish",
     "flags": [
-      "--description Update man-page based completions"
+      "--description \"Update man-page based completions\""
     ],
     "description": "Update man-page based completions"
   },
@@ -1396,7 +1366,7 @@
     "name": "fish_vcs_prompt",
     "file": "$__fish_data_dir/functions/fish_vcs_prompt.fish",
     "flags": [
-      "--description Print all vcs prompts"
+      "--description \"Print all vcs prompts\""
     ],
     "description": "Print all vcs prompts"
   },
@@ -1404,7 +1374,7 @@
     "name": "fish_vi_cursor",
     "file": "$__fish_data_dir/functions/fish_vi_cursor.fish",
     "flags": [
-      "-d Set cursor shape for different vi modes"
+      "-d 'Set cursor shape for different vi modes'"
     ],
     "description": "Set cursor shape for different vi modes"
   },
@@ -1412,7 +1382,7 @@
     "name": "fish_vi_inc_dec",
     "file": "$__fish_data_dir/functions/fish_vi_key_bindings.fish",
     "flags": [
-      "--description increment or decrement the number below the cursor"
+      "--description 'increment or decrement the number below the cursor'"
     ],
     "description": "increment or decrement the number below the cursor"
   },
@@ -1420,7 +1390,7 @@
     "name": "funced",
     "file": "$__fish_data_dir/functions/funced.fish",
     "flags": [
-      "--description Edit function definition"
+      "--description 'Edit function definition'"
     ],
     "description": "Edit function definition"
   },
@@ -1428,20 +1398,19 @@
     "name": "funcsave",
     "file": "$__fish_data_dir/functions/funcsave.fish",
     "flags": [
-      "--description Save the current definition of all specified functions to file"
+      "--description \"Save the current definition of all specified functions to file\""
     ],
     "description": "Save the current definition of all specified functions to file"
   },
   {
     "name": "grep",
-    "file": "$__fish_data_dir/functions/grep.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/grep.fish"
   },
   {
     "name": "help",
     "file": "$__fish_data_dir/functions/help.fish",
     "flags": [
-      "--description Show help for the fish shell"
+      "--description 'Show help for the fish shell'"
     ],
     "description": "Show help for the fish shell"
   },
@@ -1449,7 +1418,7 @@
     "name": "history",
     "file": "$__fish_data_dir/functions/history.fish",
     "flags": [
-      "--description display or manipulate interactive command history"
+      "--description \"display or manipulate interactive command history\""
     ],
     "description": "display or manipulate interactive command history"
   },
@@ -1457,7 +1426,7 @@
     "name": "isatty",
     "file": "$__fish_data_dir/functions/isatty.fish",
     "flags": [
-      "-d Tests if a file descriptor is a tty"
+      "-d \"Tests if a file descriptor is a tty\""
     ],
     "description": "Tests if a file descriptor is a tty"
   },
@@ -1466,7 +1435,7 @@
     "file": "$__fish_data_dir/functions/la.fish",
     "flags": [
       "--wraps ls",
-      "--description List contents of directory, including hidden files in directory using long format"
+      "--description \"List contents of directory, including hidden files in directory using long format\""
     ],
     "description": "List contents of directory, including hidden files in directory using long format"
   },
@@ -1475,30 +1444,27 @@
     "file": "$__fish_data_dir/functions/ll.fish",
     "flags": [
       "--wraps ls",
-      "--description List contents of directory using long format"
+      "--description \"List contents of directory using long format\""
     ],
     "description": "List contents of directory using long format"
   },
   {
     "name": "ls",
-    "file": "$__fish_data_dir/functions/ls.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/ls.fish"
   },
   {
     "name": "man",
-    "file": "$__fish_data_dir/functions/man.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/man.fish"
   },
   {
     "name": "N_",
-    "file": "$__fish_data_dir/functions/N_.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/N_.fish"
   },
   {
     "name": "nextd",
     "file": "$__fish_data_dir/functions/nextd.fish",
     "flags": [
-      "--description Move forward in the directory history"
+      "--description \"Move forward in the directory history\""
     ],
     "description": "Move forward in the directory history"
   },
@@ -1506,7 +1472,7 @@
     "name": "nextd-or-forward-token",
     "file": "$__fish_data_dir/functions/nextd-or-forward-token.fish",
     "flags": [
-      "--description If commandline is empty, run nextd; else move one argument to the right"
+      "--description \"If commandline is empty, run nextd; else move one argument to the right\""
     ],
     "description": "If commandline is empty, run nextd; else move one argument to the right"
   },
@@ -1514,7 +1480,7 @@
     "name": "open",
     "file": "$__fish_data_dir/functions/open.fish",
     "flags": [
-      "--description Open file in default application"
+      "--description \"Open file in default application\""
     ],
     "description": "Open file in default application"
   },
@@ -1522,7 +1488,7 @@
     "name": "popd",
     "file": "$__fish_data_dir/functions/popd.fish",
     "flags": [
-      "--description Pop directory from the stack and cd to it"
+      "--description \"Pop directory from the stack and cd to it\""
     ],
     "description": "Pop directory from the stack and cd to it"
   },
@@ -1530,7 +1496,7 @@
     "name": "prevd",
     "file": "$__fish_data_dir/functions/prevd.fish",
     "flags": [
-      "--description Move back in the directory history"
+      "--description \"Move back in the directory history\""
     ],
     "description": "Move back in the directory history"
   },
@@ -1538,7 +1504,7 @@
     "name": "prevd-or-backward-token",
     "file": "$__fish_data_dir/functions/prevd-or-backward-token.fish",
     "flags": [
-      "--description If commandline is empty, run prevd; else move one argument to the left"
+      "--description \"If commandline is empty, run prevd; else move one argument to the left\""
     ],
     "description": "If commandline is empty, run prevd; else move one argument to the left"
   },
@@ -1546,7 +1512,7 @@
     "name": "prompt_hostname",
     "file": "$__fish_data_dir/functions/prompt_hostname.fish",
     "flags": [
-      "--description short hostname for the prompt"
+      "--description 'short hostname for the prompt'"
     ],
     "description": "short hostname for the prompt"
   },
@@ -1554,7 +1520,7 @@
     "name": "prompt_login",
     "file": "$__fish_data_dir/functions/prompt_login.fish",
     "flags": [
-      "--description display user name for the prompt"
+      "--description \"display user name for the prompt\""
     ],
     "description": "display user name for the prompt"
   },
@@ -1562,7 +1528,7 @@
     "name": "prompt_pwd",
     "file": "$__fish_data_dir/functions/prompt_pwd.fish",
     "flags": [
-      "--description short CWD for the prompt"
+      "--description 'short CWD for the prompt'"
     ],
     "description": "short CWD for the prompt"
   },
@@ -1570,7 +1536,7 @@
     "name": "psub",
     "file": "$__fish_data_dir/functions/psub.fish",
     "flags": [
-      "--description Read from stdin into a file and output the filename. Remove the file when the command that called psub exits."
+      "--description \"Read from stdin into a file and output the filename. Remove the file when the command that called psub exits.\""
     ],
     "description": "Read from stdin into a file and output the filename. Remove the file when the command that called psub exits."
   },
@@ -1578,30 +1544,27 @@
     "name": "pushd",
     "file": "$__fish_data_dir/functions/pushd.fish",
     "flags": [
-      "--description Push directory to stack"
+      "--description 'Push directory to stack'"
     ],
     "description": "Push directory to stack"
   },
   {
     "name": "realpath",
-    "file": "$__fish_data_dir/functions/realpath.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/realpath.fish"
   },
   {
     "name": "seq",
-    "file": "$__fish_data_dir/functions/seq.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/seq.fish"
   },
   {
     "name": "setenv",
-    "file": "$__fish_data_dir/functions/setenv.fish",
-    "flags": []
+    "file": "$__fish_data_dir/functions/setenv.fish"
   },
   {
     "name": "suspend",
     "file": "$__fish_data_dir/functions/suspend.fish",
     "flags": [
-      "--description Suspend the current shell."
+      "--description 'Suspend the current shell.'"
     ],
     "description": "Suspend the current shell."
   },
@@ -1609,7 +1572,7 @@
     "name": "trap",
     "file": "$__fish_data_dir/functions/trap.fish",
     "flags": [
-      "-d Perform an action when the shell receives a signal"
+      "-d 'Perform an action when the shell receives a signal'"
     ],
     "description": "Perform an action when the shell receives a signal"
   },
@@ -1617,7 +1580,7 @@
     "name": "up-or-search",
     "file": "$__fish_data_dir/functions/up-or-search.fish",
     "flags": [
-      "-d Search back or move cursor up 1 line"
+      "-d \"Search back or move cursor up 1 line\""
     ],
     "description": "Search back or move cursor up 1 line"
   },
@@ -1625,7 +1588,7 @@
     "name": "vared",
     "file": "$__fish_data_dir/functions/vared.fish",
     "flags": [
-      "--description Edit variable value"
+      "--description \"Edit variable value\""
     ],
     "description": "Edit variable value"
   }

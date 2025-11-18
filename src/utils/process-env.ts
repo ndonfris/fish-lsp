@@ -5,6 +5,18 @@ import { md } from './markdown-builder';
 import { env } from './env-manager';
 import { execEmbeddedFishFile } from './exec';
 
+/**
+ * All autoloaded fish path variables that can be retrieved from fish shell.
+ *
+ * Values for these variables are retrieved by executing the fish script
+ * `fish_files/get-fish-autoloaded-paths.fish`, which outputs their values
+ * in the format:
+ *
+ * ```fish
+ * variable_name\tvalue_1:value_2:value_3:value_4:...:value_n\n
+ * other_variable_name\tvalue_1:value_2:...:value_n\n
+ * ```
+ */
 export const autoloadedFishVariableNames = [
   '__fish_bin_dir',
   '__fish_config_dir',
@@ -22,54 +34,89 @@ export const autoloadedFishVariableNames = [
   'fish_user_paths',
 ] as const;
 
+// Keys which are set prior to executing fish_files/get-fish-autoloaded-paths.fish
+// with a fallback value in case the script execution fails to provide them.
+const fallbackEnvKeys: AutoloadedFishVariableName[] = [
+  '__fish_bin_dir',
+  '__fish_config_dir',
+  '__fish_data_dir',
+  '__fish_help_dir',
+  '__fish_sysconf_dir',
+  '__fish_user_data_dir',
+  '__fish_vendor_completionsdirs',
+  '__fish_vendor_confdirs',
+  '__fish_vendor_functionsdirs',
+  'fish_function_path',
+  'fish_complete_path',
+];
+
 export type AutoloadedFishVariableName = typeof autoloadedFishVariableNames[number];
 
-export let hasAutoloadedFishVariables = false;
+export namespace AutoloadedEnvKeys {
+  /**
+   * getter util for autoloaded fish variables, returns array of strings that
+   */
+  export function isVariableName(name?: string): name is AutoloadedFishVariableName {
+    if (!name) return false;
+    return autoloadedFishVariableNames.includes(name as AutoloadedFishVariableName);
+  }
+
+  export function isFallbackKey(name?: string): name is AutoloadedFishVariableName {
+    if (!name) return false;
+    return fallbackEnvKeys.includes(name as AutoloadedFishVariableName);
+  }
+
+}
 
 export async function setupProcessEnvExecFile() {
-  if (hasAutoloadedFishVariables) return autoloadedFishVariableNames;
+  if (env.isInitialized()) return autoloadedFishVariableNames;
+  setupFallbackProcessEnv();
   try {
     const result = await execEmbeddedFishFile('get-fish-autoloaded-paths.fish');
 
-    if (result.stderr) {
-      process.stderr.write(`[WARN] fish script stderr: ${result.stderr}\n`);
-    }
-
-    result.stdout.split('\n').forEach(line => {
-      if (line.trim()) {
-        const [variable, value]: [AutoloadedFishVariableName, string] = line.split('\t') as [AutoloadedFishVariableName, string];
-        if (variable) {
-          const storeValue = value ? value.trim() : undefined;
-          env.set(variable.trim(), storeValue);
-        }
-      }
+    result.stdout.trim().split('\n').forEach(line => {
+      const [variable, ...value] = line.split('\t');
+      const storeValue = value.join('\t').trim();
+      if (!AutoloadedEnvKeys.isFallbackKey(variable)) return;
+      env.setAutoloaded(variable, storeValue);
     });
   } catch (error) {
-    process.stderr.write(`[ERROR] retrieving autoloaded fish env variables failure: ${error}\n`);
-    // Fallback: set basic default paths
-    setupFallbackProcessEnv();
+    // Silently fall back to default paths - logging would write to stdout
+    // before the LSP connection is established, corrupting the protocol
   }
-  hasAutoloadedFishVariables = true;
+  env.markInitialized();
   return autoloadedFishVariableNames;
 }
 
-function setupFallbackProcessEnv() {
+export function setupFallbackProcessEnv() {
   // Set basic fallback values when fish script execution fails
   const homeDir = process.env.HOME || '/tmp';
   const fishBin = process.env.FISH_BIN || '/usr/bin/fish';
   const fishPrefix = fishBin.replace(/\/bin\/fish$/, '');
 
-  env.set('__fish_bin_dir', `${fishPrefix}/bin`);
-  env.set('__fish_config_dir', `${homeDir}/.config/fish`);
-  env.set('__fish_data_dir', `${fishPrefix}/share/fish`);
-  env.set('__fish_help_dir', `${fishPrefix}/share/doc/fish`);
-  env.set('__fish_sysconf_dir', `${fishPrefix}/etc/fish`);
-  env.set('__fish_user_data_dir', `${homeDir}/.local/share/fish`);
-  env.set('__fish_vendor_completionsdirs', `${fishPrefix}/share/fish/vendor_completions.d`);
-  env.set('__fish_vendor_confdirs', `${fishPrefix}/share/fish/vendor_conf.d`);
-  env.set('__fish_vendor_functionsdirs', `${fishPrefix}/share/fish/vendor_functions.d`);
+  env.setAutoloaded('__fish_bin_dir', `${fishPrefix}/bin`);
+  env.setAutoloaded('__fish_config_dir', `${homeDir}/.config/fish`);
+  env.setAutoloaded('__fish_data_dir', `${fishPrefix}/share/fish`);
+  env.setAutoloaded('__fish_help_dir', `${fishPrefix}/share/doc/fish`);
+  env.setAutoloaded('__fish_sysconf_dir', `${fishPrefix}/etc/fish`);
+  env.setAutoloaded('__fish_user_data_dir', `${homeDir}/.local/share/fish`);
+  env.setAutoloaded('__fish_vendor_completionsdirs', `${fishPrefix}/share/fish/vendor_completions.d`);
+  env.setAutoloaded('__fish_vendor_confdirs', `${fishPrefix}/share/fish/vendor_conf.d`);
+  env.setAutoloaded('__fish_vendor_functionsdirs', `${fishPrefix}/share/fish/vendor_functions.d`);
 
-  process.stderr.write('[INFO] using fallback fish environment paths\n');
+  const functionPaths = [
+    `${env.get('__fish_config_dir')}/functions`,
+    `${env.get('__fish_vendor_functionsdirs')}`,
+    `${env.get('__fish_data_dir')}/functions`,
+  ];
+  env.setAutoloaded('fish_function_path', functionPaths.join(':'));
+
+  const completePaths = [
+    `${env.get('__fish_config_dir')}/completions`,
+    `${env.get('__fish_vendor_completionsdirs')}`,
+    `${env.get('__fish_data_dir')}/completions`,
+  ];
+  env.setAutoloaded('fish_complete_path', completePaths.join(':'));
 }
 
 export namespace AutoloadedPathVariables {

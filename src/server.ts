@@ -412,6 +412,7 @@ export default class FishServer {
     progress.begin(`[fish-lsp] analyzing workspaces [${event.added.map(s => s.name).join(',')}] added`);
     workspaceManager.handleWorkspaceChangeEvent(event, progress);
     workspaceManager.analyzePendingDocuments(progress);
+    progress.done();
   }
 
   onCommand(params: LSP.ExecuteCommandParams): Promise<any> {

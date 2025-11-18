@@ -323,7 +323,7 @@ const allData: ExtendedBaseJson[] = [
   // Preserve file and flags fields for browser/tooling use
   ...functionsJson.map((item: any) => ExtendedBaseJson.create({
     name: item.name,
-    description: item.description || `Fish function: ${item.name}`,
+    description: item.description || `fish function: ${item.name}`,
     file: item.file,
     flags: item.flags,
   }, 'function')),

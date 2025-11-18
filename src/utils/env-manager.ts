@@ -1,4 +1,5 @@
-import { AutoloadedPathVariables } from './process-env';
+import { logger } from '../logger';
+import { AutoloadedEnvKeys, setupProcessEnvExecFile } from './process-env';
 
 /**
  * Parses fish shell variable strings into arrays based on their format
@@ -105,10 +106,14 @@ export class EnvManager {
    */
   public processEnvKeys: Set<string> = new Set(Object.keys(process.env));
   /**
-   * Keys that are autoloaded by fish shell
+   * Keys that are autoloaded by fish shell and have non-empty values
    */
-  public autoloadedKeys: Set<string> = new Set(AutoloadedPathVariables.all());
+  public autoloadedKeys: Set<string> = new Set();
   private allKeys: Set<string> = new Set();
+  /**
+   * Tracks whether autoloaded fish variables have been initialized
+   */
+  private initialized: boolean = false;
 
   private constructor() {
     // Add all keys to the set
@@ -131,6 +136,27 @@ export class EnvManager {
     return EnvManager.instance;
   }
 
+  /**
+   * Check if autoloaded fish variables have been initialized
+   */
+  public isInitialized(): boolean {
+    return this.initialized;
+  }
+
+  /**
+   * Mark autoloaded fish variables as initialized
+   */
+  public markInitialized(): void {
+    this.initialized = true;
+  }
+
+  /**
+   * Mark autoloaded fish variables as not initialized
+   */
+  public markUninitialized(): void {
+    this.initialized = false;
+  }
+
   public has(key: string): boolean {
     return this.allKeys.has(key);
   }
@@ -138,6 +164,21 @@ export class EnvManager {
   public set(key: string, value: undefined | string): void {
     this.allKeys.add(key);
     this.envStore[key] = value;
+  }
+
+  /**
+   * Sets an autoloaded fish variable and registers it in autoloadedKeys.
+   * Only adds to autoloadedKeys if the value is non-empty.
+   */
+  public setAutoloaded(key: string, value: string): void {
+    if (!AutoloadedEnvKeys.isVariableName(key)) {
+      logger.error(`Key "${key}" is not a recognized autoloaded fish variable name.`);
+      return;
+    }
+    if (value && value.trim() !== '') {
+      this.set(key, value);
+      this.autoloadedKeys.add(key);
+    }
   }
 
   public get(key: string): string | undefined {
@@ -199,7 +240,7 @@ export class EnvManager {
 
   public get autoloadedFishVariables(): Record<string, string[]> {
     const autoloadedFishVariables: Record<string, string[]> = {};
-    AutoloadedPathVariables.all().forEach((variable) => {
+    this.getAutoloadedKeys().forEach((variable) => {
       autoloadedFishVariables[variable] = this.getAsArray(variable);
     });
     return autoloadedFishVariables;
@@ -243,16 +284,32 @@ export class EnvManager {
     return FishVariableParser;
   }
 
-  /**
-   * For testing!
-   * Make sure to use `await setupProcessEnvExecFile()` after using this method
-   */
-  public clear(): void {
+  private clear(): void {
     for (const key in this.envStore) {
       delete this.envStore[key];
     }
+    this.autoloadedKeys.clear();
+    this.markUninitialized();
     this.setAllKeys();
     Object.assign(this.envStore, process.env);
+  }
+
+  /**
+   * For initializing and resetting the environment manager to a clean state during
+   * tests.
+   *
+   * @example
+   * ```typescript
+   * beforeEach(async () => {
+   *     await env.reset();
+   * })
+   * ```
+   */
+  public async reset(logging: boolean = false): Promise<void> {
+    logger.setSilent(!logging);
+    env.clear();
+    await setupProcessEnvExecFile();
+    logger.setSilent(false);
   }
 }
 

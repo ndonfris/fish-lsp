@@ -14,7 +14,7 @@ interface FishCommand {
 interface FishFunctionDefinition {
   name: string;
   file: string;
-  flags: string[];
+  flags?: string[];
   description?: string;
 }
 
@@ -459,7 +459,8 @@ function tokenizeDefinition(line: string): string[] {
         continue;
       }
       if (char === quote) {
-        tokens.push(current);
+        // Preserve quotes around the token
+        tokens.push(`${quote}${current}${quote}`);
         current = '';
         quote = null;
         continue;
@@ -496,20 +497,34 @@ function parseFunctionLine(line: string): { name: string; flags: string[]; descr
   const name = tokens.shift()!;
   const flags: string[] = [];
   let description: string | undefined;
+
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i]!;
     if (!token.startsWith('-')) continue;
+
+    // Collect all non-flag tokens following this flag
+    const valueParts: string[] = [];
+    let j = i + 1;
+    while (j < tokens.length && !tokens[j]!.startsWith('-')) {
+      valueParts.push(tokens[j]!);
+      j++;
+    }
+
+    // Build combined flag string
     let combined = token;
-    const next = tokens[i + 1];
-    if (next && !next.startsWith('-')) {
-      combined = `${token} ${next}`;
-      i++;
-      if ((token === '--description' || token === '-d') && next) {
-        description = stripQuotes(next);
+    if (valueParts.length > 0) {
+      combined = `${token} ${valueParts.join(' ')}`;
+      if ((token === '--description' || token === '-d') && valueParts[0]) {
+        description = stripQuotes(valueParts[0]);
       }
     }
+
     flags.push(combined.trim());
+
+    // Skip the tokens we've already processed
+    i = j - 1;
   }
+
   return { name, flags, description };
 }
 
@@ -538,6 +553,51 @@ function resolveFishDataDir(): string | null {
   return null;
 }
 
+/**
+ * Extracts all complete function definitions from file contents,
+ * handling multiline definitions with backslash continuations
+ */
+function extractFunctionDefinitions(fileContents: string): string[] {
+  const lines = fileContents.split(/\r?\n/);
+  const definitions: string[] = [];
+  let definitionLine = '';
+  let inDefinition = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    const trimmed = line.trim();
+
+    if (!inDefinition && trimmed.startsWith('function ')) {
+      inDefinition = true;
+      definitionLine = trimmed;
+
+      // Check if line ends with backslash (continuation)
+      if (trimmed.endsWith('\\')) {
+        definitionLine = trimmed.slice(0, -1).trim() + ' ';
+        continue;
+      } else {
+        // Single-line definition
+        definitions.push(definitionLine);
+        definitionLine = '';
+        inDefinition = false;
+      }
+    } else if (inDefinition) {
+      // Continue collecting multiline definition
+      if (trimmed.endsWith('\\')) {
+        definitionLine += trimmed.slice(0, -1).trim() + ' ';
+      } else {
+        // End of multiline definition
+        definitionLine += trimmed;
+        definitions.push(definitionLine);
+        definitionLine = '';
+        inDefinition = false;
+      }
+    }
+  }
+
+  return definitions;
+}
+
 async function fetchFishFunctions(): Promise<FishFunctionDefinition[]> {
   const dataDir = resolveFishDataDir();
   if (!dataDir) {
@@ -547,25 +607,44 @@ async function fetchFishFunctions(): Promise<FishFunctionDefinition[]> {
   const functionsDir = path.join(dataDir, 'functions');
   const entries = await fs.readdir(functionsDir, { withFileTypes: true });
   const results = new Map<string, FishFunctionDefinition>();
+
   for (const entry of entries) {
     if (!entry.isFile() || !entry.name.endsWith('.fish')) continue;
     const filePath = path.join(functionsDir, entry.name);
     const fileContents = await fs.readFile(filePath, 'utf8');
-    const definitionLine = fileContents.split(/\r?\n/).find(line => line.trim().startsWith('function '));
-    if (!definitionLine) continue;
-    const parsed = parseFunctionLine(definitionLine);
-    if (!parsed) continue;
+    const definitionLines = extractFunctionDefinitions(fileContents);
+
     const relativeFunctionsPath = path.relative(path.join(dataDir, 'functions'), filePath).replace(/\\/g, '/');
     const fileReference = relativeFunctionsPath
       ? `$__fish_data_dir/functions/${relativeFunctionsPath}`
       : '$__fish_data_dir/functions';
-    results.set(parsed.name, {
-      name: parsed.name,
-      file: fileReference,
-      flags: parsed.flags,
-      description: parsed.description,
-    });
+
+    // Only process the FIRST function definition in the file
+    // (subsequent functions are local helper functions, not globally defined)
+    if (definitionLines.length > 0) {
+      const definitionLine = definitionLines[0];
+      const parsed = parseFunctionLine(definitionLine);
+      if (parsed) {
+        const def: FishFunctionDefinition = {
+          name: parsed.name,
+          file: fileReference,
+        };
+
+        // Only include flags if they exist
+        if (parsed.flags.length > 0) {
+          def.flags = parsed.flags;
+        }
+
+        // Only include description if it exists
+        if (parsed.description) {
+          def.description = parsed.description;
+        }
+
+        results.set(parsed.name, def);
+      }
+    }
   }
+
   return [...results.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 

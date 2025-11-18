@@ -360,6 +360,11 @@ export class Logger {
     this._logWithSeverity('warning', ...args);
   }
 
+  // alias for warning
+  public warn(...args: any[]): void {
+    this._logWithSeverity('warning', ...args);
+  }
+
   public error(...args: any[]): void {
     this._logWithSeverity('error', ...args);
   }
@@ -407,9 +412,17 @@ export class Logger {
   }
 }
 
+/**
+ * Global utility function to get the current time in HH:MM:SS.mmm format
+ */
 export function now(): string {
   const now = new Date();
-  return `${padLeft(`${now.getUTCHours()}`, 2, '0')}:${padLeft(`${now.getMinutes()}`, 2, '0')}:${padLeft(`${now.getUTCSeconds()}`, 2, '0')}.${now.getMilliseconds()}`;
+  return [
+    padLeft(`${now.getUTCHours()}`, 2, '0'),
+    padLeft(`${now.getMinutes()}`, 2, '0'),
+    padLeft(`${now.getUTCSeconds()}`, 2, '0'),
+    padLeft(`${now.getMilliseconds()}`, 3, '0'),
+  ].join(':');
 }
 
 function padLeft(s: string, n: number, pad = ' ') {

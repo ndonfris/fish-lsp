@@ -245,7 +245,7 @@ export class Analyzer {
    * we need to analyze a file that is not yet a LspDocument.
    */
   public analyzePath(rawFilePath: string): AnalyzedDocument | undefined {
-    const path = uriToPath(rawFilePath);
+    const path = uriToPath(SyncFileHelper.expandEnvVars(rawFilePath));
     const document = SyncFileHelper.loadDocumentSync(path);
     if (!document) {
       logger.warning(`analyzer.analyzePath: ${path} not found`);
