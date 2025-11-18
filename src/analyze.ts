@@ -21,7 +21,7 @@ import { Workspace } from './utils/workspace';
 import { workspaceManager } from './utils/workspace-manager';
 import { initializeParser } from './parser';
 import { connection } from './utils/startup';
-import { DiagnosticCache } from './diagnostics/cache';
+import { BufferedAsyncDiagnosticCache } from './diagnostics/buffered-async-cache';
 
 /*************************************************************/
 /*     ts-doc type imports for links to other files here     */
@@ -76,6 +76,7 @@ export class AnalyzedDocument {
    *
    * @param document The LspDocument that was analyzed.
    * @param documentSymbols A nested array of FishSymbols, representing the symbols in the document.
+   * @param flatSymbols A flat array of FishSymbols, representing all symbols in the document.
    * @param tree A tree that has been parsed by web-tree-sitter
    * @param root root node of a SyntaxTree
    * @param commandNodes A flat array of every command used in this document
@@ -94,6 +95,12 @@ export class AnalyzedDocument {
      * A nested array of FishSymbols, representing the symbols in the document.
      */
     public documentSymbols: FishSymbol[] = [],
+
+    /**
+     * A flat array of FishSymbols, representing all symbols in the document.
+     */
+    public flatSymbols: FishSymbol[] = [],
+
     /**
      * A tree that has been parsed by web-tree-sitter
      */
@@ -137,6 +144,7 @@ export class AnalyzedDocument {
   private static create(
     document: LspDocument,
     documentSymbols: FishSymbol[] = [],
+    flatSymbols: FishSymbol[] = [],
     tree: Parser.Tree | undefined = undefined,
     root: Parser.SyntaxNode | undefined = undefined,
     commandNodes: SyntaxNode[] = [],
@@ -145,6 +153,7 @@ export class AnalyzedDocument {
     return new AnalyzedDocument(
       document,
       documentSymbols,
+      flatSymbols,
       tree,
       root || tree?.rootNode,
       commandNodes,
@@ -179,6 +188,7 @@ export class AnalyzedDocument {
     return new AnalyzedDocument(
       document,
       documentSymbols,
+      flattenNested(...documentSymbols),
       tree,
       tree.rootNode,
       commandNodes,
@@ -229,6 +239,7 @@ export class AnalyzedDocument {
       const fullDocument = analyzer.analyze(this.document);
       // Update this instance's properties in-place
       this.documentSymbols = fullDocument.documentSymbols;
+      this.flatSymbols = fullDocument.flatSymbols;
       this.tree = fullDocument.tree;
       this.root = fullDocument.root;
       this.commandNodes = fullDocument.commandNodes;
@@ -285,7 +296,7 @@ export class Analyzer {
 
   public started = false;
 
-  public diagnostics: DiagnosticCache = new DiagnosticCache();
+  public diagnostics: BufferedAsyncDiagnosticCache = new BufferedAsyncDiagnosticCache();
 
   constructor(public parser: Parser) { }
 
@@ -1468,7 +1479,7 @@ class AnalyzedDocumentCache {
     return [];
   }
   getFlatDocumentSymbols(uri: URI): FishSymbol[] {
-    return flattenNested<FishSymbol>(...this.getDocumentSymbols(uri));
+    return this._documents.get(uri)?.flatSymbols || [];
   }
   getCommands(uri: URI): SyntaxNode[] {
     const doc = this._documents.get(uri);

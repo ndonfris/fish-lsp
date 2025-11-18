@@ -2,10 +2,19 @@ import { DocumentUri, WorkDoneProgressServerReporter, WorkspaceFoldersChangeEven
 import { logger } from '../logger';
 import { Workspace, WorkspaceUri } from './workspace';
 import { documents, LspDocument } from '../document';
-import { analyzer } from '../analyze';
+import { analyzer, AnalyzedDocument } from '../analyze';
 import { config } from '../config';
 import { isPath, PathLike, pathToUri } from './translation';
 import { ProgressNotification } from './progress-notification';
+
+type WorkspaceUpdateOptions = {
+  analyzedDocument?: AnalyzedDocument;
+  /**
+   * Skip re-running analyzer.analyze(). The caller is responsible for ensuring
+   * the cache already contains the latest document state when this is true.
+   */
+  skipAnalysis?: boolean;
+};
 
 export class WorkspaceManager {
   private stack: WorkspaceStack = new WorkspaceStack();
@@ -220,10 +229,16 @@ export class WorkspaceManager {
   public handleOpenDocument(documentUri: DocumentUri): Workspace | null;
   public handleOpenDocument(documentUri: DocumentUri | LspDocument): Workspace | null;
   public handleOpenDocument(doc: DocumentUri | LspDocument): Workspace | null {
-    logger.info('workspaceManager.handleOpenDocument()', 'Opening document', doc);
     const documentUri = this.getDocumentUriFromParams(doc);
-    documents.open(documentUri);
-    const document = documents.getDocument(documentUri);
+    logger.info('workspaceManager.handleOpenDocument()', 'Opening document', {
+      params: {
+        uri: this.getDocumentUriFromParams(doc),
+        type: LspDocument.is(doc) ? 'LspDocument' : 'DocumentUri',
+        version: LspDocument.is(doc) ? doc.version : undefined,
+      },
+    });
+    documents.get(documentUri);
+    const document = documents.get(documentUri);
     const newWorkspace = this.getExistingWorkspaceOrCreateNew(documentUri);
     if (!newWorkspace || !document) {
       logger.error(
@@ -255,11 +270,19 @@ export class WorkspaceManager {
   public handleCloseDocument(documentUri: DocumentUri): Workspace | null;
   public handleCloseDocument(doc: DocumentUri | LspDocument): Workspace | null;
   public handleCloseDocument(doc: DocumentUri | LspDocument): Workspace | null {
-    logger.info('workspaceManager.handleCloseDocument()', 'Closing document', { params: doc });
-    const totalUrisBeforeRemoval = this.allUrisInAllWorkspaces.length;
     const documentUri = this.getDocumentUriFromParams(doc);
+    logger.info('workspaceManager.handleCloseDocument()', 'Closing document', {
+      params: {
+        uri: documentUri,
+        type: LspDocument.is(doc) ? 'LspDocument' : 'DocumentUri',
+        version: LspDocument.is(doc) ? doc.version : undefined,
+      },
+    });
+    const totalUrisBeforeRemoval = this.allUrisInAllWorkspaces.length;
     const workspace = this.getWorkspaceContainingUri(documentUri);
-    documents.close(documentUri);
+    documents.all().splice(
+      documents.all().findIndex(d => d.uri === documentUri),
+    );
     if (!workspace) {
       logger.error(
         'workspaceManager.handleCloseDocument()',
@@ -268,7 +291,7 @@ export class WorkspaceManager {
       );
       return null;
     }
-    const docsInWorkspace = documents.openDocuments.filter(doc =>
+    const docsInWorkspace = documents.all().filter(doc =>
       workspace.contains(doc.uri) && this.allWorkspacesWithDocument(doc).length === 1,
     );
     if (docsInWorkspace.length === 0) this.remove(workspace);
@@ -279,7 +302,7 @@ export class WorkspaceManager {
       currentWorkspace: this.current?.name,
       removedWorkspaces: workspace.name,
       removedDocument: documentUri,
-      currentDocuments: documents.openDocuments.map((doc) => doc.uri),
+      currentDocuments: documents.all().map((doc) => doc.uri),
     });
     return this.current || null;
   }
@@ -288,11 +311,16 @@ export class WorkspaceManager {
    * Handle updating the current workspace when a document is updated
    * Does not handle updating the document itself.
    */
-  public handleUpdateDocument(document: LspDocument): Workspace | null;
-  public handleUpdateDocument(documentUri: DocumentUri): Workspace | null;
-  public handleUpdateDocument(doc: DocumentUri | LspDocument): Workspace | null;
-  public handleUpdateDocument(doc: DocumentUri | LspDocument): Workspace | null {
-    logger.info('workspaceManager.handleUpdateDocument()', 'Updating document:', doc);
+  public handleUpdateDocument(document: LspDocument, options?: WorkspaceUpdateOptions): Workspace | null;
+  public handleUpdateDocument(documentUri: DocumentUri, options?: WorkspaceUpdateOptions): Workspace | null;
+  public handleUpdateDocument(doc: DocumentUri | LspDocument, options: WorkspaceUpdateOptions = {}): Workspace | null {
+    logger.info('workspaceManager.handleUpdateDocument()', 'Updating document:', {
+      doc: {
+        uri: this.getDocumentUriFromParams(doc),
+        type: LspDocument.is(doc) ? 'LspDocument' : 'DocumentUri',
+        version: LspDocument.is(doc) ? doc.version : undefined,
+      },
+    });
     const documentUri = this.getDocumentUriFromParams(doc);
     const workspace = this.getExistingWorkspaceOrCreateNew(documentUri);
     if (!workspace) {
@@ -303,18 +331,27 @@ export class WorkspaceManager {
       return null;
     }
     this.setCurrent(workspace);
-    const document = documents.getDocument(documentUri);
+    const document = documents.get(documentUri);
     if (document) {
-      analyzer.analyze(document);
-      workspace.addPending(documentUri);
-      workspace.addPending(...Array.from(analyzer.collectAllSources(documentUri)));
-      const localSymbols = analyzer.cache.getDocumentSymbols(document.uri);
-      const sourcedSymbols = analyzer.collectSourcedSymbols(document.uri);
-      [...localSymbols, ...sourcedSymbols]
-        .filter(s => s.isGlobal() || s.isRootLevel())
-        .forEach(s => {
-          analyzer.globalSymbols.add(s);
-        });
+      let analyzedDocument = options.analyzedDocument;
+      if (!analyzedDocument && options.skipAnalysis) {
+        analyzedDocument = analyzer.cache.getDocument(document.uri);
+      }
+      if (!analyzedDocument) {
+        analyzer.removeDocumentSymbols(document.uri);
+        analyzedDocument = analyzer.analyze(document);
+      }
+      if (analyzedDocument) {
+        workspace.addPending(documentUri);
+        workspace.addPending(...Array.from(analyzer.collectAllSources(documentUri)));
+        const localSymbols = analyzer.cache.getDocumentSymbols(document.uri);
+        const sourcedSymbols = analyzer.collectSourcedSymbols(document.uri);
+        [...localSymbols, ...sourcedSymbols]
+          .filter(s => s.isGlobal() || s.isRootLevel())
+          .forEach(s => {
+            analyzer.globalSymbols.add(s);
+          });
+      }
     }
     return this.current!;
   }

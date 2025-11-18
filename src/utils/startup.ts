@@ -10,8 +10,8 @@ import { PackageVersion } from './commander-cli-subcommands';
 import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter, ProposedFeatures } from 'vscode-languageserver/node';
 import * as Browser from 'vscode-languageserver/browser';
 import { Connection } from 'vscode-languageserver';
-import { Workspace } from './workspace';
-import { workspaceManager } from './workspace-manager';
+// import { Workspace } from './workspace';
+// import { workspaceManager } from './workspace-manager';
 import { SyncFileHelper } from './file-operations';
 // import { env } from './env-manager';
 
@@ -306,7 +306,8 @@ export async function timeServerStartup(
     // const startUri = path.join(os.homedir(), '.config', 'fish');
     const startupParams: InitializeParams = {
       processId: process.pid,
-      rootUri: path.join(os.homedir(), '.config', 'fish'),
+      rootUri: startPath ? pathToUri(startPath) : pathToUri(path.join(os.homedir(), '.config', 'fish')),
+      // rootPath: path.join(os.homedir(), '.config', 'fish'),
       clientInfo: {
         name: 'fish-lsp info --time-startup',
         version: PackageVersion,
@@ -318,7 +319,7 @@ export async function timeServerStartup(
       workspaceFolders: startPath ? [
         {
           uri: pathToUri(startPath),
-          name: 'fish-lsp info --time-startup',
+          name: startPath,
         },
       ] : [
         ...config.fish_lsp_all_indexed_paths.map(p => ({
@@ -342,22 +343,6 @@ export async function timeServerStartup(
   let all: number = 0;
   const items: { [key: string]: string[]; } = {};
   const counts: { [key: string]: number; } = {};
-
-  logger.setSilent(true).setLogFilePath('').setConsole(undefined);
-  // clear any existing workspaces, use the env variables if they are set,
-  // otherwise use their default values (since there isn't a client)
-  workspaceManager.clear();
-  const allPaths = startPath ? [startPath] : config.fish_lsp_all_indexed_paths;
-  for (const pathLike of allPaths) {
-    const fullPath = SyncFileHelper.expandEnvVars(pathLike);
-    const workspace = Workspace.syncCreateFromUri(pathToUri(fullPath));
-    if (!workspace) {
-      logger.logToStderr(`Failed to create workspace for path: ${pathLike}`);
-      continue;
-    }
-    workspaceManager.add(workspace);
-  }
-  logger.setSilent(false).setLogFilePath(config.fish_lsp_log_file).setConsole(connection.console);
 
   // 2. Time server initialization and background analysis
   // Call onInitialized() exactly as a real client would - this matches the real server flow 1:1

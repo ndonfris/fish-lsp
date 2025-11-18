@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import { findAllMissingArgparseFlags } from '../src/diagnostics/missing-completions';
 import { LspDocument } from '../src/document';
 import { flattenNested } from '../src/utils/flatten';
-import { getDiagnostics } from '../src/diagnostics/validate';
+import { getDiagnosticsAsync } from '../src/diagnostics/async-validate';
 import { createTestWorkspace, setLogger, TestLspDocument, fail } from './helpers';
 import { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from '../src/parser';
@@ -76,7 +76,7 @@ describe('diagnostics with missing completions', () => {
       });
     });
 
-    it('should analyze a simple function definition', () => {
+    it('should analyze a simple function definition', async () => {
       const functionDoc = documents.find(doc => doc.path.endsWith('functions/fish_function.fish'))!;
       const completionDoc = documents.find(doc => doc.path.endsWith('completions/fish_function.fish'))!;
       if (!functionDoc || !completionDoc) fail();
@@ -88,7 +88,7 @@ describe('diagnostics with missing completions', () => {
       expect(functionCached).toBeDefined();
       expect(completionCached).toBeDefined();
 
-      const diagnostics = getDiagnostics(functionCached.root!, functionDoc);
+      const diagnostics = await getDiagnosticsAsync(functionCached.root!, functionDoc);
       expect(diagnostics.length).toBe(2);
 
       const flatFuncSymbols = flattenNested(...functionCached.documentSymbols).filter(s => s.isFunction() && s.isGlobal());
