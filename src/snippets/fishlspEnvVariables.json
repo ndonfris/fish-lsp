@@ -1,7 +1,7 @@
 [
   {
     "name": "fish_lsp_enabled_handlers",
-    "description": "Enables the fish-lsp handlers. By default, all handlers are enabled.",
+    "description": "Enables the fish-lsp handlers. By default, all stable handlers are enabled.",
     "shortDescription": "server handlers to enable",
     "exactMatchOptions": true,
     "options": [
@@ -18,19 +18,21 @@
       "codeAction",
       "codeLens",
       "folding",
+      "selectionRange",
       "signature",
       "executeCommand",
       "inlayHint",
       "highlight",
       "diagnostic",
-      "popups"
+      "popups",
+      "semanticTokens"
     ],
     "defaultValue": [],
     "valueType": "array"
   },
   {
     "name": "fish_lsp_disabled_handlers",
-    "description": "Disables the fish-lsp handlers. By default, no handlers are disabled.",
+    "description": "Disables the fish-lsp handlers. By default, non-stable handlers are disabled.",
     "shortDescription": "server handlers to disable",
     "exactMatchOptions": true,
     "options": [
@@ -47,12 +49,14 @@
       "codeAction",
       "codeLens",
       "folding",
+      "selectionRange",
       "signature",
       "executeCommand",
       "inlayHint",
       "highlight",
       "diagnostic",
-      "popups"
+      "popups",
+      "semanticTokens"
     ],
     "defaultValue": [],
     "valueType": "array"
@@ -357,6 +361,19 @@
     ],
     "defaultValue": 5,
     "valueType": "number"
+  },
+  {
+    "name": "fish_lsp_semantic_handler_type",
+    "description": "Controls the semantic token highlighting mode for Fish shell scripts.\n\n'off' - Disables semantic token highlighting completely\n'full' - Full highlighting with all features (commands, keywords, variables, strings, operators, escape sequences, etc.)\n'mini' - Minimal highlighting (only commands and symbol definitions)",
+    "shortDescription": "semantic token handler mode: 'off', 'full', or 'mini'",
+    "exactMatchOptions": true,
+    "options": [
+      "off",
+      "full",
+      "mini"
+    ],
+    "defaultValue": "full",
+    "valueType": "string"
   },
   {
     "name": "fish_lsp_fish_path",

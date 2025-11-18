@@ -1,6 +1,6 @@
 import Parser from 'web-tree-sitter';
 import treeSitterWasmContent from '@embedded_assets/tree-sitter.wasm';
-import fishWasmContent from '@embedded_assets/tree-sitter-fish.wasm';
+import fishWasm from '@ndonfris/tree-sitter-fish';
 
 const _global: any = global;
 
@@ -35,24 +35,8 @@ export async function initializeParser(): Promise<Parser> {
 
   const parser = new Parser();
 
-  // Convert fish WASM content from data URL to Buffer
-  let fishWasmBuffer: Uint8Array;
-  if (typeof fishWasmContent === 'string' && fishWasmContent.startsWith('data:application/wasm;base64,')) {
-    const base64Data = fishWasmContent.replace('data:application/wasm;base64,', '');
-    fishWasmBuffer = Buffer.from(base64Data, 'base64');
-  } else if (typeof fishWasmContent === 'string') {
-    fishWasmBuffer = Buffer.from(fishWasmContent, 'base64');
-  } else {
-    fishWasmBuffer = fishWasmContent;
-  }
-
-  // Load fish language grammar using embedded WASM content
-  const lang = await Parser.Language.load(fishWasmBuffer);
+  // Load fish language grammar using bundled WASM content
+  const lang = await Parser.Language.load(fishWasm);
   parser.setLanguage(lang);
   return parser;
-}
-
-export function getLanguageWasmPath(): string {
-  // This function is kept for compatibility, but we now use embedded WASM content
-  return '@embedded_assets/tree-sitter-fish.wasm';
 }

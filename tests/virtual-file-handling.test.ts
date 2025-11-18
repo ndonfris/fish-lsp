@@ -1,5 +1,4 @@
-import { vi, describe, it, expect, beforeEach, afterEach, beforeAll } from 'vitest';
-import { createFakeLspDocument, setLogger, createTestWorkspace } from './helpers';
+import { setLogger, setupStartupMock, createMockConnection } from './helpers';
 import { analyzer, Analyzer } from '../src/analyze';
 import { documents, LspDocument } from '../src/document';
 import { workspaceManager } from '../src/utils/workspace-manager';
@@ -7,76 +6,13 @@ import { initializeParser } from '../src/parser';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import FishServer from '../src/server';
 import * as LSP from 'vscode-languageserver';
-import { FishUriWorkspace, Workspace } from '../src/utils/workspace';
-// import { createServerLogger } from '../src/logger';
-// import * as startupModule from '../src/utils/startup';
-// import { uriToPath, pathToUri } from '../src/utils/translation';
-// import { CompletionItemMap } from '../src/utils/completion/startup-cache';
-// import { initializeCompletionPager } from '../src/utils/completion/pager';
-// import { initializeDocumentationCache } from '../src/utils/documentation-cache';
-// import { initializeDefaultFishWorkspaces } from '../src/utils/workspace';
-// import { Config } from '../src/config';
-// import { URI } from 'vscode-uri';
+import { Workspace } from '../src/utils/workspace';
 
-// Mock connection for web/virtual scenarios
-function createMockBrowserConnection() {
-  return {
-    listen: vi.fn(),
-    onInitialize: vi.fn(),
-    onInitialized: vi.fn(),
-    onShutdown: vi.fn(),
-    onDidOpenTextDocument: vi.fn(),
-    onDidChangeTextDocument: vi.fn(),
-    onDidCloseTextDocument: vi.fn(),
-    onDidSaveTextDocument: vi.fn(),
-    onCompletion: vi.fn(),
-    onCompletionResolve: vi.fn(),
-    onDocumentSymbol: vi.fn(),
-    onWorkspaceSymbol: vi.fn(),
-    onWorkspaceSymbolResolve: vi.fn(),
-    onDefinition: vi.fn(),
-    onImplementation: vi.fn(),
-    onReferences: vi.fn(),
-    onHover: vi.fn(),
-    onRenameRequest: vi.fn(),
-    onDocumentFormatting: vi.fn(),
-    onDocumentRangeFormatting: vi.fn(),
-    onDocumentOnTypeFormatting: vi.fn(),
-    onCodeAction: vi.fn(),
-    onCodeLens: vi.fn(),
-    onFoldingRanges: vi.fn(),
-    onDocumentHighlight: vi.fn(),
-    languages: { inlayHint: { on: vi.fn() }, semanticTokens: { on: vi.fn(), onRange: vi.fn() } },
-    onSignatureHelp: vi.fn(),
-    onExecuteCommand: vi.fn(),
-    sendDiagnostics: vi.fn(),
-    window: {
-      createWorkDoneProgress: vi.fn().mockResolvedValue({
-        begin: vi.fn(),
-        report: vi.fn(),
-        done: vi.fn(),
-      }),
-      showErrorMessage: vi.fn(),
-      showWarningMessage: vi.fn(),
-      showInformationMessage: vi.fn(),
-    },
-    workspace: {
-      onDidChangeWorkspaceFolders: vi.fn(),
-    },
-    console: {
-      log: vi.fn(),
-      error: vi.fn(),
-      warn: vi.fn(),
-      info: vi.fn(),
-    },
-    dispose: vi.fn(),
-  } as unknown as LSP.Connection;
-}
-
-// Mock the startup module to provide the mocked connection
+// Mock the startup module at the top level
+setupStartupMock();
 vi.mock('../src/utils/startup', () => ({
-  connection: createMockBrowserConnection(),
-  createBrowserConnection: vi.fn().mockImplementation(() => createMockBrowserConnection()),
+  connection: createMockConnection(),
+  createBrowserConnection: vi.fn().mockImplementation(() => createMockConnection()),
   setExternalConnection: vi.fn(),
 }));
 
@@ -90,7 +26,12 @@ describe('Virtual Fish File Handling', () => {
   });
 
   beforeEach(async () => {
-    mockConnection = createMockBrowserConnection();
+    // Reset mocks
+    vi.clearAllMocks();
+
+    // Setup mock connection
+    mockConnection = createMockConnection();
+
     documents.clear();
     workspaceManager.clear();
     await Analyzer.initialize();

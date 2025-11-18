@@ -46,14 +46,14 @@ const showHelp = (currentMode?: BuildType) => {
   console.log(` * ${'[M]'.blue}          - Switch watch mode`);
   console.log(` * ${'[W]'.magenta}          - Show watched file paths`);
   console.log(` * ${'[Enter|A|R]'.white}  - Run current mode build`);
-  console.log(` * ${'[D]'.cyan}          - Normal rebuild (yarn dev)`);
-  console.log(` * ${'[N]'.yellow}          - Node rebuild (yarn build --npm)`);
-  console.log(` * ${'[B]'.blue}          - Binary-only rebuild (yarn build --binary)`);
-  console.log(` * ${'[S]'.white}          - Setup-only rebuild (yarn build --setup)`);
-  console.log(` * ${'[L]'.yellow}          - Lint on change rebuild (yarn build --lint)`);
+  console.log(` * ${'[D]'.cyan}          - Normal rebuild (yarn build)`);
+  console.log(` * ${'[N]'.yellow}          - Node rebuild (yarn dev --npm)`);
+  console.log(` * ${'[B]'.blue}          - Binary-only rebuild (yarn dev --binary)`);
+  console.log(` * ${'[S]'.white}          - Setup-only rebuild (yarn dev --setup)`);
+  console.log(` * ${'[L]'.yellow}          - Lint on change rebuild (yarn dev --lint)`);
   console.log(` * ${'[T]'.green}          - Test only rebuild (yarn test)`);
-  console.log(` * ${'[Y]'.white}          - Types-only rebuild (yarn build --types)`);
-  console.log(` * ${'[1-7]'.dim}        - Quick mode switch (1:dev, 2:npm, 3:lint, 4:binary, 5:setup, 6:test, 7:types)`);
+  console.log(` * ${'[Y]'.white}          - Types-only rebuild (yarn dev --types)`);
+  console.log(` * ${'[1-7]'.dim}        - Quick mode switch (1:build, 2:npm, 3:lint, 4:binary, 5:setup, 6:test, 7:types)`);
   console.log(` * ${'[Q|Ctrl+C]'.red}   - Quit watch mode`);
   console.log('');
   if (currentMode) {
@@ -70,23 +70,23 @@ const getModeDisplayName = (mode: BuildType): string => {
 
   switch (mode) {
     case 'dev':
-      return 'Full Project (yarn dev)';
+      return 'Full Project (yarn build)';
     case 'setup':
-      return 'Setup Files (yarn build --setup)';
+      return 'Setup Files (yarn dev --setup)';
     case 'binary':
-      return 'Binary Build (yarn build --binary)';
+      return 'Binary Build (yarn dev --binary)';
     case 'npm':
-      return 'NPM Build (yarn build --npm)';
+      return 'NPM Build (yarn dev --npm)';
     case 'test':
       return 'Test Run (yarn test)';
     case 'types':
-      return 'Types Build (yarn build --types)';
+      return 'Types Build (yarn dev --types)';
     case 'all':
-      return 'All Targets (yarn build --all)';
+      return 'All Targets (yarn dev --all)';
     case 'lint':
       return 'Lint Fix (yarn lint:fix)';
     default:
-      return 'Full Project (yarn dev)';
+      return 'Full Project (yarn build)';
   }
 };
 
@@ -249,21 +249,21 @@ class BuildManager {
       case 'dev':
         return ['dev'];
       case 'setup':
-        return ['build', '--setup'];
+        return ['dev', '--setup'];
       case 'binary':
-        return ['build', '--binary'];
+        return ['dev', '--binary'];
       case 'npm':
-        return ['build', '--npm'];
+        return ['dev', '--npm'];
       case 'types':
-        return ['build', '--types'];
+        return ['dev', '--types'];
       case 'test':
         return ['test:run'];
       case 'all':
-        return ['build', '--all'];
+        return ['dev', '--all'];
       case 'lint':
         return ['lint:fix'];
       default:
-        return ['dev'];
+        return ['build'];
     }
   }
 
@@ -565,13 +565,13 @@ class KeyboardHandler {
 
   private async showModeSelection(): Promise<void> {
     console.log('\n' + 'Select Watch Mode:'.bright.underline.magenta + '\n');
-    console.log('\t' + logger.dim('1. Full Project (yarn dev)'));
-    console.log('\t' + logger.dim('2. NPM Build (yarn build --npm)'));
+    console.log('\t' + logger.dim('1. Full Project (yarn build)'));
+    console.log('\t' + logger.dim('2. NPM Build (yarn dev --npm)'));
     console.log('\t' + logger.dim('3. Lint Fix (yarn lint:fix)'));
-    console.log('\t' + logger.dim('4. Binary Build (yarn build --binary)'));
-    console.log('\t' + logger.dim('5. Setup Files (yarn build --setup)'));
+    console.log('\t' + logger.dim('4. Binary Build (yarn dev --binary)'));
+    console.log('\t' + logger.dim('5. Setup Files (yarn dev --setup)'));
     console.log('\t' + logger.dim('6. Tests Build (yarn test:run)'));
-    console.log('\t' + logger.dim('7. Types Build (yarn build --types)'));
+    console.log('\t' + logger.dim('7. Types Build (yarn dev --types)'));
     console.log('\n\t' + logger.dim('Current: ') + getModeDisplayName(this.buildManager.mode).bgBlue.black.b + '\n');
     console.log(logger.highlight('Enter number (1-7) or press any other key to cancel:'));
 

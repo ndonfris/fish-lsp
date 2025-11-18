@@ -16,7 +16,7 @@ import { SyncFileHelper } from './file-operations';
 // import { env } from './env-manager';
 
 // Define proper types for the connection options
-export type ConnectionType = 'stdio' | 'node-ipc' | 'socket';
+export type ConnectionType = 'stdio' | 'node-ipc' | 'socket' | 'pipe';
 
 export interface ConnectionOptions {
   port?: number;
@@ -24,10 +24,12 @@ export interface ConnectionOptions {
 export function createConnectionType(opts: {
   stdio?: boolean;
   nodeIpc?: boolean;
+  pipe?: boolean;
   socket?: boolean;
 }): ConnectionType {
   if (opts.stdio) return 'stdio';
   if (opts.nodeIpc) return 'node-ipc';
+  if (opts.pipe) return 'pipe';
   if (opts.socket) return 'socket';
   return 'stdio';
 }
@@ -61,6 +63,7 @@ function createLspConnection(connectionType: ConnectionType = 'stdio', options: 
       connection = createConnection(ProposedFeatures.all);
       break;
 
+    case 'pipe':
     case 'socket':
       if (!options.port) {
         logger.log('Socket connection requires a port number');
@@ -70,6 +73,7 @@ function createLspConnection(connectionType: ConnectionType = 'stdio', options: 
       // For socket connections, we need to set up a TCP server
       server = net.createServer((socket) => {
         connection = createConnection(
+          ProposedFeatures.all,
           new StreamMessageReader(socket),
           new StreamMessageWriter(socket),
         );
@@ -79,7 +83,7 @@ function createLspConnection(connectionType: ConnectionType = 'stdio', options: 
       });
 
       server.listen(options.port);
-      logger.log(`Server listening on port ${options.port}`);
+      logger.log(`Server listening on port ${options.port}`, server.address());
 
       // For socket connections, we return null since the connection is created in the callback
       // This is a special case that needs to be handled in startServer
@@ -180,9 +184,9 @@ export function startServer(connectionType: ConnectionType = 'stdio', options: C
   // Create connection using the refactored function
   createLspConnection(connectionType, options);
 
-  // For socket connections, the setup is handled in the connection creation
-  if (connectionType === 'socket' || !connection) {
-    // Connection is already set up in createLspConnection for socket connections
+  // For pipe and socket connections, the setup is handled in the connection creation
+  if (connectionType === 'pipe' || connectionType === 'socket' || !connection) {
+    // Connection is already set up in createLspConnection for pipe/socket connections
     return;
   }
 

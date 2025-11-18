@@ -3,7 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import * as fc from 'fast-check';
-import { Logger, logger, createServerLogger, IConsole, LOG_LEVELS, LogLevel, DEFAULT_LOG_LEVEL } from '../src/logger';
+import { Logger, logger, createServerLogger, IConsole, LOG_LEVELS, LogLevel, DEFAULT_LOG_LEVEL, now } from '../src/logger';
+import { setLogger } from './helpers';
 
 // Mock fs module completely - no real file operations needed
 vi.mock('fs', () => ({
@@ -445,9 +446,9 @@ describe('Logger', () => {
 
       // Check that the logged content contains selected properties
       const calls = mockFs.appendFileSync.mock.calls;
-      calls.forEach((call, index) => {
-        expect(call[1]).toContain(testObjects[index].name);
-        expect(call[1]).toContain(String(testObjects[index].value));
+      calls.forEach((call: any, index: number) => {
+        expect(call[1]).toContain(testObjects[index]?.name);
+        expect(call[1]).toContain(String(testObjects[index]?.value));
         expect(call[1]).not.toContain('"ignore"');
       });
     });
@@ -505,6 +506,27 @@ describe('Logger', () => {
           expect(serverLogger.isConnectionConsole()).toBe(true);
         },
       ));
+    });
+  });
+
+  describe('Log time', () => {
+    // setLogger()
+    beforeEach(() => {
+      testLogger.setLogFilePath('/mock/path/test.log').setConsole(mockConsole).allowDefaultConsole().start();
+    });
+    it('should log time taken for operations', () => {
+      /* If you want to view logs in the test output */
+      // testLogger = new Logger().allowDefaultConsole().setSilent(false).start();
+      testLogger.log('Starting operation...');
+      testLogger.debug(now());
+      testLogger.setSilent(false);
+      expect(logger).toBeDefined();
+      expect(typeof now()).toBe('string');
+      testLogger.log('Operation completed.');
+      expect(testLogger).toBeDefined();
+      testLogger.setSilent(true);
+      testLogger.log('This should not appear in console.');
+      vi.clearAllMocks();
     });
   });
 });

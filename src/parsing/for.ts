@@ -49,6 +49,7 @@ export function processForDefinition(document: LspDocument, node: SyntaxNode, ch
       document.uri,
       node.text,
       definitionScope,
+      [],
       children,
     ),
   ];

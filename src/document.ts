@@ -11,7 +11,7 @@ import { SyncFileHelper } from './utils/file-operations';
 import { logger } from './logger';
 import * as Locations from './utils/locations';
 import { FishSymbol } from './parsing/symbol';
-import { logTreeSitterDocumentDebug, returnParseTreeString } from './utils/dump-parse-tree';
+import { logTreeSitterDocumentDebug, returnParseTreeString } from './utils/cli-dump-tree';
 
 export class LspDocument implements TextDocument {
   protected document: TextDocument;
@@ -400,6 +400,17 @@ export class LspDocument implements TextDocument {
       typeof (value as LspDocument).uri === 'string' &&
       typeof (value as LspDocument).getText === 'function'
     );
+  }
+
+  /**
+   * @TODO check that this correctly handles range creation for both starting and ending positions
+   * If this doesn't work as expected, we could alternatively create the range manually with
+   * `getRange(analyzedDocument.root)`
+   */
+  get fileRange(): Range {
+    const start = Position.create(0, 0);
+    const end = this.positionAt(this.getText().length);
+    return Range.create(start, end);
   }
 
   hasShebang(): boolean {

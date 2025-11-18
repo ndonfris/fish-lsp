@@ -572,6 +572,7 @@ export namespace CommanderSubcommand {
         enable: z.array(z.string()).optional().default([]),
         disable: z.array(z.string()).optional().default([]),
         dump: z.boolean().optional().default(false),
+        port: z.string().optional(),
         socket: z.string().optional(),
         maxFiles: z.string().optional(),
         memoryLimit: z.string().optional(),
@@ -615,6 +616,7 @@ export namespace CommanderSubcommand {
         remove: z.boolean().optional().default(false),
         status: z.boolean().optional().default(false),
         dumpParseTree: z.union([z.string(), z.boolean()]).optional().default(''),
+        dumpSemanticTokens: z.union([z.string(), z.boolean()]).optional().default(''),
         virtualFs: z.boolean().optional().default(false),
       }),
     );
