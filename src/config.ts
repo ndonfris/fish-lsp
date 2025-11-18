@@ -150,6 +150,12 @@ export const ConfigSchema = z.object({
 
   /** semantic token handler mode: 'off', 'full', or 'mini' */
   fish_lsp_semantic_handler_type: z.enum(['off', 'full', 'mini']).default('full'),
+
+  /** threshold for large file optimization (line count) */
+  fish_lsp_large_file_threshold: z.number().default(2000),
+
+  /** skip full symbol extraction for large files */
+  fish_lsp_optimize_large_files: z.boolean().default(true),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -179,6 +185,8 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_max_workspace_depth: toNumber(process.env.fish_lsp_max_workspace_depth || '4'),
     fish_lsp_fish_path: process.env.fish_lsp_fish_path,
     fish_lsp_semantic_handler_type: process.env.fish_lsp_semantic_handler_type as 'off' | 'full' | 'mini' | undefined,
+    fish_lsp_large_file_threshold: toNumber(process.env.fish_lsp_large_file_threshold || '2000'),
+    fish_lsp_optimize_large_files: toBoolean(process.env.fish_lsp_optimize_large_files),
   };
 
   const environmentVariablesUsed = Object.entries(rawConfig)

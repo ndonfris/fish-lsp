@@ -10,6 +10,10 @@ import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol, processCompletion } from './parsing/complete';
 import { createSourceResources, getExpandedSourcedFilenameNode, isSourceCommandArgumentName, isSourceCommandWithArgument, symbolsFromResource } from './parsing/source';
 import { filterFirstPerScopeSymbol, FishSymbol, processNestedTree } from './parsing/symbol';
+import { processFunctionDefinition } from './parsing/function';
+import { processSetCommand } from './parsing/set';
+import { processAliasCommand } from './parsing/alias';
+import { processExportCommand } from './parsing/export';
 import { getImplementation } from './references';
 import { execCommandLocations } from './utils/exec';
 import { SyncFileHelper } from './utils/file-operations';
@@ -101,10 +105,48 @@ export class AnalyzedDocument {
   ): AnalyzedDocument {
     const commandNodes: SyntaxNode[] = [];
     const sourceNodes: SyntaxNode[] = [];
-    tree.rootNode.descendantsOfType('command').forEach(node => {
-      if (isSourceCommandWithArgument(node)) sourceNodes.push(node.child(1)!);
-      commandNodes.push(node);
-    });
+
+    // Optimize command node extraction for large files
+    if (config.fish_lsp_optimize_large_files && document.lineCount >= config.fish_lsp_large_file_threshold) {
+      // For large files, use a cursor-based approach which is faster
+      const cursor = tree.walk();
+      let reachedRoot = false;
+
+      while (!reachedRoot) {
+        if (cursor.nodeType === 'command') {
+          const node = cursor.currentNode;
+          if (isSourceCommandWithArgument(node)) sourceNodes.push(node.child(1)!);
+          commandNodes.push(node);
+        }
+
+        if (cursor.gotoFirstChild()) {
+          continue;
+        }
+
+        if (cursor.gotoNextSibling()) {
+          continue;
+        }
+
+        let retracing = true;
+        while (retracing) {
+          if (!cursor.gotoParent()) {
+            retracing = false;
+            reachedRoot = true;
+          }
+
+          if (cursor.gotoNextSibling()) {
+            retracing = false;
+          }
+        }
+      }
+    } else {
+      // For smaller files, use the original approach
+      tree.rootNode.descendantsOfType('command').forEach(node => {
+        if (isSourceCommandWithArgument(node)) sourceNodes.push(node.child(1)!);
+        commandNodes.push(node);
+      });
+    }
+
     return new AnalyzedDocument(
       document,
       documentSymbols,
@@ -279,9 +321,55 @@ export class Analyzer {
    * @returns An AnalyzedDocument object.
    */
   private getAnalyzedDocument(document: LspDocument): AnalyzedDocument {
-    const tree = this.parser.parse(document.getText());
+    // Use incremental parsing if we have a cached tree
+    const cachedDoc = this.cache.getDocument(document.uri);
+    const oldTree = cachedDoc?.tree;
+    const tree = this.parser.parse(document.getText(), oldTree);
+
+    // Optimize for large files
+    if (config.fish_lsp_optimize_large_files && document.lineCount >= config.fish_lsp_large_file_threshold) {
+      const documentSymbols = this.processLargeFileSymbols(document, tree);
+      return AnalyzedDocument.createFull(document, documentSymbols, tree);
+    }
+
     const documentSymbols = processNestedTree(document, tree.rootNode);
     return AnalyzedDocument.createFull(document, documentSymbols, tree);
+  }
+
+  /**
+   * Optimized symbol processing for large files.
+   * Uses direct tree-sitter queries instead of recursive processing
+   * to extract only top-level symbols efficiently.
+   */
+  private processLargeFileSymbols(document: LspDocument, tree: Parser.Tree): FishSymbol[] {
+    const symbols: FishSymbol[] = [];
+    const root = tree.rootNode;
+
+    // Only process direct children of root node (top-level definitions)
+    // This avoids deep recursion for large files
+    for (const child of root.namedChildren) {
+      if (isCommand(child)) {
+        const commandName = child.firstNamedChild?.text;
+
+        // Process only top-level definitions
+        switch (commandName) {
+          case 'function':
+            symbols.push(...processFunctionDefinition(document, child, []));
+            break;
+          case 'set':
+            symbols.push(...processSetCommand(document, child, []));
+            break;
+          case 'alias':
+            symbols.push(...processAliasCommand(document, child, []));
+            break;
+          case 'export':
+            symbols.push(...processExportCommand(document, child, []));
+            break;
+        }
+      }
+    }
+
+    return symbols;
   }
 
   /**
