@@ -3,7 +3,7 @@ import * as LSP from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { URI } from 'vscode-uri';
 import { findParentVariableDefinitionKeyword, isCommand, isCommandName, isFunctionDefinition, isFunctionDefinitionName, isProgram, isStatement, isString, isTopLevelDefinition, isTopLevelFunctionDefinition, isVariable } from './node-types';
-import { LspDocument, LspDocuments } from '../document';
+import { LspDocument, Documents } from '../document';
 import { getPrecedingComments, getRange } from './tree-sitter';
 import * as LocationNamespace from './locations';
 import * as os from 'os';
@@ -80,7 +80,7 @@ export function uriToPath(stringUri: DocumentUri): PathLike {
   return normalizeFsPath(uri.fsPath);
 }
 
-export function pathToUri(filepath: PathLike, documents?: LspDocuments | undefined): DocumentUri {
+export function pathToUri(filepath: PathLike, documents?: Documents | undefined): DocumentUri {
   // Yarn v2+ hooks tsserver and sends `zipfile:` URIs for Vim. Keep as-is.
   // Example: zipfile:///foo/bar/baz.zip::path/to/module
   if (filepath.startsWith('zipfile:')) {
@@ -88,7 +88,7 @@ export function pathToUri(filepath: PathLike, documents?: LspDocuments | undefin
   }
   const fileUri = URI.file(filepath);
   const normalizedFilepath = normalizePath(fileUri.fsPath);
-  const document = documents && documents.get(normalizedFilepath);
+  const document = documents && documents.get(URI.file(normalizedFilepath).toString());
   return document ? document.uri : fileUri.toString();
 }
 

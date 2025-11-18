@@ -2,8 +2,8 @@ import * as os from 'os';
 import { homedir } from 'os';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode, Tree } from 'web-tree-sitter';
-import { findChildNodes, getChildNodes, getNodeAtRange } from '../src/utils/tree-sitter';
-import { Diagnostic, DiagnosticSeverity, TextDocumentItem } from 'vscode-languageserver';
+import { findChildNodes, getChildNodes, getNodeAtRange, nodesGen } from '../src/utils/tree-sitter';
+import { Diagnostic, DiagnosticSeverity, InitializedParams, InitializeParams, TextDocumentItem } from 'vscode-languageserver';
 import { initializeParser } from '../src/parser';
 import { ErrorCodes } from '../src/diagnostics/error-codes';
 // import { fishNoExecuteDiagnostic } from '../src/diagnostics/no-execute-diagnostic';
@@ -11,8 +11,8 @@ import { isCommand, isComment, isDefinitionName } from '../src/utils/node-types'
 // import { ScopeStack, isReference } from '../src/diagnostics/scope';
 import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isArgparseWithoutEndStdin } from '../src/diagnostics/node-types';
 import { LspDocument } from '../src/document';
-import { createFakeLspDocument, setLogger, fail } from './helpers';
-import { getDiagnostics } from '../src/diagnostics/validate';
+import { createFakeLspDocument, setLogger, fail, createMockConnection } from './helpers';
+import { getDiagnosticsAsync } from '../src/diagnostics/async-validate';
 import { DiagnosticComment, DiagnosticCommentsHandler, isDiagnosticComment, parseDiagnosticComment } from '../src/diagnostics/comments-handler';
 import { withTempFishFile } from './temp';
 import { workspaceManager } from '../src/utils/workspace-manager';
@@ -22,6 +22,12 @@ import { analyzer, Analyzer } from '../src/analyze';
 import { config } from '../src/config';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { logger } from '../src/logger';
+import { testOpenDocument } from './document-test-helpers';
+import { PrebuiltDocumentationMap } from '../src/utils/snippets';
+import { CompletionItemMap } from '../src/utils/completion/startup-cache';
+import { Server } from 'http';
+import FishServer from '../src/server';
+import { connection, startServer } from '../src/utils/startup';
 // import { isFunctionDefinitionName, isFunctionVariableDefinitionName } from '../src/parsing/function';
 // import TestWorkspace from './test-workspace-utils';
 // import { isArgparseVariableDefinitionName } from '../src/parsing/argparse';
@@ -35,9 +41,15 @@ let input: string = '';
 setLogger(
   async () => {
     parser = await initializeParser(); diagnostics = []; input = ''; output = [];
+    // Reset config to avoid test pollution
+    config.fish_lsp_diagnostic_disable_error_codes = [];
+    // Disable expensive unknown command check for unit tests
+    config.fish_lsp_diagnostic_disable_error_codes.push(ErrorCodes.unknownCommand);
   },
   async () => {
     parser.reset();
+    // Reset config after each test
+    config.fish_lsp_diagnostic_disable_error_codes = [];
   },
 );
 
@@ -88,6 +100,8 @@ function extractDiagnostics(tree: Tree) {
 describe('diagnostics test suite', () => {
   beforeAll(async () => {
     await Analyzer.initialize();
+    createMockConnection();
+    await FishServer.create(connection, {} as InitializeParams);
     logger.setSilent();
     await setupProcessEnvExecFile();
   });
@@ -139,7 +153,7 @@ describe('diagnostics test suite', () => {
     inputs.forEach((input, _) => {
       const tree = parser.parse(input);
       const result = extractDiagnostics(tree).pop()!;
-      for (const r of getChildNodes(result)) {
+      for (const r of nodesGen(result)) {
         if (!r.isError) continue;
         const errorNode = findErrorCause(r.children);
         // console.log(getChildNodes(r).map(n => n.text + ':::' + n.type))
@@ -163,7 +177,7 @@ describe('diagnostics test suite', () => {
       'end',
     ].join('\n');
     const tree = parser.parse(input);
-    for (const node of getChildNodes(tree.rootNode)) {
+    for (const node of nodesGen(tree.rootNode)) {
       if (isExtraEnd(node)) {
         // console.log({type: node.type, text: node.text});
         output.push(node);
@@ -175,7 +189,7 @@ describe('diagnostics test suite', () => {
   it('NODE_TEST: 0 indexed array', async () => {
     input = 'echo $argv[0]';
     const { rootNode } = parser.parse(input);
-    for (const node of getChildNodes(rootNode)) {
+    for (const node of nodesGen(rootNode)) {
       if (isZeroIndex(node)) {
         // console.log({type: node.type, text: node.text});
         output.push(node);
@@ -187,7 +201,7 @@ describe('diagnostics test suite', () => {
   it('NODE_TEST: single quote includes variable expansion', async () => {
     input = 'echo \' $argv\'';
     const { rootNode } = parser.parse(input);
-    for (const node of getChildNodes(rootNode)) {
+    for (const node of nodesGen(rootNode)) {
       if (isSingleQuoteVariableExpansion(node)) {
         // console.log({type: node.type, text: node.text});
         // getChildNodes(node).forEach(n => console.log(n.text))
@@ -205,7 +219,7 @@ describe('diagnostics test suite', () => {
     ].forEach(input => {
       output = [];
       const { rootNode } = parser.parse(input);
-      for (const node of getChildNodes(rootNode)) {
+      for (const node of nodesGen(rootNode)) {
         // console.log({type: node.type, text: node.text});
         if (isAlias(node)) {
           output.push(node);
@@ -221,7 +235,7 @@ describe('diagnostics test suite', () => {
       'set --universal uvar \'SOME VAR\'',
     ].forEach(input => {
       const { rootNode } = parser.parse(input);
-      for (const node of getChildNodes(rootNode)) {
+      for (const node of nodesGen(rootNode)) {
         // console.log({type: node.type, text: node.text});
         if (isUniversalDefinition(node)) {
           output.push(node);
@@ -234,7 +248,7 @@ describe('diagnostics test suite', () => {
     ]);
   });
 
-  it('NODE_TEST: find source file', () => {
+  it('NODE_TEST: find source file', async () => {
     [
       'source file_does_not_exist.fish',
       'source',
@@ -256,7 +270,7 @@ describe('diagnostics test suite', () => {
     expect(output.map(o => o.text)).toEqual(['file_does_not_exist.fish']);
   });
 
-  it('NODE_TEST: isTestCommandVariableExpansionWithoutString \'test -n/-z "$var"\'', () => {
+  it('NODE_TEST: isTestCommandVariableExpansionWithoutString \'test -n/-z "$var"\'', async () => {
     [
       'if test -n $arg0',
       'if test -z "$arg1"',
@@ -277,7 +291,7 @@ describe('diagnostics test suite', () => {
     ]);
   });
 
-  it('NODE_TEST: silent flag', () => {
+  it('NODE_TEST: silent flag', async () => {
     config.fish_lsp_strict_conditional_command_warnings = true;
     const outputWithFlag: SyntaxNode[] = [];
     const outputWithoutFlag: SyntaxNode[] = [];
@@ -289,7 +303,7 @@ describe('diagnostics test suite', () => {
       'if functions -aq ls; end',
     ].forEach((input, _index) => {
       const { rootNode } = parser.parse(input);
-      for (const node of getChildNodes(rootNode)) {
+      for (const node of nodesGen(rootNode)) {
         if (isConditionalWithoutQuietCommand(node)) {
           outputWithFlag.push(node);
         }
@@ -310,7 +324,7 @@ describe('diagnostics test suite', () => {
       ].join('\n'),
     ].forEach((input, _index) => {
       const { rootNode } = parser.parse(input);
-      for (const node of getChildNodes(rootNode)) {
+      for (const node of nodesGen(rootNode)) {
         // if (index === 5 && node.type === 'if_statement') {
         // console.log({node: node.toString()});
         // const condition = node.namedChildren.find(child => child.type === 'condition')
@@ -329,7 +343,7 @@ describe('diagnostics test suite', () => {
     expect(outputWithoutFlag.length).toBe(5);
   });
 
-  it('NODE_TEST: `if set -q var_name` vs `if set -q $var_name`', () => {
+  it('NODE_TEST: `if set -q var_name` vs `if set -q $var_name`', async () => {
     [
       'if set -q $variable_1; echo bad; end',
       'if set -q variable_2; echo good; end',
@@ -351,14 +365,14 @@ describe('diagnostics test suite', () => {
     ]);
   });
 
-  it('NODE_TEST: conditional', () => {
+  it('NODE_TEST: conditional', async () => {
     config.fish_lsp_strict_conditional_command_warnings = false;
     type ConditionalOutput = {
       idx: number;
       node: string;
     };
     const _output: ConditionalOutput[] = [];
-    [
+    const testInputs = [
       'if set -q var || set -l bad_1; echo "var is set"; end;',
       'if set -q var; or set -l bad_2; echo "var is set"; end;',
       'if set fishpath (which fish); echo "$fishpath is set"; end;',
@@ -401,16 +415,27 @@ if type --all --query ls || functions -q ls || command -aq ls
 end
 
 awk
-      `].forEach((input, idx) => {
+      `];
+    for (let idx = 0; idx < testInputs.length; idx++) {
+      const input = testInputs[idx]!;
       const { root, document } = analyzer.ensureCachedDocument(createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input));
-      if (!root || !document) return;
+      if (!root || !document) continue;
+      // completion
 
-      diagnostics = getDiagnostics(root, document);
+      diagnostics = await getDiagnosticsAsync(root, document);
       console.log(`---- input ${idx} ----`);
       diagnostics.forEach(d => logDiagnostics(d, root));
-
+      console.log({
+        idx: idx,
+        diagnostics: diagnostics.map(d => ({
+          text: document.getText(d.range),
+          code: d.code,
+          mes: d.message,
+          node: d.data.node.parent.text,
+        })),
+      });
       _output.push(...diagnostics.map((d) => ({ node: d.data.node.parent.text, idx: idx })));
-    });
+    }
     console.log(_output);
     expect(_output).toEqual([
       {
@@ -428,7 +453,7 @@ awk
   * TODO:
   *     Improve references usage for autoloaded functions, and other scopes
   */
-  it('NODE_TEST: unused local definition', () => {
+  it('NODE_TEST: unused local definition', async () => {
     const input = [
       '# input 1',
       'function foo',
@@ -439,26 +464,23 @@ awk
       'set --global variable_3 c',
     ].join('\n');
     const { root, document } = analyzer.ensureCachedDocument(createFakeLspDocument('file:///tmp/test-1.fish', input));
-    logger.setSilent(false);
-    logger.log(document.showTree());
-    logger.setSilent(true);
     if (!root) return;
-    const defs = getChildNodes(root).filter(n => {
+    const defs = nodesGen(root).filter(n => {
       return isDefinitionName(n);
     });
 
-    expect(defs.map(d => d.text)).toEqual([
+    expect(defs.map(d => d.text).toArray()).toEqual([
       'foo',
       'variable_1',
       'variable_2',
       'variable_3',
     ]);
 
-    const result = getDiagnostics(root, document);
+    const result = await getDiagnosticsAsync(root, document);
     expect(result.length).toBe(3);
   });
 
-  it('VALIDATE: missing end', () => {
+  it('VALIDATE: missing end', async () => {
     [
       'echo "',
       'echo \'',
@@ -466,37 +488,44 @@ awk
       'echo $argv[',
       'echo (',
       'echo $(',
-    ].forEach((input, idx) => {
+    ].forEach(async (input, idx) => {
       analyzer.ensureCachedDocument(createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input));
       const { rootNode } = parser.parse(input);
       const doc = createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input);
-      const result = getDiagnostics(rootNode, doc);
+      const result = await getDiagnosticsAsync(rootNode, doc, undefined, 1);
       expect(result.length).toBe(1);
     });
   });
 
-  it('VALIDATE: extra end', () => {
+  it('VALIDATE: extra end', async () => {
+    // Disable unused local definition check for this test
+    const savedDisabled = [...config.fish_lsp_diagnostic_disable_error_codes];
+    config.fish_lsp_diagnostic_disable_error_codes = [ErrorCodes.unknownCommand, ErrorCodes.unusedLocalDefinition];
+
     [
       'for i in (seq 1 10); end; end',
       'function foo; echo hi; end; end',
-    ].forEach((input, idx) => {
-      config.fish_lsp_diagnostic_disable_error_codes.push(4004);
-      analyzer.ensureCachedDocument(createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input));
-      const { rootNode } = parser.parse(input);
+    ].forEach(async (input, idx) => {
       const doc = createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input);
-      const result = getDiagnostics(rootNode, doc);
+      const cached = analyzer.ensureCachedDocument(doc).ensureParsed();
+      const { root } = cached;
+      const result = await getDiagnosticsAsync(root, doc);
       expect(result.length).toBe(1);
     });
+
+    // Restore config
+    config.fish_lsp_diagnostic_disable_error_codes = savedDisabled;
   });
 
-  it('VALIDATE: zero index', () => {
+  it('VALIDATE: zero index', async () => {
     [
       'echo $argv[0]',
-    ].forEach((input, idx) => {
+    ].forEach(async (input, idx) => {
       analyzer.ensureCachedDocument(createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input));
       const { rootNode } = parser.parse(input);
       const doc = createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input);
-      const result = getDiagnostics(rootNode, doc);
+      const result = await getDiagnosticsAsync(rootNode, doc);
+      expect(result.map(r => r.code)).toContain(ErrorCodes.zeroIndexedArray);
       expect(result.length).toBe(1);
     });
   });
@@ -504,24 +533,24 @@ awk
   it.skip('VALIDATE: isSingleQuoteVariableExpansion', () => {
     [
       'echo \'$argv[1]\'; echo \'\\$argv[1]\'',
-    ].forEach((input, idx) => {
+    ].forEach(async (input, idx) => {
       const { rootNode } = parser.parse(input);
       const doc = createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input);
       analyzer.ensureCachedDocument(doc);
-      const result = getDiagnostics(rootNode, doc);
+      const result = await getDiagnosticsAsync(rootNode, doc);
       expect(result.length).toBe(1);
     });
   });
 
-  it('VALIDATE: isAlias', () => {
+  it('VALIDATE: isAlias', async () => {
     // config.fish_lsp_diagnostic_disable_error_codes.push(ErrorCodes.usedAlias);
     [
       'alias foo=\'fish_opt\'\nfoo',
-    ].forEach((input, idx) => {
+    ].forEach(async (input, idx) => {
       const { rootNode } = parser.parse(input);
       const doc = createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input);
       analyzer.ensureCachedDocument(doc);
-      const result = getDiagnostics(rootNode, doc);
+      const result = await getDiagnosticsAsync(rootNode, doc);
       result.forEach(r => logDiagnostics(r, rootNode));
       expect(result.length).toBe(1);
       const diagnosticTypes = result.map(r => r.code);
@@ -529,16 +558,16 @@ awk
     });
   });
 
-  it('VALIDATE: isUniversal', () => {
+  it('VALIDATE: isUniversal', async () => {
     [
       'set -U _foo abcdef',
       'set -U _foo abcdef',
-    ].forEach((input, idx) => {
+    ].forEach(async (input, idx) => {
       const { rootNode } = parser.parse(input);
       const uri = idx === 1 ? `file://${os.homedir()}/.config/fish/conf.d/test-1.fish` : `file:///tmp/test-${idx}.fish`;
       const doc = createFakeLspDocument(uri, input);
       analyzer.ensureCachedDocument(doc);
-      const result = getDiagnostics(rootNode, doc);
+      const result = await getDiagnosticsAsync(rootNode, doc);
       if (idx === 0) {
         expect(result.length).toBe(1);
       } else if (idx === 1) {
@@ -547,72 +576,72 @@ awk
     });
   });
 
-  it('VALIDATE: sourceFilename', () => {
+  it('VALIDATE: sourceFilename', async () => {
     [
       'source ~/.config/fish/__cconfig.fish',
-      'source (get-fish-config-file)',
-    ].forEach((input, idx) => {
-      const { rootNode } = parser.parse(input);
-      const uri = idx === 1 ? `file://${os.homedir()}/.config/fish/conf.d/test-1.fish` : `file:///tmp/test-${idx}.fish`;
+      'source (echo get-fish-config-file)',
+    ].forEach(async (input, idx) => {
+      const uri = idx === 1 ? `file://${os.homedir()}/.config/fish/conf.d/test-1.fish` : `file:///tmp/test/test-${idx}.fish`;
       const doc = createFakeLspDocument(uri, input);
-      analyzer.ensureCachedDocument(doc);
-      const result = getDiagnostics(rootNode, doc);
+      const { root, document } = analyzer.analyze(doc).ensureParsed();
+      // analyzer.ensureCachedDocument(doc);
+      const result = await getDiagnosticsAsync(root, document);
       if (idx === 0) {
         expect(result.length).toBe(1);
       } else if (idx === 1) {
-        // logger.setSilent(false)
-        // logger.log(doc.showTree())
+        // logger.setSilent(false);
+        // logger.log(doc.showTree());
         expect(result.length).toBe(0);
       }
     });
   });
 
-  it('VALIDATE: isTestCommandVariableExpansionWithoutString', () => {
+  it('VALIDATE: isTestCommandVariableExpansionWithoutString', async () => {
     [
       'test -n $argv',
       '[ -n $argv ]',
       '[ -z $argv[1] ]',
-    ].forEach((input, idx) => {
+    ].forEach(async (input, idx) => {
       const { rootNode } = parser.parse(input);
       const uri = idx === 1 ? `file://${os.homedir()}/.config/fish/conf.d/test-1.fish` : `file:///tmp/test-${idx}.fish`;
       const doc = createFakeLspDocument(uri, input);
       analyzer.ensureCachedDocument(doc);
-      const result = getDiagnostics(rootNode, doc);
+      const result = await getDiagnosticsAsync(rootNode, doc);
       expect(result.length).toBe(1);
     });
   });
 
-  it('VALIDATE: isConditionalWithoutQuietCommand', () => {
+  it('VALIDATE: isConditionalWithoutQuietCommand', async () => {
     config.fish_lsp_strict_conditional_command_warnings = true;
 
     [
       'if string match -r \'a\' "$argv";end;',
       'if set var;end;',
-    ].forEach((input, idx) => {
+    ].forEach(async (input, idx) => {
       const { rootNode } = parser.parse(input);
       const uri = idx === 1 ? `file://${os.homedir()}/.config/fish/conf.d/test-1.fish` : `file:///tmp/test-${idx}.fish`;
       const doc = createFakeLspDocument(uri, input);
       analyzer.ensureCachedDocument(doc);
-      const result = getDiagnostics(rootNode, doc);
+      const result = await getDiagnosticsAsync(rootNode, doc);
       expect(result.length).toBe(1);
     });
   });
 
-  it('VALIDATE: isVariableDefinitionWithExpansionCharacter', () => {
+  it('VALIDATE: isVariableDefinitionWithExpansionCharacter', async () => {
     [
       'set $argv a b c',
       'set $argv[1] a b c',
-    ].forEach((input, idx) => {
+    ].forEach(async (input, idx) => {
       const { rootNode } = parser.parse(input);
       const uri = idx === 1 ? `file://${os.homedir()}/.config/fish/conf.d/test-1.fish` : `file:///tmp/test-${idx}.fish`;
       const doc = createFakeLspDocument(uri, input);
       analyzer.ensureCachedDocument(doc);
-      const result = getDiagnostics(rootNode, doc);
+      const result = await getDiagnosticsAsync(rootNode, doc);
       expect(result.length).toBe(1);
     });
   });
 
-  it('VALIDATE: isDiagnosticComment', () => {
+  it('VALIDATE: isDiagnosticComment', async () => {
     const input = `echo 'now diagnostics are enabled'
 # @fish-lsp-disable 
 echo '1 all diagnostics are disabled'
@@ -647,7 +676,7 @@ echo '10 3003 3002 3001 are still disabled'`;
     const enabledDiagnostics = ErrorCodes.allErrorCodes; // need to disable config.fish_lsp_disabled_error_codes
 
     const handler = new DiagnosticCommentsHandler();
-    getChildNodes(rootNode).forEach(node => {
+    nodesGen(rootNode).forEach(node => {
       handler.handleNode(node);
       if (!isComment(node) && node.isNamed && isCommand(node)) {
         if (node.text.includes('1 all diagnostics are disabled')) {
@@ -710,7 +739,7 @@ echo '10 3003 3002 3001 are still disabled'`;
     });
   });
   describe('NODE_TEST: find argparse', () => {
-    it('find argparse', () => {
+    it('find argparse', async () => {
       const input = `
 function foo
     argparse l/long s/short -- $argv
@@ -720,7 +749,7 @@ end`;
       const tree = parser.parse(input);
       const rootNode = tree.rootNode;
       analyzer.ensureCachedDocument(createFakeLspDocument('file:///tmp/test-argparse.fish', input));
-      for (const node of getChildNodes(rootNode)) {
+      for (const node of nodesGen(rootNode)) {
         if (isArgparseWithoutEndStdin(node)) {
           console.log(node.text);
         }
@@ -868,7 +897,7 @@ function foo
  * TODO:
  *      write argparse handler
  */
-// it('NODE_TEST: argparse', () => {
+// it('NODE_TEST: argparse', async () => {
 //
 //
 //

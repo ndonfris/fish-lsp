@@ -108,6 +108,9 @@ export const ConfigSchema = z.object({
   /** error code numbers to disable */
   fish_lsp_diagnostic_disable_error_codes: z.array(z.number()).default([]),
 
+  /** max number of diagnostics */
+  fish_lsp_max_diagnostics: z.number().default(0),
+
   /** fish lsp experimental diagnostics */
   fish_lsp_enable_experimental_diagnostics: z.boolean().default(false),
 
@@ -164,6 +167,7 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_all_indexed_paths: process.env.fish_lsp_all_indexed_paths?.split(' '),
     fish_lsp_modifiable_paths: process.env.fish_lsp_modifiable_paths?.split(' '),
     fish_lsp_diagnostic_disable_error_codes: process.env.fish_lsp_diagnostic_disable_error_codes?.split(' ').map(toNumber).filter(n => !!n),
+    fish_lsp_max_diagnostics: toNumber(process.env.fish_lsp_max_diagnostics || '10'),
     fish_lsp_enable_experimental_diagnostics: toBoolean(process.env.fish_lsp_enable_experimental_diagnostics),
     fish_lsp_prefer_builtin_fish_commands: toBoolean(process.env.fish_lsp_prefer_builtin_fish_commands),
     fish_lsp_strict_conditional_command_warnings: toBoolean(process.env.fish_lsp_strict_conditional_command_warnings),

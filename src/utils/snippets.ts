@@ -79,7 +79,7 @@ export namespace EnvVariableJson {
     return o.type === 'variable' && o.specialType === 'fishlsp' && o.exactMatchOptions !== undefined;
   }
 
-  const joinValueTypes = (valueType: ValueType): string => {
+  const joinValueTypes = (valueType: ValueType = []): string => {
     if (!Array.isArray(valueType)) {
       return String.raw`${valueType}`;
     }

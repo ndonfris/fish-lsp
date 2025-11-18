@@ -3,7 +3,7 @@ import { getDisableDiagnosticActions } from './disable-actions';
 import { createFixAllAction, getQuickFixes } from './quick-fixes';
 import { uriToPath } from '../utils/translation';
 import { logger } from '../logger';
-import { LspDocument, LspDocuments } from '../document';
+import { Documents, LspDocument } from '../document';
 import { Analyzer } from '../analyze';
 import { getNodeAtRange } from '../utils/tree-sitter';
 import { convertIfToCombiners, extractCommandToFunction, extractFunctionToFile, extractFunctionWithArgparseToCompletionsFile, extractToFunction, extractToVariable } from './refactors';
@@ -11,7 +11,7 @@ import { createArgparseCompletionsCodeAction } from './argparse-completions';
 import { isCommandWithName, isProgram } from '../utils/node-types';
 import { createAliasInlineAction, createAliasSaveActionNewFile } from './alias-wrapper';
 
-export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) {
+export function createCodeActionHandler(docs: Documents, analyzer: Analyzer) {
   /**
    * small helper for now, used to add code actions that are not `preferred`
    * quickfixes to the list of results, when a quickfix is requested.
@@ -190,13 +190,13 @@ export function equalDiagnostics(d1: Diagnostic, d2: Diagnostic) {
     d1.data.node?.text === d2.data.node?.text;
 }
 
-export function createOnCodeActionResolveHandler(_docs: LspDocuments, _analyzer: Analyzer) {
+export function createOnCodeActionResolveHandler(_docs: Documents, _analyzer: Analyzer) {
   return async function codeActionResolover(codeAction: CodeAction) {
     return codeAction;
   };
 }
 
-export function codeActionHandlers(docs: LspDocuments, analyzer: Analyzer) {
+export function codeActionHandlers(docs: Documents, analyzer: Analyzer) {
   return {
     onCodeAction: createCodeActionHandler(docs, analyzer),
     onCodeActionResolve: createOnCodeActionResolveHandler(docs, analyzer),

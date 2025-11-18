@@ -1,6 +1,5 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { isCommand, isReturn, isSwitchStatement, isCaseClause, isIfStatement, isForLoop, isFunctionDefinition, isComment, isConditionalCommand } from '../utils/node-types';
-import { getChildNodes } from '../utils/tree-sitter';
 
 /**
  * Checks if a node represents a control flow statement that terminates execution
@@ -36,8 +35,37 @@ function conditionalExecutionTerminates(conditionalNode: SyntaxNode): boolean {
 }
 
 /**
+ * Checks if a conditional_execution represents an 'and' or 'or' operation
+ * Fish uses both keyword forms (and/or) and operator forms (&&/||)
+ */
+function getConditionalType(node: SyntaxNode): 'and' | 'or' | null {
+  // Check all children for the operator (can be named or unnamed)
+  for (const child of node.children) {
+    // Fish keyword forms: 'and' or 'or' (named nodes)
+    if (child.type === 'and') return 'and';
+    if (child.type === 'or') return 'or';
+    // Operator forms: '&&' or '||' (unnamed tokens)
+    if (!child.isNamed) {
+      if (child.text === '&&') return 'and';
+      if (child.text === '||') return 'or';
+    }
+  }
+  return null;
+}
+
+/**
  * Checks if a sequence of statements forms a complete and/or chain that terminates all paths
- * Pattern: command + conditional_execution + conditional_execution where both terminate
+ * Pattern: command + and + or (or command + or + and) where both conditional branches terminate
+ *
+ * Example of unreachable:
+ *   echo a
+ *   and return 0
+ *   or return 1
+ *   echo "unreachable"  # Both success and failure paths exit
+ *
+ * Example of reachable:
+ *   git rev-parse || return
+ *   echo "reachable"     # Only failure path exits, success continues
  */
 function sequenceFormsTerminatingAndOrChain(nodes: SyntaxNode[], startIndex: number): boolean {
   // Need at least 3 nodes: initial command + and branch + or branch
@@ -55,6 +83,17 @@ function sequenceFormsTerminatingAndOrChain(nodes: SyntaxNode[], startIndex: num
     isConditionalCommand(third);
 
   if (!isCommandSequence) return false;
+
+  // CRITICAL FIX: Must have BOTH 'and' and 'or' to terminate all paths
+  // If we only have 'or' (or only 'and'), one path continues execution
+  const secondType = getConditionalType(second);
+  const thirdType = getConditionalType(third);
+
+  // Must have both && and || (in either order)
+  const hasBothOperators = (secondType === 'and' && thirdType === 'or') ||
+                           (secondType === 'or' && thirdType === 'and');
+
+  if (!hasBothOperators) return false;
 
   // Both conditional executions must terminate
   const secondTerminates = conditionalExecutionTerminates(second);
@@ -324,7 +363,31 @@ function findUnreachableInBlock(blockNode: SyntaxNode): SyntaxNode[] {
 }
 
 /**
+ * Recursively find unreachable code in a node and its descendants
+ * This is more efficient than getChildNodes() because it only visits relevant nodes
+ */
+function findUnreachableRecursive(node: SyntaxNode, unreachable: SyntaxNode[]): void {
+  // Check the node itself for unreachable code
+  if (isFunctionDefinition(node)) {
+    unreachable.push(...findUnreachableInFunction(node));
+  } else if (isIfStatement(node) || isForLoop(node)) {
+    unreachable.push(...findUnreachableInBlock(node));
+  }
+
+  // Recursively check named children
+  // This is much faster than getChildNodes() which does BFS over entire tree
+  for (const child of node.namedChildren) {
+    // Skip comments as they don't affect control flow
+    if (isComment(child)) continue;
+
+    // Recursively process child
+    findUnreachableRecursive(child, unreachable);
+  }
+}
+
+/**
  * Main function to find unreachable code nodes starting from a root node
+ * Optimized to avoid full tree traversal via getChildNodes()
  */
 export function findUnreachableCode(root: SyntaxNode): SyntaxNode[] {
   const unreachable: SyntaxNode[] = [];
@@ -336,20 +399,8 @@ export function findUnreachableCode(root: SyntaxNode): SyntaxNode[] {
     unreachable.push(...topLevelUnreachable);
   }
 
-  // Use getChildNodes to traverse all descendants
-  const allNodes = getChildNodes(root);
-
-  // Process each node type
-  for (const node of allNodes) {
-    // Check function definitions
-    if (isFunctionDefinition(node)) {
-      unreachable.push(...findUnreachableInFunction(node));
-
-      // Check other block structures
-    } else if (isIfStatement(node) || isForLoop(node)) {
-      unreachable.push(...findUnreachableInBlock(node));
-    }
-  }
+  // Recursively traverse the tree (much faster than getChildNodes())
+  findUnreachableRecursive(root, unreachable);
 
   return unreachable;
 }

@@ -1,10 +1,10 @@
 import { Connection, ExecuteCommandParams, MessageType, /** Position, */ Range, Location, TextEdit, WorkspaceEdit, /** ProgressToken,*/ Position } from 'vscode-languageserver';
-import { Analyzer } from './analyze';
+import { analyzer } from './analyze';
 import { codeActionHandlers } from './code-actions/code-action-handler';
 import { createFixAllAction } from './code-actions/quick-fixes';
 import { Config, config, EnvVariableTransformers, getDefaultConfiguration, handleEnvOutput } from './config';
-import { getDiagnostics } from './diagnostics/validate';
-import { LspDocuments } from './document';
+import { getDiagnosticsAsync } from './diagnostics/async-validate';
+import { documents } from './document';
 import { buildExecuteNotificationResponse, execEntireBuffer, fishLspPromptIcon, useMessageKind } from './execute-handler';
 import { logger } from './logger';
 import { env } from './utils/env-manager';
@@ -304,8 +304,6 @@ function parseNumberPair(
 // Function to create the command handler with dependencies injected
 export function createExecuteCommandHandler(
   connection: Connection,
-  docs: LspDocuments,
-  analyzer: Analyzer,
 ) {
   const showMessage = (message: string, type: MessageType = MessageType.Info) => {
     if (type === MessageType.Info) {
@@ -738,7 +736,7 @@ export function createExecuteCommandHandler(
     const { document } = cached;
     const root = analyzer.getRootNode(uri);
     if (!document || !root) return;
-    const diagnostics = root ? getDiagnostics(root, document) : [];
+    const diagnostics = root ? await getDiagnosticsAsync(root, document) : [];
 
     logger.warning('fixAllDiagnostics', diagnostics.length, 'diagnostics found');
     if (diagnostics.length === 0) {
@@ -746,7 +744,7 @@ export function createExecuteCommandHandler(
       return;
     }
 
-    const { onCodeAction } = codeActionHandlers(docs, analyzer);
+    const { onCodeAction } = codeActionHandlers(documents, analyzer);
 
     const actions = await onCodeAction({
       textDocument: document.asTextDocumentIdentifier(),
@@ -1003,14 +1001,14 @@ export function createExecuteCommandHandler(
     // Navigate to the first reference in each document
     for (const [refUri, refs] of referencesByUri.entries()) {
       // Ensure document is un-opened
-      if (docs.isOpen(uriToPath(refUri)) || uri === refUri) {
+      if (documents.get(uriToPath(refUri)) || uri === refUri) {
         logger.log(`Document already open, skipping: ${uriToReadablePath(refUri)}`);
         continue;
       }
 
       // Verify the document exists before trying to open it
       const refPath = uriToPath(refUri);
-      const refDoc = docs.get(refPath) || analyzer.analyzePath(refPath)?.document;
+      const refDoc = documents.get(refPath) || analyzer.analyzePath(refPath)?.document;
 
       if (!refDoc) {
         logger.warning(`Skipping non-existent document: ${uriToReadablePath(refUri)}`);

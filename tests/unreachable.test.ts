@@ -1,6 +1,6 @@
 import { analyzer, Analyzer } from '../src/analyze';
 import { ErrorCodes } from '../src/diagnostics/error-codes';
-import { getDiagnostics } from '../src/diagnostics/validate';
+import { getDiagnosticsAsync } from '../src/diagnostics/async-validate';
 import { createFakeLspDocument, setLogger } from './helpers';
 
 describe('Comprehensive Unreachable Code Detection [NEW]', () => {
@@ -12,7 +12,7 @@ describe('Comprehensive Unreachable Code Detection [NEW]', () => {
 
   // Basic cases from CLAUDE.md examples
   describe('Basic unreachable code detection', () => {
-    it('should detect simple if/else with returns', () => {
+    it('should detect simple if/else with returns', async () => {
       const fishCode = `
 if true
     return 0
@@ -23,13 +23,13 @@ echo "This is unreachable"`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(1);
     });
 
-    it('should detect switch/case with all paths exiting', () => {
+    it('should detect switch/case with all paths exiting', async () => {
       const fishCode = `
 switch $var
     case 'Y' 'y' ''
@@ -41,13 +41,13 @@ echo "This is unreachable"`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(1);
     });
 
-    it('should detect conditional execution with both branches exiting', () => {
+    it('should detect conditional execution with both branches exiting', async () => {
       const fishCode = `
 echo a
 and return 0
@@ -56,13 +56,13 @@ echo "This is unreachable"`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(1);
     });
 
-    it('should detect unreachable code in function', () => {
+    it('should detect unreachable code in function', async () => {
       const fishCode = `
 function test_unreachable
     if true
@@ -77,13 +77,13 @@ test_unreachable`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(1);
     });
 
-    it('should detect unreachable code after exit', () => {
+    it('should detect unreachable code after exit', async () => {
       const fishCode = `
 command -aq nvim
 and exit 0
@@ -92,7 +92,7 @@ echo "This is unreachable"`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(1);
@@ -101,7 +101,7 @@ echo "This is unreachable"`;
 
   // The main issue: nested blocks
   describe('Nested block handling (main bug)', () => {
-    it('should correctly handle nested if/else - case where inner branch does not terminate all paths', () => {
+    it('should correctly handle nested if/else - case where inner branch does not terminate all paths', async () => {
       const fishCode = `
 if status is-interactive
     if true
@@ -117,7 +117,7 @@ echo "This is also reachable"`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       // Should detect the unreachable echo inside the first if branch
@@ -125,7 +125,7 @@ echo "This is also reachable"`;
       expect(unreachableDiagnostics[0]!.message.toLowerCase()).toContain('unreachable');
     });
 
-    it('should NOT flag reachable code - case from GitHub issue', () => {
+    it('should NOT flag reachable code - case from GitHub issue', async () => {
       const fishCode = `
 function reachable_test
     set -l cond1 0
@@ -145,14 +145,14 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       // Should NOT detect any unreachable code - the final echo is reachable
       expect(unreachableDiagnostics).toHaveLength(0);
     });
 
-    it('should handle deeply nested structures correctly', () => {
+    it('should handle deeply nested structures correctly', async () => {
       const fishCode = `
 function deep_nesting
     if test -n "$var1"
@@ -175,14 +175,14 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       // Should only detect the unreachable echo inside the innermost if
       expect(unreachableDiagnostics).toHaveLength(1);
     });
 
-    it('should handle nested structures with mixed control flow', () => {
+    it('should handle nested structures with mixed control flow', async () => {
       const fishCode = `
 function mixed_control_flow
     if test -n "$condition"
@@ -203,7 +203,7 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       // Should detect unreachable code after the complete switch inside the if
@@ -213,7 +213,7 @@ end`;
 
   // Edge cases and complex scenarios
   describe('Edge cases and advanced scenarios', () => {
-    it('should handle multiple levels of nesting with partial termination', () => {
+    it('should handle multiple levels of nesting with partial termination', async () => {
       const fishCode = `
 function complex_nesting
     if test -n "$outer"
@@ -232,14 +232,14 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       // Should detect unreachable code after the second nested if/else
       expect(unreachableDiagnostics).toHaveLength(1);
     });
 
-    it('should handle loops with terminal statements', () => {
+    it('should handle loops with terminal statements', async () => {
       const fishCode = `
 function loop_with_terminals
     for item in $list
@@ -255,14 +255,14 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       // Should detect unreachable code inside the loop after the complete if/else
       expect(unreachableDiagnostics).toHaveLength(1);
     });
 
-    it('should handle nested conditional execution', () => {
+    it('should handle nested conditional execution', async () => {
       const fishCode = `
 function nested_conditional
     if test -n "$var"
@@ -276,7 +276,7 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(1);
@@ -285,7 +285,7 @@ end`;
 
   // Negative test cases - should NOT detect unreachable code
   describe('Negative cases - reachable code', () => {
-    it('should NOT detect unreachable code when if has no else', () => {
+    it('should NOT detect unreachable code when if has no else', async () => {
       const fishCode = `
 if test -n "$var"
     return 0
@@ -294,13 +294,13 @@ echo "reachable - no else clause"`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(0);
     });
 
-    it('should NOT detect unreachable code when switch has no default case', () => {
+    it('should NOT detect unreachable code when switch has no default case', async () => {
       const fishCode = `
 switch $var
     case 'a'
@@ -312,26 +312,26 @@ echo "reachable - no default case"`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(0);
     });
 
-    it('should NOT detect unreachable code with incomplete conditional execution', () => {
+    it('should NOT detect unreachable code with incomplete conditional execution', async () => {
       const fishCode = `
 echo "test" && return 0
 echo "reachable - no or clause"`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(0);
     });
 
-    it('should NOT detect unreachable code in nested structure with incomplete paths', () => {
+    it('should NOT detect unreachable code in nested structure with incomplete paths', async () => {
       const fishCode = `
 function incomplete_paths
     if test -n "$outer"
@@ -345,7 +345,7 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(0);
@@ -354,7 +354,7 @@ end`;
 
   // Test console logging for tree structure analysis
   describe('Parser tree structure analysis', () => {
-    it('should log syntax tree for debugging nested structures', () => {
+    it('should log syntax tree for debugging nested structures', async () => {
       const fishCode = `
 function debug_structure  
     if status is-interactive
@@ -398,7 +398,7 @@ end`;
         }
       }
 
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       console.log('=== DIAGNOSTICS ===');
@@ -413,7 +413,7 @@ end`;
 
   // https://github.com/ndonfris/fish-lsp/issues/105
   describe('gh issue #105', () => {
-    it('should not detect unreachable code in nested ifs with returns', () => {
+    it('should not detect unreachable code in nested ifs with returns', async () => {
       const fishCode = `
 function reachable_test
     set -l cond1 0
@@ -433,7 +433,7 @@ end
 `;
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
       // Should NOT detect any unreachable code - the final echo is reachable
       expect(unreachableDiagnostics).toHaveLength(0);
@@ -442,7 +442,7 @@ end
 
   // Extended tests for comprehensive coverage
   describe('Terminal statement variations', () => {
-    it('should detect unreachable code after break statement', () => {
+    it('should detect unreachable code after break statement', async () => {
       const fishCode = `
 for i in (seq 5)
     if test $i -eq 3
@@ -454,13 +454,13 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(1);
     });
 
-    it('should detect unreachable code after continue statement', () => {
+    it('should detect unreachable code after continue statement', async () => {
       const fishCode = `
 for i in (seq 5)
     if test $i -eq 3
@@ -472,13 +472,13 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(1);
     });
 
-    it('should detect unreachable code after exit statement in function', () => {
+    it('should detect unreachable code after exit statement in function', async () => {
       const fishCode = `
 function test_exit
     exit 1
@@ -487,7 +487,7 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(1);
@@ -495,7 +495,7 @@ end`;
   });
 
   describe('Switch statement edge cases', () => {
-    it('should detect unreachable code with single-quoted wildcard patterns', () => {
+    it('should detect unreachable code with single-quoted wildcard patterns', async () => {
       const fishCode = `
 switch $var
     case 'option1'
@@ -509,13 +509,13 @@ echo "unreachable after complete switch with quoted wildcard"`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(1);
     });
 
-    it('should NOT detect unreachable code with incomplete switch patterns', () => {
+    it('should NOT detect unreachable code with incomplete switch patterns', async () => {
       const fishCode = `
 switch $var
     case 'a' 'b'
@@ -527,13 +527,13 @@ echo "reachable - no default case covers all possibilities"`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(0);
     });
 
-    it('should handle switch cases with nested control flow', () => {
+    it('should handle switch cases with nested control flow', async () => {
       const fishCode = `
 function complex_switch
     switch $argv[1]
@@ -552,7 +552,7 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       // Should detect at least the unreachable statements
@@ -561,7 +561,7 @@ end`;
   });
 
   describe('Complex conditional execution patterns', () => {
-    it('should handle partial conditional execution chains', () => {
+    it('should handle partial conditional execution chains', async () => {
       const fishCode = `
 function partial_conditional
     command -v git
@@ -573,13 +573,13 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(0);
     });
 
-    it('should handle mixed conditional execution and control structures', () => {
+    it('should handle mixed conditional execution and control structures', async () => {
       const fishCode = `
 function mixed_patterns
     if test -n "$HOME"
@@ -595,7 +595,7 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(0);
@@ -603,7 +603,7 @@ end`;
   });
 
   describe('More deeply nested control structures', () => {
-    it('should handle triple-nested if statements', () => {
+    it('should handle triple-nested if statements', async () => {
       const fishCode = `
 function triple_nested
     if test -n "$var1"
@@ -626,13 +626,13 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(1);
     });
 
-    it('should handle nested switches inside if statements', () => {
+    it('should handle nested switches inside if statements', async () => {
       const fishCode = `
 function nested_switch_in_if
     if test -n "$mode"
@@ -653,13 +653,13 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(1);
     });
 
-    it('should handle nested if statements inside switch cases', () => {
+    it('should handle nested if statements inside switch cases', async () => {
       const fishCode = `
 function nested_if_in_switch
     switch $action
@@ -678,7 +678,7 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(1);
@@ -686,7 +686,7 @@ end`;
   });
 
   describe('Loop-specific scenarios', () => {
-    it('should handle unreachable code in for loops with complete if/else', () => {
+    it('should handle unreachable code in for loops with complete if/else', async () => {
       const fishCode = `
 function loop_with_complete_if
     for item in $items
@@ -702,13 +702,13 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(1);
     });
 
-    it('should handle nested loops with terminal statements', () => {
+    it('should handle nested loops with terminal statements', async () => {
       const fishCode = `
 function nested_loops
     for outer in (seq 3)
@@ -724,14 +724,14 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       // Inner loop doesn't have complete coverage, so code after should be reachable
       expect(unreachableDiagnostics).toHaveLength(0);
     });
 
-    it('should handle for loops with command substitution iterables', () => {
+    it('should handle for loops with command substitution iterables', async () => {
       const fishCode = `
 function loop_with_substitution
     for file in (find . -name "*.fish")
@@ -747,7 +747,7 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(1);
@@ -755,7 +755,7 @@ end`;
   });
 
   describe('Comment handling', () => {
-    it('should allow comments after terminal statements', () => {
+    it('should allow comments after terminal statements', async () => {
       const fishCode = `
 function with_comments
     return 0
@@ -767,14 +767,14 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       // Should only flag the echo statement, not the comments
       expect(unreachableDiagnostics).toHaveLength(1);
     });
 
-    it('should handle inline comments properly', () => {
+    it('should handle inline comments properly', async () => {
       const fishCode = `
 function with_inline_comments
     if test -n "$var" # check if var is set
@@ -787,7 +787,7 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(1);
@@ -795,7 +795,7 @@ end`;
   });
 
   describe('Edge cases and error handling', () => {
-    it('should handle empty if statements', () => {
+    it('should handle empty if statements', async () => {
       const fishCode = `
 function empty_if
     if test -n "$var"
@@ -806,13 +806,13 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(0);
     });
 
-    it('should handle empty switch statements', () => {
+    it('should handle empty switch statements', async () => {
       const fishCode = `
 function empty_switch
     switch $var
@@ -824,7 +824,7 @@ end`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(0);
@@ -832,7 +832,7 @@ end`;
   });
 
   describe('Function-level vs top-level analysis', () => {
-    it('should detect unreachable code at top level', () => {
+    it('should detect unreachable code at top level', async () => {
       const fishCode = `
 if test -n "$SHELL"
     exit 0
@@ -843,13 +843,13 @@ echo "unreachable at top level"`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics).toHaveLength(1);
     });
 
-    it('should handle mixed function and top-level unreachable code', () => {
+    it('should handle mixed function and top-level unreachable code', async () => {
       const fishCode = `
 # Top-level unreachable code
 return 0
@@ -865,7 +865,7 @@ echo "this is reachable"`;
 
       const fakeDoc = createFakeLspDocument('test.fish', fishCode);
       const { root } = analyzer.analyze(fakeDoc);
-      const diagnostics = getDiagnostics(root!, fakeDoc);
+      const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
       const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
 
       expect(unreachableDiagnostics.length).toBeGreaterThanOrEqual(2);
@@ -880,7 +880,7 @@ describe('Unreachable Code Detection [LEGACY]', () => {
     await Analyzer.initialize();
   });
 
-  it('should detect code after return statement', () => {
+  it('should detect code after return statement', async () => {
     const fishCode = `
 function test_func
     return 0
@@ -890,12 +890,12 @@ end`;
     const fakeDoc = createFakeLspDocument('config.fish', fishCode);
     const { root } = analyzer.analyze(fakeDoc);
 
-    const diagnostics = getDiagnostics(root!, fakeDoc);
+    const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
     const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
     expect(unreachableDiagnostics).toHaveLength(2);
   });
 
-  it('should detect code after exit statement', () => {
+  it('should detect code after exit statement', async () => {
     const fishCode = `
 function test_func
     exit 1
@@ -904,12 +904,12 @@ end`;
     const fakeDoc = createFakeLspDocument('config.fish', fishCode);
     const { root } = analyzer.analyze(fakeDoc);
 
-    const diagnostics = getDiagnostics(root!, fakeDoc);
+    const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
     const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
     expect(unreachableDiagnostics).toHaveLength(1);
   });
 
-  it('should detect code after complete if-else with returns', () => {
+  it('should detect code after complete if-else with returns', async () => {
     const fishCode = `
 function test_func
     if test $argv[1] = "yes"
@@ -923,12 +923,12 @@ end`;
     const fakeDoc = createFakeLspDocument('config.fish', fishCode);
     const { root } = analyzer.analyze(fakeDoc);
 
-    const diagnostics = getDiagnostics(root!, fakeDoc);
+    const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
     const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
     expect(unreachableDiagnostics).toHaveLength(1);
   });
 
-  it('should NOT detect code after incomplete if statement', () => {
+  it('should NOT detect code after incomplete if statement', async () => {
     const fishCode = `
 function test_func
     if test $argv[1] = "yes"
@@ -940,12 +940,12 @@ end`;
     const fakeDoc = createFakeLspDocument('config.fish', fishCode);
     const { root } = analyzer.analyze(fakeDoc);
 
-    const diagnostics = getDiagnostics(root!, fakeDoc);
+    const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
     const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
     expect(unreachableDiagnostics).toHaveLength(0);
   });
 
-  it('should detect code after switch with default case', () => {
+  it('should detect code after switch with default case', async () => {
     const fishCode = `
 function test_func
     switch $argv[1]
@@ -962,12 +962,12 @@ end`;
     const fakeDoc = createFakeLspDocument('config.fish', fishCode);
     const { root } = analyzer.analyze(fakeDoc);
 
-    const diagnostics = getDiagnostics(root!, fakeDoc);
+    const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
     const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
     expect(unreachableDiagnostics).toHaveLength(1);
   });
 
-  it('should NOT detect code after incomplete switch', () => {
+  it('should NOT detect code after incomplete switch', async () => {
     const fishCode = `
 function test_func
     switch $argv[1]
@@ -982,12 +982,12 @@ end`;
     const fakeDoc = createFakeLspDocument('config.fish', fishCode);
     const { root } = analyzer.analyze(fakeDoc);
 
-    const diagnostics = getDiagnostics(root!, fakeDoc);
+    const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
     const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
     expect(unreachableDiagnostics).toHaveLength(0);
   });
 
-  it('should allow comments after terminal statements', () => {
+  it('should allow comments after terminal statements', async () => {
     const fishCode = `
 function test_func
     return 0
@@ -998,12 +998,12 @@ end`;
     const fakeDoc = createFakeLspDocument('config.fish', fishCode);
     const { root } = analyzer.analyze(fakeDoc);
 
-    const diagnostics = getDiagnostics(root!, fakeDoc);
+    const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
     const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
     expect(unreachableDiagnostics).toHaveLength(1); // Only the echo statement
   });
 
-  it('should handle break and continue in loops', () => {
+  it('should handle break and continue in loops', async () => {
     const fishCode = `function test_func
     for i in (seq 10)
         if test "$i" = "5"
@@ -1021,12 +1021,12 @@ end`;
     const fakeDoc = createFakeLspDocument('config.fish', fishCode);
     const { root } = analyzer.analyze(fakeDoc);
 
-    const diagnostics = getDiagnostics(root!, fakeDoc);
+    const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
     const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
     expect(unreachableDiagnostics).toHaveLength(2); // after break and after continue
   });
 
-  it('should detect code after switch with default case 2', () => {
+  it('should detect code after switch with default case 2', async () => {
     const fishCode = `
 function test_func
     switch $argv[1]
@@ -1044,12 +1044,12 @@ end`;
     const { root } = analyzer.analyze(fakeDoc);
     console.log(fishCode);
 
-    const diagnostics = getDiagnostics(root!, fakeDoc);
+    const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
     const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
     expect(unreachableDiagnostics).toHaveLength(1);
   });
 
-  it('should detect code after conditional execution with and/or', () => {
+  it('should detect code after conditional execution with and/or', async () => {
     const fishCode = `function asdf
   set -q PATH
   and return 1
@@ -1061,12 +1061,12 @@ end`;
     const fakeDoc = createFakeLspDocument('config.fish', fishCode);
     const { root } = analyzer.analyze(fakeDoc);
 
-    const diagnostics = getDiagnostics(root!, fakeDoc);
+    const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
     const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
     expect(unreachableDiagnostics).toHaveLength(1); // Should detect the echo statement
   });
 
-  it('should NOT detect unreachable code after incomplete conditional execution', () => {
+  it('should NOT detect unreachable code after incomplete conditional execution', async () => {
     const fishCode = `function test_func
   set -q PATH
   and return 1
@@ -1078,27 +1078,56 @@ end`;
     const fakeDoc = createFakeLspDocument('config.fish', fishCode);
     const { root } = analyzer.analyze(fakeDoc);
 
-    const diagnostics = getDiagnostics(root!, fakeDoc);
+    const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
     const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
     expect(unreachableDiagnostics).toHaveLength(0);
   });
 
-  //   it('should handle complex conditional chains', () => {
-  //     const fishCode = `function test_func
-  //   test -f /some/file
-  //   and echo "found"
-  //   and return 0
-  //   or echo "not found"
-  //   or return 1
-  //
-  //   echo "unreachable because both paths terminate"
-  // end`;
-  //
-  //     const fakeDoc = createFakeLspDocument('config.fish', fishCode);
-  //     const { root } = analyzer.analyze(fakeDoc);
-  //
-  //     const diagnostics = getDiagnostics(root!, fakeDoc);
-  //     const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
-  //     expect(unreachableDiagnostics).toHaveLength(1);
-  //   });
+  it('should NOT mark code unreachable after single || return (user reported bug)', async () => {
+    const fishCode = `function git_branch_exists --description 'takes array of branch names, prints first one that exists'
+    argparse --ignore-unknown fallback= -- $argv
+    or return
+
+    # Skip if not in a git directory
+    git rev-parse --git-dir &>/dev/null || return
+    for branch in $argv # should NOT be marked unreachable
+        if git rev-parse --verify $branch &>/dev/null
+            echo $branch
+            return
+        end
+    end
+    # none of the branches found existed, so echo the fallback
+    if set -lq _flag_fallback
+        echo $_flag_fallback
+        return
+    end
+    return 1
+end`;
+
+    const fakeDoc = createFakeLspDocument('test.fish', fishCode);
+    const { root } = analyzer.analyze(fakeDoc);
+    const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
+    const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
+
+    // The 'for branch in $argv' line should NOT be marked as unreachable
+    // because only ONE path (failure) exits via || return
+    expect(unreachableDiagnostics).toHaveLength(0);
+  });
+
+  it('SHOULD mark code unreachable after complete and/or chain', async () => {
+    const fishCode = `function test_both_paths_exit
+    git rev-parse --git-dir &>/dev/null
+    and return 0
+    or return 1
+    echo "This IS unreachable" # Both success AND failure paths exit
+end`;
+
+    const fakeDoc = createFakeLspDocument('test.fish', fishCode);
+    const { root } = analyzer.analyze(fakeDoc);
+    const diagnostics = await getDiagnosticsAsync(root!, fakeDoc);
+    const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
+
+    expect(unreachableDiagnostics).toHaveLength(1);
+    expect(unreachableDiagnostics[0]?.range.start.line).toBe(4); // The echo line
+  });
 });
