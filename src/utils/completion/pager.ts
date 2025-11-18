@@ -7,6 +7,15 @@ import { CompletionItemMap } from './startup-cache';
 import { CompletionContext, CompletionList, Position, SymbolKind } from 'vscode-languageserver';
 import { FishCompletionList, FishCompletionListBuilder } from './list';
 import { shellComplete } from './shell';
+import { isVariableDefinitionName } from '../../parsing/barrel';
+import { isOption, isCommandWithName, isVariableExpansion } from '../../utils/node-types';
+import * as SetParser from '../../parsing/set';
+import * as ReadParser from '../../parsing/read';
+import * as ArgparseParser from '../../parsing/argparse';
+import * as ForParser from '../../parsing/for';
+import * as FunctionParser from '../../parsing/function';
+import { LspDocument } from '../../document';
+import { SyntaxNode } from 'web-tree-sitter';
 
 export type SetupData = {
   uri: string;
@@ -77,23 +86,161 @@ export class CompletionPager {
       setupData.position,
     );
 
+    // Analyze the context to determine how to format the insertText
+    const lineBeforeCursor = line;
+    const cursorPos = setupData.position.character;
+
+    // Find how many $ characters precede the current word
+    let wordStartPos = cursorPos;
+    while (wordStartPos > 0) {
+      const char = lineBeforeCursor[wordStartPos - 1];
+      // Stop at whitespace or when we find a $ ($ is prefix, not part of word)
+      if (char === ' ' || char === '\t' || char === '\n' || char === '$') {
+        break;
+      }
+      wordStartPos--;
+    }
+
+    // Count $ characters before the word
+    let dollarsBeforeWord = 0;
+    for (let i = wordStartPos - 1; i >= 0 && lineBeforeCursor[i] === '$'; i--) {
+      dollarsBeforeWord++;
+    }
+
+    // Check if we're in a variable definition context (commands like 'set', 'read', etc.)
+    const isVariableDefinitionContext = this.isInVariableDefinitionContext(lineBeforeCursor, setupData.position);
+
+    // Count $ characters in the word itself (e.g., word="$" has 1, word="PA" has 0)
+    const dollarsInWord = (word.match(/\$/g) || []).length;
+
+    // Determine the correct insertText format
+    // We need $ prefix if:
+    // 1. No dollars before word AND no dollars in word AND not in variable definition context
+    // 2. OR if the word itself contains $ characters (to replace them)
+    const shouldAddDollarPrefix = dollarsBeforeWord === 0 && dollarsInWord === 0 && !isVariableDefinitionContext ||
+                                  dollarsInWord > 0;
+
+    // For words containing $ characters, we need to include the right number of $
+    const dollarPrefix = dollarsInWord > 0 ? '$'.repeat(dollarsInWord) : shouldAddDollarPrefix ? '$' : '';
+
     const { variables } = sortSymbols(symbols);
     for (const variable of variables) {
       const variableItem = FishCompletionItem.fromSymbol(variable);
-      variableItem.insertText = '$' + variable.name;
+      variableItem.insertText = dollarPrefix + variable.name;
       this._items.addItem(variableItem);
     }
-    for (const item of this.itemsMap.allOfKinds('variable')) {
-      if (item.label) {
+
+    const mapVariables = this.itemsMap.allOfKinds('variable');
+
+    for (const item of mapVariables) {
+      if (!item.label) {
         continue;
       }
-      item.insertText = '$' + item.label;
-      this._items.addItem(item);
+      // Create a new completion item based on the original
+      const newItem = FishCompletionItem.create(
+        item.label,
+        item.fishKind,
+        item.detail,
+        typeof item.documentation === 'string' ? item.documentation :
+          item.documentation?.toString && item.documentation.toString() || '',
+        item.examples,
+      );
+      newItem.insertText = dollarPrefix + item.label;
+      this._items.addItem(newItem);
     }
 
     const result = this._items.addData(data).build();
     result.isIncomplete = false;
     return result;
+  }
+
+  /**
+   * Determines if the current line context is for variable definition using proper syntax tree analysis
+   * (e.g., set, read commands where variables don't need $ prefix)
+   */
+  private isInVariableDefinitionContext(lineBeforeCursor: string, position: Position): boolean {
+    try {
+      // Parse the line to get the syntax tree
+      const rootNode = this.inlineParser.parse(lineBeforeCursor);
+      if (!rootNode) {
+        return false;
+      }
+
+      // Find the node at the current position
+      const currentNode = rootNode.descendantForPosition({
+        row: 0,
+        column: Math.max(0, position.character - 1),
+      });
+
+      if (!currentNode) {
+        return false;
+      }
+
+      // Check if we're in a context where we'd be defining a variable name
+      // This includes set, read, argparse, for, function parameter, and export contexts
+
+      // First check if the current node itself is a variable definition
+      if (isVariableDefinitionName(currentNode)) {
+        return true;
+      }
+
+      // Check if the parent might be a variable definition context
+      // This handles cases where we're about to complete a variable name
+      if (currentNode.parent) {
+        const grandParent = currentNode.parent.parent;
+
+        // For set commands: check if we're in position to define a variable
+        if (grandParent && isCommandWithName(grandParent, 'set')) {
+          // Skip if it's a query operation (set -q)
+          if (SetParser.isSetQueryDefinition(grandParent)) {
+            return false; // set -q should use $ prefixes for variable references
+          }
+
+          // Check if we're in the variable name position for set
+          const setChildren = SetParser.findSetChildren(grandParent);
+          const firstNonOption = setChildren.find(child => !isOption(child));
+          if (firstNonOption && (firstNonOption.equals(currentNode) || firstNonOption.equals(currentNode.parent))) {
+            return true;
+          }
+        }
+
+        // For read commands: check if we're in position to define a variable
+        if (grandParent && isCommandWithName(grandParent, 'read')) {
+          const { definitionNodes } = ReadParser.findReadChildren(grandParent);
+          if (definitionNodes.some(node => node.equals(currentNode) || currentNode.parent && node.equals(currentNode.parent))) {
+            return true;
+          }
+        }
+
+        // For argparse commands: check if we're defining a variable name
+        if (grandParent && isCommandWithName(grandParent, 'argparse')) {
+          const nodes = ArgparseParser.findArgparseDefinitionNames(grandParent);
+          if (nodes.some(node => node.equals(currentNode) || currentNode.parent && node.equals(currentNode.parent))) {
+            return true;
+          }
+        }
+
+        // For for loops: check if we're defining the loop variable
+        if (grandParent && isCommandWithName(grandParent, 'for')) {
+          if (grandParent.firstNamedChild && ForParser.isForVariableDefinitionName(grandParent.firstNamedChild)) {
+            return true;
+          }
+        }
+
+        // For function definitions: check if we're defining function parameters/arguments
+        if (grandParent && isCommandWithName(grandParent, 'function')) {
+          const { variableNodes } = FunctionParser.findFunctionOptionNamedArguments(grandParent);
+          if (variableNodes.some(node => node.equals(currentNode) || currentNode.parent && node.equals(currentNode.parent))) {
+            return true;
+          }
+        }
+      }
+
+      return false;
+    } catch (error) {
+      // Fallback to false if parsing fails
+      return false;
+    }
   }
 
   async complete(
@@ -167,6 +314,7 @@ export class CompletionPager {
     switch (wordsFirstChar(word)) {
       case '$':
         this._items.addItems(this.itemsMap.allOfKinds('variable'), 55);
+        // For $ prefixed words, add symbols without duplicate $ handling via completeVariables
         this._items.addSymbols(variables);
         break;
       case '/':
@@ -312,5 +460,66 @@ function sortSymbols(symbols: FishSymbol[]) {
     }
   });
   return { variables, functions };
+}
+
+/**
+ * Determines if the current position is within a variable expansion context.
+ * This handles cases like:
+ * - echo $P  (cursor after P)
+ * - echo $$P (cursor after P)
+ * - echo $$$PA (cursor after PA)
+ * - echo  (cursor after space - could start variable expansion)
+ * - set -q  (cursor after space - variable definition context)
+ */
+export function isInVariableExpansionContext(doc: LspDocument, position: Position, line: string, word: string, current: SyntaxNode | null): boolean {
+  // Original logic for simple cases
+  if (word.trim().endsWith('$') || line.trim().endsWith('$') || word.trim() === '$' && !word.startsWith('$$')) {
+    return true;
+  }
+
+  // Check if we're directly in a variable expansion node
+  if (current && isVariableExpansion(current)) {
+    return true;
+  }
+
+  // Check if the parent is a variable expansion
+  if (current?.parent && isVariableExpansion(current.parent)) {
+    return true;
+  }
+
+  // Look at the text preceding the current position to detect $ prefixes
+  const lineBeforeCursor = doc.getLineBeforeCursor(position);
+  const charIndex = position.character;
+
+  // Find the position where the current word starts (excluding $ prefixes)
+  let wordStartPos = charIndex;
+  while (wordStartPos > 0) {
+    const char = lineBeforeCursor[wordStartPos - 1];
+    // Stop if we hit whitespace or if we hit a $ character ($ is prefix, not part of word)
+    if (char === ' ' || char === '\t' || char === '\n' || char === '$') {
+      break;
+    }
+    wordStartPos--;
+  }
+
+  // Now look backwards from wordStartPos to count $ characters
+  let dollarsBeforeWord = 0;
+  for (let i = wordStartPos - 1; i >= 0 && lineBeforeCursor[i] === '$'; i--) {
+    dollarsBeforeWord++;
+  }
+
+  // If there are $ characters before the current word, we're in variable expansion context
+  if (dollarsBeforeWord > 0) {
+    return true;
+  }
+
+  // Check for contexts where variables are commonly used (check original line, not trimmed)
+  if (line === 'echo ' ||
+        line === 'set -q ' ||
+        line.startsWith('set ') && line.endsWith(' ')) {
+    return true;
+  }
+
+  return false;
 }
 
