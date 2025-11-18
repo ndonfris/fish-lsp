@@ -1,72 +1,23 @@
-import { vi, describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
-import { createFakeLspDocument, setLogger, createTestWorkspace } from './helpers';
+import { vi } from 'vitest';
+import * as LSP from 'vscode-languageserver';
+import { setupStartupMock } from './helpers';
+
+// Mock external dependencies - must be at top level with inline factory
+setupStartupMock();
+
+// Now import everything else
+import { createFakeLspDocument, setLogger, createMockConnection } from './helpers';
 import { analyzer, Analyzer } from '../src/analyze';
 import { documents } from '../src/document';
 import { workspaceManager } from '../src/utils/workspace-manager';
 import { initializeParser } from '../src/parser';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import FishServer, { hasWorkspaceFolderCapability, enableWorkspaceFolderSupport, currentDocument } from '../src/server';
-import * as LSP from 'vscode-languageserver';
-import { createServerLogger } from '../src/logger';
+// import { createServerLogger } from '../src/logger';
 import * as startupModule from '../src/utils/startup';
-import { uriToPath } from '../src/utils/translation';
-import { CompletionItemMap } from '../src/utils/completion/startup-cache';
-import { initializeCompletionPager } from '../src/utils/completion/pager';
-import { initializeDocumentationCache } from '../src/utils/documentation-cache';
-import { initializeDefaultFishWorkspaces } from '../src/utils/workspace';
 import { Config } from '../src/config';
 
-// Create a shared mock connection factory - defined first before mocks
-function createMockConnection() {
-  return {
-    listen: vi.fn(),
-    onInitialize: vi.fn(),
-    onInitialized: vi.fn(),
-    onShutdown: vi.fn(),
-    onDidOpenTextDocument: vi.fn(),
-    onDidChangeTextDocument: vi.fn(),
-    onDidCloseTextDocument: vi.fn(),
-    onDidSaveTextDocument: vi.fn(),
-    onCompletion: vi.fn(),
-    onCompletionResolve: vi.fn(),
-    onDocumentSymbol: vi.fn(),
-    onWorkspaceSymbol: vi.fn(),
-    onWorkspaceSymbolResolve: vi.fn(),
-    onDefinition: vi.fn(),
-    onImplementation: vi.fn(),
-    onReferences: vi.fn(),
-    onHover: vi.fn(),
-    onRenameRequest: vi.fn(),
-    onDocumentFormatting: vi.fn(),
-    onDocumentRangeFormatting: vi.fn(),
-    onDocumentOnTypeFormatting: vi.fn(),
-    onCodeAction: vi.fn(),
-    onCodeLens: vi.fn(),
-    onFoldingRanges: vi.fn(),
-    onDocumentHighlight: vi.fn(),
-    languages: { inlayHint: { on: vi.fn() }, semanticTokens: { on: vi.fn(), onRange: vi.fn() } },
-    onSignatureHelp: vi.fn(),
-    onExecuteCommand: vi.fn(),
-    sendDiagnostics: vi.fn(),
-    console: { error: vi.fn() },
-    workspace: { onDidChangeWorkspaceFolders: vi.fn() },
-    window: {
-      createWorkDoneProgress: vi.fn().mockResolvedValue({
-        begin: vi.fn(),
-        done: vi.fn(),
-        report: vi.fn(),
-      }),
-      showErrorMessage: vi.fn(),
-    },
-  };
-}
-
-// Mock external dependencies
-vi.mock('../src/utils/startup', () => ({
-  connection: createMockConnection(),
-  createBrowserConnection: vi.fn().mockImplementation(() => createMockConnection()),
-  setExternalConnection: vi.fn(),
-}));
+// Helper function to create a fresh mock connection for tests
 
 vi.mock('../src/logger', () => ({
   createServerLogger: vi.fn(),
@@ -137,17 +88,21 @@ vi.mock('../src/config', async () => {
       codeAction: true,
       codeLens: true,
       folding: true,
+      selectionRange: true,
       signature: true,
       executeCommand: true,
       inlayHint: true,
       highlight: true,
       diagnostic: true,
       popups: true,
+      semanticTokens: true,
+      linkedEditingRange: true,
     },
     validHandlers: [
       'complete', 'hover', 'rename', 'definition', 'implementation', 'reference', 'formatting',
-      'formatRange', 'typeFormatting', 'codeAction', 'codeLens', 'folding', 'signature',
-      'executeCommand', 'inlayHint', 'highlight', 'diagnostic', 'popups',
+      'formatRange', 'typeFormatting', 'codeAction', 'codeLens', 'folding', 'selectionRange', 'signature',
+      'executeCommand', 'inlayHint', 'highlight', 'diagnostic', 'popups', 'semanticTokens',
+      'linkedEditingRange',
     ],
     updateHandlers: vi.fn(),
   };
@@ -305,6 +260,106 @@ describe('FishServer', () => {
 
         // hasWorkspaceFolderCapability should remain false (or be set to false)
         expect(hasWorkspaceFolderCapability).toBe(false);
+      });
+
+      describe('initialization stage mocking', () => {
+        it('should call all initialization functions in correct order', async () => {
+          const { initializeDocumentationCache } = await import('../src/utils/documentation-cache');
+          const { initializeDefaultFishWorkspaces, getWorkspacePathsFromInitializationParams } = await import('../src/utils/workspace');
+          const { CompletionItemMap } = await import('../src/utils/completion/startup-cache');
+          const { initializeCompletionPager } = await import('../src/utils/completion/pager');
+          const { setExternalConnection } = await import('../src/utils/startup');
+
+          // Clear previous calls
+          vi.clearAllMocks();
+
+          await FishServer.create(mockConnection, mockInitializeParams);
+
+          // Verify initialization calls
+          expect(setExternalConnection).toHaveBeenCalledWith(mockConnection);
+          expect(getWorkspacePathsFromInitializationParams).toHaveBeenCalledWith(mockInitializeParams);
+          expect(initializeDocumentationCache).toHaveBeenCalled();
+          expect(initializeDefaultFishWorkspaces).toHaveBeenCalled();
+          expect(CompletionItemMap.initialize).toHaveBeenCalled();
+          expect(initializeCompletionPager).toHaveBeenCalled();
+        });
+
+        it('should initialize components in parallel', async () => {
+          const { initializeDocumentationCache } = await import('../src/utils/documentation-cache');
+          const { initializeDefaultFishWorkspaces } = await import('../src/utils/workspace');
+          const { CompletionItemMap } = await import('../src/utils/completion/startup-cache');
+
+          vi.clearAllMocks();
+
+          // Mock with delayed resolves to verify parallel execution
+          const docCachePromise = Promise.resolve({ resolve: vi.fn() });
+          const workspacesPromise = Promise.resolve(undefined);
+          const completionMapPromise = Promise.resolve(new Map());
+
+          vi.mocked(initializeDocumentationCache).mockReturnValue(docCachePromise);
+          vi.mocked(initializeDefaultFishWorkspaces).mockReturnValue(workspacesPromise);
+          vi.mocked(CompletionItemMap.initialize).mockReturnValue(completionMapPromise);
+
+          await FishServer.create(mockConnection, mockInitializeParams);
+
+          // All three should be called (parallel Promise.all)
+          expect(initializeDocumentationCache).toHaveBeenCalled();
+          expect(initializeDefaultFishWorkspaces).toHaveBeenCalled();
+          expect(CompletionItemMap.initialize).toHaveBeenCalled();
+        });
+
+        it('should handle initialization with custom workspace paths', async () => {
+          const { getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspaces } = await import('../src/utils/workspace');
+
+          vi.clearAllMocks();
+
+          const customUris = ['file:///custom/path1', 'file:///custom/path2'];
+          vi.mocked(getWorkspacePathsFromInitializationParams).mockReturnValue(customUris);
+
+          await FishServer.create(mockConnection, mockInitializeParams);
+
+          expect(getWorkspacePathsFromInitializationParams).toHaveBeenCalledWith(mockInitializeParams);
+          expect(initializeDefaultFishWorkspaces).toHaveBeenCalledWith(...customUris);
+        });
+
+        it('should pass completion map to pager initialization', async () => {
+          const { CompletionItemMap } = await import('../src/utils/completion/startup-cache');
+          const { initializeCompletionPager } = await import('../src/utils/completion/pager');
+
+          vi.clearAllMocks();
+
+          const mockCompletionMap = new Map([['test', { label: 'test' }]]);
+          vi.mocked(CompletionItemMap.initialize).mockResolvedValue(mockCompletionMap);
+
+          await FishServer.create(mockConnection, mockInitializeParams);
+
+          // initializeCompletionPager should be called with logger and the completionMap
+          expect(initializeCompletionPager).toHaveBeenCalled();
+          const pagerCall = vi.mocked(initializeCompletionPager).mock.calls[0];
+          expect(pagerCall).toBeDefined();
+          expect(pagerCall[1]).toBe(mockCompletionMap);
+        });
+
+        it('should register server handlers after initialization', async () => {
+          vi.clearAllMocks();
+
+          const result = await FishServer.create(mockConnection, mockInitializeParams);
+
+          // Verify connection handlers were registered
+          expect(mockConnection.onDidOpenTextDocument).toHaveBeenCalled();
+          expect(mockConnection.onDidChangeTextDocument).toHaveBeenCalled();
+          expect(mockConnection.onDidCloseTextDocument).toHaveBeenCalled();
+          expect(result.server).toBeInstanceOf(FishServer);
+        });
+
+        it('should return both server instance and initialize result', async () => {
+          const result = await FishServer.create(mockConnection, mockInitializeParams);
+
+          expect(result).toHaveProperty('server');
+          expect(result).toHaveProperty('initializeResult');
+          expect(result.server).toBeInstanceOf(FishServer);
+          expect(result.initializeResult).toHaveProperty('capabilities');
+        });
       });
     });
   });

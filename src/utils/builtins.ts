@@ -62,12 +62,16 @@ export const BuiltInList = [
   'while',
 ];
 
-// You can generate this list by running `builtin --names` in a fish session
-// note that '.', and ':' are removed from the list because they do not contain
-// a man-page
+/**
+ * You can generate this list by running `builtin --names` in a fish session
+ * note that '.', and ':' are removed from the list because they do not contain
+ * a man-page
+ */
 const BuiltInSET = new Set(BuiltInList);
 
-// check if string is one of the default fish builtin functions
+/**
+ * check if string is one of the default fish builtin functions
+ */
 export function isBuiltin(word: string): boolean {
   return BuiltInSET.has(word);
 }
@@ -104,12 +108,18 @@ const reservedKeywords = [
   'while',
 ];
 const ReservedKeywordSet = new Set(reservedKeywords);
-// Reserved keywords are not allowed as function names.
-// Found on the `function` manpage.
+
+/**
+ * Reserved keywords are not allowed as function names.
+ * Found on the `function` manpage.
+ */
 export function isReservedKeyword(word: string): boolean {
   return ReservedKeywordSet.has(word);
 }
 
+/**
+ * Find the fish shell path using `which fish`
+ */
 export function findShell() {
   const result = spawnSync('which fish', { shell: true, stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf-8' });
   return result.stdout.toString().trim();
@@ -156,29 +166,21 @@ function createGlobalVariableList() {
 
 export const GlobalVariableList = createGlobalVariableList();
 
-//function createAliasList() {
-//    // `alias | string unescape | string shorten -m 100`
-//    const {stdout} = spawnSync(`alias | string unescape --style=var | string split -n '\\n'`, spawnOpts)
-//    return stdout.toString().split('\n')
-//}
-//export const AliasList = createAliasList()
+/**
+ * TO get the list of commands with potential subcommands, you can use:
+ *
+ * >_ cd /usr/share/fish/completions/
+ * >_ for i in (rg -e '-a' -l); echo (string split -f 1 '.fish' -m1 $i);end
+ *
+ * example commands with potential subcommands
+ *  • string split ...
+ *  • killall node
+ *  • man vim
+ *  • command fish
+ *
+ * useful when checking the current Command for documentation/completion
+ * suggestions. If a match is hit, check one more node back, and if it is
+ * not a command, stop searching backwards.
+ */
 
-// cd /usr/share/fish/completions/
-// for i in (rg -e '-a' -l); echo (string split -f 1 '.fish' -m1 $i);end
-// commands with potential subcommands
-//  • string split ...
-//  • killall node
-//  • man vim
-//  • command fish
-
-// useful when checking the current Command for documentation/completion
-// suggestions. If a match is hit, check one more node back, and if it is
-// not a command, stop searching backwards.
-// export function hasPossibleSubCommand(cmd: string) : boolean {
-//   return SubCommandSet.has(cmd);
-// }
-
-// const PossibleSubCommand = [
-// ];
-
-// const SubCommandSet = new Set(...PossibleSubCommand);
+// List of global aliases removed (check history if needed in future)

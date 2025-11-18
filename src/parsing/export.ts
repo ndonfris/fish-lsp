@@ -7,6 +7,7 @@ import { DefinitionScope } from '../utils/definition-scope';
 import { getRange } from '../utils/tree-sitter';
 import { md } from '../utils/markdown-builder';
 import { uriToReadablePath } from '../utils/translation';
+import { Option } from './options';
 
 /**
  * Checks if a node is an export command definition
@@ -159,8 +160,14 @@ export function buildExportDetail(doc: LspDocument, commandNode: SyntaxNode, var
 export function processExportCommand(document: LspDocument, node: SyntaxNode, children: FishSymbol[] = []): FishSymbol[] {
   if (!isExportDefinition(node)) return [];
 
+  // Get the second argument (the variable assignment part)
+  const args = node.namedChildren.slice(1); // Skip 'export' command name
+  if (args.length === 0) return [];
+
+  const argNode = args[0]!;
+
   // Find the variable definition in the command's arguments
-  const found = findVariableDefinitionNameNode(node);
+  const found = findVariableDefinitionNameNode(argNode);
 
   const varDefNode = found?.nameNode;
   if (!found || !varDefNode) return [];
@@ -168,7 +175,7 @@ export function processExportCommand(document: LspDocument, node: SyntaxNode, ch
   const {
     name,
     nameRange,
-  } = extractExportVariable(varDefNode) as ExtractedExportVariable;
+  } = extractExportVariable(node) as ExtractedExportVariable;
 
   // Get the scope - export always creates global exported variables
   const scope = DefinitionScope.create(node.parent || node, 'global');
@@ -190,6 +197,8 @@ export function processExportCommand(document: LspDocument, node: SyntaxNode, ch
       uri: document.uri,
       detail,
       scope,
+      // this is so that we always see that export variables are global and exported
+      options: [Option.create('-g', '--global'), Option.create('-x', '--export')],
       children,
     }),
   ];

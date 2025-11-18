@@ -32,14 +32,26 @@ if not string match -rq -- '^$workspace_root' \"\$PWD\"
 end
 " > $cached_file
 
-yarn -s run build -c >> $cached_file
+# Append each completion to the cached file
+yarn -s run dev -c >> $cached_file
 # yarn -s run tag-and-publish -c >>$cached_file
 yarn -s run publish-and-release -c >>$cached_file
 yarn -s run publish-nightly -c >>$cached_file
 node ./scripts/build-time -c >>$cached_file
 yarn -s run sh:workspace-cli -c >>$cached_file
+yarn -s run generate:snippets -c >>$cached_file
 # fish ./scripts/build-assets.fish --complete >>$cached_file
 
 source ~/.config/fish/config.fish
+
+# Alternative approach using psub (sources completions dynamically without creating intermediate file)
+# Uncomment to use psub instead of cached file:
+# source (yarn -s run dev -c | psub)
+# source (yarn -s run publish-and-release -c | psub)
+# source (yarn -s run publish-nightly -c | psub)
+# source (node ./scripts/build-time -c | psub)
+# source (yarn -s run sh:workspace-cli -c | psub)
+# source (yarn -s run generate:snippets -c | psub)
+
 source $cached_file
 exec fish

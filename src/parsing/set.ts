@@ -134,6 +134,8 @@ export function processSetCommand(document: LspDocument, node: SyntaxNode, child
     modifier = getFallbackModifierScope(document, node) as ScopeTag;
   }
 
+  const options = findOptionsSet(searchNodes, SetOptions).map(o => o.option);
+
   const scopeNode = findParentScopeNode(node, modifier);
 
   // fix conditional_command scoping to use the parent command
@@ -158,6 +160,7 @@ export function processSetCommand(document: LspDocument, node: SyntaxNode, child
       document.uri,
       node.text.toString(),
       DefinitionScope.create(scopeNode, modifier),
+      options,
       children,
     ),
   ];

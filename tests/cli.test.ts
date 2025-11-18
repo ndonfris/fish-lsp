@@ -207,6 +207,20 @@ describe('cli tests', () => {
         expect(dumpCmd).toEqual(false);
       });
 
+      it('fish-lsp start --port 3000 \\\n\t\t--disable hover', () => {
+        const args = [
+          'start',
+          '--port',
+          '3000',
+          '--disable',
+          'hover',
+        ];
+        const { enabled, disabled, dumpCmd } = accumulateStartupOptions(args);
+        expect(enabled).toEqual([]);
+        expect(disabled).toEqual(['hover']);
+        expect(dumpCmd).toEqual(false);
+      });
+
       it('fish-lsp start --enable --disable logging complete codeAction', () => {
         const args = [
           'start',

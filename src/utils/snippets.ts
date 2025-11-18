@@ -7,14 +7,17 @@ import localeVariablesJson from '../snippets/localeVariables.json';
 import specialVariablesJson from '../snippets/specialFishVariables.json';
 import pipeCharactersJson from '../snippets/pipesAndRedirects.json';
 import fishlspEnvVariablesJson from '../snippets/fishlspEnvVariables.json';
+import functionsJson from '../snippets/functions.json';
 import { md } from './markdown-builder';
 
 interface BaseJson {
   name: string;
   description: string;
+  file?: string;        // Optional: path to function definition file
+  flags?: string[];     // Optional: function flags/options
 }
 
-type JsonType = 'command' | 'pipe' | 'status' | 'variable';
+type JsonType = 'command' | 'function' | 'pipe' | 'status' | 'variable';
 type SpecialType = 'fishlsp' | 'env' | 'locale' | 'special' | 'theme';
 type AllTypes = JsonType | SpecialType;
 
@@ -162,6 +165,8 @@ function buildBodySection(subtitle: string, body: string, shouldWrap: boolean = 
   let currentLine = titleStr;
   const leftpadBody = !hasTitle() ? '' : ' '.repeat(titleStr.length);
 
+  // handle special case where body is empty or just quotes given for default section
+  body = subtitle === 'Default' && ['""', "''", ''].includes(body.trim()) ? "''" : body;
   const splitBody = body.split(' ');
   const addComma = (idx: number) => idx === splitBody.length - 1 ? '' : ',';
   const words = asMarkdown
@@ -314,6 +319,14 @@ const allData: ExtendedBaseJson[] = [
   ...envVariablesJson.map((item: BaseJson) => ExtendedBaseJson.create(item, 'variable', 'env')),
   ...localeVariablesJson.map((item: BaseJson) => ExtendedBaseJson.create(item, 'variable', 'locale')),
   ...specialVariablesJson.map((item: BaseJson) => ExtendedBaseJson.create(item, 'variable', 'special')),
+  // Fish-shipped functions from functions.json (transform to BaseJson structure)
+  // Preserve file and flags fields for browser/tooling use
+  ...functionsJson.map((item: any) => ExtendedBaseJson.create({
+    name: item.name,
+    description: item.description || `Fish function: ${item.name}`,
+    file: item.file,
+    flags: item.flags,
+  }, 'function')),
 ];
 
 export const PrebuiltDocumentationMap = new DocumentationMap(allData);

@@ -77,7 +77,8 @@ show the build info of fish-lsp
   `--no-warning`              disable message in the `fish-lsp info --time-startup` output  
   `--show-files`              show the files that were indexed during startup when `fish-lsp info --time-startup` is used  
   `--dump-parse-tree <FILE>`  show the tree-sitter AST for the specified file  
-  `--no-color`                disable color output in the `fish-lsp info --dump-file-tree` output  
+  `--dump-semantic-tokens <FILE>`  show the semantic-tokens for the specified file  
+  `--no-color`                disable color output in the `fish-lsp info --dump-file-tree`/`fish-lsp info --semantic-tokens` output  
 
 ### `url`
 

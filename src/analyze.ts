@@ -24,6 +24,7 @@ import { connection } from './utils/startup';
 import { DiagnosticCache } from './diagnostics/cache';
 
 export type AnalyzedDocumentType = 'partial' | 'full';
+export type EnsuredAnalyzeDocument = Required<AnalyzedDocument> & { root: SyntaxNode; tree: Tree; type: 'full'; };
 
 /**
  * AnalyzedDocument items are created in three public methods of the Analyzer class:
@@ -127,7 +128,7 @@ export class AnalyzedDocument {
     return this.type === 'full';
   }
 
-  public ensureParsed() {
+  public ensureParsed(): EnsuredAnalyzeDocument {
     if (this.isPartial()) {
       const fullDocument = analyzer.analyze(this.document);
       // Update this instance's properties in-place
@@ -140,9 +141,9 @@ export class AnalyzedDocument {
 
       // Update the cache with the fully parsed document
       analyzer.cache.setDocument(this.document.uri, this);
-      return this;
+      return this as EnsuredAnalyzeDocument;
     }
-    return this;
+    return this as EnsuredAnalyzeDocument;
   }
 }
 

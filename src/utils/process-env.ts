@@ -1,3 +1,5 @@
+import { join } from 'path';
+import { existsSync } from 'fs';
 import { PrebuiltDocumentationMap } from './snippets';
 import { md } from './markdown-builder';
 import { env } from './env-manager';
@@ -160,5 +162,27 @@ export namespace AutoloadedPathVariables {
       ].join('\n');
     }
     return '';
+  }
+
+  /**
+   * Find an autoloaded function file by searching fish_function_path directories.
+   * Returns the full path to the function file if found, or null if not found.
+   *
+   * @param functionName - The name of the function to find
+   * @returns The absolute path to the function file, or null if not found
+   */
+  export function findAutoloadedFunctionPath(functionName: string): string | null {
+    // Get all function paths from fish_function_path
+    const functionPaths = get('fish_function_path');
+
+    // Search each directory for the function file
+    for (const dir of functionPaths) {
+      const functionFilePath = join(dir, `${functionName}.fish`);
+      if (existsSync(functionFilePath)) {
+        return functionFilePath;
+      }
+    }
+
+    return null;
   }
 }

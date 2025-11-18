@@ -273,11 +273,3 @@ export function setQuery(searchNodes: SyntaxNode[]) {
   }
   return false;
 }
-
-// export function patchScopes(symbols: FishSymbol[]) {
-//   for (const symbol of symbols) {
-//     const equalSymbols = symbol.children.filter(child =>
-//       child.kind === symbol.kind && child.name === symbol.name && child.scopeContainsNode()
-//     )
-//   }
-// }

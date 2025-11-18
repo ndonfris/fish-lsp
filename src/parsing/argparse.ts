@@ -12,7 +12,7 @@ import { pathToUri, uriToPath } from '../utils/translation';
 import { workspaceManager } from '../utils/workspace-manager';
 import { logger } from '../logger';
 
-export const ArparseOptions = [
+export const ArgparseOptions = [
   Option.create('-n', '--name').withValue(),
   Option.create('-x', '--exclusive').withValue(),
   Option.create('-N', '--min-args').withValue(),
@@ -31,7 +31,7 @@ export function findArgparseOptions(node: SyntaxNode) {
   const nodes = node.childrenForFieldName('argument')
     .filter(n => !isEscapeSequence(n) && isBefore(n, endChar))
     .filter(n => !isVariableExpansion(n) || n.type !== 'variable_name');
-  return findOptions(nodes, ArparseOptions);
+  return findOptions(nodes, ArgparseOptions);
 }
 
 function isInvalidArgparseName(node: SyntaxNode) {
@@ -66,7 +66,7 @@ export function findArgparseDefinitionNames(node: SyntaxNode): SyntaxNode[] {
     .filter(n => !isEscapeSequence(n) && isBefore(n, endChar))
     .filter(n => !isInvalidArgparseName(n));
 
-  const { remaining } = findOptions(nodes, ArparseOptions);
+  const { remaining } = findOptions(nodes, ArgparseOptions);
   return remaining;
 }
 

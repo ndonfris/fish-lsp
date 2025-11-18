@@ -4,7 +4,7 @@ import './utils/array-polyfills';
 import './virtual-fs';
 import { SyntaxNode } from 'web-tree-sitter';
 import { AnalyzedDocument, analyzer, Analyzer } from './analyze';
-import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent } from 'vscode-languageserver';
+import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent, SelectionRangeParams, SelectionRange } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, documents } from './document';
 import { formatDocumentWithIndentComments, formatDocumentContent } from './formatting';
@@ -28,7 +28,7 @@ import { enrichToMarkdown, handleBraceExpansionHover, handleEndStdinHover, handl
 import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getDefaultSignatures, getFunctionSignatureHelp, isRegexStringSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
-import { FishSemanticTokensProvider } from './semantic-tokens';
+import { semanticTokenHandler } from './semantic-tokens';
 import { buildCommentCompletions } from './utils/completion/comment-completions';
 import { codeActionHandlers } from './code-actions/code-action-handler';
 import { createExecuteCommandHandler } from './command';
@@ -40,6 +40,8 @@ import { isSourceCommandArgumentName } from './parsing/source';
 import { getReferences } from './references';
 import { getRenames } from './renames';
 import { getReferenceCountCodeLenses } from './code-lens';
+import { getSelectionRanges } from './selection-range';
+// import { getLinkedEditingRanges } from './linked-editing';
 import { PkgJson } from './utils/commander-cli-subcommands';
 
 export type SupportedFeatures = {
@@ -66,6 +68,9 @@ type WebServerProps = {
   connection?: Connection;
   params?: InitializeParams;
 };
+
+export let cachedDocumentation: DocumentationCache;
+export let cachedCompletionMap: CompletionItemMap;
 
 export default class FishServer {
   public static async createWebServer(props: WebServerProps): Promise<{
@@ -183,6 +188,9 @@ export default class FishServer {
       CompletionItemMap.initialize(),
     ]);
 
+    cachedDocumentation = cache;
+    cachedCompletionMap = completionsMap;
+
     await Analyzer.initialize();
 
     const completions = await initializeCompletionPager(logger, completionsMap);
@@ -230,7 +238,8 @@ export default class FishServer {
     // setup handlers
     const { onCodeAction } = codeActionHandlers(documents, analyzer);
     const documentHighlightHandler = getDocumentHighlights(analyzer);
-    const semanticTokensProvider = new FishSemanticTokensProvider(analyzer);
+    // Semantic tokens handler using simplified unified handler
+    // The semanticTokenHandler handles both full document and range requests internally
     const commandCallback = createExecuteCommandHandler(connection, documents, analyzer);
 
     // register the handlers
@@ -260,14 +269,17 @@ export default class FishServer {
 
     connection.onCodeLens(this.onCodeLens.bind(this));
     connection.onFoldingRanges(this.onFoldingRanges.bind(this));
+    connection.onSelectionRanges(this.onSelectionRanges.bind(this));
 
     connection.onDocumentHighlight(documentHighlightHandler);
     connection.languages.inlayHint.on(this.onInlayHints.bind(this));
-    connection.languages.semanticTokens.on(semanticTokensProvider.provideSemanticTokens.bind(semanticTokensProvider));
-    connection.languages.semanticTokens.onRange(semanticTokensProvider.provideSemanticTokensRange.bind(semanticTokensProvider));
+    connection.languages.semanticTokens.on(semanticTokenHandler);
+    connection.languages.semanticTokens.onRange(semanticTokenHandler);
 
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.onExecuteCommand(commandCallback);
+
+    // connection.languages.onLinkedEditingRange(this.onLinkedEditingRange.bind(this));
 
     connection.onInitialized(this.onInitialized.bind(this));
     connection.onShutdown(this.onShutdown.bind(this));
@@ -926,6 +938,26 @@ export default class FishServer {
 
     return folds;
   }
+
+  async onSelectionRanges(params: SelectionRangeParams): Promise<SelectionRange[] | null> {
+    this.logParams('onSelectionRanges', params);
+
+    const { doc } = this.getDefaultsForPartialParams(params);
+    if (!doc) {
+      return null;
+    }
+
+    return getSelectionRanges(doc, params.positions);
+  }
+
+  // async onLinkedEditingRange(params: LSP.LinkedEditingRangeParams): Promise<LSP.LinkedEditingRanges | null> {
+  //   this.logParams('onLinkedEditingRange', params);
+  //
+  //   const { doc } = this.getDefaults(params);
+  //   if (!doc) return null;
+  //
+  //   return getLinkedEditingRanges(doc, params.position);
+  // }
 
   // works but is super slow and resource intensive, plus it doesn't really display much
   async onInlayHints(params: InlayHintParams) {

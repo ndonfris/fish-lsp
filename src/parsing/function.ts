@@ -31,6 +31,8 @@ export const FunctionEventOptions = [
   Option.create('-s', '--on-signal').withValue(),
 ];
 
+export const FunctionVariableOptions = FunctionOptions.filter(option => option.equalsRawOption('-a', '--argument-names', '-V', '--inherit-variable', '-v', '--on-variable'));
+
 function isFunctionDefinition(node: SyntaxNode) {
   return node.type === 'function_definition';
 }
@@ -68,6 +70,7 @@ export function processArgvDefinition(document: LspDocument, node: SyntaxNode) {
           end: { line: 0, character: 0 },
         },
         range: getRange(node),
+        options: [Option.create('-l', '--local')],
         children: [],
       }),
     ];
@@ -157,6 +160,7 @@ export function processFunctionDefinition(document: LspDocument, node: SyntaxNod
 
   const scopeModifier = autoloadScope(focusedNode) ? 'global' : 'local';
   const scopeParentNode = findParentWithFallback(node, (n) => !n.equals(node) && isFunctionDefinition(n));
+  const focused = node.childrenForFieldName('option').filter(n => !isEscapeSequence(n) && !isNewline(n));
 
   const functionSymbol = FishSymbol.create(
     focusedNode.text,
@@ -167,9 +171,9 @@ export function processFunctionDefinition(document: LspDocument, node: SyntaxNod
     document.uri,
     node.text,
     DefinitionScope.create(scopeParentNode, scopeModifier),
+    findOptionsSet(focused, FunctionOptions)?.map(opt => opt.option) || [],
   );
 
-  const focused = node.childrenForFieldName('option').filter(n => !isEscapeSequence(n) && !isNewline(n));
   functionSymbol.addChildren(
     FishSymbol.create(
       'argv',
@@ -180,6 +184,7 @@ export function processFunctionDefinition(document: LspDocument, node: SyntaxNod
       document.uri,
       PrebuiltDocumentationMap.getByName('argv').pop()?.description || 'the list of arguments passed to the function',
       DefinitionScope.create(node, 'local'),
+      [Option.create('-l', '--local')],
     ),
   );
 
@@ -202,6 +207,7 @@ export function processFunctionDefinition(document: LspDocument, node: SyntaxNod
             document.uri,
             focused.text,
             DefinitionScope.create(node, 'local'),
+            [option],
           ),
         );
         break;
@@ -233,6 +239,7 @@ export function processFunctionDefinition(document: LspDocument, node: SyntaxNod
 
             ].join(md.newline()),
             DefinitionScope.create(node.tree.rootNode, 'global'),
+            [option],
           ),
         );
         break;

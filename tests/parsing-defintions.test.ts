@@ -116,11 +116,11 @@ describe('parsing symbols', () => {
       const completions = await getCompletionsForCommand('argparse');
       const flags = getFlagsFromCompletion(completions);
       for (const flag of flags) {
-        if (!getAllOptionFlags(Parsers.argparse.ArparseOptions).includes(flag)) {
+        if (!getAllOptionFlags(Parsers.argparse.ArgparseOptions).includes(flag)) {
           console.log('missing:', flag);
         }
       }
-      expect(flags.length).toBe(getAllOptionFlags(Parsers.argparse.ArparseOptions).length);
+      expect(flags.length).toBe(getAllOptionFlags(Parsers.argparse.ArgparseOptions).length);
     });
 
     it('for -', async () => {
@@ -470,7 +470,7 @@ describe('parsing symbols', () => {
       it('Argparse findOptions()', async () => {
         const source = 'argparse --name foo h/help -- $argv; or return';
         const { rootNode } = parser.parse(source);
-        const argparseOptions = Array.from(Parsers.argparse.ArparseOptions);
+        const argparseOptions = Array.from(Parsers.argparse.ArgparseOptions);
         const focusedNode = getChildNodes(rootNode).find(n => isCommandWithName(n, 'argparse'))!;
         const isBefore = (a: SyntaxNode, b: SyntaxNode) => a.startIndex < b.startIndex;
         const endStdin = focusedNode.children.find(n => isEndStdinCharacter(n))!;

@@ -1,5 +1,5 @@
 import { SyntaxNode } from 'web-tree-sitter';
-import { Option, isMatchingOption, findMatchingOptions } from './options';
+import { Option, isMatchingOption, findMatchingOptions, findOptionsSet } from './options';
 import { isOption, isCommandWithName, isString, isTopLevelDefinition, isProgram, isFunctionDefinition, hasParentFunction, findParentWithFallback, isScope, isInvalidVariableName } from '../utils/node-types';
 import { FishSymbol, ModifierScopeTag, SetModifierToScopeTag } from './symbol';
 import { LspDocument } from '../document';
@@ -164,9 +164,11 @@ export function processReadCommand(document: LspDocument, node: SyntaxNode, chil
   const definitionParent = findReadParent(node, scopeModifier);
   const definitionScope = DefinitionScope.create(definitionParent, scopeModifier);
 
+  const options = findOptionsSet([node], ReadOptions)?.map(opt => opt.option) || [];
+
   for (const arg of definitionNodes) {
     if (arg.text.startsWith('$')) continue;
-    result.push(FishSymbol.create(arg.text, node, arg, 'READ', document, document.uri, node.text, definitionScope, children));
+    result.push(FishSymbol.create(arg.text, node, arg, 'READ', document, document.uri, node.text, definitionScope, options, children));
   }
 
   return result;

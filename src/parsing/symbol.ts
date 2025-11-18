@@ -24,6 +24,7 @@ import { isSymbolReference } from './reference-comparator';
 import { equalSymbolDefinitions, equalSymbols, equalSymbolScopes, fishSymbolNameEqualsNodeText, isFishSymbol, symbolContainsNode, symbolContainsPosition, symbolContainsScope, symbolEqualsLocation, symbolEqualsNode, symbolScopeContainsNode } from './equality-utils';
 import { SymbolConverters } from './symbol-converters';
 import { FishKindGroups, FishSymbolInput, FishSymbolKind, fishSymbolKindToSymbolKind, fromFishSymbolKindToSymbolKind } from './symbol-kinds';
+import { isInlineVariableAssignment, processInlineVariables } from './inline-variable';
 
 export const SKIPPABLE_VARIABLE_REFERENCE_NAMES = [
   'argv',
@@ -39,6 +40,7 @@ export interface FishSymbol extends DocumentSymbol {
   scope: DefinitionScope;
   children: FishSymbol[];
   detail: string;
+  options: Option[];
   parent: FishSymbol | undefined;
 }
 
@@ -46,6 +48,7 @@ export class FishSymbol {
   public children: FishSymbol[] = [];
   public aliasedNames: string[] = [];
   public document: LspDocument;
+  public options: Option[] = [];
 
   constructor(obj: FishSymbolInput) {
     this.name = obj.name || obj.focusedNode.text;
@@ -62,6 +65,7 @@ export class FishSymbol {
     this.children.forEach(child => {
       child.parent = this;
     });
+    this.options = obj.options || [];
     this.detail = obj.detail;
     this.setupDetail();
   }
@@ -79,6 +83,7 @@ export class FishSymbol {
     uri: string = document.uri.toString(),
     detail: string,
     scope: DefinitionScope,
+    options: Option[] = [],
     children: FishSymbol[] = [],
   ) {
     return new this({
@@ -89,6 +94,7 @@ export class FishSymbol {
       detail,
       node,
       focusedNode,
+      options,
       scope,
       children,
     });
@@ -298,6 +304,11 @@ export class FishSymbol {
     return false;
   }
 
+  skippableVariableName(): boolean {
+    if (!this.isVariable()) return false;
+    return SKIPPABLE_VARIABLE_REFERENCE_NAMES.includes(this.name);
+  }
+
   get path() {
     return uriToPath(this.uri);
   }
@@ -374,6 +385,12 @@ export class FishSymbol {
 
   isGlobal() {
     return this.scope.scopeTag === 'global' || this.scope.scopeTag === 'universal';
+  }
+
+  isAutoloaded() {
+    const doc = this.document.getAutoLoadName();
+    if (!doc) return false;
+    return this.name === doc && this.document.isAutoloaded() && this.isRootLevel();
   }
 
   isRootLevel() {
@@ -763,6 +780,11 @@ function buildNested(document: LspDocument, node: SyntaxNode, ...children: FishS
       newSymbols.push(...processForDefinition(document, node, children));
       break;
     case 'command':
+      if (isInlineVariableAssignment(node)) {
+        // Inline variable assignments are handled elsewhere
+        newSymbols.push(...processInlineVariables(document, node));
+        break;
+      }
       if (!firstNamedChild?.text) break;
       switch (firstNamedChild.text) {
         case 'set':

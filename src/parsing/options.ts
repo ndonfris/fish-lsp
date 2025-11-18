@@ -308,6 +308,19 @@ export class Option {
   toString(): string {
     return this.getAllFlags().join(', ');
   }
+
+  toName(): string {
+    if (this.longOptions.length > 0) {
+      return this.longOptions[0]!.replace(/^--/, '');
+    }
+    if (this.unixOptions.length > 0) {
+      return this.unixOptions[0]!.replace(/^-/, '');
+    }
+    if (this.shortOptions.length > 0) {
+      return this.shortOptions[0]!.replace(/^-/, '');
+    }
+    return '';
+  }
 }
 
 export type OptionValueMatch = {

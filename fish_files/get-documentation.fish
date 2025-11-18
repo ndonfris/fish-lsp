@@ -16,7 +16,7 @@ function _flsp_get_command_without_manpage -d 'fallback for a command passed in 
 end
 
 function _flsp_get_manpage -d 'for a command with a manpage'
-    man $argv | sed -r 's/^ {7}/ /' | col -bx
+    man $argv | sed -r 's/^ {7}/ /' | tr -d '\b'
 end
 
 set -l type_result (type -t "$argv[1]" 2> /dev/null)
@@ -26,11 +26,11 @@ case "function"
     if type -f -q $argv 2>/dev/null
         _flsp_get_manpage $argv
     else
-        functions --all $argv | col -bx 
+        functions --all $argv | tr -d '\b'
     end
 
 case "builtin"
-    man $argv | sed -r 's/^ {7}/ /' | col -bx
+    man $argv | sed -r 's/^ {7}/ /' | tr -d '\b'
 
 case "file"
     set -l bad_manpage ( man -a $argv 2> /dev/null )

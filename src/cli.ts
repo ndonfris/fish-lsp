@@ -7,7 +7,7 @@ import { configHandlers, config, updateHandlers, validHandlers, Config, handleEn
 import { ConnectionOptions, ConnectionType, createConnectionType, maxWidthForOutput, startServer, timeServerStartup } from './utils/startup';
 import { performHealthCheck } from './utils/health-check';
 import { setupProcessEnvExecFile } from './utils/process-env';
-import { handleCLiDumpParseTree } from './utils/dump-parse-tree';
+import { handleCLiDumpParseTree, handleCLiDumpSemanticTokens } from './utils/cli-dump-tree';
 import PackageJSON from '@package';
 import chalk from 'chalk';
 import vfs from './virtual-fs';
@@ -103,6 +103,7 @@ commandBin.command('start')
   .option('--stdio', 'use stdin/stdout for communication (default)')
   .option('--node-ipc', 'use node IPC for communication')
   .option('--socket <port>', 'use TCP socket for communication')
+  .option('--port <port>', 'use TCP socket for communication (alias for --socket)')
   .option('--memory-limit <mb>', 'set memory usage limit in MB')
   .option('--max-files <number>', 'override the maximum number of files to analyze')
   .addHelpText('afterAll', [
@@ -117,7 +118,8 @@ commandBin.command('start')
     '\t>_ fish-lsp start --disable hover  # only disable the hover feature',
     '\t>_ fish-lsp start --disable complete logging index hover --dump',
     '\t>_ fish-lsp start --enable --disable logging complete codeAction',
-    '\t>_ fish-lsp start --socket 3000  # start TCP server on port 3000 (useful for Docker)',
+    '\t>_ fish-lsp start --port 3000  # start TCP server on port 3000 (useful for Docker)',
+    '\t>_ fish-lsp start --socket 3000  # alternative syntax for --port',
   ].join('\n'))
   .allowUnknownOption(false)
   .action(async (opts: CommanderSubcommand.start.schemaType) => {
@@ -142,14 +144,16 @@ commandBin.command('start')
     }
     //
     // Determine connection type
+    const portValue = opts.port || opts.socket;
     const connectionType: ConnectionType = createConnectionType({
       stdio: opts.stdio,
       nodeIpc: opts.nodeIpc,
-      socket: !!opts.socket,
+      pipe: !!portValue,
+      socket: false,
     });
     const connectionOptions: ConnectionOptions = {};
-    if (opts.socket) {
-      connectionOptions.port = parseInt(opts.socket);
+    if (portValue) {
+      connectionOptions.port = parseInt(portValue, 10);
     }
 
     // override `configHandlers` with command line args
@@ -201,7 +205,8 @@ commandBin.command('info')
   .option('--check', 'check source map availability (use with --source-maps)', false)
   .option('--status', 'show the status of all the source-maps available to the server (use with --source-maps)', false)
   .option('--dump-parse-tree [FILE]', 'dump the tree-sitter parse tree of a file (reads from stdin if no file provided)', undefined)
-  .option('--no-color', 'disable color output for --dump-parse-tree', false)
+  .option('--dump-semantic-tokens [FILE]', 'dump the semantic tokens of a file (reads from stdin if no file provided)', undefined)
+  .option('--no-color', 'disable color output for --dump-parse-tree and --dump-semantic-tokens', false)
   .option('--virtual-fs', 'show the virtual filesystem structure (like tree command)', false)
   .allowUnknownOption(false)
   // .allowExcessArguments(false)
@@ -228,6 +233,11 @@ commandBin.command('info')
 
     if (args.dumpParseTree) {
       const status = await handleCLiDumpParseTree(args);
+      process.exit(status);
+    }
+
+    if (args.dumpSemanticTokens) {
+      const status = await handleCLiDumpSemanticTokens(args);
       process.exit(status);
     }
 

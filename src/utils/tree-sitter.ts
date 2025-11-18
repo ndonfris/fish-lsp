@@ -83,6 +83,29 @@ export function findChildNodes(root: SyntaxNode, predicate: (node: SyntaxNode) =
 }
 
 /**
+ * Collect all nodes of specific types using breadth-first iteration
+ * @param root - The root node to search from
+ * @param types - Array of node types to collect
+ * @returns Array of nodes matching the specified types
+ */
+export function collectNodesByTypes(root: SyntaxNode, types: string[]): SyntaxNode[] {
+  const results: SyntaxNode[] = [];
+  const queue: SyntaxNode[] = [root];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+
+    if (types.includes(current.type)) {
+      results.push(current);
+    }
+
+    queue.push(...current.namedChildren);
+  }
+
+  return results;
+}
+
+/**
  * Gets path to root starting where index 0 is child node passed in.
  * Format: [child, child.parent, ..., root]
  *
@@ -564,6 +587,24 @@ export function isNodeWithinRange(node: SyntaxNode, range: Range): boolean {
 
 export function isNodeWithinOtherNode(node: SyntaxNode, otherNode: SyntaxNode): boolean {
   return isNodeWithinRange(node, getRange(otherNode));
+}
+
+/**
+ * Checks if a server position is within a tree-sitter node
+ */
+export function isPositionInNode(position: Position, node: SyntaxNode): boolean {
+  const start = node.startPosition;
+  const end = node.endPosition;
+
+  // Check if position is before the node
+  if (position.line < start.row) return false;
+  if (position.line === start.row && position.character < start.column) return false;
+
+  // Check if position is after the node
+  if (position.line > end.row) return false;
+  if (position.line === end.row && position.character > end.column) return false;
+
+  return true;
 }
 
 export function getLeafNodes(node: SyntaxNode): SyntaxNode[] {
