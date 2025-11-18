@@ -294,7 +294,7 @@ commandBin.command('info')
       }
       // handle `[--man-file | --log-file] (--show)?`
       if (args.manFile || args.logFile || args.logsFile) {
-        exitCode = CommanderSubcommand.info.handleFileArgs(args);
+        exitCode = CommanderSubcommand.info.handleFileArgs(args) ?? 0;
         shouldExit = true;
       }
       // handle `--virtual-fs`
