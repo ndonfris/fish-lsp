@@ -43,7 +43,6 @@ import type { FishServer } from './server'; // @ts-ignore
  * @see {@link AnalyzedDocument#ensureParsed()} convert any partial documents to full ones and update {@link analyzer.cache}.
  */
 export type AnalyzedDocumentType = 'partial' | 'full';
-export type EnsuredAnalyzeDocument = Required<AnalyzedDocument> & { root: SyntaxNode; tree: Tree; type: 'full'; };
 
 /**
  * Specialized type of AnalyzedDocument that guarantees all the properties
