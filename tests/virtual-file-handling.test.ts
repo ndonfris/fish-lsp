@@ -541,9 +541,9 @@ if test -n $unclosed_test
 
       workspaceManager.handleUpdateDocument(virtualDoc);
 
-      // Use cache diagnostics instead of calling getDiagnostics directly
-      analyzer.diagnostics.setInitial(virtualUri);
-      const diagnostics = analyzer.diagnostics.getDiagnostics(virtualUri);
+      // Get diagnostics and cache them
+      const diagnostics = getDiagnostics(analyzedDoc.root!, virtualDoc);
+      analyzer.diagnostics.set(virtualUri, diagnostics);
 
       expect(diagnostics).toBeDefined();
       expect(Array.isArray(diagnostics)).toBe(true);

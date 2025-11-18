@@ -440,7 +440,7 @@ set -gx fish_lsp_modifiable_paths "$__fish_config_dir"
 # The diagnostics error codes to disable from the fish-lsp's diagnostics.
 # (Options: 1001, 1002, 1003, 1004, 1005, 2001, 2002, 2003, 2004, 3001, 3002, 
 #           3003, 4001, 4002, 4003, 4004, 4005, 4006, 4007, 4008, 5001, 5555, 
-#           6001, 8001, 9999)
+#           6001, 7001, 8001, 9999)
 # (Default: [])
 set -gx fish_lsp_diagnostic_disable_error_codes 
 
@@ -489,7 +489,7 @@ set -gx fish_lsp_max_background_files 10000
 # Should the client receive pop-up window notification requests from the fish-lsp server?
 # (Options: 'true', 'false')
 # (Default: 'false')
-set -gx fish_lsp_show_client_popups false
+set -gx fish_lsp_show_client_popups true
 
 # $fish_lsp_single_workspace_support <BOOLEAN>
 # Try to limit the fish-lsp's workspace searching to only the current workspace open.
@@ -519,15 +519,6 @@ set -gx fish_lsp_max_workspace_depth 3
 #                   '~/.local/bin/fish')
 # (Default: '')
 set -gx fish_lsp_fish_path 'fish'
-
-# $fish_lsp_semantic_handler_type <STRING>
-# Controls the semantic token highlighting mode for Fish shell scripts.
-# 'off' - Disables semantic token highlighting completely
-# 'full' - Full highlighting with all features (commands, keywords, variables, strings, operators, escape sequences, etc.)
-# 'mini' - Minimal highlighting (only commands and symbol definitions)
-# (Options: 'off', 'full', 'mini')
-# (Default: '')
-set -gx fish_lsp_semantic_handler_type 'full'
 ```
 
 </details>
@@ -604,7 +595,7 @@ set -gx fish_lsp_modifiable_paths
 # The diagnostics error codes to disable from the fish-lsp's diagnostics.
 # (Options: 1001, 1002, 1003, 1004, 1005, 2001, 2002, 2003, 2004, 3001, 3002, 
 #           3003, 4001, 4002, 4003, 4004, 4005, 4006, 4007, 4008, 5001, 5555, 
-#           6001, 8001, 9999)
+#           6001, 7001, 8001, 9999)
 # (Default: [])
 set -gx fish_lsp_diagnostic_disable_error_codes 
 
@@ -682,16 +673,7 @@ set -gx fish_lsp_max_workspace_depth
 # (Example Options: 'fish', '/usr/bin/fish', '/usr/.local/bin/fish', 
 #                   '~/.local/bin/fish')
 # (Default: '')
-set -gx fish_lsp_fish_path 
-
-# $fish_lsp_semantic_handler_type <STRING>
-# Controls the semantic token highlighting mode for Fish shell scripts.
-# 'off' - Disables semantic token highlighting completely
-# 'full' - Full highlighting with all features (commands, keywords, variables, strings, operators, escape sequences, etc.)
-# 'mini' - Minimal highlighting (only commands and symbol definitions)
-# (Options: 'off', 'full', 'mini')
-# (Default: '')
-set -gx fish_lsp_semantic_handler_type
+set -gx fish_lsp_fish_path
 ```
 
 </details>
@@ -731,7 +713,7 @@ set -gx fish_lsp_semantic_handler_type
   "fish_lsp_allow_fish_wrapper_functions": true,
   "fish_lsp_require_autoloaded_functions_to_have_description": true,
   "fish_lsp_max_background_files": 10000,
-  "fish_lsp_show_client_popups": false,
+  "fish_lsp_show_client_popups": true,
   "fish_lsp_single_workspace_support": false,
   "fish_lsp_ignore_paths": [
     "**/.git/**",
@@ -740,8 +722,7 @@ set -gx fish_lsp_semantic_handler_type
     "**/docker/**"
   ],
   "fish_lsp_max_workspace_depth": 3,
-  "fish_lsp_fish_path": "fish",
-  "fish_lsp_semantic_handler_type": "full"
+  "fish_lsp_fish_path": "fish"
 }
 ```
 
@@ -925,6 +906,9 @@ Contributions of any kind are welcome! Special thanks to anyone who contributed 
       <td align="center" valign="top" width="14.28%"><a href="https://degruchy.org/"><img src="https://avatars.githubusercontent.com/u/52262673?v=4?s=50" width="50px;" alt="Nathan DeGruchy"/><br /><sub><b>Nathan DeGruchy</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=ndegruchy" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://teddyhuang-00.github.io/"><img src="https://avatars.githubusercontent.com/u/64199650?v=4?s=50" width="50px;" alt="Nan Huang"/><br /><sub><b>Nan Huang</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=TeddyHuang-00" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/unlimitedsola"><img src="https://avatars.githubusercontent.com/u/3632663?v=4?s=50" width="50px;" alt="Sola"/><br /><sub><b>Sola</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=unlimitedsola" title="Code">💻</a></td>
+    </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/jose-elias-alvarez"><img src="https://avatars.githubusercontent.com/u/54108223?v=4?s=50" width="50px;" alt="Jose Alvarez"/><br /><sub><b>Jose Alvarez</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=jose-elias-alvarez" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>

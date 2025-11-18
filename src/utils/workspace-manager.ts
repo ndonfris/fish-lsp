@@ -5,6 +5,7 @@ import { documents, LspDocument } from '../document';
 import { analyzer } from '../analyze';
 import { config } from '../config';
 import { isPath, PathLike, pathToUri } from './translation';
+import { ProgressNotification } from './progress-notification';
 
 export class WorkspaceManager {
   private stack: WorkspaceStack = new WorkspaceStack();
@@ -235,9 +236,13 @@ export class WorkspaceManager {
     analyzer.analyze(document);
     newWorkspace.add(...Array.from(analyzer.collectAllSources(documentUri)));
     this.setCurrent(newWorkspace);
+
+    // Mark workspace as needing analysis, but DON'T analyze synchronously here
+    // The background analysis in onInitialized will pick it up
     if (newWorkspace.needsAnalysis()) {
-      logger.info(`workspaceManager.handleOpenDocument() - Workspace('${newWorkspace.name}').needsAnalysis()`);
-      analyzer.analyzeWorkspace(newWorkspace);
+      logger.info(`workspaceManager.handleOpenDocument() - Workspace('${newWorkspace.name}').needsAnalysis() - will be analyzed in background`);
+      // REMOVED: analyzer.analyzeWorkspace(newWorkspace);
+      // This synchronous call blocked the main thread and happened before progress reporting started
     }
     return this.current as Workspace;
   }
@@ -319,7 +324,7 @@ export class WorkspaceManager {
    * This method will update the map of all workspaces and the resulting workspaces will be
    * re-analyzed.
    */
-  public handleWorkspaceChangeEvent(event: WorkspaceFoldersChangeEvent, progress?: WorkDoneProgressServerReporter): void {
+  public handleWorkspaceChangeEvent(event: WorkspaceFoldersChangeEvent, progress?: WorkDoneProgressServerReporter | ProgressNotification): void {
     progress?.begin('[fish-lsp] indexing files', 0, `Analyzing workspaces [+${event.added.length} | -${event.removed.length}]`, true);
     logger.info(
       'workspaceManager.handleWorkspaceChangeEvent()',
@@ -360,8 +365,8 @@ export class WorkspaceManager {
    * NOTE: if the user sets an arbitrarily low value for fish_lsp_max_background_files, this method will need to be called multiple times.
    *
    * ```typescript
-        * while (workspaceManager.needsAnalysis()) {
-   * workspaceManager.analyzePendingDocuments();
+   * while (workspaceManager.needsAnalysis()) {
+   *    workspaceManager.analyzePendingDocuments();
    * }
    * ```
    * ___
@@ -370,7 +375,7 @@ export class WorkspaceManager {
    * @returns An object containing the analyzed items, total documents, and duration of analysis.
    */
   public async analyzePendingDocuments(
-    progress: WorkDoneProgressServerReporter | undefined = undefined,
+    progress: WorkDoneProgressServerReporter | ProgressNotification | undefined = undefined,
     callbackfn: (str: string) => void = (s) => logger.log(s),
   ) {
     logger.info('workspaceManager.analyzePendingDocuments()');
@@ -427,7 +432,9 @@ export class WorkspaceManager {
 
       if (isLastItem || isBatchEnd && timeToUpdate) {
         const percentage = Math.ceil((idx + 1) / maxSize * 100);
-        progress?.report(`${percentage}% Analyzing ${idx + 1}/${maxSize} ${maxSize > 1 ? 'documents' : 'document'}`);
+        const message = `Analyzing ${idx + 1}/${maxSize} ${maxSize > 1 ? 'documents' : 'document'}`;
+        // Report with both percentage number and descriptive message
+        progress?.report(percentage, message);
         lastUpdateTime = currentTime;
 
         // Add a small delay for visual perception

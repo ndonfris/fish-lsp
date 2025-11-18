@@ -135,6 +135,15 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "jose-elias-alvarez",
+      "name": "Jose Alvarez",
+      "avatar_url": "https://avatars.githubusercontent.com/u/54108223?v=4",
+      "profile": "https://github.com/jose-elias-alvarez",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
