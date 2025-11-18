@@ -1,3 +1,22 @@
+## <small>1.1.1-pre.3 (2025-11-18)</small>
+
+* fix: lints + bump 1.1.1-pre.3 ([f40ce9f](https://github.com/ndonfris/fish-lsp/commit/f40ce9f))
+* fix: race condtion where `progress.report()` can be sent early to `async token` creation ([d6d6672](https://github.com/ndonfris/fish-lsp/commit/d6d6672))
+* feat: Add Semantic Tokens Support (#113) ([399dba7](https://github.com/ndonfris/fish-lsp/commit/399dba7)), closes [#113](https://github.com/ndonfris/fish-lsp/issues/113)
+* feat(src/analyze.ts): update fallback go-to-definition logic ([2f14670](https://github.com/ndonfris/fish-lsp/commit/2f14670))
+* feat(src/command.ts): `fish-lsp.showReferences` command opens all unopened reference uris ([63236de](https://github.com/ndonfris/fish-lsp/commit/63236de))
+* feat(src/utils/progress-notification.ts): hide `config.fish_lsp_show_client_popups` ([2383e46](https://github.com/ndonfris/fish-lsp/commit/2383e46))
+* fix(FishServer.onInitialized()): startup progress reporting in background process ([4ed8067](https://github.com/ndonfris/fish-lsp/commit/4ed8067))
+* revert(src/{server,utils/startup}.ts): use existing data from `server.onInitialized()` ([dd2fcd9](https://github.com/ndonfris/fish-lsp/commit/dd2fcd9))
+* perf(src/utils/startup.ts): `fish-lsp info --time-startup` matches normal server logs ([a8b8c66](https://github.com/ndonfris/fish-lsp/commit/a8b8c66))
+* refactor(src/command.ts): variadic parameter support for execute command handlers ([b934153](https://github.com/ndonfris/fish-lsp/commit/b934153))
+* refactor(src/diagnostics/*.ts): simplified diagnostics cache + `7001` unknown command ([d8aaa51](https://github.com/ndonfris/fish-lsp/commit/d8aaa51))
+* test(src/utils/file-operations.ts): added `SyncFileHelper.expandNormalize()` + 100% coverage ([5203269](https://github.com/ndonfris/fish-lsp/commit/5203269))
+* docs(src/cli.ts): remove deprecated `fish-lsp start --help` handlers ('logger', 'index') ([d648f5f](https://github.com/ndonfris/fish-lsp/commit/d648f5f))
+* chore: bump vite in the npm_and_yarn group across 1 directory (#117) ([e025970](https://github.com/ndonfris/fish-lsp/commit/e025970)), closes [#117](https://github.com/ndonfris/fish-lsp/issues/117)
+
+
+
 ## <small>1.1.1-pre.2 (2025-10-28)</small>
 
 * fix(src/semantic-tokens.ts): reuse def modifier on semantic token ([9d14620](https://github.com/ndonfris/fish-lsp/commit/9d14620))

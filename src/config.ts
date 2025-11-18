@@ -147,9 +147,6 @@ export const ConfigSchema = z.object({
 
   /** path to fish executable for child processes */
   fish_lsp_fish_path: z.string().default('fish'),
-
-  /** semantic token handler mode: 'off', 'full', or 'mini' */
-  fish_lsp_semantic_handler_type: z.enum(['off', 'full', 'mini']).default('full'),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -178,7 +175,6 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_ignore_paths: process.env.fish_lsp_ignore_paths?.split(' '),
     fish_lsp_max_workspace_depth: toNumber(process.env.fish_lsp_max_workspace_depth || '4'),
     fish_lsp_fish_path: process.env.fish_lsp_fish_path,
-    fish_lsp_semantic_handler_type: process.env.fish_lsp_semantic_handler_type as 'off' | 'full' | 'mini' | undefined,
   };
 
   const environmentVariablesUsed = Object.entries(rawConfig)
