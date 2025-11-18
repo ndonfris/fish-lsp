@@ -14,7 +14,6 @@ import { pathToUri, uriToReadablePath } from './utils/translation';
 import { getRange } from './utils/tree-sitter';
 import { workspaceManager } from './utils/workspace-manager';
 import { PkgJson } from './utils/commander-cli-subcommands';
-import FishServer from './server';
 import { SyncFileHelper } from './utils/file-operations';
 
 // Define command name constants to avoid string literals
@@ -371,32 +370,8 @@ export function createExecuteCommandHandler(
       return;
     }
 
-    let { path } = parsed;
-    const { startLine, endLine } = parsed; // Lines are 1-indexed from user
+    const { path, startLine, endLine } = parsed; // Lines are 1-indexed from user, path already expanded
 
-    // Expand path (handles ~, $ENV_VARS, etc.)
-    path = SyncFileHelper.expandEnvVars(path);
-
-  const showMessage = (message: string, type: MessageType = MessageType.Info) => {
-    if (type === MessageType.Info) {
-      connection.window.showInformationMessage(message);
-      connection.sendNotification('window/showMessage', {
-        message: message,
-        type: MessageType.Info,
-      });
-      logger.info(message);
-    } else {
-      connection.window.showErrorMessage(message);
-      connection.sendNotification('window/showMessage', {
-        message: message,
-        type: MessageType.Error,
-      });
-      logger.error(message);
-    }
-  };
-
-  async function executeRange(path: string, startLine: number, endLine: number) {
-    // could also do executeLine() on every line in the range
     const cached = analyzer.analyzePath(path);
     if (!cached) {
       showMessage(`File not found or could not be analyzed: ${path}`, MessageType.Error);
@@ -874,15 +849,7 @@ export function createExecuteCommandHandler(
     const outputCallback = (s: string) => {
       output.push(s);
     };
-    handleEnvOutput('show', outputCallback, {
-      confd: false,
-      comments: true,
-      global: true,
-      local: false,
-      export: true,
-      json: false,
-      only: undefined,
-    });
+    handleEnvOutput('show', outputCallback, envOutputOptions);
     showMessage(`${fishLspPromptIcon} Appending fish-lsp environment variables to the end of the file`, MessageType.Info);
     const docsEnd = document.positionAt(document.getLines());
     const workspaceEdit: WorkspaceEdit = {
