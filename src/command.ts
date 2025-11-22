@@ -3,7 +3,7 @@ import { analyzer } from './analyze';
 import { codeActionHandlers } from './code-actions/code-action-handler';
 import { createFixAllAction } from './code-actions/quick-fixes';
 import { Config, config, EnvVariableTransformers, getDefaultConfiguration, handleEnvOutput } from './config';
-import { getDiagnosticsAsync } from './diagnostics/async-validate';
+import { getDiagnosticsAsync } from './diagnostics/validate';
 import { documents } from './document';
 import { buildExecuteNotificationResponse, execEntireBuffer, fishLspPromptIcon, useMessageKind } from './execute-handler';
 import { logger } from './logger';

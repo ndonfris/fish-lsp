@@ -3,7 +3,7 @@ import { initializeParser } from '../src/parser';
 import * as Parser from 'web-tree-sitter';
 import { workspaceManager } from '../src/utils/workspace-manager';
 // import { LspDocument } from '../src/document';
-import { getDiagnosticsAsync } from '../src/diagnostics/async-validate';
+import { getDiagnosticsAsync } from '../src/diagnostics/validate';
 import { ErrorCodes } from '../src/diagnostics/error-codes';
 import { createFakeLspDocument } from './helpers';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';

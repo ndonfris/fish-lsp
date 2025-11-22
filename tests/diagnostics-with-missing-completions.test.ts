@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import { findAllMissingArgparseFlags } from '../src/diagnostics/missing-completions';
 import { LspDocument } from '../src/document';
 import { flattenNested } from '../src/utils/flatten';
-import { getDiagnosticsAsync } from '../src/diagnostics/async-validate';
+import { getDiagnosticsAsync } from '../src/diagnostics/validate';
 import { createTestWorkspace, setLogger, TestLspDocument, fail } from './helpers';
 import { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from '../src/parser';

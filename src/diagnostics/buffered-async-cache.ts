@@ -2,7 +2,7 @@ import { Diagnostic, DocumentUri } from 'vscode-languageserver';
 import { analyzer } from '../analyze';
 import { documents, LineSpan, rangeOverlapsLineSpan } from '../document';
 import { configHandlers } from '../config';
-import { getDiagnosticsAsync } from './async-validate';
+import { getDiagnosticsAsync } from './validate';
 import { connection } from '../utils/startup';
 import { logger } from '../logger';
 

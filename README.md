@@ -444,6 +444,14 @@ set -gx fish_lsp_modifiable_paths "$__fish_config_dir"
 # (Default: [])
 set -gx fish_lsp_diagnostic_disable_error_codes 
 
+# $fish_lsp_max_diagnostics <NUMBER>
+# The maximum number of diagnostics to return per file.
+# Using value `0` means unlimited diagnostics.
+# To entirely disable diagnostics use `fish_lsp_disabled_handlers`
+# (Example Options: 0, 10, 25, 50, 100, 250)
+# (Default: 0)
+set -gx fish_lsp_max_diagnostics 0
+
 # $fish_lsp_enable_experimental_diagnostics <BOOLEAN>
 # Enables the experimental diagnostics feature, using `fish --no-execute`.
 # This feature will enable the diagnostic error code 9999 (disabled by default).
@@ -599,6 +607,14 @@ set -gx fish_lsp_modifiable_paths
 # (Default: [])
 set -gx fish_lsp_diagnostic_disable_error_codes 
 
+# $fish_lsp_max_diagnostics <NUMBER>
+# The maximum number of diagnostics to return per file.
+# Using value `0` means unlimited diagnostics.
+# To entirely disable diagnostics use `fish_lsp_disabled_handlers`
+# (Example Options: 0, 10, 25, 50, 100, 250)
+# (Default: 0)
+set -gx fish_lsp_max_diagnostics 
+
 # $fish_lsp_enable_experimental_diagnostics <BOOLEAN>
 # Enables the experimental diagnostics feature, using `fish --no-execute`.
 # This feature will enable the diagnostic error code 9999 (disabled by default).
@@ -707,6 +723,7 @@ set -gx fish_lsp_fish_path
     "$__fish_config_dir"
   ],
   "fish_lsp_diagnostic_disable_error_codes": [],
+  "fish_lsp_max_diagnostics": 0,
   "fish_lsp_enable_experimental_diagnostics": false,
   "fish_lsp_strict_conditional_command_warnings": false,
   "fish_lsp_prefer_builtin_fish_commands": false,

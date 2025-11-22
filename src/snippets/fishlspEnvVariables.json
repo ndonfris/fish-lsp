@@ -219,17 +219,18 @@
   },
   {
     "name": "fish_lsp_max_diagnostics",
-    "description": "The maximum number of diagnostics to return per file.",
+    "description": "The maximum number of diagnostics to return per file.\n\nUsing value `0` means unlimited diagnostics.\n\nTo entirely disable diagnostics use `fish_lsp_disabled_handlers`",
     "shortDescription": "maximum number of diagnostics to return per file",
     "exactMatchOptions": false,
     "options": [
+      0,
       10,
       25,
       50,
       100,
       250
     ],
-    "defaultValue": 10,
+    "defaultValue": 0,
     "valueType": "number"
   },
 

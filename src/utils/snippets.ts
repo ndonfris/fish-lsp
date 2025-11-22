@@ -1,4 +1,3 @@
-// import pagerHighlightVariablesJson from '../../snippets/pager_colors.json'
 import helperCommandsJson from '../snippets/helperCommands.json';
 import themeVariablesJson from '../snippets/syntaxHighlightingVariables.json';
 import statusNumbersJson from '../snippets/statusNumbers.json';
