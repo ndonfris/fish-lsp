@@ -1,3 +1,10 @@
+## <small>1.1.1-pre.5 (2025-11-22)</small>
+
+* refactor: rename diagnostics/async-validate.ts --> diagnostics/validate.ts ([1419dc2](https://github.com/ndonfris/fish-lsp/commit/1419dc2))
+* chore: bump vite in the npm_and_yarn group across 1 directory (#117) ([e025970](https://github.com/ndonfris/fish-lsp/commit/e025970)), closes [#117](https://github.com/ndonfris/fish-lsp/issues/117)
+* chore(1.1.1-pre.5): bump for nightly release ([ccefbef](https://github.com/ndonfris/fish-lsp/commit/ccefbef))
+
+
 ## <small>1.1.1-pre.3 (2025-11-18)</small>
 
 * fix: lints + bump 1.1.1-pre.3 ([f40ce9f](https://github.com/ndonfris/fish-lsp/commit/f40ce9f))
