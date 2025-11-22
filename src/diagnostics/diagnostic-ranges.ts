@@ -315,7 +315,7 @@ export class DiagnosticRangeChecker {
     totalRanges: number;
     precomputedLines: number;
     linesWithDisabledCodes: number;
-  } {
+    } {
     return {
       totalRanges: this.disabledRanges.length,
       precomputedLines: this.maxPrecomputedLine + 1,

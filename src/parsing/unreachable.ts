@@ -90,8 +90,8 @@ function sequenceFormsTerminatingAndOrChain(nodes: SyntaxNode[], startIndex: num
   const thirdType = getConditionalType(third);
 
   // Must have both && and || (in either order)
-  const hasBothOperators = (secondType === 'and' && thirdType === 'or') ||
-                           (secondType === 'or' && thirdType === 'and');
+  const hasBothOperators = secondType === 'and' && thirdType === 'or' ||
+                           secondType === 'or' && thirdType === 'and';
 
   if (!hasBothOperators) return false;
 
