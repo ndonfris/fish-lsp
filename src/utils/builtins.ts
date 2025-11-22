@@ -1,6 +1,9 @@
 import { spawnSync, SpawnSyncOptionsWithStringEncoding } from 'child_process';
 
 export const BuiltInList = [
+  '!',
+  '.',
+  ':',
   '[',
   '_',
   'abbr',
@@ -31,6 +34,8 @@ export const BuiltInList = [
   'exit',
   'false',
   'fg',
+  'fish_indent',
+  'fish_key_reader',
   'for',
   'function',
   'functions',

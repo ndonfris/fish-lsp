@@ -2,9 +2,19 @@ import { DocumentUri, WorkDoneProgressServerReporter, WorkspaceFoldersChangeEven
 import { logger } from '../logger';
 import { Workspace, WorkspaceUri } from './workspace';
 import { documents, LspDocument } from '../document';
-import { analyzer } from '../analyze';
+import { analyzer, AnalyzedDocument } from '../analyze';
 import { config } from '../config';
 import { isPath, PathLike, pathToUri } from './translation';
+import { ProgressNotification } from './progress-notification';
+
+type WorkspaceUpdateOptions = {
+  analyzedDocument?: AnalyzedDocument;
+  /**
+   * Skip re-running analyzer.analyze(). The caller is responsible for ensuring
+   * the cache already contains the latest document state when this is true.
+   */
+  skipAnalysis?: boolean;
+};
 
 export class WorkspaceManager {
   private stack: WorkspaceStack = new WorkspaceStack();
@@ -219,10 +229,16 @@ export class WorkspaceManager {
   public handleOpenDocument(documentUri: DocumentUri): Workspace | null;
   public handleOpenDocument(documentUri: DocumentUri | LspDocument): Workspace | null;
   public handleOpenDocument(doc: DocumentUri | LspDocument): Workspace | null {
-    logger.info('workspaceManager.handleOpenDocument()', 'Opening document', doc);
     const documentUri = this.getDocumentUriFromParams(doc);
-    documents.open(documentUri);
-    const document = documents.getDocument(documentUri);
+    logger.info('workspaceManager.handleOpenDocument()', 'Opening document', {
+      params: {
+        uri: this.getDocumentUriFromParams(doc),
+        type: LspDocument.is(doc) ? 'LspDocument' : 'DocumentUri',
+        version: LspDocument.is(doc) ? doc.version : undefined,
+      },
+    });
+    documents.get(documentUri);
+    const document = documents.get(documentUri);
     const newWorkspace = this.getExistingWorkspaceOrCreateNew(documentUri);
     if (!newWorkspace || !document) {
       logger.error(
@@ -235,9 +251,13 @@ export class WorkspaceManager {
     analyzer.analyze(document);
     newWorkspace.add(...Array.from(analyzer.collectAllSources(documentUri)));
     this.setCurrent(newWorkspace);
+
+    // Mark workspace as needing analysis, but DON'T analyze synchronously here
+    // The background analysis in onInitialized will pick it up
     if (newWorkspace.needsAnalysis()) {
-      logger.info(`workspaceManager.handleOpenDocument() - Workspace('${newWorkspace.name}').needsAnalysis()`);
-      analyzer.analyzeWorkspace(newWorkspace);
+      logger.info(`workspaceManager.handleOpenDocument() - Workspace('${newWorkspace.name}').needsAnalysis() - will be analyzed in background`);
+      // REMOVED: analyzer.analyzeWorkspace(newWorkspace);
+      // This synchronous call blocked the main thread and happened before progress reporting started
     }
     return this.current as Workspace;
   }
@@ -250,11 +270,19 @@ export class WorkspaceManager {
   public handleCloseDocument(documentUri: DocumentUri): Workspace | null;
   public handleCloseDocument(doc: DocumentUri | LspDocument): Workspace | null;
   public handleCloseDocument(doc: DocumentUri | LspDocument): Workspace | null {
-    logger.info('workspaceManager.handleCloseDocument()', 'Closing document', { params: doc });
-    const totalUrisBeforeRemoval = this.allUrisInAllWorkspaces.length;
     const documentUri = this.getDocumentUriFromParams(doc);
+    logger.info('workspaceManager.handleCloseDocument()', 'Closing document', {
+      params: {
+        uri: documentUri,
+        type: LspDocument.is(doc) ? 'LspDocument' : 'DocumentUri',
+        version: LspDocument.is(doc) ? doc.version : undefined,
+      },
+    });
+    const totalUrisBeforeRemoval = this.allUrisInAllWorkspaces.length;
     const workspace = this.getWorkspaceContainingUri(documentUri);
-    documents.close(documentUri);
+    documents.all().splice(
+      documents.all().findIndex(d => d.uri === documentUri),
+    );
     if (!workspace) {
       logger.error(
         'workspaceManager.handleCloseDocument()',
@@ -263,7 +291,7 @@ export class WorkspaceManager {
       );
       return null;
     }
-    const docsInWorkspace = documents.openDocuments.filter(doc =>
+    const docsInWorkspace = documents.all().filter(doc =>
       workspace.contains(doc.uri) && this.allWorkspacesWithDocument(doc).length === 1,
     );
     if (docsInWorkspace.length === 0) this.remove(workspace);
@@ -274,7 +302,7 @@ export class WorkspaceManager {
       currentWorkspace: this.current?.name,
       removedWorkspaces: workspace.name,
       removedDocument: documentUri,
-      currentDocuments: documents.openDocuments.map((doc) => doc.uri),
+      currentDocuments: documents.all().map((doc) => doc.uri),
     });
     return this.current || null;
   }
@@ -283,11 +311,16 @@ export class WorkspaceManager {
    * Handle updating the current workspace when a document is updated
    * Does not handle updating the document itself.
    */
-  public handleUpdateDocument(document: LspDocument): Workspace | null;
-  public handleUpdateDocument(documentUri: DocumentUri): Workspace | null;
-  public handleUpdateDocument(doc: DocumentUri | LspDocument): Workspace | null;
-  public handleUpdateDocument(doc: DocumentUri | LspDocument): Workspace | null {
-    logger.info('workspaceManager.handleUpdateDocument()', 'Updating document:', doc);
+  public handleUpdateDocument(document: LspDocument, options?: WorkspaceUpdateOptions): Workspace | null;
+  public handleUpdateDocument(documentUri: DocumentUri, options?: WorkspaceUpdateOptions): Workspace | null;
+  public handleUpdateDocument(doc: DocumentUri | LspDocument, options: WorkspaceUpdateOptions = {}): Workspace | null {
+    logger.info('workspaceManager.handleUpdateDocument()', 'Updating document:', {
+      doc: {
+        uri: this.getDocumentUriFromParams(doc),
+        type: LspDocument.is(doc) ? 'LspDocument' : 'DocumentUri',
+        version: LspDocument.is(doc) ? doc.version : undefined,
+      },
+    });
     const documentUri = this.getDocumentUriFromParams(doc);
     const workspace = this.getExistingWorkspaceOrCreateNew(documentUri);
     if (!workspace) {
@@ -298,18 +331,27 @@ export class WorkspaceManager {
       return null;
     }
     this.setCurrent(workspace);
-    const document = documents.getDocument(documentUri);
+    const document = documents.get(documentUri);
     if (document) {
-      analyzer.analyze(document);
-      workspace.addPending(documentUri);
-      workspace.addPending(...Array.from(analyzer.collectAllSources(documentUri)));
-      const localSymbols = analyzer.cache.getDocumentSymbols(document.uri);
-      const sourcedSymbols = analyzer.collectSourcedSymbols(document.uri);
-      [...localSymbols, ...sourcedSymbols]
-        .filter(s => s.isGlobal() || s.isRootLevel())
-        .forEach(s => {
-          analyzer.globalSymbols.add(s);
-        });
+      let analyzedDocument = options.analyzedDocument;
+      if (!analyzedDocument && options.skipAnalysis) {
+        analyzedDocument = analyzer.cache.getDocument(document.uri);
+      }
+      if (!analyzedDocument) {
+        analyzer.removeDocumentSymbols(document.uri);
+        analyzedDocument = analyzer.analyze(document);
+      }
+      if (analyzedDocument) {
+        workspace.addPending(documentUri);
+        workspace.addPending(...Array.from(analyzer.collectAllSources(documentUri)));
+        const localSymbols = analyzer.cache.getDocumentSymbols(document.uri);
+        const sourcedSymbols = analyzer.collectSourcedSymbols(document.uri);
+        [...localSymbols, ...sourcedSymbols]
+          .filter(s => s.isGlobal() || s.isRootLevel())
+          .forEach(s => {
+            analyzer.globalSymbols.add(s);
+          });
+      }
     }
     return this.current!;
   }
@@ -319,7 +361,7 @@ export class WorkspaceManager {
    * This method will update the map of all workspaces and the resulting workspaces will be
    * re-analyzed.
    */
-  public handleWorkspaceChangeEvent(event: WorkspaceFoldersChangeEvent, progress?: WorkDoneProgressServerReporter): void {
+  public handleWorkspaceChangeEvent(event: WorkspaceFoldersChangeEvent, progress?: WorkDoneProgressServerReporter | ProgressNotification): void {
     progress?.begin('[fish-lsp] indexing files', 0, `Analyzing workspaces [+${event.added.length} | -${event.removed.length}]`, true);
     logger.info(
       'workspaceManager.handleWorkspaceChangeEvent()',
@@ -360,8 +402,8 @@ export class WorkspaceManager {
    * NOTE: if the user sets an arbitrarily low value for fish_lsp_max_background_files, this method will need to be called multiple times.
    *
    * ```typescript
-        * while (workspaceManager.needsAnalysis()) {
-   * workspaceManager.analyzePendingDocuments();
+   * while (workspaceManager.needsAnalysis()) {
+   *    workspaceManager.analyzePendingDocuments();
    * }
    * ```
    * ___
@@ -370,7 +412,7 @@ export class WorkspaceManager {
    * @returns An object containing the analyzed items, total documents, and duration of analysis.
    */
   public async analyzePendingDocuments(
-    progress: WorkDoneProgressServerReporter | undefined = undefined,
+    progress: WorkDoneProgressServerReporter | ProgressNotification | undefined = undefined,
     callbackfn: (str: string) => void = (s) => logger.log(s),
   ) {
     logger.info('workspaceManager.analyzePendingDocuments()');
@@ -427,7 +469,9 @@ export class WorkspaceManager {
 
       if (isLastItem || isBatchEnd && timeToUpdate) {
         const percentage = Math.ceil((idx + 1) / maxSize * 100);
-        progress?.report(`${percentage}% Analyzing ${idx + 1}/${maxSize} ${maxSize > 1 ? 'documents' : 'document'}`);
+        const message = `Analyzing ${idx + 1}/${maxSize} ${maxSize > 1 ? 'documents' : 'document'}`;
+        // Report with both percentage number and descriptive message
+        progress?.report(percentage, message);
         lastUpdateTime = currentTime;
 
         // Add a small delay for visual perception

@@ -10,6 +10,10 @@ import { FishSymbol } from '../parsing/symbol';
 import { ErrorCodes } from './error-codes';
 import { getReferences } from '../references';
 import { config, Config } from '../config';
+import { isBuiltin } from '../utils/builtins';
+import { server } from '../server';
+import { analyzer } from '../analyze';
+import { FishCompletionItemKind } from '../utils/completion/types';
 
 type startTokenType = 'function' | 'while' | 'if' | 'for' | 'begin' | 'switch' | '[' | '{' | '(' | "'" | '"';
 type endTokenType = 'end' | "'" | '"' | ']' | '}' | ')';
@@ -75,8 +79,8 @@ function hasContentAfterQuote(nodes: Parser.SyntaxNode[]): boolean {
   for (const node of nodes) {
     // Skip whitespace and other non-meaningful nodes
     if (node.type === 'escape_sequence' ||
-        node.type === 'word' ||
-        node.text.trim().length > 0) {
+      node.type === 'word' ||
+      node.text.trim().length > 0) {
       return true;
     }
   }
@@ -162,6 +166,10 @@ export function isSourceFilename(node: SyntaxNode): boolean {
       }
       // remove `source (some_cmd a b c d)`
       if (hasParent(node, (n) => n.type === 'command_substitution')) {
+        return false;
+      }
+      // remove `source /path/with/wildcards/*/file.fish`
+      if (node.text.includes('*') || node.text.includes('?')) {
         return false;
       }
       return true;
@@ -570,3 +578,52 @@ export function getDeprecatedFishLspMessage(node: SyntaxNode): string {
   }
   return '';
 }
+
+/**
+ * Check if a command name is known (builtin, function, or in completion cache)
+ * @param commandName - The command name to check
+ * @param doc - The current document for context
+ * @returns true if the command is known, false otherwise
+ */
+export function isKnownCommand(commandName: string, doc: LspDocument): boolean {
+  // Check if it's a builtin command
+  if (isBuiltin(commandName)) {
+    return true;
+  }
+
+  // Check if it's a function defined in the workspace
+  const globalFunctions = analyzer.globalSymbols.find(commandName);
+  if (globalFunctions.length > 0) {
+    return true;
+  }
+
+  // Check if it's a local function in the current document
+  const localSymbols = analyzer.getFlatDocumentSymbols(doc.uri);
+  if (localSymbols.some(s => s.isFunction() && s.name === commandName)) {
+    return true;
+  }
+
+  // Check all accessible symbols at document level (includes sourced symbols)
+  const allAccessibleSymbols = analyzer.allSymbolsAccessibleAtPosition(doc, { line: 0, character: 0 });
+  if (allAccessibleSymbols.some(s => s.isFunction() && s.name === commandName)) {
+    return true;
+  }
+
+  // Check the completion cache (includes all commands available at startup)
+  if (server) {
+    const completions = server.completions;
+    const commandCompletions = completions.allOfKinds(
+      FishCompletionItemKind.COMMAND,
+      FishCompletionItemKind.FUNCTION,
+      FishCompletionItemKind.BUILTIN,
+      FishCompletionItemKind.ALIAS,
+      // FishCompletionItemKind.ABBR,
+    );
+    if (commandCompletions.some(c => c.label === commandName)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+

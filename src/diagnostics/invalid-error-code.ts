@@ -3,7 +3,7 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { ErrorCodes } from './error-codes';
 import { isComment } from '../utils/node-types';
 import { logger } from '../logger';
-import { FishDiagnostic } from './validate';
+import { FishDiagnostic } from './types';
 
 // More precise regex to capture exact positions of code numbers
 const DIAGNOSTIC_COMMENT_REGEX = /^#\s*@fish-lsp-(disable|enable)(?:-(next-line))?\s/;

@@ -20,6 +20,7 @@ import { pathToUri } from '../src/utils/translation';
 import { getChildNodes, getNamedChildNodes } from '../src/utils/tree-sitter';
 import { Workspace } from '../src/utils/workspace';
 import { workspaceManager } from '../src/utils/workspace-manager';
+import { testOpenDocument } from './document-test-helpers';
 
 /**
  * Sets up mock for the startup module.
@@ -491,6 +492,7 @@ export function createFakeLspDocument(name: string, ...text: string[]): LspDocum
   // if (!workspaceManager.hasContainingWorkspace(uri)) {
   // }
   workspaceManager.add(workspace);
+  testOpenDocument(doc);
   // update currentWorkspace.current with the new workspace
   // workspaceManager.setCurrent(workspace)
   return doc;

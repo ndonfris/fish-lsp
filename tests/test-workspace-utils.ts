@@ -64,6 +64,7 @@ import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { execFileSync, execSync } from 'child_process';
 import fastGlob from 'fast-glob';
 import { Command } from 'commander';
+import { testOpenDocument, testCloseDocument, testClearDocuments, testChangeDocument } from './document-test-helpers';
 
 /**
  * Query builder for advanced document selection
@@ -840,12 +841,12 @@ export class TestWorkspace {
     fs.writeFileSync(filePath, content, 'utf8');
 
     // Update document in memory and trigger re-analysis
-    documents.applyChanges(doc.uri, [{ text: content }]);
+    documents.get(doc.uri)?.update([{ text: content }]);
 
     // Update our local document reference
     const docIndex = this._documents.findIndex(d => d.uri === doc.uri);
     if (docIndex !== -1) {
-      const updatedDoc = documents.getDocument(doc.uri) || LspDocument.createFromUri(doc.uri);
+      const updatedDoc = documents.get(doc.uri) || LspDocument.createFromUri(doc.uri);
       this._documents[docIndex] = updatedDoc;
 
       if (this._config.autoAnalyze) {
@@ -856,6 +857,13 @@ export class TestWorkspace {
     if (this._config.debug) {
       logger.log(`Edited file: ${searchPath}`);
     }
+  }
+
+  addDocuments(...item: (LspDocument | TestFileSpec)[]): TestWorkspace {
+    for (const it of item) {
+      this.addDocument(it);
+    }
+    return this;
   }
 
   addDocument(item: LspDocument | TestFileSpec): TestWorkspace {
@@ -1354,12 +1362,12 @@ export class TestWorkspace {
 
   private async _resetAnalysisState(): Promise<void> {
     // Clear global documents state but don't remove files from disk
-    documents.clear();
+    testClearDocuments();
 
     // Re-add our documents if needed
     if (this._config.autoAnalyze) {
       for (const doc of this._documents) {
-        documents.open(doc);
+        testOpenDocument(doc);
       }
     }
   }
@@ -1367,7 +1375,7 @@ export class TestWorkspace {
   private async _cleanup(): Promise<void> {
     try {
       // Clear documents state
-      documents.clear();
+      testClearDocuments();
 
       // Remove workspace from manager
       if (this._workspace) {

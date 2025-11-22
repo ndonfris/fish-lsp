@@ -1,12 +1,12 @@
+import * as path from 'path';
+import { homedir } from 'os';
 import { promises } from 'fs';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Position, Range, TextDocumentItem, TextDocumentContentChangeEvent, VersionedTextDocumentIdentifier, TextDocumentIdentifier, DocumentUri } from 'vscode-languageserver';
-import * as path from 'path';
-import { URI } from 'vscode-uri';
-import { homedir } from 'os';
+import { TextDocuments } from 'vscode-languageserver/node';
+import { workspaceManager } from './utils/workspace-manager';
 import { AutoloadType, isPath, isTextDocument, isTextDocumentItem, isUri, PathLike, pathToUri, uriToPath } from './utils/translation';
 import { Workspace } from './utils/workspace';
-import { workspaceManager } from './utils/workspace-manager';
 import { SyncFileHelper } from './utils/file-operations';
 import { logger } from './logger';
 import * as Locations from './utils/locations';
@@ -15,10 +15,12 @@ import { logTreeSitterDocumentDebug, returnParseTreeString } from './utils/cli-d
 
 export class LspDocument implements TextDocument {
   protected document: TextDocument;
+  public lastChangedLineSpan?: LineSpan;
 
   constructor(doc: TextDocumentItem) {
     const { uri, languageId, version, text } = doc;
     this.document = TextDocument.create(uri, languageId, version, text);
+    this.lastChangedLineSpan = computeChangedLineSpan([{ text }]);
   }
   static createTextDocumentItem(uri: string, text: string): LspDocument {
     return new LspDocument({
@@ -68,18 +70,38 @@ export class LspDocument implements TextDocument {
     };
   }
 
+  static create(
+    uri: string,
+    languageId: string,
+    version: number,
+    text: string,
+  ): LspDocument {
+    const inner = TextDocument.create(uri, languageId, version, text);
+    return new LspDocument({ uri: inner.uri, languageId: inner.languageId, version: inner.version, text: inner.getText() });
+  }
+
+  static update(
+    doc: LspDocument,
+    changes: TextDocumentContentChangeEvent[],
+    version: number,
+  ): LspDocument {
+    doc.document = TextDocument.update(doc.document, changes, version);
+    doc.lastChangedLineSpan = computeChangedLineSpan(changes);
+    return doc;
+  }
+
   /**
    * Creates a new LspDocument from a path, URI, TextDocument, TextDocumentItem, or another LspDocument.
    * @param param The parameter to create the LspDocument from.
    * @returns A new LspDocument instance.
    */
-  static create(uri: DocumentUri): LspDocument;
-  static create(path: PathLike): LspDocument;
-  static create(doc: TextDocument): LspDocument;
-  static create(doc: TextDocumentItem): LspDocument;
-  static create(doc: LspDocument): LspDocument;
-  static create(param: PathLike | DocumentUri | TextDocument | TextDocumentItem | LspDocument): LspDocument;
-  static create(param: PathLike | DocumentUri | TextDocument | TextDocumentItem | LspDocument): LspDocument {
+  static createFrom(uri: DocumentUri): LspDocument;
+  static createFrom(path: PathLike): LspDocument;
+  static createFrom(doc: TextDocument): LspDocument;
+  static createFrom(doc: TextDocumentItem): LspDocument;
+  static createFrom(doc: LspDocument): LspDocument;
+  static createFrom(param: PathLike | DocumentUri | TextDocument | TextDocumentItem | LspDocument): LspDocument;
+  static createFrom(param: PathLike | DocumentUri | TextDocument | TextDocumentItem | LspDocument): LspDocument {
     if (typeof param === 'string' && isPath(param)) return LspDocument.createFromPath(param);
     if (typeof param === 'string' && isUri(param)) return LspDocument.createFromUri(param);
     if (LspDocument.is(param)) return LspDocument.fromTextDocument(param.document);
@@ -126,6 +148,16 @@ export class LspDocument implements TextDocument {
     return uriToPath(this.document.uri);
   }
 
+  /**
+   * Fallback span that covers the entire document
+   */
+  get fullSpan() {
+    return {
+      start: 0,
+      end: this.positionAt(this.getText().length).line,
+    };
+  }
+
   getText(range?: Range): string {
     return this.document.getText(range);
   }
@@ -155,8 +187,6 @@ export class LspDocument implements TextDocument {
    * @see getLineBeforeCursor()
    */
   getLine(line: number | Position | Range | FishSymbol): string {
-    // if (typeof line === 'number') {
-    // } else
     if (Locations.Position.is(line)) {
       line = line.line;
     } else if (Locations.Range.is(line)) {
@@ -164,11 +194,8 @@ export class LspDocument implements TextDocument {
     } else if (FishSymbol.is(line)) {
       line = line.range.start.line;
     }
-    // const lineRange = this.getLineRange(line);
     const lines = this.document.getText().split('\n');
     return lines[line] || '';
-    // return this.document.getText().split(('\n').at(line) || '') || '';
-    // return this.getText(lineRange);
   }
 
   getLineBeforeCursor(position: Position): string {
@@ -204,9 +231,15 @@ export class LspDocument implements TextDocument {
     return indent ? indent[0] : '';
   }
 
-  update(changes: TextDocumentContentChangeEvent[]): LspDocument {
-    this.document = TextDocument.update(this.document, changes, this.version + 1);
-    return LspDocument.fromTextDocument(this.document);
+  /**
+   * Apply incremental LSP changes to this document.
+   *
+   * @param changes TextDocumentContentChangeEvent[] from textDocument/didChange
+   * @param version Optional LSP version; if omitted, increments current version
+   */
+  update(changes: TextDocumentContentChangeEvent[], version?: number): void {
+    const newVersion = version ?? this.version + 1;
+    this.document = TextDocument.update(this.document, changes, newVersion);
   }
 
   asVersionedIdentifier() {
@@ -419,236 +452,88 @@ export class LspDocument implements TextDocument {
   }
 }
 
-export class LspDocuments {
-  private readonly _files: string[] = [];
-  private readonly documents = new Map<string, LspDocument>();
+/**
+ * A LineSpan represents a range of lines in a document that have changed.
+ *
+ * We use this later to optimize diagnostic updates, by comparing the changed
+ * line span to the ranges of existing diagnostics, and removing any that
+ * fall within the changed span.
+ *
+ * @property start - The starting line number (0-based).
+ * @property end - The ending line number (0-based).
+ * @property isFullDocument - If true, indicates the entire document changed.
+ *
+ * isFullDocument is optional and defaults to false, but is useful because
+ * the consumer of this type, might want to treat actual isFullDocument changes
+ * differently than incremental changes that would happen `documents.onDidChangeContent()`
+ */
+export type LineSpan = { start: number; end: number; isFullDocument?: boolean; };
 
-  static create(): LspDocuments {
-    return new LspDocuments();
-  }
+/**
+ * Computes the span of lines that have changed in a set of TextDocumentContentChangeEvent.
+ */
+function computeChangedLineSpan(
+  changes: TextDocumentContentChangeEvent[],
+): LineSpan | undefined {
+  if (changes.length === 0) return undefined;
 
-  static from(documents: LspDocuments): LspDocuments {
-    const newDocuments = new LspDocuments();
-    newDocuments.documents.clear();
-    newDocuments._files.length = 0;
-    documents.documents.forEach((doc, file) => {
-      newDocuments.documents.set(file, doc);
-      newDocuments._files.push(file);
-    });
-    return newDocuments;
-  }
+  let start = Number.POSITIVE_INFINITY;
+  let end = Number.NEGATIVE_INFINITY;
 
-  copy(documents: LspDocuments): LspDocuments {
-    this.documents.clear();
-    this._files.push(...documents._files);
-    documents.documents.forEach((doc, file) => {
-      this.documents.set(file, doc);
-    });
-    return this;
-  }
-
-  get openDocuments(): LspDocument[] {
-    const result: LspDocument[] = [];
-    for (const file of this._files.toReversed()) {
-      const document = this.documents.get(file);
-      if (document) {
-        result.push(document);
-      }
+  for (const c of changes) {
+    // Full-document sync
+    if (TextDocumentContentChangeEvent.isFull(c)) {
+      return { start: 0, end: Number.MAX_SAFE_INTEGER, isFullDocument: true };
     }
-    return result;
-  }
 
-  /**
-   * Sorted by last access.
-   */
-  get files(): string[] {
-    return this._files;
-  }
-
-  get(file?: string): LspDocument | undefined {
-    if (!file) {
-      return undefined;
-    }
-    const document = this.documents.get(file);
-    if (!document) {
-      return undefined;
-    }
-    if (this.files[0] !== file) {
-      this._files.splice(this._files.indexOf(file), 1);
-      this._files.unshift(file);
-    }
-    return document;
-  }
-
-  openPath(path: string, doc: TextDocumentItem): LspDocument {
-    const lspDocument = new LspDocument(doc);
-    this.documents.set(path, lspDocument);
-    this._files.unshift(path);
-    return lspDocument;
-  }
-
-  private getPathFromParam(param: PathLike | DocumentUri | LspDocument | TextDocumentItem | TextDocument): string {
-    if (isUri(param)) {
-      return uriToPath(param);
-    }
-    if (isPath(param)) {
-      return param;
-    }
-    if (isTextDocument(param)) {
-      return uriToPath(param.uri);
-    }
-    if (isTextDocumentItem(param)) {
-      return uriToPath(param.uri);
-    }
-    if (LspDocument.is(param)) {
-      return (param as LspDocument).path;
-    }
-    throw new Error('Invalid parameter type');
-  }
-
-  open(uri: DocumentUri): boolean;
-  open(path: PathLike): boolean;
-  open(lspDocument: LspDocument): boolean;
-  open(textDocument: TextDocument): boolean;
-  open(textDocumentItem: TextDocumentItem): boolean;
-  open(param: PathLike | DocumentUri | LspDocument | TextDocument | TextDocumentItem): boolean;
-  open(param: PathLike | DocumentUri | LspDocument | TextDocument | TextDocumentItem): boolean {
-    const path: string = this.getPathFromParam(param);
-    if (this.documents.has(path)) {
-      return false;
-    }
-    const newDoc = LspDocument.create(param);
-    this.documents.set(path, newDoc);
-    this._files.unshift(path);
-    return true;
-  }
-
-  isOpen(path: string | DocumentUri): boolean {
-    if (URI.isUri(path)) {
-      path = uriToPath(path);
-    }
-    return this.documents.has(path);
-  }
-
-  get uris(): string[] {
-    return Array.from(this._files).map(file => pathToUri(file));
-  }
-
-  getDocument(uri: DocumentUri): LspDocument | undefined {
-    const path = uriToPath(uri);
-    return this.documents.get(path);
-  }
-
-  openTextDocument(document: TextDocument): LspDocument {
-    const path = uriToPath(document.uri);
-    if (this.documents.has(path)) {
-      return this.documents.get(path)!;
-    }
-    const lspDocument = LspDocument.fromTextDocument(document);
-    this.documents.set(path, lspDocument);
-    this._files.unshift(path);
-    return lspDocument;
-  }
-
-  updateTextDocument(textDocument: TextDocument): LspDocument {
-    const path = uriToPath(textDocument.uri);
-    this.documents.set(path, LspDocument.fromTextDocument(textDocument));
-    return this.documents.get(path) as LspDocument;
-  }
-
-  applyChanges(doc: DocumentUri | VersionedTextDocumentIdentifier, changes: TextDocumentContentChangeEvent[]) {
-    if (typeof doc === 'string') {
-      const path = uriToPath(doc);
-      let document = this.documents.get(path);
-      if (document) {
-        document = document.update(changes);
-        this.documents.set(path, document);
-      }
-    } else {
-      const document = this.documents.get(uriToPath(doc.uri));
-      if (document) {
-        this.documents.set(pathToUri(doc.uri), document?.updateVersion(doc.version).update(changes));
-      }
+    // Incremental sync
+    if (TextDocumentContentChangeEvent.isIncremental(c)) {
+      const { range } = c as TextDocumentContentChangeEvent & { range: Range; };
+      if (range.start.line < start) start = range.start.line;
+      if (range.end.line > end) end = range.end.line;
     }
   }
 
-  set(document: LspDocument): void {
-    const path = uriToPath(document.uri);
-    this.documents.set(path, document);
-  }
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return undefined;
+  return { start, end, isFullDocument: false };
+}
 
-  all(): LspDocument[] {
-    return Array.from(this.documents.values());
-  }
+// compare a Range to a LineSpan, with an optional offset (how many lines to expand the span by)
+export function rangeOverlapsLineSpan(
+  range: Range,
+  span: { start: number; end: number; },
+  offset: number = 1,
+): boolean {
+  const safeOffset = Math.max(0, offset);
 
-  closeTextDocument(document: TextDocument): LspDocument | undefined {
-    const path = uriToPath(document.uri);
-    return this.close(path);
-  }
+  // Expand the span by `offset` in both directions
+  const expandedStart = Math.max(0, span.start - safeOffset);
+  const expandedEnd = span.end + safeOffset;
 
-  close(uri: DocumentUri): LspDocument | undefined;
-  close(path: PathLike): LspDocument | undefined;
-  close(lspDocument: LspDocument): LspDocument | undefined;
-  close(textDocument: TextDocument): LspDocument | undefined;
-  close(textDocumentItem: TextDocumentItem): LspDocument | undefined;
-  close(param: PathLike | DocumentUri | LspDocument | TextDocument | TextDocumentItem): LspDocument | undefined;
-  close(param: PathLike | DocumentUri | LspDocument | TextDocument | TextDocumentItem): LspDocument | undefined {
-    const path: string = this.getPathFromParam(param);
-    const document = this.documents.get(path);
-    if (!document) {
-      return undefined;
-    }
-    this.documents.delete(path);
-    this._files.splice(this._files.indexOf(path), 1);
-    return document;
-  }
-
-  closeAll(): void {
-    this.documents.clear();
-    this._files.length = 0;
-  }
-
-  rename(oldFile: string, newFile: string): boolean {
-    const document = this.documents.get(oldFile);
-    if (!document) {
-      return false;
-    }
-    document.rename(newFile);
-    this.documents.delete(oldFile);
-    this.documents.set(newFile, document);
-    this._files[this._files.indexOf(oldFile)] = newFile;
-    return true;
-  }
-
-  public toResource(filepath: string): URI {
-    const document = this.documents.get(filepath);
-    if (document) {
-      return URI.parse(document.uri);
-    }
-    return URI.file(filepath);
-  }
-
-  clear(): void {
-    this.documents.clear();
-    this._files.length = 0;
-  }
+  // Standard closed-interval overlap check:
+  // [range.start.line, range.end.line] vs [expandedStart, expandedEnd]
+  return range.start.line <= expandedEnd && range.end.line >= expandedStart;
 }
 
 /**
- * GLOBAL DOCUMENTS OBJECT
+ * GLOBAL DOCUMENTS OBJECT (TextDocuments<LspDocument>)
  *
- * This is a singleton object that holds all the documents open inside of it.
+ * This is now the canonical document manager, just like the VS Code sample,
+ * but parameterized with our LspDocument wrapper.
  *
- * Import this object and use it to access the documents.
+ * @example
  *
- * NOTE: while the documents inside this object should be accessible anywhere in
- *       the code, the object itself does not need to handle listening to events.
- *
- *       This is done by the server itself, in the `server.register()` method,
- *       specifically by the `this.documents` property of the server.
- *
- *       Notice that the server has a `this.documents` object (that is used to listen for document events)
- *       and it updates the `documents` object here, when they are seen
+ * ```typescript
+ * const documents = new TextDocuments(TextDocument);
+ * ```
  */
-export const documents = LspDocuments.create();
+export const documents = new TextDocuments<LspDocument>({
+  create: (uri, languageId, version, text) =>
+    new LspDocument({ uri, languageId: languageId || 'fish', version, text }),
+  update: (doc, changes, version) => {
+    doc.update(changes, version);
+    return doc;
+  },
+});
 
+export type Documents = typeof documents;

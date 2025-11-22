@@ -336,22 +336,6 @@ export function getSemanticTokensSimplest(analyzedDoc: EnsuredAnalyzeDocument, r
       }
       return false;
     });
-
-    // if (isShebangComment(node)) {
-    //   focusedNodes.push(node);
-    // }
-    // if (isDisableDiagnosticsComment(node)) {
-    //   focusedNodes.push(node);
-    // }
-    // if (isCommandName(node)) {
-    //   focusedNodes.push(node);
-    // }
-    // if (isVariableExpansion(node)) {
-    //   focusedNodes.push(node);
-    // }
-    // if (isEndStdinCharacter(node)) {
-    //   focusedNodes.push(node);
-    // }
   }
 
   return ctx.build();

@@ -510,7 +510,7 @@ end
         const codeAction = await handler.onCodeAction({
           textDocument: { uri: doc.uri },
           range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
-          context: { diagnostics: [...analyzer.getDiagnostics(doc.uri)], only: ['quickfix'] },
+          context: { diagnostics: [...analyzer.diagnostics.get(doc.uri) ?? []], only: ['quickfix'] },
         });
         if (codeAction.length >= 0) {
           codeAction.forEach(ca => {

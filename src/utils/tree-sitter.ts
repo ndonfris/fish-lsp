@@ -41,7 +41,7 @@ export function getChildNodes(root: SyntaxNode): SyntaxNode[] {
   const queue: SyntaxNode[] = [root];
   const result: SyntaxNode[] = [];
   while (queue.length) {
-    const current : SyntaxNode | undefined = queue.shift();
+    const current: SyntaxNode | undefined = queue.shift();
     if (current) {
       result.push(current);
     }
@@ -56,7 +56,7 @@ export function getNamedChildNodes(root: SyntaxNode): SyntaxNode[] {
   const queue: SyntaxNode[] = [root];
   const result: SyntaxNode[] = [];
   while (queue.length) {
-    const current : SyntaxNode | undefined = queue.shift();
+    const current: SyntaxNode | undefined = queue.shift();
     if (current && current.isNamed) {
       result.push(current);
     }
@@ -71,7 +71,7 @@ export function findChildNodes(root: SyntaxNode, predicate: (node: SyntaxNode) =
   const queue: SyntaxNode[] = [root];
   const result: SyntaxNode[] = [];
   while (queue.length) {
-    const current : SyntaxNode | undefined = queue.shift();
+    const current: SyntaxNode | undefined = queue.shift();
     if (current && predicate(current)) {
       result.push(current);
     }
@@ -167,18 +167,22 @@ export function* namedNodesGen(node: SyntaxNode) {
   while (queue.length) {
     const n = queue.shift();
 
-    if (!n?.isNamed) {
-      return;
+    if (!n) {
+      continue;
     }
 
     if (n.children.length) {
       queue.unshift(...n.children);
     }
 
+    // Skip unnamed nodes but continue processing the queue
+    if (!n.isNamed) {
+      continue;
+    }
     yield n;
   }
 }
-export function findFirstParent(node: SyntaxNode, predicate: (node: SyntaxNode) => boolean) : SyntaxNode | null {
+export function findFirstParent(node: SyntaxNode, predicate: (node: SyntaxNode) => boolean): SyntaxNode | null {
   let current: SyntaxNode | null = node.parent;
   while (current !== null) {
     if (predicate(current)) {
@@ -199,7 +203,7 @@ export function findFirstParent(node: SyntaxNode, predicate: (node: SyntaxNode) 
  */
 export function getSiblingNodes(
   node: SyntaxNode,
-  predicate : (n: SyntaxNode) => boolean,
+  predicate: (n: SyntaxNode) => boolean,
   direction: 'before' | 'after' = 'before',
 ): SyntaxNode[] {
   const siblingFunc = (n: SyntaxNode) =>
@@ -260,7 +264,7 @@ const findFirstParentFunctionOrProgram = (parent: SyntaxNode) => {
   return parent;
 };
 
-export function findEnclosingScope(node: SyntaxNode) : SyntaxNode {
+export function findEnclosingScope(node: SyntaxNode): SyntaxNode {
   let parent = node.parent || node;
   if (isFunctionDefinitionName(node)) {
     return findFirstParentFunctionOrProgram(parent);
@@ -272,7 +276,7 @@ export function findEnclosingScope(node: SyntaxNode) : SyntaxNode {
     return isForLoop(parent) && findForLoopVariable(parent)?.text === node.text
       ? parent
       : findFirstParent(node, n => isProgram(n) || isFunctionDefinitionName(n))
-                || parent;
+      || parent;
   } else if (isCommandName(node)) {
     return findFirstParent(node, n => isProgram(n)) || parent;
   } else {
@@ -338,7 +342,7 @@ export function ancestorMatch(
   inclusive: boolean = true,
 ): SyntaxNode[] {
   const ancestors = getParentNodes(start) || [];
-  const searchNodes : SyntaxNode[] = [];
+  const searchNodes: SyntaxNode[] = [];
   for (const p of ancestors) {
     searchNodes.push(...getChildNodes(p));
   }
@@ -359,7 +363,7 @@ export function descendantMatch(
   start: SyntaxNode,
   predicate: (n: SyntaxNode) => boolean,
   inclusive = true,
-) : SyntaxNode[] {
+): SyntaxNode[] {
   const descendants: SyntaxNode[] = [];
   descendants.push(...getChildNodes(start));
   const results = descendants.filter(descendant => predicate(descendant));
@@ -386,6 +390,32 @@ export function getRange(node: SyntaxNode): Range {
     node.endPosition.row,
     node.endPosition.column,
   );
+}
+
+/**
+ * Formats a SyntaxNode for logging purposes
+ * @example
+ * ```typescript
+ * logger.log({
+ *    root: nodeLogFormatter(tree.rootNode),
+ *    currentNode: nodeLogFormatter(currentNode),
+ * })
+ * ```
+ * @returns a object with type, text, and range of the node
+ */
+export function nodeLogFormatter(node: SyntaxNode | null) {
+  if (!node) {
+    return {
+      type: 'null',
+      text: 'null',
+      range: 'null:null',
+    };
+  }
+  return {
+    type: node.type,
+    text: node.text,
+    range: `${node.startPosition.row}:${node.startPosition.column}-${node.endPosition.row}:${node.endPosition.column}`,
+  };
 }
 
 /**
@@ -531,7 +561,7 @@ export function getPrecedingComments(node: SyntaxNode | null): string {
   ].join('\n');
 }
 
-function commentsHelper(node: SyntaxNode | null) : string {
+function commentsHelper(node: SyntaxNode | null): string {
   if (!node) {
     return '';
   }
@@ -568,19 +598,19 @@ export function isPositionWithinRange(position: Position, range: Range): boolean
 export function isPositionAfter(first: Position, second: Position): boolean {
   return (
     first.line < second.line ||
-        first.line === second.line && first.character < second.character
+    first.line === second.line && first.character < second.character
   );
 }
 export function isNodeWithinRange(node: SyntaxNode, range: Range): boolean {
   const doesStartInside =
     node.startPosition.row > range.start.line ||
     node.startPosition.row === range.start.line &&
-      node.startPosition.column >= range.start.character;
+    node.startPosition.column >= range.start.character;
 
   const doesEndInside =
     node.endPosition.row < range.end.line ||
     node.endPosition.row === range.end.line &&
-      node.endPosition.column <= range.end.character;
+    node.endPosition.column <= range.end.character;
 
   return doesStartInside && doesEndInside;
 }
