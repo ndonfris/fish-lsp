@@ -1,12 +1,12 @@
+import * as path from 'path';
+import { homedir } from 'os';
 import { promises } from 'fs';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Position, Range, TextDocumentItem, TextDocumentContentChangeEvent, VersionedTextDocumentIdentifier, TextDocumentIdentifier, DocumentUri } from 'vscode-languageserver';
 import { TextDocuments } from 'vscode-languageserver/node';
-import * as path from 'path';
-import { homedir } from 'os';
+import { workspaceManager } from './utils/workspace-manager';
 import { AutoloadType, isPath, isTextDocument, isTextDocumentItem, isUri, PathLike, pathToUri, uriToPath } from './utils/translation';
 import { Workspace } from './utils/workspace';
-import { workspaceManager } from './utils/workspace-manager';
 import { SyncFileHelper } from './utils/file-operations';
 import { logger } from './logger';
 import * as Locations from './utils/locations';
@@ -187,8 +187,6 @@ export class LspDocument implements TextDocument {
    * @see getLineBeforeCursor()
    */
   getLine(line: number | Position | Range | FishSymbol): string {
-    // if (typeof line === 'number') {
-    // } else
     if (Locations.Position.is(line)) {
       line = line.line;
     } else if (Locations.Range.is(line)) {
@@ -196,11 +194,8 @@ export class LspDocument implements TextDocument {
     } else if (FishSymbol.is(line)) {
       line = line.range.start.line;
     }
-    // const lineRange = this.getLineRange(line);
     const lines = this.document.getText().split('\n');
     return lines[line] || '';
-    // return this.document.getText().split(('\n').at(line) || '') || '';
-    // return this.getText(lineRange);
   }
 
   getLineBeforeCursor(position: Position): string {

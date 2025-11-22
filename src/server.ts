@@ -41,7 +41,6 @@ import { getReferences } from './references';
 import { getRenames } from './renames';
 import { getReferenceCountCodeLenses } from './code-lens';
 import { getSelectionRanges } from './selection-range';
-// import { getLinkedEditingRanges } from './linked-editing';
 import { PkgJson } from './utils/commander-cli-subcommands';
 import { ProgressNotification } from './utils/progress-notification';
 
@@ -288,8 +287,6 @@ export default class FishServer {
 
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.onExecuteCommand(commandCallback);
-
-    // connection.languages.onLinkedEditingRange(this.onLinkedEditingRange.bind(this));
 
     connection.onInitialized(this.onInitialized.bind(this));
     connection.onShutdown(this.onShutdown.bind(this));
@@ -1031,16 +1028,6 @@ export default class FishServer {
     return getSelectionRanges(doc, params.positions);
   }
 
-  // async onLinkedEditingRange(params: LSP.LinkedEditingRangeParams): Promise<LSP.LinkedEditingRanges | null> {
-  //   this.logParams('onLinkedEditingRange', params);
-  //
-  //   const { doc } = this.getDefaults(params);
-  //   if (!doc) return null;
-  //
-  //   return getLinkedEditingRanges(doc, params.position);
-  // }
-
-  // works but is super slow and resource intensive, plus it doesn't really display much
   async onInlayHints(params: InlayHintParams) {
     logger.log({ params });
 

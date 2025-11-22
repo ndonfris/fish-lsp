@@ -1,6 +1,6 @@
 import { analyzer, Analyzer } from '../src/analyze';
 import { ErrorCodes } from '../src/diagnostics/error-codes';
-import { getDiagnosticsAsync } from '../src/diagnostics/async-validate';
+import { getDiagnosticsAsync } from '../src/diagnostics/validate';
 import { createFakeLspDocument, setLogger } from './helpers';
 
 describe('Comprehensive Unreachable Code Detection [NEW]', () => {

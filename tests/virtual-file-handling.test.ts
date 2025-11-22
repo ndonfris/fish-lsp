@@ -7,7 +7,7 @@ import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import FishServer from '../src/server';
 import * as LSP from 'vscode-languageserver';
 import { Workspace } from '../src/utils/workspace';
-import { getDiagnosticsAsync } from '../src/diagnostics/async-validate';
+import { getDiagnosticsAsync } from '../src/diagnostics/validate';
 import { testChangeDocument, testClearDocuments, testOpenDocument } from './document-test-helpers';
 
 // Mock the startup module at the top level

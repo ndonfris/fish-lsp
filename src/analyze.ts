@@ -1,8 +1,8 @@
 import * as LSP from 'vscode-languageserver';
 import { DocumentUri, Hover, Location, Position, SymbolKind, URI, WorkDoneProgressReporter, WorkspaceSymbol } from 'vscode-languageserver';
-import { dirname } from 'path';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode, Tree } from 'web-tree-sitter';
+import { dirname } from 'path';
 import { config } from './config';
 import { LspDocument } from './document';
 import { logger } from './logger';
@@ -1086,15 +1086,6 @@ export class Analyzer {
     }
     return getNamedChildNodes(this.parser.parse(document.getText()).rootNode);
   }
-
-  // /**
-  //  * Returns a list of all the diagnostics in the document (if the document is analyzed)
-  //  * @param documentUri - the uri of the document to get the diagnostics for
-  //  * @returns {Diagnostic[]} - an array of Diagnostic objects
-  //  */
-  // public getDiagnostics(documentUri: string) {
-  //   return this.diagnostics.bindDiagnostics(documentUri);
-  // }
 
   /**
    * Utility to collect all the sources in the input documentUri, or if specified

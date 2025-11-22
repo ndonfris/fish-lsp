@@ -5,7 +5,7 @@ import { Analyzer, analyzer } from '../src/analyze';
 import { FishSymbol } from '../src/parsing/symbol';
 import { LspDocument } from '../src/document';
 import { flattenNested } from '../src/utils/flatten';
-import { getDiagnosticsAsync } from '../src/diagnostics/async-validate';
+import { getDiagnosticsAsync } from '../src/diagnostics/validate';
 import { ErrorCodes } from '../src/diagnostics/error-codes';
 import { config } from '../src/config';
 

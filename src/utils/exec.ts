@@ -52,7 +52,6 @@ export async function execEmbeddedFishFile(file: string, ...args: string[]) {
 export async function execAsyncF(cmd: string) {
   const file = await execEmbeddedFishFile('exec.fish', cmd);
   logger.log({ func: 'execAsyncF', file, cmd });
-  // const child = await execFileAsync(file, [cmd]);
   return file.stdout.toString().trim();
 }
 
@@ -80,11 +79,8 @@ export function execFishNoExecute(filepath: string) {
     if (err.stderr) {
       return err.stderr.toString();
     }
-    // If something else went wrong, throw the error
-    // throw err;
   }
 }
-//
 
 export async function execCompletions(...cmd: string[]): Promise<string[]> {
   //   const file = getFishFilePath('get-completion.fish');
@@ -127,7 +123,6 @@ export async function execCompleteSpace(cmd: string): Promise<string[]> {
 
 export async function execCompleteCmdArgs(cmd: string): Promise<string[]> {
   const args = await execEmbeddedFishFile('get-command-options.fish', cmd);
-  // const args = execFile(exec, [cmd]);
   const results = args?.stdout.toString().trim().split('\n') || [];
 
   let i = 0;
@@ -149,7 +144,6 @@ export async function execCompleteCmdArgs(cmd: string): Promise<string[]> {
 
 export async function execCommandDocs(cmd: string): Promise<string> {
   const result = await execEmbeddedFishFile('get-documentation.fish', cmd);
-  // const docs = await execFileAsync(file, [cmd]);
   const out = result.stdout || '';
   return out.toString().trim();
 }
@@ -165,8 +159,6 @@ export async function execCommandDocs(cmd: string): Promise<string> {
  */
 export async function execCommandType(cmd: string): Promise<string> {
   const result = await execEmbeddedFishFile('get-type.fish', cmd);
-  // const cmdCheck = cmd.split(' ')[0]?.trim() as string;
-  // const docs = await execFileAsync(file, [cmdCheck]);
   if (result?.stderr) {
     return '';
   }
@@ -185,7 +177,6 @@ export async function documentCommandDescription(cmd: string): Promise<string> {
 
 export async function execFindDependency(cmd: string): Promise<string> {
   const file = await execEmbeddedFishFile('find_dependency.fish', cmd);
-  // const docs = execFileSync(file, [cmd]);
   return file?.stdout?.toString().trim() || '';
 }
 

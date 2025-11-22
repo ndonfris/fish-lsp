@@ -12,7 +12,7 @@ import { isCommand, isComment, isDefinitionName } from '../src/utils/node-types'
 import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isArgparseWithoutEndStdin } from '../src/diagnostics/node-types';
 import { LspDocument } from '../src/document';
 import { createFakeLspDocument, setLogger, fail, createMockConnection } from './helpers';
-import { getDiagnosticsAsync } from '../src/diagnostics/async-validate';
+import { getDiagnosticsAsync } from '../src/diagnostics/validate';
 import { DiagnosticComment, DiagnosticCommentsHandler, isDiagnosticComment, parseDiagnosticComment } from '../src/diagnostics/comments-handler';
 import { withTempFishFile } from './temp';
 import { workspaceManager } from '../src/utils/workspace-manager';
