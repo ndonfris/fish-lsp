@@ -1,10 +1,28 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig, Plugin } from 'vitest/config'
 import tsconfigPaths from 'vite-tsconfig-paths'
 import wasm from 'vite-plugin-wasm'
-import path from 'path'
+import * as path from 'path'
+import { read, readFileSync, readSync } from 'fs';
+
+// Plugin to load .fish files as string exports
+function fishLoader(): Plugin {
+  return {
+    name: 'fish-loader',
+    enforce: 'pre',
+    transform(code, id) {
+      if (id.endsWith('.fish')) {
+        const content = readFileSync(id, 'utf-8')
+        return {
+          code: `export default ${JSON.stringify(content)};`,
+          map: null
+        }
+      }
+    }
+  }
+}
 
 export default defineConfig({
-  plugins: [tsconfigPaths(), wasm()],
+  plugins: [tsconfigPaths(), wasm(), fishLoader()],
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
@@ -55,7 +73,8 @@ export default defineConfig({
       '@embedded_assets/fish_files/get-documentation.fish': path.resolve(__dirname, 'tests/mocks/fish-files.js'),
       '@embedded_assets/fish_files/get-fish-autoloaded-paths.fish': path.resolve(__dirname, 'tests/mocks/fish-files.js'),
       '@embedded_assets/fish_files/get-type-verbose.fish': path.resolve(__dirname, 'tests/mocks/fish-files.js'),
-      '@embedded_assets/fish_files/get-type.fish': path.resolve(__dirname, 'tests/mocks/fish-files.js')
+      '@embedded_assets/fish_files/get-type.fish': path.resolve(__dirname, 'tests/mocks/fish-files.js'),
+      // '@fish_files/get-docs.fish': (path.resolve(path.join(__dirname, 'fish_files', 'get-docs.fish')))
     }
   }
 })

@@ -566,7 +566,7 @@
     "@emnapi/runtime" "^1.5.0"
     "@tybys/wasm-util" "^0.10.1"
 
-"@ndonfris/tree-sitter-fish@^3.6.0-patch.0":
+"@ndonfris/tree-sitter-fish@3.6.0-patch.0":
   version "3.6.0-patch.0"
   resolved "https://registry.yarnpkg.com/@ndonfris/tree-sitter-fish/-/tree-sitter-fish-3.6.0-patch.0.tgz#6f9c29e4e65ee21382b27c8746f132dda2c54b4a"
   integrity sha512-DmS1f98u2Q1vuPkmamTR8FITcX8QUcA8Vth2VATVBxxYfAKVPwg90xEpnmCYW1AlUV2h0uRM+mzY6nZioTpzVA==
@@ -2521,9 +2521,9 @@ glob-to-regex.js@^1.0.1:
   integrity sha512-CG/iEvgQqfzoVsMUbxSJcwbG2JwyZ3naEqPkeltwl0BSS8Bp83k3xlGms+0QdWFUAwV+uvo80wNswKF6FWEkKg==
 
 glob@^10.3.7, glob@^10.4.1:
-  version "10.4.5"
-  resolved "https://registry.npmjs.org/glob/-/glob-10.4.5.tgz"
-  integrity sha512-7Bv8RF0k6xjo7d4A/PxYLbUCfb6c+Vpd2/mB2yRDlew7Jb5hEXiCD9ibfO7wpk8i4sevK6DFny9h7EYbM3/sHg==
+  version "10.5.0"
+  resolved "https://registry.yarnpkg.com/glob/-/glob-10.5.0.tgz#8ec0355919cd3338c28428a23d4f24ecc5fe738c"
+  integrity "sha1-jsA1WRnNMzjChCiiPU8k7MX+c4w= sha512-DfXN8DfhJ7NH3Oe7cFmu3NCu1wKbkReJ8TorzSAFbSKrlNaQSKfIzqYqVY8zlbs2NLBbWpRiU52GX2PbaBVNkg=="
   dependencies:
     foreground-child "^3.1.0"
     jackspeak "^3.1.2"

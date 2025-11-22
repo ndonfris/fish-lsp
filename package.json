@@ -3,7 +3,7 @@
   "author": "ndonfris",
   "license": "MIT",
   "name": "fish-lsp",
-  "version": "1.1.1-pre.4",
+  "version": "1.1.1-pre.6",
   "description": "LSP implementation for fish/fish-shell",
   "keywords": [
     "lsp",
@@ -65,7 +65,8 @@
   "scripts": {
     "prepare": "husky",
     "postinstall": "run-s sh:build-time",
-    "prepack": "run-s --continue-on-error clean:build lint:check update-changelog generate:man generate:commands build:npm build:types sh:build-completions",
+    "prepack:pack": "run-s --continue-on-error clean:build lint:check update-changelog generate:man generate:commands build:npm build:types sh:build-completions",
+    "package": "npm pack",
     "build": "run-s -sn sh:build-time build:all sh:relink sh:build-completions",
     "build:watch": "run-s watch",
     "build:npm": "tsx scripts/build.ts --npm",
@@ -179,7 +180,7 @@
     ]
   },
   "dependencies": {
-    "@ndonfris/tree-sitter-fish": "^3.6.0-patch.0",
+    "@ndonfris/tree-sitter-fish": "3.6.0-patch.0",
     "chalk": "^5.5.0",
     "commander": "^12.0.0",
     "deepmerge": "^4.3.1",

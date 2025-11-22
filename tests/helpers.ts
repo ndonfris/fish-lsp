@@ -492,7 +492,7 @@ export function createFakeLspDocument(name: string, ...text: string[]): LspDocum
   // if (!workspaceManager.hasContainingWorkspace(uri)) {
   // }
   workspaceManager.add(workspace);
-  testOpenDocument(doc)
+  testOpenDocument(doc);
   // update currentWorkspace.current with the new workspace
   // workspaceManager.setCurrent(workspace)
   return doc;

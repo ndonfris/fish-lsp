@@ -44,11 +44,15 @@
       ],
       "@embedded_assets/*": [
         "./*"
+      ],
+      "@fish_files/*": [
+        "./fish_files/*.fish"
       ]
     }
   },
   "include": [
     "package.json",
+    "fish_files/*.fish",
     "src",
     "src/types/embedded-assets.d.ts",
     "tests"

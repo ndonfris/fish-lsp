@@ -1,0 +1,119 @@
+## Test building and validating release assets across platforms
+## Runs `yarn sh:build-assets` and tests the standalone binary and npm tarball
+name: Test Release Assets
+
+on:
+  workflow_dispatch: # Allow manual triggering
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'scripts/build.ts'
+      - 'scripts/build-assets.fish'
+      - '.github/workflows/test-release-assets.yml'
+
+jobs:
+  test-release-assets:
+    name: Test Release Assets (Node ${{ matrix.node-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+        node-version:
+          - '20'      # Minimum supported version
+          - '22'      # Current LTS
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Fish Shell
+        uses: fish-actions/install-fish@v1.2.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install Yarn
+        shell: fish {0}
+        run: npm install -g yarn@1.22.22
+
+      - name: Build Release Assets
+        shell: fish {0}
+        run: yarn sh:build-assets
+
+      - name: Verify Release Assets Exist
+        run: |
+          echo "=== Release Assets Directory ==="
+          ls -lh release-assets/
+          echo ""
+          echo "=== Verifying required files ==="
+          test -f release-assets/fish-lsp.standalone && echo "✓ fish-lsp.standalone exists"
+          test -f release-assets/fish-lsp.tgz && echo "✓ fish-lsp.tgz exists"
+          test -f release-assets/fish-lsp.1 && echo "✓ fish-lsp.1 (man page) exists"
+          test -f release-assets/fish-lsp.fish && echo "✓ fish-lsp.fish (completions) exists"
+
+      - name: Test Standalone Binary Executable
+        shell: fish {0}
+        run: |
+          echo "=== Testing fish-lsp.standalone binary ==="
+          chmod +x release-assets/fish-lsp.standalone
+          ./release-assets/fish-lsp.standalone --version
+          ./release-assets/fish-lsp.standalone --help
+          ./release-assets/fish-lsp.standalone info
+          ./release-assets/fish-lsp.standalone info --time-startup
+          ./release-assets/fish-lsp.standalone complete
+          ./release-assets/fish-lsp.standalone start --dump
+
+      - name: Get Package Version
+        id: version
+        shell: fish {0}
+        run: |
+          set -l version (npm pkg get version | string unescape)
+          echo "version=$version" >> $GITHUB_OUTPUT
+          echo "Package version: $version"
+
+      - name: Test NPM Tarball Installation
+        shell: fish {0}
+        run: |
+          echo "=== Testing fish-lsp.tgz npm package ==="
+          npm un -g fish-lsp 2>/dev/null || true
+          npm i -g ./release-assets/fish-lsp.tgz
+          fish-lsp --version
+          fish-lsp --help
+          fish-lsp info
+          fish-lsp info --path
+          fish-lsp env
+          fish-lsp info --time-startup
+          fish-lsp complete
+          fish-lsp start --dump
+
+      - name: Test Man Page is Valid
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          echo "=== Testing man page ==="
+          man -l release-assets/fish-lsp.1 | head -n 20
+
+      - name: Test Fish Completions are Valid
+        shell: fish {0}
+        run: |
+          echo "=== Testing fish completions ==="
+          fish -c "source release-assets/fish-lsp.fish; complete -C 'fish-lsp '" | head -n 10
+
+      - name: Cleanup - Uninstall Package
+        if: always()
+        run: npm uninstall -g fish-lsp || true
+
+      # - name: Upload Release Assets as Artifacts
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: release-assets-${{ matrix.os }}-node${{ matrix.node-version }}
+      #     path: release-assets/
+      #     retention-days: 7

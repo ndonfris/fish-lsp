@@ -1,9 +1,105 @@
-import { exec, execFile, execFileSync } from 'child_process';
+import { spawn, exec, execFile, execFileSync } from 'child_process';
 import { promisify } from 'util';
 import { logger } from '../logger';
 import { pathToUri, uriToPath } from './translation';
 import { vfs } from '../virtual-fs';
 import { config } from '../config';
+import GetDocs from '../../fish_files/get-docs.fish';
+import GetCommandOptions from '../../fish_files/get-command-options.fish';
+import GetType from '../../fish_files/get-type.fish';
+import GetTypeVerbose from '../../fish_files/get-type-verbose.fish';
+import GetCartisianExpansion from '../../fish_files/expand_cartesian.fish';
+import GetAutoloadedFilepath from '../../fish_files/get-autoloaded-filepath.fish';
+import GetFishAutoloadedPaths from '../../fish_files/get-fish-autoloaded-paths.fish';
+import GetDependency from '../../fish_files/get-dependency.fish';
+import GetExec from '../../fish_files/exec.fish';
+import GetCompletion from '../../fish_files/get-completion.fish';
+
+
+export type EmbeddedFishResult = {
+  stdout: string;
+  stderr: string;
+  code: number | null;
+}
+
+export function runEmbeddedFish(script: string, args: string[] = []): Promise<EmbeddedFishResult> {
+  return new Promise((resolve, reject) => {
+    // Use fish's psub (process substitution) to source from stdin and pass arguments correctly
+    // This approach properly handles arguments with spaces, quotes, and special characters
+    const argsEscaped = args.map(arg => {
+      // Escape single quotes by replacing ' with '\''
+      const escaped = arg.replace(/'/g, "'\\''");
+      return `'${escaped}'`;
+    }).join(' ');
+
+    const fishCommand = args.length > 0
+      ? `source (command cat | psub) ${argsEscaped}`
+      : `source (command cat | psub)`;
+
+    const child = spawn('fish', ['-c', fishCommand], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (chunk) => (stdout += chunk));
+    child.stderr.on('data', (chunk) => (stderr += chunk));
+
+    child.on('error', reject);
+
+    child.on('close', (code) => {
+      resolve({ stdout, stderr, code });
+    });
+
+    child.stdin.write(script);
+    child.stdin.end();
+  });
+}
+
+export namespace ExecFishFiles {
+  export function getCommandOptions(...args: string[]): Promise<EmbeddedFishResult> {
+    return runEmbeddedFish(GetCommandOptions, args);
+  }
+
+  export function getDocs(...args: string[]): Promise<EmbeddedFishResult> {
+    return runEmbeddedFish(GetDocs, args);
+  }
+
+  export function getType(...args: string[]): Promise<EmbeddedFishResult> {
+    return runEmbeddedFish(GetType, args);
+  }
+
+  export function getTypeVerbose(...args: string[]): Promise<EmbeddedFishResult> {
+    return runEmbeddedFish(GetTypeVerbose, args);
+  }
+
+  export function getCartisianExpansion(...args: string[]): Promise<EmbeddedFishResult> {
+    return runEmbeddedFish(GetCartisianExpansion, args);
+  }
+
+  export function getAutoloadedFilepath(...args: string[]): Promise<EmbeddedFishResult> {
+    return runEmbeddedFish(GetAutoloadedFilepath, args);
+  }
+
+  export function getFishAutoloadedPaths(...args: string[]): Promise<EmbeddedFishResult> {
+    return runEmbeddedFish(GetFishAutoloadedPaths, args);
+  }
+
+  export function getDependency(...args: string[]): Promise<EmbeddedFishResult> {
+    return runEmbeddedFish(GetDependency, args);
+    
+  }
+
+  export function execFish(cmd: string): Promise<EmbeddedFishResult> {
+    return runEmbeddedFish(GetExec, [cmd]);
+  }
+
+  export function getCompletion(...args: string[]): Promise<EmbeddedFishResult> {
+    return runEmbeddedFish(GetCompletion, args);
+  }
+}
+
 
 export const execAsync = promisify(exec);
 

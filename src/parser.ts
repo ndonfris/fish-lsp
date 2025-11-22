@@ -1,6 +1,6 @@
 import Parser from 'web-tree-sitter';
 import treeSitterWasmContent from '@embedded_assets/tree-sitter.wasm';
-import fishWasm from '@ndonfris/tree-sitter-fish';
+import fishLanguage from '@ndonfris/tree-sitter-fish';
 
 const _global: any = global;
 
@@ -10,7 +10,7 @@ export async function initializeParser(): Promise<Parser> {
   }
   if (!_global.Module) {
     _global.Module = {
-      onRuntimeInitialized: () => {},
+      onRuntimeInitialized: () => { },
       instantiateWasm: undefined,
       locateFile: undefined,
       wasmBinary: undefined,
@@ -36,7 +36,21 @@ export async function initializeParser(): Promise<Parser> {
   const parser = new Parser();
 
   // Load fish language grammar using bundled WASM content
-  const lang = await Parser.Language.load(fishWasm);
-  parser.setLanguage(lang);
+  // Debug: Check what fishWasm actually is
+
+  try {
+    const lang = await Parser.Language.load(fishLanguage);
+    parser.setLanguage(lang);
+  } catch (error) {
+    console.error('Error loading fish language grammar:', error);
+    console.error('fishWasm type:', typeof fishLanguage);
+    console.error('fishWasm instanceof Uint8Array:', fishLanguage instanceof Uint8Array);
+    console.error('fishWasm instanceof Buffer:', Buffer.isBuffer(fishLanguage));
+    console.error('fishWasm length:', (fishLanguage as any).length);
+    console.error('fishWasm first 4 bytes:', Array.from((fishLanguage as any).slice(0, 4)));
+    console.error('Expected WASM magic: [0, 97, 115, 109]'); // \0asm
+    throw error;
+  }
+
   return parser;
 }
