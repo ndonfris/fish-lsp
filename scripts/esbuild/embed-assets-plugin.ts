@@ -26,12 +26,61 @@ export function createEmbedAssetsPlugin(options: EmbedAssetsOptions = {}): Plugi
         ...options
       };
 
+      // Handle web-tree-sitter/tree-sitter.wasm import
+      build.onResolve({ filter: /^web-tree-sitter\/tree-sitter\.wasm$/ }, (args) => {
+        return {
+          path: defaultOptions.coreTreeSitterWasmFile,
+          namespace: 'wasm-binary'
+        };
+      });
+
       // Handle @embedded_assets/ imports
       build.onResolve({ filter: /^@embedded_assets\// }, (args) => {
         const assetPath = args.path.replace('@embedded_assets/', '');
         return {
           path: assetPath,
           namespace: 'embedded-asset'
+        };
+      });
+
+      // Handle relative .fish file imports (e.g., ../../fish_files/get-docs.fish)
+      build.onResolve({ filter: /\.fish$/ }, (args) => {
+        // Resolve the absolute path
+        const absolutePath = resolve(args.resolveDir, args.path);
+        return {
+          path: absolutePath,
+          namespace: 'fish-file'
+        };
+      });
+
+      // Load .fish files as string exports
+      build.onLoad({ filter: /\.fish$/, namespace: 'fish-file' }, (args) => {
+        if (existsSync(args.path) && statSync(args.path).isFile()) {
+          const content = readFileSync(args.path, 'utf8');
+          return {
+            contents: `export default ${JSON.stringify(content)};`,
+            loader: 'js'
+          };
+        }
+        return {
+          contents: 'export default "";',
+          loader: 'js'
+        };
+      });
+
+      // Load WASM files as base64 data URLs
+      build.onLoad({ filter: /\.wasm$/, namespace: 'wasm-binary' }, (args) => {
+        if (existsSync(args.path)) {
+          const content = readFileSync(args.path);
+          const base64 = content.toString('base64');
+          return {
+            contents: `export default "data:application/wasm;base64,${base64}";`,
+            loader: 'js'
+          };
+        }
+        return {
+          contents: 'export default "";',
+          loader: 'js'
         };
       });
 

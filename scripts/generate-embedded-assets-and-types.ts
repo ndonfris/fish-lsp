@@ -83,6 +83,12 @@ function generateDynamicTypeDefinitions(fishFiles: FishFileInfo[]): string {
   }).join('\n\n');
 
   const staticDeclarations = `
+// WASM files from npm packages
+declare module 'web-tree-sitter/tree-sitter.wasm' {
+  const wasmContent: string;
+  export default wasmContent;
+}
+
 // Other embedded assets
 declare module '@embedded_assets/tree-sitter-fish.wasm' {
   const wasmContent: string;
@@ -107,6 +113,12 @@ declare module '@embedded_assets/build-time.json' {
 declare module '@package' {
   const packageJson: any;
   export default packageJson;
+}
+
+// Wildcard declaration for all .fish files (relative imports)
+declare module '*.fish' {
+  const content: string;
+  export default content;
 }`;
 
   return header + fishFileDeclarations + staticDeclarations + '\n';
@@ -129,6 +141,11 @@ import { resolve } from 'path';`;
   const staticMocks = `
 
 // Use actual WASM files for tree-sitter functionality in tests
+vi.mock('web-tree-sitter/tree-sitter.wasm', () => ({
+  default: readFileSync(resolve(__dirname, '../node_modules/web-tree-sitter/tree-sitter.wasm')),
+}));
+
+// Legacy mocks for backward compatibility (if needed)
 vi.mock('@embedded_assets/tree-sitter-fish.wasm', () => ({
   default: readFileSync(resolve(__dirname, '../node_modules/@ndonfris/tree-sitter-fish/tree-sitter-fish.wasm')),
 }));

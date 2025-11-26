@@ -3,6 +3,11 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
 // Use actual WASM files for tree-sitter functionality in tests
+vi.mock('web-tree-sitter/tree-sitter.wasm', () => ({
+  default: readFileSync(resolve(__dirname, '../node_modules/web-tree-sitter/tree-sitter.wasm')),
+}));
+
+// Legacy mocks for backward compatibility (if needed)
 vi.mock('@embedded_assets/tree-sitter-fish.wasm', () => ({
   default: readFileSync(resolve(__dirname, '../node_modules/@ndonfris/tree-sitter-fish/tree-sitter-fish.wasm')),
 }));
@@ -29,6 +34,9 @@ vi.mock('@embedded_assets/fish_files/get-completion.fish', () => ({
 }));
 vi.mock('@embedded_assets/fish_files/get-dependency.fish', () => ({
   default: readFileSync(resolve(__dirname, '../fish_files/get-dependency.fish'), 'utf8'),
+}));
+vi.mock('@embedded_assets/fish_files/get-docs.fish', () => ({
+  default: readFileSync(resolve(__dirname, '../fish_files/get-docs.fish'), 'utf8'),
 }));
 vi.mock('@embedded_assets/fish_files/get-documentation.fish', () => ({
   default: readFileSync(resolve(__dirname, '../fish_files/get-documentation.fish'), 'utf8'),

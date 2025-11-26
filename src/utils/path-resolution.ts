@@ -112,25 +112,6 @@ export function getFishFilePath(filename: string): string {
 }
 
 /**
- * Get tree-sitter WASM file path for bundled and development versions
- */
-export function getTreeSitterWasmPath(): string {
-  return vfs.getPathOrFallback(
-    'tree-sitter-fish.wasm',
-    resolve(getProjectRootPath(), 'tree-sitter-fish.wasm'),
-    resolve(process.cwd(), 'tree-sitter-fish.wasm'),
-  );
-}
-
-export function getCoreTreeSitterWasmPath(): string {
-  return vfs.getPathOrFallback(
-    'tree-sitter.wasm',
-    resolve(getProjectRootPath(), 'tree-sitter.wasm'),
-    resolve(process.cwd(), 'tree-sitter.wasm'),
-  );
-}
-
-/**
  * Get fish build time file path for bundled and development versions, note that
  * this a generated build-time.json file should be used if available, otherwise
  * fallback to standard bundled location

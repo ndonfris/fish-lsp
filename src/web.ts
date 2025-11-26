@@ -1,5 +1,5 @@
 // Import polyfills for browser/Node.js compatibility
-import './utils/array-polyfills';
+import './utils/polyfills';
 import { createConnection, BrowserMessageReader, BrowserMessageWriter } from 'vscode-languageserver/browser';
 
 // TODO:

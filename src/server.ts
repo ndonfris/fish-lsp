@@ -1,5 +1,5 @@
 // Import polyfills for Node.js 18 compatibility
-import './utils/array-polyfills';
+import './utils/polyfills';
 // Initialize virtual filesystem (must be before any embedded asset usage)
 import './virtual-fs';
 import { SyntaxNode } from 'web-tree-sitter';

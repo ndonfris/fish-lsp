@@ -1,5 +1,5 @@
 import Parser from 'web-tree-sitter';
-import treeSitterWasmContent from '@embedded_assets/tree-sitter.wasm';
+import treeSitterWasmPath from 'web-tree-sitter/tree-sitter.wasm';
 import fishLanguage from '@ndonfris/tree-sitter-fish';
 
 const _global: any = global;
@@ -17,15 +17,16 @@ export async function initializeParser(): Promise<Parser> {
     };
   }
 
-  // Convert tree-sitter WASM content from data URL to Buffer
+  // treeSitterWasmPath is already a Uint8Array from the esbuild plugin
+  // which reads web-tree-sitter/tree-sitter.wasm and embeds it
   let treeSitterWasmBuffer: Uint8Array;
-  if (typeof treeSitterWasmContent === 'string' && treeSitterWasmContent.startsWith('data:application/wasm;base64,')) {
-    const base64Data = treeSitterWasmContent.replace('data:application/wasm;base64,', '');
+  if (typeof treeSitterWasmPath === 'string' && treeSitterWasmPath.startsWith('data:application/wasm;base64,')) {
+    const base64Data = treeSitterWasmPath.replace('data:application/wasm;base64,', '');
     treeSitterWasmBuffer = Buffer.from(base64Data, 'base64');
-  } else if (typeof treeSitterWasmContent === 'string') {
-    treeSitterWasmBuffer = Buffer.from(treeSitterWasmContent, 'base64');
+  } else if (typeof treeSitterWasmPath === 'string') {
+    treeSitterWasmBuffer = Buffer.from(treeSitterWasmPath, 'base64');
   } else {
-    treeSitterWasmBuffer = treeSitterWasmContent;
+    treeSitterWasmBuffer = treeSitterWasmPath as Uint8Array;
   }
 
   // Initialize Parser with embedded WASM binary

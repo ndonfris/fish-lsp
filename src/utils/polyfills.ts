@@ -38,5 +38,34 @@ if (!Array.prototype.at) {
   };
 }
 
+// string prototype extensions
+declare global {
+  interface String {
+    /**
+     * Split string by newlines into an array
+     * @returns Array of lines
+     */
+    splitNewlines(): string[];
+
+    /**
+     * Split string by newlines and trim each line
+     * @returns Array of trimmed lines
+     */
+    splitNewlinesTrimmed(): string[];
+  }
+}
+
+if (!String.prototype.splitNewlines) {
+  String.prototype.splitNewlines = function(this: string): string[] {
+    return this.split('\n');
+  };
+}
+
+if (!String.prototype.splitNewlinesTrimmed) {
+  String.prototype.splitNewlinesTrimmed = function(this: string): string[] {
+    return this.split('\n').map(s => s.trim());
+  };
+}
+
 // Export empty object to make this a module
 export {};
