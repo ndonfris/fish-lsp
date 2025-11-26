@@ -18,7 +18,7 @@ export function createEmbedAssetsPlugin(options: EmbedAssetsOptions = {}): Plugi
       
       const defaultOptions = {
         fishFilesDir: resolve(projectRoot, 'fish_files'),
-        wasmFile: resolve(projectRoot, 'node_modules/@ndonfris/tree-sitter-fish/tree-sitter-fish.wasm'),
+        wasmFile: resolve(projectRoot, 'node_modules/@esdmr/tree-sitter-fish/tree-sitter-fish.wasm'),
         coreTreeSitterWasmFile: resolve(projectRoot, 'node_modules/web-tree-sitter/tree-sitter.wasm'),
         manFile: resolve(projectRoot, 'man', 'fish-lsp.1'),
         buildTime: resolve(projectRoot, 'out', 'build-time.json'),
@@ -30,6 +30,14 @@ export function createEmbedAssetsPlugin(options: EmbedAssetsOptions = {}): Plugi
       build.onResolve({ filter: /^web-tree-sitter\/tree-sitter\.wasm$/ }, (args) => {
         return {
           path: defaultOptions.coreTreeSitterWasmFile,
+          namespace: 'wasm-binary'
+        };
+      });
+
+      // Handle @esdmr/tree-sitter-fish/tree-sitter-fish.wasm import
+      build.onResolve({ filter: /^@esdmr\/tree-sitter-fish\/tree-sitter-fish\.wasm$/ }, (args) => {
+        return {
+          path: defaultOptions.wasmFile,
           namespace: 'wasm-binary'
         };
       });
@@ -182,15 +190,18 @@ export function createEmbedAssetsPlugin(options: EmbedAssetsOptions = {}): Plugi
             };
           }
           
-          // Create fallback build time
-          const now = new Date();
+          // Create fallback build time (respects SOURCE_DATE_EPOCH for reproducible builds)
+          const now = process.env.SOURCE_DATE_EPOCH
+            ? new Date(parseInt(process.env.SOURCE_DATE_EPOCH) * 1000)
+            : new Date();
           const fallbackBuildTime = {
             date: now.toDateString(),
             timestamp: now.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' }),
             isoTimestamp: now.toISOString(),
             unix: Math.floor(now.getTime() / 1000),
             version: 'unknown',
-            nodeVersion: process.version
+            nodeVersion: process.version,
+            reproducible: !!process.env.SOURCE_DATE_EPOCH
           };
           return {
             contents: `export default ${JSON.stringify(fallbackBuildTime)};`,

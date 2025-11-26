@@ -84,7 +84,9 @@ export function createDefines(target: 'node' | 'browser' | string, production = 
     defines['process.env.FISH_LSP_BUILD_TIME'] = `'${JSON.stringify(buildTimeData)}'`;
   } catch (error) {
     // If build-time.json doesn't exist, use current time as fallback
-    const now = new Date();
+    const now = process.env.SOURCE_DATE_EPOCH
+      ? new Date(parseInt(process.env.SOURCE_DATE_EPOCH) * 1000)
+      : new Date();
     const timestamp = now.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' });
     const fallbackBuildTime = {
       date: now.toDateString(),
@@ -92,7 +94,8 @@ export function createDefines(target: 'node' | 'browser' | string, production = 
       isoTimestamp: now.toISOString(),
       unix: Math.floor(now.getTime() / 1000),
       version: process.env.npm_package_version || 'unknown',
-      nodeVersion: process.version
+      nodeVersion: process.version,
+      reproducible: !!process.env.SOURCE_DATE_EPOCH
     };
     defines['process.env.FISH_LSP_BUILD_TIME'] = `'${JSON.stringify(fallbackBuildTime)}'`;
   }

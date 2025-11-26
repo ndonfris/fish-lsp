@@ -12,9 +12,20 @@ on:
       - '.github/workflows/test-npm-package.yml'
 
 jobs:
+  # Generate a consistent timestamp for all matrix jobs in this workflow run
+  generate-timestamp:
+    runs-on: ubuntu-latest
+    outputs:
+      timestamp: ${{ steps.timestamp.outputs.value }}
+    steps:
+      - name: Generate Timestamp
+        id: timestamp
+        run: echo "value=$(date +%s)" >> $GITHUB_OUTPUT
+
   test-npm-package:
     name: Test NPM Package (Node ${{ matrix.node-version }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    needs: generate-timestamp
     permissions:
       contents: read
 
@@ -28,6 +39,10 @@ jobs:
           - '20'      # Minimum supported version
           - '22'      # Current LTS
           - 'latest'  # Latest stable
+
+    env:
+      # Use the same timestamp across all matrix jobs for reproducible builds
+      SOURCE_DATE_EPOCH: ${{ needs.generate-timestamp.outputs.timestamp }}
 
     steps:
       - name: Checkout Code
@@ -45,6 +60,12 @@ jobs:
         shell: fish {0}
         run: npm install -g yarn@1.22.22
 
+      - name: Display Build Timestamp
+        shell: fish {0}
+        run: |
+          echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH"
+          echo "Human-readable: "(date -d @$SOURCE_DATE_EPOCH 2>/dev/null || date -r $SOURCE_DATE_EPOCH 2>/dev/null || echo "N/A")
+
       - name: Install Dependencies
         shell: fish {0}
         run: yarn install
@@ -57,6 +78,14 @@ jobs:
         shell: fish {0}
         run: npm pack
 
+      - name: Upload Package Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fish-lsp-package-node${{ matrix.node-version }}-${{ matrix.os }}
+          path: fish-lsp-*.tgz
+          retention-days: 7
+          if-no-files-found: error
+
       - name: Install Package Globally
         shell: fish {0}
         run: |
@@ -67,14 +96,17 @@ jobs:
       - name: Verify fish-lsp binary exists
         run: which fish-lsp
 
-      - name: Test - fish-lsp --version
-        run: fish-lsp --version
-
       - name: Test - fish-lsp --help
         run: fish-lsp --help
 
+      - name: Test - fish-lsp --version
+        run: fish-lsp --version
+
       - name: Test - fish-lsp info
         run: fish-lsp info
+
+      - name: Test - fish-lsp info --build-time
+        run: fish-lsp info --build-time
 
       - name: Test - fish-lsp info --path
         run: fish-lsp info --path

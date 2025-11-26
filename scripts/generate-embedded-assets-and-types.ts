@@ -89,6 +89,11 @@ declare module 'web-tree-sitter/tree-sitter.wasm' {
   export default wasmContent;
 }
 
+declare module '@esdmr/tree-sitter-fish/tree-sitter-fish.wasm' {
+  const wasmContent: string;
+  export default wasmContent;
+}
+
 // Other embedded assets
 declare module '@embedded_assets/tree-sitter-fish.wasm' {
   const wasmContent: string;
@@ -147,7 +152,7 @@ vi.mock('web-tree-sitter/tree-sitter.wasm', () => ({
 
 // Legacy mocks for backward compatibility (if needed)
 vi.mock('@embedded_assets/tree-sitter-fish.wasm', () => ({
-  default: readFileSync(resolve(__dirname, '../node_modules/@ndonfris/tree-sitter-fish/tree-sitter-fish.wasm')),
+  default: readFileSync(resolve(__dirname, '../node_modules/@esdmr/tree-sitter-fish/tree-sitter-fish.wasm')),
 }));
 
 vi.mock('@embedded_assets/tree-sitter.wasm', () => ({
@@ -181,7 +186,7 @@ vi.mock('../src/utils/path-resolution', async () => {
     ...actual,
     getFishBuildTimeFilePath: () => resolve(__dirname, '../out/build-time.json'),
     getProjectRootPath: () => resolve(__dirname, '..'),
-    getTreeSitterWasmPath: () => resolve(__dirname, '../node_modules/@ndonfris/tree-sitter-fish/tree-sitter-fish.wasm'),
+    getTreeSitterWasmPath: () => resolve(__dirname, '../node_modules/@esdmr/tree-sitter-fish/tree-sitter-fish.wasm'),
   };
 });
 
@@ -253,7 +258,7 @@ export function generateEmbeddedAssetsTypesDynamic(): void {
 
   const assetPaths: AssetPaths = {
     fishFilesDir: resolve(projectRoot, 'fish_files'),
-    wasmFile: resolve(projectRoot, 'node_modules/@ndonfris/tree-sitter-fish/tree-sitter-fish.wasm'),
+    wasmFile: resolve(projectRoot, 'node_modules/@esdmr/tree-sitter-fish/tree-sitter-fish.wasm'),
     coreTreeSitterWasmFile: resolve(projectRoot, 'node_modules/web-tree-sitter/tree-sitter.wasm'),
     manFile: resolve(projectRoot, 'man', 'fish-lsp.1'),
     buildTimeFile: resolve(projectRoot, 'out', 'build-time.json'),
@@ -350,7 +355,7 @@ export function generateEmbeddedAssetsTypesOnly(): void {
 
   const assetPaths: AssetPaths = {
     fishFilesDir: resolve(projectRoot, 'fish_files'),
-    wasmFile: resolve(projectRoot, 'node_modules/@ndonfris/tree-sitter-fish/tree-sitter-fish.wasm'),
+    wasmFile: resolve(projectRoot, 'node_modules/@esdmr/tree-sitter-fish/tree-sitter-fish.wasm'),
     coreTreeSitterWasmFile: resolve(projectRoot, 'node_modules/web-tree-sitter/tree-sitter.wasm'),
     manFile: resolve(projectRoot, 'man', 'fish-lsp.1'),
     buildTimeFile: resolve(projectRoot, 'out', 'build-time.json'),

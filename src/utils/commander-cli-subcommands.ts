@@ -295,6 +295,7 @@ export type BuildTimeJsonObj = {
   unix: number;
   version: string;
   nodeVersion: string;
+  reproducible?: boolean;
   [key: string]: any;
 };
 export const getBuildTimeJsonObj = (): BuildTimeJsonObj | undefined => {

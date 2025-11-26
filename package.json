@@ -32,7 +32,6 @@
     "dist/fish-lsp",
     "dist/fish-lsp.map",
     "dist/fish-lsp.d.ts",
-    "scripts/build-time",
     "package.json",
     "man/fish-lsp.1",
     "README.md",
@@ -64,7 +63,6 @@
   "man": "man/fish-lsp.1",
   "scripts": {
     "prepare": "husky",
-    "postinstall": "run-s sh:build-time",
     "prepack:pack": "run-s --continue-on-error clean:build lint:check update-changelog generate:man generate:commands build:npm build:types sh:build-completions",
     "package": "npm pack",
     "build": "run-s -sn sh:build-time build:all sh:relink sh:build-completions",
@@ -180,7 +178,7 @@
     ]
   },
   "dependencies": {
-    "@ndonfris/tree-sitter-fish": "3.6.0-patch.0",
+    "@esdmr/tree-sitter-fish": "^3.6.0",
     "chalk": "^5.5.0",
     "commander": "^12.0.0",
     "deepmerge": "^4.3.1",

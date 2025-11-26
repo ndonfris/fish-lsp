@@ -62,6 +62,11 @@ declare module 'web-tree-sitter/tree-sitter.wasm' {
   export default wasmContent;
 }
 
+declare module '@esdmr/tree-sitter-fish/tree-sitter-fish.wasm' {
+  const wasmContent: string;
+  export default wasmContent;
+}
+
 // Other embedded assets
 declare module '@embedded_assets/tree-sitter-fish.wasm' {
   const wasmContent: string;

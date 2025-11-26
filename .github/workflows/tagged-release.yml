@@ -1,0 +1,230 @@
+## Publish to npm and upload release assets to GitHub releases
+## Automatically runs when a new tag matching vX.X.X or vX.X.X-pre.X is pushed
+## - Tags like v1.1.1-pre.6 → npm tags: 'preminor' and 'nightly'
+## - Tags like v1.1.0 → npm tag: 'latest'
+name: Tagged Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'           # Match vX.X.X (e.g., v1.1.0)
+      - 'v[0-9]+.[0-9]+.[0-9]+-pre.[0-9]+' # Match vX.X.X-pre.X (e.g., v1.1.1-pre.6)
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish (e.g., v1.0.0 or v1.0.0-pre.1)'
+        required: true
+        type: string
+
+jobs:
+  # Generate a consistent timestamp for the release build
+  generate-timestamp:
+    runs-on: ubuntu-latest
+    outputs:
+      timestamp: ${{ steps.timestamp.outputs.value }}
+    steps:
+      - name: Generate Timestamp
+        id: timestamp
+        run: echo "value=$(date +%s)" >> $GITHUB_OUTPUT
+
+  publish-and-release:
+    name: Publish to npm and Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: generate-timestamp
+    permissions:
+      contents: write  # Required to create releases and upload assets
+      id-token: write  # Required for npm provenance
+
+    env:
+      # Use consistent timestamp for reproducible builds
+      SOURCE_DATE_EPOCH: ${{ needs.generate-timestamp.outputs.timestamp }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Fish Shell (v4.x)
+        uses: fish-actions/install-fish@v1.2.0
+
+      - name: Verify Fish Version
+        shell: fish {0}
+        run: |
+          echo "Fish version:"
+          fish --version
+
+      - name: Set up Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Verify Node Version
+        run: node --version
+
+      - name: Install Yarn 1.22.22
+        shell: fish {0}
+        run: npm install -g yarn@1.22.22
+
+      - name: Verify Yarn Version
+        shell: fish {0}
+        run: yarn --version
+
+      - name: Display Build Timestamp
+        shell: fish {0}
+        run: |
+          echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH"
+          echo "Human-readable: "(date -d @$SOURCE_DATE_EPOCH 2>/dev/null || date -r $SOURCE_DATE_EPOCH 2>/dev/null || echo "N/A")
+
+      - name: Determine Release Tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Release tag: $TAG"
+
+      - name: Determine Release Type
+        id: release_type
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-pre\.[0-9]+$ ]]; then
+            echo "type=prerelease" >> $GITHUB_OUTPUT
+            echo "npm_tag=preminor" >> $GITHUB_OUTPUT
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            echo "Release type: prerelease (npm tags: preminor, nightly)"
+          elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "type=release" >> $GITHUB_OUTPUT
+            echo "npm_tag=latest" >> $GITHUB_OUTPUT
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+            echo "Release type: stable (npm tag: latest)"
+          else
+            echo "Invalid tag format: $TAG"
+            exit 1
+          fi
+
+      - name: Install Dependencies
+        shell: fish {0}
+        run: yarn install
+
+      - name: Build for NPM
+        shell: fish {0}
+        run: yarn build:npm && echo "✓ NPM build completed" || echo "✗ NPM build failed"
+
+      - name: Build Release Assets
+        shell: fish {0}
+        run: yarn sh:build-assets
+
+      - name: Show Generated Assets
+        run: |
+          echo "=== Release Assets Generated ==="
+          ls -lh release-assets/
+          # echo ""
+          # echo "=== File Details ==="
+          # find release-assets -type f -exec ls -lh {} \;
+
+      - name: Verify Required Assets Exist
+        run: |
+          echo "=== Verifying required assets ==="
+          test -f release-assets/fish-lsp.standalone && echo "✓ fish-lsp.standalone exists" || echo "✗ fish-lsp.standalone missing"
+          test -f release-assets/fish-lsp.tgz && echo "✓ fish-lsp.tgz exists" || echo "✗ fish-lsp.tgz missing"
+          test -f release-assets/fish-lsp.1 && echo "✓ fish-lsp.1 (man page) exists" || echo "✗ fish-lsp.1 missing"
+          test -f release-assets/fish-lsp.fish && echo "✓ fish-lsp.fish (completions) exists" || echo "✗ fish-lsp.fish missing"
+
+      - name: Get Package Version
+        id: pkg_version
+        shell: fish {0}
+        run: |
+          set -l pkg_version (npm pkg get version | string unescape)
+          echo "version=$pkg_version" >> $GITHUB_OUTPUT
+          echo "Package version: $pkg_version"
+
+      - name: Verify Version Matches Tag
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          VERSION="${{ steps.pkg_version.outputs.version }}"
+          EXPECTED_TAG="v$VERSION"
+          if [ "$TAG" != "$EXPECTED_TAG" ]; then
+            echo "✗ Tag mismatch: tag is $TAG but package.json version is $VERSION (expected tag: $EXPECTED_TAG)"
+            exit 1
+          fi
+          echo "✓ Tag matches package.json version: $TAG = v$VERSION"
+
+      - name: Publish to npm (prerelease)
+        if: steps.release_type.outputs.type == 'prerelease'
+        shell: fish {0}
+        run: |
+          echo "=== Publishing to npm with tags: preminor, nightly ==="
+          set -l pkg_name (npm pkg get name | string unescape)
+          set -l pkg_ver (npm pkg get version | string unescape)
+
+          # Publish with preminor tag
+          npm publish --tag preminor --provenance && echo "✓ Published to npm with tag 'preminor'" || echo "✗ Failed to publish with tag 'preminor'"
+
+          # Add nightly tag
+          npm dist-tag add "$pkg_name@$pkg_ver" nightly && echo "✓ Added 'nightly' tag" || echo "✗ Failed to add 'nightly' tag"
+
+          echo ""
+          echo "✓ Published $pkg_name@$pkg_ver with tags: preminor, nightly"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish to npm (stable)
+        if: steps.release_type.outputs.type == 'release'
+        shell: fish {0}
+        run: |
+          echo "=== Publishing to npm with tag: latest ==="
+          set -l pkg_name (npm pkg get name | string unescape)
+          set -l pkg_ver (npm pkg get version | string unescape)
+
+          npm publish --provenance && echo "✓ Published to npm with tag 'latest'" || echo "✗ Failed to publish to npm"
+
+          echo ""
+          echo "✓ Published $pkg_name@$pkg_ver with tag: latest"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.tag }}
+          draft: true
+          prerelease: ${{ steps.release_type.outputs.is_prerelease }}
+          generate_release_notes: true
+          files: |
+            release-assets/fish-lsp.tgz
+            release-assets/fish-lsp.standalone
+            release-assets/fish-lsp.standalone.with-all-assets.tar
+            release-assets/fish-lsp.1
+            release-assets/fish-lsp.fish
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish Complete
+        run: |
+          echo "=== Release Complete ==="
+          echo "Release tag: ${{ steps.tag.outputs.tag }}"
+          echo "Version: ${{ steps.pkg_version.outputs.version }}"
+          echo "Type: ${{ steps.release_type.outputs.type }}"
+          if [ "${{ steps.release_type.outputs.type }}" = "prerelease" ]; then
+            echo "npm tags: preminor, nightly"
+          else
+            echo "npm tag: latest"
+          fi
+          echo ""
+          echo "GitHub Release: ${{ steps.create_release.outputs.url }}"
+          echo "npm package: https://www.npmjs.com/package/fish-lsp/v/${{ steps.pkg_version.outputs.version }}"
+          echo ""
+          echo "Assets uploaded:"
+          echo "  - fish-lsp.tgz (npm pack archive)"
+          echo "  - fish-lsp.standalone (binary with all dependencies included)"
+          echo "  - fish-lsp.standalone.with-all-assets.tar"
+          echo "  - fish-lsp.1 (man page)"
+          echo "  - fish-lsp.fish (completions)"
+          echo ""
+          echo "✓ All operations completed successfully"

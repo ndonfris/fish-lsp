@@ -9,7 +9,7 @@ vi.mock('web-tree-sitter/tree-sitter.wasm', () => ({
 
 // Legacy mocks for backward compatibility (if needed)
 vi.mock('@embedded_assets/tree-sitter-fish.wasm', () => ({
-  default: readFileSync(resolve(__dirname, '../node_modules/@ndonfris/tree-sitter-fish/tree-sitter-fish.wasm')),
+  default: readFileSync(resolve(__dirname, '../node_modules/@esdmr/tree-sitter-fish/tree-sitter-fish.wasm')),
 }));
 
 vi.mock('@embedded_assets/tree-sitter.wasm', () => ({
@@ -73,7 +73,7 @@ vi.mock('../src/utils/path-resolution', async () => {
     ...actual,
     getFishBuildTimeFilePath: () => resolve(__dirname, '../out/build-time.json'),
     getProjectRootPath: () => resolve(__dirname, '..'),
-    getTreeSitterWasmPath: () => resolve(__dirname, '../node_modules/@ndonfris/tree-sitter-fish/tree-sitter-fish.wasm'),
+    getTreeSitterWasmPath: () => resolve(__dirname, '../node_modules/@esdmr/tree-sitter-fish/tree-sitter-fish.wasm'),
   };
 });
 

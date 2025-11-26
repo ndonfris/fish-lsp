@@ -409,6 +409,11 @@
   resolved "https://registry.yarnpkg.com/@esbuild/win32-x64/-/win32-x64-0.25.8.tgz#610d7ea539d2fcdbe39237b5cc175eb2c4451f9c"
   integrity sha512-cn3Yr7+OaaZq1c+2pe+8yxC8E144SReCQjN6/2ynubzYjvyqZjTXfQJpAcQpsdJq3My7XADANiYGHoFC69pLQw==
 
+"@esdmr/tree-sitter-fish@^3.6.0":
+  version "3.6.0"
+  resolved "https://registry.yarnpkg.com/@esdmr/tree-sitter-fish/-/tree-sitter-fish-3.6.0.tgz#9f5ae77cccf551cfbe6514d0373114271898513a"
+  integrity sha512-Jv1KiU2zOHvDW3VljyNftegHVV1+HSyRv3h/GLsGLymNhmSWLiqMawz+t+s2XRX6o6TewKzjV7l1Nt8GnTR3DQ==
+
 "@eslint-community/eslint-utils@^4.2.0", "@eslint-community/eslint-utils@^4.4.0":
   version "4.7.0"
   resolved "https://registry.npmjs.org/@eslint-community/eslint-utils/-/eslint-utils-4.7.0.tgz"
@@ -565,11 +570,6 @@
     "@emnapi/core" "^1.5.0"
     "@emnapi/runtime" "^1.5.0"
     "@tybys/wasm-util" "^0.10.1"
-
-"@ndonfris/tree-sitter-fish@3.6.0-patch.0":
-  version "3.6.0-patch.0"
-  resolved "https://registry.yarnpkg.com/@ndonfris/tree-sitter-fish/-/tree-sitter-fish-3.6.0-patch.0.tgz#6f9c29e4e65ee21382b27c8746f132dda2c54b4a"
-  integrity sha512-DmS1f98u2Q1vuPkmamTR8FITcX8QUcA8Vth2VATVBxxYfAKVPwg90xEpnmCYW1AlUV2h0uRM+mzY6nZioTpzVA==
 
 "@nodelib/fs.scandir@2.1.5":
   version "2.1.5"
