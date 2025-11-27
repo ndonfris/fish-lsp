@@ -11,18 +11,6 @@ const execAsync = promisify(execFile);
 // Local imports
 import { config } from './config';
 import { logger } from './logger';
-
-// Import all embedded fish scripts
-import execFishContent from '@embedded_assets/fish_files/exec.fish';
-import expandCartesianContent from '@embedded_assets/fish_files/expand_cartesian.fish';
-import getAutoloadedFilepathContent from '@embedded_assets/fish_files/get-autoloaded-filepath.fish';
-import getCommandOptionsContent from '@embedded_assets/fish_files/get-command-options.fish';
-import getCompletionContent from '@embedded_assets/fish_files/get-completion.fish';
-import getDependencyContent from '@embedded_assets/fish_files/get-dependency.fish';
-import getDocumentationContent from '@embedded_assets/fish_files/get-documentation.fish';
-import getFishAutoloadedPathsContent from '@embedded_assets/fish_files/get-fish-autoloaded-paths.fish';
-import getTypeVerboseContent from '@embedded_assets/fish_files/get-type-verbose.fish';
-import getTypeContent from '@embedded_assets/fish_files/get-type.fish';
 import packageJson from '@package';
 import buildTime from '@embedded_assets/build-time.json';
 import manPageContent from '@embedded_assets/man/fish-lsp.1';
@@ -115,18 +103,6 @@ class VirtualFile {
 }
 
 export const VirtualFiles = [
-  // Fish scripts
-  VirtualFile.create('fish_files/exec.fish', execFishContent),
-  VirtualFile.create('fish_files/expand_cartesian.fish', expandCartesianContent),
-  VirtualFile.create('fish_files/get-autoloaded-filepath.fish', getAutoloadedFilepathContent),
-  VirtualFile.create('fish_files/get-command-options.fish', getCommandOptionsContent),
-
-  VirtualFile.create('fish_files/get-completion.fish', getCompletionContent),
-  VirtualFile.create('fish_files/get-dependency.fish', getDependencyContent),
-  VirtualFile.create('fish_files/get-documentation.fish', getDocumentationContent),
-  VirtualFile.create('fish_files/get-fish-autoloaded-paths.fish', getFishAutoloadedPathsContent),
-  VirtualFile.create('fish_files/get-type-verbose.fish', getTypeVerboseContent),
-  VirtualFile.create('fish_files/get-type.fish', getTypeContent),
   // Man
   VirtualFile.create('man/fish-lsp.1', manPageContent),
   // Build info

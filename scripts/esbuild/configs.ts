@@ -36,6 +36,7 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
     loader: {
       '.wasm': 'file',
       '.node': 'file',
+      '.fish': 'text',
     },
     sourcemap: true, // Generate external source maps for debugging
     preserveSymlinks: true,
@@ -81,6 +82,7 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
     loader: {
       '.wasm': 'file',
       '.node': 'file',
+      '.fish': 'text',
     },
     sourcemap: true,
     preserveSymlinks: true,
@@ -123,6 +125,9 @@ export function createBuildOptions(config: BuildConfig, production = false, sour
     platform: config.platform,
     target: config.target === 'node' ? 'node18' : 'es2020',
     format: config.format,
+    loader: config.loader,
+    assetNames: config.assetNames,
+    preserveSymlinks: config.preserveSymlinks,
     ...(config.outfile ? { outfile: config.outfile } : { outdir: config.outdir }),
     minify: config.minify && production,
     sourcemap: sourcemapSetting,

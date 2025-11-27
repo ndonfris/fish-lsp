@@ -16,41 +16,6 @@ vi.mock('@embedded_assets/tree-sitter.wasm', () => ({
   default: readFileSync(resolve(__dirname, '../node_modules/web-tree-sitter/tree-sitter.wasm')),
 }));
 
-// Mock fish file imports with actual file content
-vi.mock('@embedded_assets/fish_files/exec.fish', () => ({
-  default: readFileSync(resolve(__dirname, '../fish_files/exec.fish'), 'utf8'),
-}));
-vi.mock('@embedded_assets/fish_files/expand_cartesian.fish', () => ({
-  default: readFileSync(resolve(__dirname, '../fish_files/expand_cartesian.fish'), 'utf8'),
-}));
-vi.mock('@embedded_assets/fish_files/get-autoloaded-filepath.fish', () => ({
-  default: readFileSync(resolve(__dirname, '../fish_files/get-autoloaded-filepath.fish'), 'utf8'),
-}));
-vi.mock('@embedded_assets/fish_files/get-command-options.fish', () => ({
-  default: readFileSync(resolve(__dirname, '../fish_files/get-command-options.fish'), 'utf8'),
-}));
-vi.mock('@embedded_assets/fish_files/get-completion.fish', () => ({
-  default: readFileSync(resolve(__dirname, '../fish_files/get-completion.fish'), 'utf8'),
-}));
-vi.mock('@embedded_assets/fish_files/get-dependency.fish', () => ({
-  default: readFileSync(resolve(__dirname, '../fish_files/get-dependency.fish'), 'utf8'),
-}));
-vi.mock('@embedded_assets/fish_files/get-docs.fish', () => ({
-  default: readFileSync(resolve(__dirname, '../fish_files/get-docs.fish'), 'utf8'),
-}));
-vi.mock('@embedded_assets/fish_files/get-documentation.fish', () => ({
-  default: readFileSync(resolve(__dirname, '../fish_files/get-documentation.fish'), 'utf8'),
-}));
-vi.mock('@embedded_assets/fish_files/get-fish-autoloaded-paths.fish', () => ({
-  default: readFileSync(resolve(__dirname, '../fish_files/get-fish-autoloaded-paths.fish'), 'utf8'),
-}));
-vi.mock('@embedded_assets/fish_files/get-type-verbose.fish', () => ({
-  default: readFileSync(resolve(__dirname, '../fish_files/get-type-verbose.fish'), 'utf8'),
-}));
-vi.mock('@embedded_assets/fish_files/get-type.fish', () => ({
-  default: readFileSync(resolve(__dirname, '../fish_files/get-type.fish'), 'utf8'),
-}));
-
 // Mock other assets
 vi.mock('@embedded_assets/man/fish-lsp.1', () => ({
   default: readFileSync(resolve(__dirname, '../man/fish-lsp.1'), 'utf8'),

@@ -3,7 +3,6 @@ import fs from 'fs-extra';
 import { existsSync, statSync, unlinkSync } from 'fs';
 import { execSync } from 'child_process';
 import { logger, toRelativePath } from './colors';
-import { generateEmbeddedAssetsTypesDynamic, cleanupEmbeddedAssetsTypes } from '../generate-embedded-assets-and-types';
 
 export function copyDevelopmentAssets(): void {
   if (fs.existsSync('src/snippets')) {
@@ -39,12 +38,8 @@ export function generateTypeDeclarations(): void {
   
   try {
     execSync('mkdir -p dist');
-    
-    // Step 1: Generate embedded assets TypeScript modules
-    console.log(logger.info('  Generating embedded assets modules...'));
-    generateEmbeddedAssetsTypesDynamic();
-    
-    // Step 2: Create tsconfig with path mapping to embedded assets
+
+    // Step 1: Create tsconfig used for declaration emit
     const tsconfigContent = JSON.stringify({
       "extends": ["@tsconfig/node22/tsconfig.json"],
       "compilerOptions": {
@@ -64,19 +59,15 @@ export function generateTypeDeclarations(): void {
         "resolveJsonModule": true,
         "allowJs": false,
         "types": ["node", "vscode-languageserver"],
-        // Path mapping to resolve embedded assets
         "baseUrl": ".",
-        "paths": {
-          "@embedded_assets/*": ["./temp-embedded-assets/*"],
-          "@package": ["./temp-embedded-assets/package"]
-        },
         // Suppress some strict checks for cleaner output
         "noImplicitAny": false,
         "noImplicitReturns": false,
         "noImplicitThis": false
       },
       "include": [
-        "src/**/*.ts"
+        "src/**/*.ts",
+        "src/types/embedded-assets.d.ts"
       ],
       "exclude": [
         "node_modules/**/*",
@@ -109,16 +100,13 @@ export function generateTypeDeclarations(): void {
         "allowJs": false,
         "types": ["node", "vscode-languageserver"],
         "baseUrl": ".",
-        "paths": {
-          "@embedded_assets/*": ["./temp-embedded-assets/*"],
-          "@package": ["./temp-embedded-assets/package"]
-        },
         "noImplicitAny": false,
         "noImplicitReturns": false,
         "noImplicitThis": false
       },
       "include": [
-        "src/**/*.ts"
+        "src/**/*.ts",
+        "src/types/embedded-assets.d.ts"
       ],
       "exclude": [
         "node_modules/**/*",
@@ -185,7 +173,5 @@ export function generateTypeDeclarations(): void {
     try {
       execSync('rm -rf temp-types', { stdio: 'pipe' });
     } catch {}
-    // Clean up embedded assets
-    cleanupEmbeddedAssetsTypes();
   }
 }

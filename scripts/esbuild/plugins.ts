@@ -9,7 +9,9 @@ import { polyfillNode } from 'esbuild-plugin-polyfill-node';
 import { nodeModulesPolyfillPlugin } from 'esbuild-plugins-node-modules-polyfill';
 import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill';
 import { colorize, colors, toRelativePath } from './colors';
-import { createEmbedAssetsPlugin } from './embed-assets-plugin';
+import { createWasmPlugin } from './wasm-plugin';
+import { existsSync, readFileSync } from 'fs';
+import { resolve } from 'path';
 
 export interface PluginOptions {
   target: 'node' | 'browser';
@@ -21,9 +23,91 @@ export interface PluginOptions {
 export function createPlugins(options: PluginOptions): esbuild.Plugin[] {
   const plugins: esbuild.Plugin[] = [];
 
-  // Add embedded assets plugin if enabled
+  // Handle generic .wasm imports
+  plugins.push(createWasmPlugin());
+
+  // Simple embedded assets handler for wasm/package/man/build-time
   if (options.embedAssets) {
-    plugins.push(createEmbedAssetsPlugin());
+    plugins.push({
+      name: 'embedded-assets',
+      setup(build) {
+        const projectRoot = process.cwd();
+        const wasmFile = resolve(projectRoot, 'node_modules/@esdmr/tree-sitter-fish/tree-sitter-fish.wasm');
+        const coreWasmFile = resolve(projectRoot, 'node_modules/web-tree-sitter/tree-sitter.wasm');
+        const manFile = resolve(projectRoot, 'man', 'fish-lsp.1');
+        const buildTimeFile = resolve(projectRoot, 'out', 'build-time.json');
+        const pkgJsonFile = resolve(projectRoot, 'package.json');
+
+        build.onResolve({ filter: /^@embedded_assets\// }, (args) => ({
+          path: args.path.replace('@embedded_assets/', ''),
+          namespace: 'embedded-asset',
+        }));
+
+        build.onResolve({ filter: /^web-tree-sitter\/tree-sitter\.wasm$/ }, () => ({
+          path: coreWasmFile,
+          namespace: 'wasm-embedded',
+        }));
+
+        build.onResolve({ filter: /^@esdmr\/tree-sitter-fish\/tree-sitter-fish\.wasm$/ }, () => ({
+          path: wasmFile,
+          namespace: 'wasm-embedded',
+        }));
+
+        const loadWasm = (filePath: string) => {
+          if (!existsSync(filePath)) throw new Error(`Missing WASM asset: ${filePath}`);
+          const content = readFileSync(filePath);
+          return `export default "data:application/wasm;base64,${content.toString('base64')}"`;
+        };
+
+        build.onLoad({ filter: /\.wasm$/, namespace: 'wasm-embedded' }, (args) => ({
+          contents: loadWasm(args.path),
+          loader: 'js',
+        }));
+
+        build.onLoad({ filter: /.*/, namespace: 'embedded-asset' }, (args) => {
+          const asset = args.path;
+
+          if (asset === 'tree-sitter-fish.wasm') {
+            return { contents: loadWasm(wasmFile), loader: 'js' };
+          }
+          if (asset === 'tree-sitter.wasm') {
+            return { contents: loadWasm(coreWasmFile), loader: 'js' };
+          }
+          if (asset === 'package.json') {
+            if (!existsSync(pkgJsonFile)) throw new Error('package.json not found for embedding');
+            const json = JSON.parse(readFileSync(pkgJsonFile, 'utf8'));
+            return { contents: `export default ${JSON.stringify(json)};`, loader: 'js' };
+          }
+          if (asset.startsWith('man/')) {
+            const manPath = resolve(projectRoot, asset);
+            if (!existsSync(manPath)) throw new Error(`Missing man asset: ${asset}`);
+            const content = readFileSync(manPath, 'utf8');
+            return { contents: `export default ${JSON.stringify(content)};`, loader: 'js' };
+          }
+          if (asset === 'out/build-time.json') {
+            if (existsSync(buildTimeFile)) {
+              const json = JSON.parse(readFileSync(buildTimeFile, 'utf8'));
+              return { contents: `export default ${JSON.stringify(json)};`, loader: 'js' };
+            }
+            const now = process.env.SOURCE_DATE_EPOCH
+              ? new Date(parseInt(process.env.SOURCE_DATE_EPOCH) * 1000)
+              : new Date();
+            const fallback = {
+              date: now.toDateString(),
+              timestamp: now.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' }),
+              isoTimestamp: now.toISOString(),
+              unix: Math.floor(now.getTime() / 1000),
+              version: process.env.npm_package_version || 'unknown',
+              nodeVersion: process.version,
+              reproducible: !!process.env.SOURCE_DATE_EPOCH,
+            };
+            return { contents: `export default ${JSON.stringify(fallback)};`, loader: 'js' };
+          }
+
+          return { contents: 'export default "";', loader: 'js' };
+        });
+      },
+    });
   }
 
   // Note: Using native esbuild TypeScript support instead of external plugin for better performance
