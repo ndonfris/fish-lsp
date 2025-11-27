@@ -1,0 +1,5 @@
+# Only run yarn install if this was a branch checkout (not file checkout)
+# $3 is 1 for branch checkout, 0 for file checkout
+if [ "$3" = "1" ]; then
+  yarn install
+fi

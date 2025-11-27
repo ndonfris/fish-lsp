@@ -39,3 +39,9 @@ temp-types
 tests/workspaces/*.snapshot
 temp-embedded-assets
 tests/workspaces/example_test_src_1
+
+!docs/CHANGELOG.md   
+!docs/CONTRIBUTING.md
+!docs/ROADMAP.md     
+!docs/MAN_FILE.md    
+docs/*

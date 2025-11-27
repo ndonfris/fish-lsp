@@ -91,27 +91,6 @@ export function getProjectRootPath(): string {
 }
 
 /**
- * Resolves the fish_files directory path for bundled and development versions
- */
-export function getFishFilesPath(): string {
-  if (process.env.NODE_ENV === 'test') {
-    return resolve(getProjectRootPath(), 'fish_files');
-  }
-  return vfs.getPathOrFallback(
-    'fish_files',
-    resolve(getProjectRootPath(), 'fish_files'),
-    resolve(process.cwd(), 'fish_files'),
-  );
-}
-
-/**
- * Resolves a specific fish file path
- */
-export function getFishFilePath(filename: string): string {
-  return resolve(getFishFilesPath(), filename);
-}
-
-/**
  * Get fish build time file path for bundled and development versions, note that
  * this a generated build-time.json file should be used if available, otherwise
  * fallback to standard bundled location
@@ -167,11 +146,4 @@ export function getManFilePath(): string {
 
   // Final fallback - return the expected path even if file doesn't exist
   return resolve(getProjectRootPath(), 'man', 'fish-lsp.1');
-}
-
-/**
- * Get embedded fish scripts interface
- */
-export function getEmbeddedFishScripts() {
-  return vfs.fishFiles || null;
 }

@@ -3,7 +3,12 @@
 name: Test NPM Package Installation
 
 on:
-  workflow_dispatch: # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      timestamp:
+        description: 'Build timestamp (for reproducible builds)'
+        required: false
+        default: ''
   pull_request:
     paths:
       - 'src/**'
@@ -12,20 +17,9 @@ on:
       - '.github/workflows/test-npm-package.yml'
 
 jobs:
-  # Generate a consistent timestamp for all matrix jobs in this workflow run
-  generate-timestamp:
-    runs-on: ubuntu-latest
-    outputs:
-      timestamp: ${{ steps.timestamp.outputs.value }}
-    steps:
-      - name: Generate Timestamp
-        id: timestamp
-        run: echo "value=$(date +%s)" >> $GITHUB_OUTPUT
-
   test-npm-package:
     name: Test NPM Package (Node ${{ matrix.node-version }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    needs: generate-timestamp
     permissions:
       contents: read
 
@@ -40,21 +34,26 @@ jobs:
           - '22'      # Current LTS
           - 'latest'  # Latest stable
 
-    env:
-      # Use the same timestamp across all matrix jobs for reproducible builds
-      SOURCE_DATE_EPOCH: ${{ needs.generate-timestamp.outputs.timestamp }}
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Install Fish Shell
-        uses: fish-actions/install-fish@v1.2.0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+
+      - name: Install Fish Shell (v4.x)
+        uses: fish-actions/install-fish@v1.2.0
+
+      - name: Generate Timestamp if Not Provided
+        id: timestamp
+        run: |
+          if [ -z "${{ github.event.inputs.timestamp }}" ]; then
+            echo "SOURCE_DATE_EPOCH=$(date +%s)" >> $GITHUB_ENV
+          else
+            echo "SOURCE_DATE_EPOCH=${{ github.event.inputs.timestamp }}" >> $GITHUB_ENV
+          fi
 
       - name: Install Yarn
         shell: fish {0}
@@ -76,20 +75,21 @@ jobs:
 
       - name: Pack the Package
         shell: fish {0}
-        run: npm pack
+        run: yarn pack --filename fish-lsp
 
       - name: Upload Package Artifact
+        if: github.event_name != 'workflow_dispatch' || !env.ACT
         uses: actions/upload-artifact@v4
         with:
           name: fish-lsp-package-node${{ matrix.node-version }}-${{ matrix.os }}
-          path: fish-lsp-*.tgz
+          path: fish-lsp.tgz
           retention-days: 7
           if-no-files-found: error
 
       - name: Install Package Globally
         shell: fish {0}
         run: |
-          set -l package_file (ls fish-lsp-*.tgz | head -n 1)
+          set -l package_file (ls fish-lsp.tgz | head -n 1)
           echo "Installing package: $package_file"
           npm install -g $package_file
 

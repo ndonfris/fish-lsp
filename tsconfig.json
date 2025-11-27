@@ -44,9 +44,6 @@
       ],
       "@embedded_assets/*": [
         "./*"
-      ],
-      "@fish_files/*": [
-        "./fish_files/*.fish"
       ]
     }
   },
