@@ -1,6 +1,7 @@
 import Parser from 'web-tree-sitter';
 import treeSitterWasmPath from 'web-tree-sitter/tree-sitter.wasm';
 import fishLanguageWasm from '@esdmr/tree-sitter-fish/tree-sitter-fish.wasm';
+import { logger } from './logger';
 
 const _global: any = global;
 
@@ -19,49 +20,35 @@ export async function initializeParser(): Promise<Parser> {
 
   // treeSitterWasmPath is already a Uint8Array from the esbuild plugin
   // which reads web-tree-sitter/tree-sitter.wasm and embeds it
-  let treeSitterWasmBuffer: Uint8Array;
-  if (typeof treeSitterWasmPath === 'string' && treeSitterWasmPath.startsWith('data:application/wasm;base64,')) {
-    const base64Data = treeSitterWasmPath.replace('data:application/wasm;base64,', '');
-    treeSitterWasmBuffer = Buffer.from(base64Data, 'base64');
-  } else if (typeof treeSitterWasmPath === 'string') {
-    treeSitterWasmBuffer = Buffer.from(treeSitterWasmPath, 'base64');
-  } else {
-    treeSitterWasmBuffer = treeSitterWasmPath as Uint8Array;
-  }
+  const tsWasmBuffer = bufferToUint8Array(treeSitterWasmPath);
 
   // Initialize Parser with embedded WASM binary
   await Parser.init({
-    wasmBinary: treeSitterWasmBuffer,
+    wasmBinary: tsWasmBuffer,
   });
 
   const parser = new Parser();
-
-  // Load fish language grammar using bundled WASM content
-  // fishLanguageWasm is already a Uint8Array from the esbuild plugin
-  // which reads @esdmr/tree-sitter-fish/tree-sitter-fish.wasm and embeds it
-  let fishWasmBuffer: Uint8Array;
-  if (typeof fishLanguageWasm === 'string' && fishLanguageWasm.startsWith('data:application/wasm;base64,')) {
-    const base64Data = fishLanguageWasm.replace('data:application/wasm;base64,', '');
-    fishWasmBuffer = Buffer.from(base64Data, 'base64');
-  } else if (typeof fishLanguageWasm === 'string') {
-    fishWasmBuffer = Buffer.from(fishLanguageWasm, 'base64');
-  } else {
-    fishWasmBuffer = fishLanguageWasm as Uint8Array;
-  }
+  const fishWasmBuffer = bufferToUint8Array(fishLanguageWasm); // \0asm
 
   try {
     const lang = await Parser.Language.load(fishWasmBuffer);
     parser.setLanguage(lang);
   } catch (error) {
+    logger.logToStderr('Failed to load fish language grammar for tree-sitter parser.');
     console.error('Error loading fish language grammar:', error);
-    console.error('fishWasm type:', typeof fishLanguageWasm);
-    console.error('fishWasm instanceof Uint8Array:', (fishLanguageWasm as any) instanceof Uint8Array);
-    console.error('fishWasm instanceof Buffer:', Buffer.isBuffer(fishLanguageWasm as any));
-    console.error('fishWasm length:', (fishLanguageWasm as any).length);
-    console.error('fishWasm first 4 bytes:', Array.from((fishWasmBuffer as any).slice(0, 4)));
-    console.error('Expected WASM magic: [0, 97, 115, 109]'); // \0asm
     throw error;
   }
 
   return parser;
+}
+
+function bufferToUint8Array(buffer: ArrayBuffer | Buffer | string): Uint8Array {
+  if (typeof buffer === 'string' && buffer.startsWith('data:application/wasm;base64,')) {
+    const base64Data = buffer.replace('data:application/wasm;base64,', '');
+    return Buffer.from(base64Data, 'base64');
+  } else if (typeof buffer === 'string') {
+    return Buffer.from(buffer, 'base64');
+  } else {
+    return buffer as Uint8Array;
+  }
 }
