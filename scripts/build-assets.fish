@@ -8,8 +8,8 @@
 #   - fish-lsp.fish                                        (shell completions)
 #
 
-source ./scripts/continue-or-exit.fish
-source ./scripts/pretty-print.fish
+source ./scripts/fish/continue-or-exit.fish
+source ./scripts/fish/pretty-print.fish
 
 argparse clean fresh-install -- "$argv"
 or fail 'Failed to parse arguments.'

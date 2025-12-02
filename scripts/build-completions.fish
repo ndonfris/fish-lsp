@@ -1,6 +1,6 @@
 #!/usr/bin/env fish
 
-source ./scripts/pretty-print.fish
+source ./scripts/fish/pretty-print.fish
 
 # The below if statement is only included because of possible CI/CD edge-cases.
 # For almost all users, this should not do anything.

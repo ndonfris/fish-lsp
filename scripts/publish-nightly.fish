@@ -3,9 +3,9 @@
 # ┌──────────────────────────────┐
 # │ Imported variables/functions │
 # └──────────────────────────────┘
-source ./scripts/continue-or-exit.fish
-source ./scripts/pretty-print.fish
-source ./scripts/utils.fish
+source ./scripts/fish/continue-or-exit.fish
+source ./scripts/fish/pretty-print.fish
+source ./scripts/fish/utils.fish
 
 # ┌─────────────────┐
 # │ Parse arguments │
