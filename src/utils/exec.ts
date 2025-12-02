@@ -228,7 +228,7 @@ export async function execCompleteCmdArgs(cmd: string): Promise<string[]> {
 }
 
 export async function execCommandDocs(cmd: string): Promise<string> {
-  const result = await ExecFishFiles.getDocumentation(cmd);
+  const result = await ExecFishFiles.getDocs(cmd);
   const out = result.stdout || '';
   return out.toString().trim();
 }
