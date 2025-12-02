@@ -71,7 +71,7 @@ describe('src/utils/exec.ts tests', () => {
     };
 
     let timesCalled = 0;
-    let _logging = true;
+    const _logging = true;
     type PrintDocsParams = EmbeddedFishResult & {
       cmd?: string;
       verbose?: boolean;
@@ -100,7 +100,7 @@ describe('src/utils/exec.ts tests', () => {
         if (totalLines >= 4) {
           console.log([
             firstLines,
-            totalLines > 4 ? `+ ...... ${totalLines - 4} more lines.` : ''
+            totalLines > 4 ? `+ ...... ${totalLines - 4} more lines.` : '',
           ].join('\n'));
         } else {
           console.log(stdout);
@@ -117,10 +117,7 @@ describe('src/utils/exec.ts tests', () => {
       }
     }
 
-
-
     describe('get-docs.fish', () => {
-
       it('base tests', async () => {
         console.log('Testing ExecFishFiles.getDocs for "echo"...');
         const output = await ExecFishFiles.getDocs('echo');
@@ -151,7 +148,7 @@ describe('src/utils/exec.ts tests', () => {
         console.log('Testing ExecFishFiles.getDocs for multiple commands (string-match, git-worktree)...');
         const cmds = [
           ['string', 'match'],
-          ['git', 'worktree']
+          ['git', 'worktree'],
         ];
         for await (const args of cmds) {
           // console.log(`Testing ExecFishFiles.getDocs for \`${args[0]} ${args[1]}\`...`);
@@ -160,7 +157,7 @@ describe('src/utils/exec.ts tests', () => {
           printDocsStdout({ ...output, cmd: `${args[0]} ${args.slice(1).join(' ')}` });
           expector.pass(output);
           expect(output.stdout.toString().length).toBeGreaterThan(0);
-        };
+        }
       });
 
       it('builtin', async () => {
@@ -197,7 +194,7 @@ describe('src/utils/exec.ts tests', () => {
         // console.log('ExecFishFiles getCommandDoc: ', 'git', '---', out.stdout.toString());
         printDocsStdout({ ...out, cmd: 'git' });
         expector.pass(out);
-        expect(out.stdout.toString().split('\n').at(3)!.trim().includes("git - the stupid content tracker")).toBeTruthy();
+        expect(out.stdout.toString().split('\n').at(3)!.trim().includes('git - the stupid content tracker')).toBeTruthy();
       });
 
       describe('edge cases', () => {
