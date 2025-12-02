@@ -1,9 +1,10 @@
 // Import polyfills for browser/Node.js compatibility
-import './utils/array-polyfills';
+import './utils/polyfills';
 import { createConnection, BrowserMessageReader, BrowserMessageWriter } from 'vscode-languageserver/browser';
 
+// TODO:
 // Web-compatible version of fish-lsp
-// This is a simplified version that works in browser environments
+// This is a simplified version that aims to get base version working in browser environments
 
 export class FishLspWeb {
   private connection: ReturnType<typeof createConnection>;

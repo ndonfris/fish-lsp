@@ -11,23 +11,9 @@ const execAsync = promisify(execFile);
 // Local imports
 import { config } from './config';
 import { logger } from './logger';
-
-// Import all embedded fish scripts
-import execFishContent from '@embedded_assets/fish_files/exec.fish';
-import expandCartesianContent from '@embedded_assets/fish_files/expand_cartesian.fish';
-import getAutoloadedFilepathContent from '@embedded_assets/fish_files/get-autoloaded-filepath.fish';
-import getCommandOptionsContent from '@embedded_assets/fish_files/get-command-options.fish';
-import getCompletionContent from '@embedded_assets/fish_files/get-completion.fish';
-import getDependencyContent from '@embedded_assets/fish_files/get-dependency.fish';
-import getDocumentationContent from '@embedded_assets/fish_files/get-documentation.fish';
-import getFishAutoloadedPathsContent from '@embedded_assets/fish_files/get-fish-autoloaded-paths.fish';
-import getTypeVerboseContent from '@embedded_assets/fish_files/get-type-verbose.fish';
-import getTypeContent from '@embedded_assets/fish_files/get-type.fish';
 import packageJson from '@package';
 import buildTime from '@embedded_assets/build-time.json';
 import manPageContent from '@embedded_assets/man/fish-lsp.1';
-// Import the bundled package for WASM access
-import treeSitterCoreWasmContent from '@embedded_assets/tree-sitter.wasm';
 
 // Helper function to get the fish path from config
 // Using a function that imports config lazily to avoid circular dependencies
@@ -117,21 +103,6 @@ class VirtualFile {
 }
 
 export const VirtualFiles = [
-  // Fish scripts
-  VirtualFile.create('fish_files/exec.fish', execFishContent),
-  VirtualFile.create('fish_files/expand_cartesian.fish', expandCartesianContent),
-  VirtualFile.create('fish_files/get-autoloaded-filepath.fish', getAutoloadedFilepathContent),
-  VirtualFile.create('fish_files/get-command-options.fish', getCommandOptionsContent),
-
-  VirtualFile.create('fish_files/get-completion.fish', getCompletionContent),
-  VirtualFile.create('fish_files/get-dependency.fish', getDependencyContent),
-  VirtualFile.create('fish_files/get-documentation.fish', getDocumentationContent),
-  VirtualFile.create('fish_files/get-fish-autoloaded-paths.fish', getFishAutoloadedPathsContent),
-  VirtualFile.create('fish_files/get-type-verbose.fish', getTypeVerboseContent),
-  VirtualFile.create('fish_files/get-type.fish', getTypeContent),
-  // WASM (bundled)
-  VirtualFile.create('tree-sitter-fish.wasm', 'bundled://tree-sitter-fish.wasm'),
-  VirtualFile.create('tree-sitter.wasm', treeSitterCoreWasmContent),
   // Man
   VirtualFile.create('man/fish-lsp.1', manPageContent),
   // Build info
@@ -201,21 +172,6 @@ class VirtualFileSystem {
           writePromises.push(
             fs.promises.writeFile(join(fishFilesDir, file), content),
           );
-        }
-      }
-
-      // Write WASM file if exists and is actually a file (not directory)
-      if (this.vol.existsSync('/tree-sitter-fish.wasm')) {
-        try {
-          const stat = this.vol.statSync('/tree-sitter-fish.wasm');
-          if (stat && stat.isFile && stat.isFile()) {
-            const wasmContent = this.vol.readFileSync('/tree-sitter-fish.wasm');
-            writePromises.push(
-              fs.promises.writeFile(join(this.virtualMountPoint, 'tree-sitter-fish.wasm'), wasmContent),
-            );
-          }
-        } catch (error) {
-          logger.warning('Failed to read WASM file from virtual filesystem:', error);
         }
       }
 

@@ -7,7 +7,7 @@ import { documentationHoverProvider, enrichCommandWithFlags, enrichToMarkdown } 
 import { DocumentationCache } from './utils/documentation-cache';
 import { execCommandDocs, execCompletions, execSubCommandCompletions } from './utils/exec';
 import { findParent, findParentCommand, isCommand, isFunctionDefinition, isOption, isProgram, isVariableDefinitionName, isVariableExpansion, isVariableExpansionWithName } from './utils/node-types';
-import { findFirstParent } from './utils/tree-sitter';
+import { findFirstParent, nodeLogFormatter } from './utils/tree-sitter';
 import { symbolKindsFromNode, uriToPath } from './utils/translation';
 import { logger } from './logger';
 import { PrebuiltDocumentationMap } from './utils/snippets';
@@ -25,7 +25,12 @@ export async function handleHover(
     return await getHoverForFlag(current);
   }
   const local = analyzer.getDefinition(document, position);
-  logger.log({ handleHover: handleHover.name, symbol: local?.name, position, current });
+  logger.log({
+    handleHover: handleHover.name,
+    symbol: local?.name,
+    position,
+    current: nodeLogFormatter(current),
+  });
   if (local) {
     return {
       contents: local.toMarkupContent(),
@@ -50,7 +55,7 @@ export async function handleHover(
   const commandString = await collectCommandString(current);
 
   const result = await documentationHoverProvider(commandString);
-  logger.log({ commandString, result });
+  logger.log({ handleHover: 'handleHover()', commandString, result });
   return result;
 }
 

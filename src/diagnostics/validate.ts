@@ -1,94 +1,57 @@
 import { Diagnostic, DiagnosticRelatedInformation, Range } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
-import { getChildNodes, getRange } from '../utils/tree-sitter';
+import { getRange, nodesGen } from '../utils/tree-sitter';
 import { isMatchingOption, Option } from '../parsing/options';
-import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage, isDotSourceCommand, isMatchingAbbrFunction, isFunctionWithEventHookCallback, isVariableDefinitionWithExpansionCharacter, isPosixCommandInsteadOfFishCommand, getFishBuiltinEquivalentCommandName, getAutoloadedFunctionsWithoutDescription, isWrapperFunction } from './node-types';
+import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage, isDotSourceCommand, isMatchingAbbrFunction, isFunctionWithEventHookCallback, isVariableDefinitionWithExpansionCharacter, isPosixCommandInsteadOfFishCommand, getFishBuiltinEquivalentCommandName, getAutoloadedFunctionsWithoutDescription, isWrapperFunction /*isKnownCommand*/ } from './node-types';
 import { ErrorCodes } from './error-codes';
 import { config } from '../config';
 import { DiagnosticCommentsHandler } from './comments-handler';
 import { logger } from '../logger';
 import { isAutoloadedUriLoadsFunctionName, uriToReadablePath } from '../utils/translation';
 import { findParent, findParentCommand, isCommandName, isCommandWithName, isComment, isCompleteCommandName, isFunctionDefinitionName, isOption, isScope, isString, isTopLevelFunctionDefinition } from '../utils/node-types';
-import { isReservedKeyword } from '../utils/builtins';
+import { isBuiltin, isReservedKeyword } from '../utils/builtins';
 import { getNoExecuteDiagnostics } from './no-execute-diagnostic';
 import { checkForInvalidDiagnosticCodes } from './invalid-error-code';
 import { analyzer } from '../analyze';
 import { FishSymbol } from '../parsing/symbol';
 import { findUnreachableCode } from '../parsing/unreachable';
 import { allUnusedLocalReferences } from '../references';
+import { FishDiagnostic } from './types';
+import { FishCompletionItemKind } from '../utils/completion/types';
+import { server } from '../server';
 
-// Utilities related to building a documents Diagnostics.
-
-/**
- * Allow the node to be reachable from any Diagnostic
- */
-export interface FishDiagnostic extends Diagnostic {
-  data: {
-    node: SyntaxNode;
-    fromSymbol: boolean;
-  };
-}
-
-export namespace FishDiagnostic {
-  export function create(
-    code: ErrorCodes.CodeTypes,
-    node: SyntaxNode,
-    message: string = '',
-  ): FishDiagnostic {
-    const errorMessage = message && message.length > 0
-      ? ErrorCodes.codes[code].message + ' | ' + message
-      : ErrorCodes.codes[code].message;
-    return {
-      ...ErrorCodes.codes[code],
-      range: {
-        start: { line: node.startPosition.row, character: node.startPosition.column },
-        end: { line: node.endPosition.row, character: node.endPosition.column },
-      },
-      message: errorMessage,
-      data: {
-        node,
-        fromSymbol: false,
-      },
-    };
-  }
-
-  export function fromDiagnostic(diagnostic: Diagnostic): FishDiagnostic {
-    return {
-      ...diagnostic,
-      data: {
-        node: undefined as any,
-        fromSymbol: false,
-      },
-    };
-  }
-
-  export function fromSymbol(code: ErrorCodes.CodeTypes, symbol: FishSymbol): FishDiagnostic {
-    const diagnostic = create(code, symbol.focusedNode);
-    if (code === ErrorCodes.unusedLocalDefinition) {
-      const localSymbolType = symbol.isVariable() ? 'variable' : 'function';
-      diagnostic.message += ` ${localSymbolType} '${symbol.name}' is defined but never used.`;
-    }
-    diagnostic.range = symbol.selectionRange;
-    diagnostic.data.fromSymbol = true;
-    return diagnostic;
-  }
-}
+// Number of nodes to process before yielding to event loop
+const CHUNK_SIZE = 100;
 
 /**
- * Handle building the diagnostics for the document passed in.
- * This will also handle any comment that might disable/enable certain diagnostics per range
+ * Async version of getDiagnostics that yields to the event loop periodically
+ * to avoid blocking the main thread during diagnostic calculation.
+ *
+ * This function has identical behavior to getDiagnostics(), but processes
+ * nodes in chunks and yields between chunks using setImmediate().
+ *
+ * @param root - The root syntax node of the document
+ * @param doc - The LspDocument being analyzed
+ * @param signal - Optional AbortSignal to cancel the computation
+ * @param maxDiagnostics - Optional limit on number of diagnostics to return (0 = unlimited)
+ * @returns Promise resolving to array of diagnostics
  */
-export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
+export async function getDiagnosticsAsync(
+  root: SyntaxNode,
+  doc: LspDocument,
+  signal?: AbortSignal,
+  maxDiagnostics: number = config.fish_lsp_max_diagnostics,
+): Promise<Diagnostic[]> {
   const diagnostics: Diagnostic[] = [];
+
+  // Helper to check if we've hit the diagnostic limit
+  const hasReachedLimit = () => maxDiagnostics > 0 && diagnostics.length >= maxDiagnostics;
 
   const handler = new DiagnosticCommentsHandler();
   const isAutoloadedFunctionName = isAutoloadedUriLoadsFunctionName(doc);
 
   const docType = doc.getAutoloadType();
-
-  // ensure the document is analyzed
-  // analyzer.ensureCachedDocument(doc);
 
   // arrays to keep track of different groups of functions
   const allFunctions: FishSymbol[] = analyzer.getFlatDocumentSymbols(doc.uri).filter(s => s.isFunction());
@@ -103,13 +66,24 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
 
   // handles and returns true/false if the node is a variable definition with an expansion character
   const definedVariables: { [name: string]: SyntaxNode[]; } = {};
-  // const isVariableDefinitionExpansions = handleVariableDefinitionWithExpansionCharacter(definedVariables, handler)
 
   // callback to check if the function has an `--event` handler && the handler is enabled at the node
   const isFunctionWithEventHook = isFunctionWithEventHookCallback(doc, handler, allFunctions);
 
-  // compute in single pass
-  for (const node of getChildNodes(root)) {
+  // Process nodes in chunks to avoid blocking the main thread
+  // Using generator for better memory efficiency
+  let i = 0;
+  for (const node of nodesGen(root)) {
+    // Check if computation was cancelled
+    if (signal?.aborted) {
+      throw new Error('Diagnostic computation cancelled');
+    }
+
+    // Early exit if we've hit the diagnostic limit
+    if (hasReachedLimit()) {
+      break;
+    }
+
     handler.handleNode(node);
 
     // Check for invalid diagnostic codes first
@@ -232,18 +206,34 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     }
 
     // skip comments and options
-    if (isComment(node) || isOption(node)) continue;
+    if (isComment(node) || isOption(node)) {
+      // Yield to event loop every CHUNK_SIZE iterations
+      if (++i % CHUNK_SIZE === 0) {
+        await new Promise(resolve => setImmediate(resolve));
+      }
+      continue;
+    }
 
     /** keep this section at end of loop iteration, because it uses continue */
     if (isCommandName(node)) commandNames.push(node);
 
     // get the parent and previous sibling, for the next checks
     const { parent, previousSibling } = node;
-    if (!parent || !previousSibling) continue;
+    if (!parent || !previousSibling) {
+      // Yield to event loop every CHUNK_SIZE iterations
+      if (++i % CHUNK_SIZE === 0) {
+        await new Promise(resolve => setImmediate(resolve));
+      }
+      continue;
+    }
 
     // skip if this is an abbr function, since we don't want to complete abbr functions
     if (isCommandWithName(parent, 'abbr') && isMatchingAbbrFunction(previousSibling)) {
       localFunctionCalls.push({ node, text: node.text });
+      // Yield to event loop every CHUNK_SIZE iterations
+      if (++i % CHUNK_SIZE === 0) {
+        await new Promise(resolve => setImmediate(resolve));
+      }
       continue;
     }
 
@@ -264,6 +254,10 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
         }
         localFunctionCalls.push({ node, text: subcommand.text });
       });
+      // Yield to event loop every CHUNK_SIZE iterations
+      if (++i % CHUNK_SIZE === 0) {
+        await new Promise(resolve => setImmediate(resolve));
+      }
       continue;
     }
 
@@ -271,7 +265,13 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     if (doc.isAutoloadedWithPotentialCompletions()) {
       if (isCompleteCommandName(node)) completeCommandNames.push(node);
       // skip if no parent command (note we already added commands above)
-      if (!isCommandWithName(parent, 'complete')) continue;
+      if (!isCommandWithName(parent, 'complete')) {
+        // Yield to event loop every CHUNK_SIZE iterations
+        if (++i % CHUNK_SIZE === 0) {
+          await new Promise(resolve => setImmediate(resolve));
+        }
+        continue;
+      }
       // skip if no previous sibling (since we're looking for `complete -n/-a/-c <HERE>`)
       if (isMatchingCompleteOptionIsCommand(previousSibling)) {
         // if we find a string, remove unnecessary tokens from arguments
@@ -284,13 +284,33 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
               .replace(/[\(\)]/g, '')  // Remove parentheses
               .replace(/[^\u0020-\u007F]/g, ''), // Keep only ASCII printable chars
           });
+          // Yield to event loop every CHUNK_SIZE iterations
+          if (++i % CHUNK_SIZE === 0) {
+            await new Promise(resolve => setImmediate(resolve));
+          }
           continue;
         }
         // otherwise, just add the node as is (should just be an unquoted command)
         localFunctionCalls.push({ node, text: node.text });
       }
     }
+
+    // Yield to event loop every CHUNK_SIZE iterations
+    if (++i % CHUNK_SIZE === 0) {
+      await new Promise(resolve => setImmediate(resolve));
+    }
   }
+
+  // Check if computation was cancelled before post-processing
+  if (signal?.aborted) {
+    throw new Error('Diagnostic computation cancelled');
+  }
+
+  // Skip post-processing if we've already hit the diagnostic limit
+  if (hasReachedLimit()) {
+    return diagnostics;
+  }
+
   // allow nodes outside of the loop, to retrieve the old state
   handler.finalizeStateMap(root.text.split('\n').length + 1);
 
@@ -417,6 +437,94 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     for (const diagnostic of noExecuteDiagnostics) {
       if (handler.isCodeEnabledAtNode(ErrorCodes.syntaxError, diagnostic.data.node)) {
         diagnostics.push(diagnostic);
+      }
+    }
+  }
+
+  // 7001 -> unknown command
+  if (handler.isCodeEnabled(ErrorCodes.unknownCommand)) {
+    // Cache expensive lookups that are reused for every command
+    const knownCommandsCache = new Set<string>();
+    const unknownCommandsCache = new Set<string>();
+
+    // Pre-compute expensive lookups once
+    const localSymbols = analyzer.getFlatDocumentSymbols(doc.uri);
+    const localFunctionNames = new Set(localSymbols.filter(s => s.isFunction()).map(s => s.name));
+    const allAccessibleSymbols = analyzer.allSymbolsAccessibleAtPosition(doc, { line: 0, character: 0 });
+    const accessibleFunctionNames = new Set(allAccessibleSymbols.filter(s => s.isFunction()).map(s => s.name));
+
+    // Pre-load completion cache if available
+    let commandCompletions: Set<string> | null = null;
+    if (server) {
+      const completions = server.completions;
+      const commandCompletionList = completions.allOfKinds(
+        FishCompletionItemKind.COMMAND,
+        FishCompletionItemKind.FUNCTION,
+        FishCompletionItemKind.BUILTIN,
+        FishCompletionItemKind.ALIAS,
+      );
+      commandCompletions = new Set(commandCompletionList.map(c => c.label));
+    }
+
+    for (const commandNode of commandNames) {
+      const commandName = commandNode.text.trim();
+
+      // Skip empty commands or commands that are already errors
+      if (!commandName || commandNode.isError) {
+        continue;
+      }
+
+      // Check cache first
+      if (knownCommandsCache.has(commandName)) {
+        continue;
+      }
+      if (unknownCommandsCache.has(commandName)) {
+        if (handler.isCodeEnabledAtNode(ErrorCodes.unknownCommand, commandNode)) {
+          diagnostics.push(
+            FishDiagnostic.create(
+              ErrorCodes.unknownCommand,
+              commandNode,
+              `'${commandName}' is not a known builtin, function, or command`,
+            ),
+          );
+        }
+        continue;
+      }
+
+      // Check if command is known (using cached data)
+      let isKnown = false;
+
+      // Check builtins (fast)
+      if (isBuiltin(commandName)) {
+        isKnown = true;
+      } else if (localFunctionNames.has(commandName)) {
+        // Check local functions (cached)
+        isKnown = true;
+      } else if (accessibleFunctionNames.has(commandName)) {
+        // Check accessible functions (cached)
+        isKnown = true;
+      } else if (analyzer.globalSymbols.find(commandName).length > 0) {
+        // Check global symbols
+        isKnown = true;
+      } else if (commandCompletions && commandCompletions.has(commandName)) {
+        // Check completion cache (cached)
+        isKnown = true;
+      }
+
+      // Update cache
+      if (isKnown) {
+        knownCommandsCache.add(commandName);
+      } else {
+        unknownCommandsCache.add(commandName);
+        if (handler.isCodeEnabledAtNode(ErrorCodes.unknownCommand, commandNode)) {
+          diagnostics.push(
+            FishDiagnostic.create(
+              ErrorCodes.unknownCommand,
+              commandNode,
+              `'${commandName}' is not a known builtin, function, or command`,
+            ),
+          );
+        }
       }
     }
   }

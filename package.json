@@ -3,7 +3,7 @@
   "author": "ndonfris",
   "license": "MIT",
   "name": "fish-lsp",
-  "version": "1.1.1-pre.2",
+  "version": "1.1.1-pre.7",
   "description": "LSP implementation for fish/fish-shell",
   "keywords": [
     "lsp",
@@ -32,7 +32,6 @@
     "dist/fish-lsp",
     "dist/fish-lsp.map",
     "dist/fish-lsp.d.ts",
-    "scripts/build-time",
     "package.json",
     "man/fish-lsp.1",
     "README.md",
@@ -64,8 +63,8 @@
   "man": "man/fish-lsp.1",
   "scripts": {
     "prepare": "husky",
-    "postinstall": "run-s sh:build-time",
-    "prepack": "run-s --continue-on-error clean:build lint:check update-changelog generate:man generate:commands build:npm build:types sh:build-completions",
+    "prepack:pack": "run-s --continue-on-error clean:build lint:check update-changelog generate:man generate:commands build:npm build:types sh:build-completions",
+    "package": "yarn pack --filename fish-lsp.tgz",
     "build": "run-s -sn sh:build-time build:all sh:relink sh:build-completions",
     "build:watch": "run-s watch",
     "build:npm": "tsx scripts/build.ts --npm",
@@ -86,11 +85,11 @@
     "clean:build": "rimraf out lib dist bin .tsbuildinfo",
     "clean:packs": "rimraf *.tgz .tsbuildinfo",
     "clean:dev-completions": "fish ./scripts/dev-complete.fish --uninstall",
-    "test": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test vitest",
-    "test:run": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test vitest --run",
-    "test:coverage": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test vitest --coverage",
-    "test:coverage:ui": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test vitest --ui --open --coverage",
-    "test:coverage:run": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test vitest --coverage --run",
+    "test": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test USER=test_user vitest",
+    "test:run": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test USER=test_user vitest --run",
+    "test:coverage": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test USER=test_user vitest --coverage",
+    "test:coverage:ui": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test  USER=test_user vitest --ui --open --coverage",
+    "test:coverage:run": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test USER=test_user vitest --coverage --run",
     "publish-nightly": "fish ./scripts/publish-nightly.fish",
     "publish-and-release": "fish ./scripts/publish-and-release.fish",
     "refactor": "knip",
@@ -179,7 +178,7 @@
     ]
   },
   "dependencies": {
-    "@ndonfris/tree-sitter-fish": "^3.6.0-patch.0",
+    "@esdmr/tree-sitter-fish": "^3.6.0",
     "chalk": "^5.5.0",
     "commander": "^12.0.0",
     "deepmerge": "^4.3.1",
@@ -233,12 +232,15 @@
     "marked-man": "^1.3.5",
     "node-fetch": "^3.3.2",
     "pinst": "^3.0.0",
-    "rimraf": "^5.0.5",
+    "rimraf": "^6.1.2",
     "tsx": "^4.19.3",
     "typescript": "^5.8.3",
     "vite": "^7.1.3",
     "vite-plugin-wasm": "^3.5.0",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.2.4"
+  },
+  "peerDependencies": {
+    "glob": "11.1.0"
   }
 }

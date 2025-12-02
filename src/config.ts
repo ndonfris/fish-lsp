@@ -108,6 +108,9 @@ export const ConfigSchema = z.object({
   /** error code numbers to disable */
   fish_lsp_diagnostic_disable_error_codes: z.array(z.number()).default([]),
 
+  /** max number of diagnostics */
+  fish_lsp_max_diagnostics: z.number().default(0),
+
   /** fish lsp experimental diagnostics */
   fish_lsp_enable_experimental_diagnostics: z.boolean().default(false),
 
@@ -134,7 +137,7 @@ export const ConfigSchema = z.object({
   fish_lsp_max_background_files: z.number().default(10000),
 
   /** show startup analysis notification */
-  fish_lsp_show_client_popups: z.boolean().default(false),
+  fish_lsp_show_client_popups: z.boolean().default(true),
 
   /** single workspace support */
   fish_lsp_single_workspace_support: z.boolean().default(false),
@@ -147,9 +150,6 @@ export const ConfigSchema = z.object({
 
   /** path to fish executable for child processes */
   fish_lsp_fish_path: z.string().default('fish'),
-
-  /** semantic token handler mode: 'off', 'full', or 'mini' */
-  fish_lsp_semantic_handler_type: z.enum(['off', 'full', 'mini']).default('full'),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -167,6 +167,7 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_all_indexed_paths: process.env.fish_lsp_all_indexed_paths?.split(' '),
     fish_lsp_modifiable_paths: process.env.fish_lsp_modifiable_paths?.split(' '),
     fish_lsp_diagnostic_disable_error_codes: process.env.fish_lsp_diagnostic_disable_error_codes?.split(' ').map(toNumber).filter(n => !!n),
+    fish_lsp_max_diagnostics: toNumber(process.env.fish_lsp_max_diagnostics || '10'),
     fish_lsp_enable_experimental_diagnostics: toBoolean(process.env.fish_lsp_enable_experimental_diagnostics),
     fish_lsp_prefer_builtin_fish_commands: toBoolean(process.env.fish_lsp_prefer_builtin_fish_commands),
     fish_lsp_strict_conditional_command_warnings: toBoolean(process.env.fish_lsp_strict_conditional_command_warnings),
@@ -178,7 +179,6 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_ignore_paths: process.env.fish_lsp_ignore_paths?.split(' '),
     fish_lsp_max_workspace_depth: toNumber(process.env.fish_lsp_max_workspace_depth || '4'),
     fish_lsp_fish_path: process.env.fish_lsp_fish_path,
-    fish_lsp_semantic_handler_type: process.env.fish_lsp_semantic_handler_type as 'off' | 'full' | 'mini' | undefined,
   };
 
   const environmentVariablesUsed = Object.entries(rawConfig)
@@ -231,6 +231,45 @@ function buildOutput(confd: boolean, result: string[]) {
 }
 
 /**
+ * Transforms a fish-lsp env variable value from shell string to array
+ */
+export namespace EnvVariableTransformers {
+
+  /**
+   * convertValueToShellOutput - Converts a value to valid fish-shell code
+   * @param {Config.ConfigValueType} value - the value to convert
+   * @returns string - the converted value
+   */
+  export function convertValueToShellOutput(value: Config.ConfigValueType) {
+    if (!Array.isArray(value)) return escapeValue(value) + '\n';
+
+    // For arrays
+    if (value.length === 0) return '\n'; // empty array -> ''
+    return value.map(v => escapeValue(v)).join(' ') + '\n'; // escape and join array
+  }
+
+  export function getDefaultValueAsShellOutput(
+    key: Config.ConfigKeyType,
+    opts: { json: boolean; } = { json: false },
+  ) {
+    const value = Config.getDefaultValue(key);
+    if (opts.json) {
+      return JSON.stringify(value, null, 2);
+    }
+    return convertValueToShellOutput(value);
+  }
+
+  export function getEnvVariableJsonObject(
+    result: {[k in Config.ConfigKeyType]: Config.ConfigValueType},
+    key: Config.ConfigKeyType,
+    value?: Config.ConfigValueType,
+  ) {
+    result[key] = value ?? config[key];
+    return result;
+  }
+}
+
+/**
  * Handles building the output for the `fish-lsp env` command
  */
 export function handleEnvOutput(
@@ -267,7 +306,7 @@ export function handleEnvOutput(
   };
 
   // Gets the default value for an environment variable, from the zod schema
-  const getDefaultValueAsShellOutput = (key: Config.ConvigKeyType) => {
+  const getDefaultValueAsShellOutput = (key: Config.ConfigKeyType) => {
     const value = Config.getDefaultValue(key);
     if (opts.json) {
       return JSON.stringify(value, null, 2);
@@ -280,7 +319,7 @@ export function handleEnvOutput(
   const buildBasicLine = (
     entry: EnvVariableJson,
     command: EnvVariableCommand,
-    key: Config.ConvigKeyType,
+    key: Config.ConfigKeyType,
   ) => {
     if (!opts.comments) return `${command} ${key} `;
     return [
@@ -293,7 +332,7 @@ export function handleEnvOutput(
   const buildOutputSection = (
     entry: EnvVariableJson,
     command: EnvVariableCommand,
-    key: Config.ConvigKeyType,
+    key: Config.ConfigKeyType,
     value: Config.ConfigValueType,
   ) => {
     let line = buildBasicLine(entry, command, key);
@@ -474,7 +513,7 @@ export namespace Config {
   }
 
   export type ConfigValueType = string | number | boolean | string[] | number[]; // Config[keyof Config] | string[] | number[];
-  export type ConvigKeyType = keyof Config;
+  export type ConfigKeyType = keyof Config;
 
   export function getDefaultValue(key: keyof Config): Config[keyof Config] {
     const defaults = ConfigSchema.parse({});

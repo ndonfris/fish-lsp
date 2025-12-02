@@ -1,8 +1,8 @@
 import * as LSP from 'vscode-languageserver';
 import { DocumentUri, Hover, Location, Position, SymbolKind, URI, WorkDoneProgressReporter, WorkspaceSymbol } from 'vscode-languageserver';
-import { dirname } from 'path';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode, Tree } from 'web-tree-sitter';
+import { dirname } from 'path';
 import { config } from './config';
 import { LspDocument } from './document';
 import { logger } from './logger';
@@ -21,9 +21,38 @@ import { Workspace } from './utils/workspace';
 import { workspaceManager } from './utils/workspace-manager';
 import { initializeParser } from './parser';
 import { connection } from './utils/startup';
-import { DiagnosticCache } from './diagnostics/cache';
+import { BufferedAsyncDiagnosticCache } from './diagnostics/buffered-async-cache';
 
+/*************************************************************/
+/*     ts-doc type imports for links to other files here     */
+/*************************************************************/
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import type { FishServer } from './server'; // @ts-ignore
+
+/*************************************************************/
+
+/**
+ * Type of AnalyzedDocument, either 'partial' or 'full'.
+ * - 'partial' documents do not have all properties computed,
+ * - 'full' documents have all properties computed.
+ *
+ * @see {@link AnalyzedDocument#isPartial()} check if the document is partially parsed.
+ * @see {@link AnalyzedDocument#isFull()} check if the document is fully parsed.
+ *
+ * @see {@link AnalyzedDocument#ensureParsed()} convert any partial documents to full ones and update {@link analyzer.cache}.
+ */
 export type AnalyzedDocumentType = 'partial' | 'full';
+
+/**
+ * Specialized type of AnalyzedDocument that guarantees all the properties
+ * are present so that consumers can avoid null checks once they have already
+ * ensured the document is fully analyzed.
+ *
+ * This type will be returned from the `AnalyzedDocument.ensureParsed()` method,
+ * which makes sure any partial documents are fully computed and updated.
+ * @see {@link AnalyzedDocument#ensureParsed()}
+ */
 export type EnsuredAnalyzeDocument = Required<AnalyzedDocument> & { root: SyntaxNode; tree: Tree; type: 'full'; };
 
 /**
@@ -41,6 +70,22 @@ export type EnsuredAnalyzeDocument = Required<AnalyzedDocument> & { root: Syntax
  * Use the AnalyzeDocument namespace to create `AnalyzedDocument` items.
  */
 export class AnalyzedDocument {
+  /**
+   * private constructor to enforce the use of static creation methods.
+   * @see {@link AnalyzedDocument.create()} for usage.
+   *
+   * @param document The LspDocument that was analyzed.
+   * @param documentSymbols A nested array of FishSymbols, representing the symbols in the document.
+   * @param flatSymbols A flat array of FishSymbols, representing all symbols in the document.
+   * @param tree A tree that has been parsed by web-tree-sitter
+   * @param root root node of a SyntaxTree
+   * @param commandNodes A flat array of every command used in this document
+   * @param sourceNodes All the `source some_file_path` nodes in a document, scoping is not considered.
+   * However, the nodes can be filtered to consider scoping at a later time.
+   * @param type If the document has been fully analyzed, or only partially.
+   *
+   * @returns An instance of AnalyzedDocument.
+   */
   private constructor(
     /**
      * The LspDocument that was analyzed.
@@ -50,6 +95,12 @@ export class AnalyzedDocument {
      * A nested array of FishSymbols, representing the symbols in the document.
      */
     public documentSymbols: FishSymbol[] = [],
+
+    /**
+     * A flat array of FishSymbols, representing all symbols in the document.
+     */
+    public flatSymbols: FishSymbol[] = [],
+
     /**
      * A tree that has been parsed by web-tree-sitter
      */
@@ -75,9 +126,25 @@ export class AnalyzedDocument {
     if (tree) this.root = tree.rootNode || undefined;
   }
 
-  public static create(
+  /**
+   * Static method to create an AnalyzedDocument. If passed a tree, it will
+   * be considered a fully parsed document. Otherwise, it will be considered a partial document.
+   *
+   * @see {@link AnalyzedDocument.createFull()} {@link AnalyzedDocument.createPartial()}
+   *
+   * @param document The LspDocument that was analyzed.
+   * @param documentSymbols A nested array of FishSymbols, representing the symbols in the document.
+   * @param tree A tree that has been parsed by web-tree-sitter
+   * @param root root node of a SyntaxTree
+   * @param commandNodes A flat array of every command used in this document
+   * @param sourceNodes All the `source some_file_path` nodes in a document, scoping is not considered.
+   *
+   * @returns An instance of AnalyzedDocument returned from createdFull() or createdPartial().
+   */
+  private static create(
     document: LspDocument,
     documentSymbols: FishSymbol[] = [],
+    flatSymbols: FishSymbol[] = [],
     tree: Parser.Tree | undefined = undefined,
     root: Parser.SyntaxNode | undefined = undefined,
     commandNodes: SyntaxNode[] = [],
@@ -86,6 +153,7 @@ export class AnalyzedDocument {
     return new AnalyzedDocument(
       document,
       documentSymbols,
+      flatSymbols,
       tree,
       root || tree?.rootNode,
       commandNodes,
@@ -94,6 +162,18 @@ export class AnalyzedDocument {
     );
   }
 
+  /**
+   * Static method to create a fully parsed AnalyzedDocument.
+   * Extracts both the commandNodes and sourceNodes from the tree provided.
+   *
+   * @see {@link AnalyzedDocument.create()} which handles initialization internally.
+   *
+   * @param document The LspDocument that was analyzed.
+   * @param documentSymbols A nested array of FishSymbols, representing the symbols in the document.
+   * @param tree A tree that has been parsed by web-tree-sitter
+   *
+   * @returns An instance of AnalyzedDocument, with all properties populated.
+   */
   public static createFull(
     document: LspDocument,
     documentSymbols: FishSymbol[],
@@ -108,6 +188,7 @@ export class AnalyzedDocument {
     return new AnalyzedDocument(
       document,
       documentSymbols,
+      flattenNested(...documentSymbols),
       tree,
       tree.rootNode,
       commandNodes,
@@ -116,14 +197,39 @@ export class AnalyzedDocument {
     );
   }
 
+  /**
+   * Static method to create a partially parsed AnalyzedDocument. Partial documents
+   * do not compute any expensive properties such as documentSymbols, commandNodes, or sourceNodes.
+   *
+   * This saves significant time during initial workspace analysis, especially for large workspaces
+   * by assuming certain documents (such as those in completions directories) do not contain
+   * global `FishSymbol[]` definitions. We can then lazily compute partial documents
+   * by checking if opened/changed documents had references to lazily loaded documents.
+   *
+   * @see {@link AnalyzedDocument.create()} which handles initialization internally.
+   * @see {@link AnalyzedDocument#ensureParsed()} to fully parse a partial document when needed.
+   *
+   * @param document The LspDocument that was analyzed.
+   *
+   * @returns An instance of AnalyzedDocument, with only the document property populated.
+   */
   public static createPartial(document: LspDocument): AnalyzedDocument {
     return AnalyzedDocument.create(document);
   }
 
+  /**
+   * Check if the AnalyzedDocument is partial (not fully parsed).
+   * @see {@link AnalyzedDocument#ensureParsed()} which will convert a partial document to a full one.
+   * @returns {boolean} True if the AnalyzedDocument is partial, false otherwise.
+   */
   public isPartial(): boolean {
     return this.type === 'partial';
   }
 
+  /**
+   * Check if the AnalyzedDocument is fully parsed.
+   * @returns {boolean} True if the AnalyzedDocument is full, false otherwise.
+   */
   public isFull(): boolean {
     return this.type === 'full';
   }
@@ -133,6 +239,7 @@ export class AnalyzedDocument {
       const fullDocument = analyzer.analyze(this.document);
       // Update this instance's properties in-place
       this.documentSymbols = fullDocument.documentSymbols;
+      this.flatSymbols = fullDocument.flatSymbols;
       this.tree = fullDocument.tree;
       this.root = fullDocument.root;
       this.commandNodes = fullDocument.commandNodes;
@@ -189,21 +296,55 @@ export class Analyzer {
 
   public started = false;
 
-  public diagnostics: DiagnosticCache = new DiagnosticCache();
+  public diagnostics: BufferedAsyncDiagnosticCache = new BufferedAsyncDiagnosticCache();
 
   constructor(public parser: Parser) { }
 
   /**
-   * The method that is used to instantiate the singleton `analyzer`, to avoid
+   * The method that is used to instantiate the **singleton** {@link analyzer}, to avoid
    * dependency injecting the analyzer in every utility that might need it.
    *
    * This method can be called during the `connection.onInitialize()` in the server,
-   * or `beforeAll()` in a test-suite.
+   * or {@link https://vitest.dev/ | vite.beforeAll()} in a test-suite.
    *
-   * It is okay to use the analyzer returned for testing purposes, however for
-   * consistency throughout source code, please use the exported `analyzer` variable.
+   * @example
+   * ```typescript
+   * // file: ./tests/some-test-file.test.ts
+   * import { Analyzer, analyzer } from '../src/analyze';
+   *
+   * // Initialize the `analyzer` singleton through the `Analyzer.initialize()`
+   * // method to make it available throughout testing. This helps keep tests
+   * // consistent with the analysis functionality used throughout entire server.
+   *
+   * describe('test suite', () => {
+   *     // Make sure the analyzer is initialized before any tests run
+   *      beforeAll(async () => {
+   *          await Analyzer.initialize();
+   *          // analyzer.parser exists if needed
+   *          // we can also use analyzer anywhere now in the test file
+   *      });
+   *      it('test 1', () => {
+   *          const result1 = analyzer.analyzePath('/path/to/file.fish');
+   *          const result2 = analyzer.analyze(result1.document);
+   *          expect(result1.document.uri).toBe(result2.document.uri);
+   *      });
+   *      it('test 2', () => {
+   *          const tree = analyzer.parser.parse('fish --help')
+   *          const { rootNode } = tree;
+   *          expect(rootNode).toBeDefined();
+   *      });
+   *      // ...
+   * });
+   * ```
+   *
+   * ___
+   *
+   * It is okay to use the {@link Analyzer} returned for testing purposes, however for
+   * consistency throughout source code, please use the exported {@link analyzer} variable.
+   *
+   * @returns Promise<Analyzer> The initialized Analyzer instance (recommended to directly import {@link analyzer}).
    */
-  static async initialize(): Promise<Analyzer> {
+  public static async initialize(): Promise<Analyzer> {
     const parser = await initializeParser();
     analyzer = new Analyzer(parser);
     analyzer.started = true;
@@ -214,8 +355,9 @@ export class Analyzer {
    * Perform full analysis on a LspDocument to build a AnalyzedDocument containing
    * useful information about the document. It will also add the information to both
    * the cache of AnalyzedDocuments and the global symbols cache.
-   * @param document The LspDocument to analyze.
-   * @returns An AnalyzedDocument object.
+   *
+   * @param document The {@link LspDocument} to analyze.
+   * @returns An {@linkcode AnalyzedDocument} object.
    */
   public analyze(document: LspDocument): AnalyzedDocument {
     const analyzedDocument = this.getAnalyzedDocument(document);
@@ -240,9 +382,13 @@ export class Analyzer {
   }
 
   /**
-   * Take a path to a file and turns it into a LspDocument, to then be analyzed
+   * @summary
+   * Takes a path to a file and turns it into a LspDocument, to then be analyzed
    * and cached. This is useful for testing purposes, or for the rare occasion that
    * we need to analyze a file that is not yet a LspDocument.
+   *
+   * @param filepath The local machine's path to the document that needs resolution
+   * @returns AnalyzedDocument {@link @AnalyzedDocument} or undefined if the file could not be found.
    */
   public analyzePath(rawFilePath: string): AnalyzedDocument | undefined {
     const path = uriToPath(rawFilePath);
@@ -255,14 +401,24 @@ export class Analyzer {
   }
 
   /**
+   * @public
    * Use on documents where we can assume the document nodes aren't important.
    * This could mainly be summarized as any file in `$fish_complete_path/*.fish`
    * This greatly reduces the time it takes for huge workspaces to be analyzed,
    * by only retrieving the bare minimum of information required from completion
    * documents. Since completion documents are fully parsed, only once a request
-   * is made that requires a completion document, we are able to avoid building their
-   * document symbols here. Conversely, this means that if we were to use this method
-   * instead of the
+   * is made that requires a completion document, we are able to avoid building
+   * their document symbols here. Conversely, this means that if we were to use
+   * this method instead of the full `analyze()` method, any requests that need
+   * symbols from the document will not be able to retrieve them.
+   *
+   * @see {@link AnalyzedDocument#ensureParsed()} convert a partial document to a full one
+   * and update the {@link analyzer.cache} with the newly computed full document.
+   *
+   * @param document The {@link LspDocument} to analyze.
+   * @returns partial result of {@link AnalyzedDocument.createPartial()} with no computed
+   *          properties set, which we use {@link FishServer#didChangeTextDocument()}
+   *          to later ensure any reachable symbols are computed local to the open document.
    */
   public analyzePartial(document: LspDocument): AnalyzedDocument {
     const analyzedDocument = AnalyzedDocument.createPartial(document);
@@ -271,12 +427,18 @@ export class Analyzer {
   }
 
   /**
-   * Helper method to get the AnalyzedDocument.
-   * Retrieves the parsed AST from tree-sitter's parser, processes the DocumentSymbols,
-   * stores the commands used in the document, and collects all the sourced command
-   * SyntaxNode's that might contain a sourced file.
-   * @param LspDocument The LspDocument to analyze.
-   * @returns An AnalyzedDocument object.
+   * @private
+   *
+   * Helper method to get the AnalyzedDocument. Retrieves the parsed
+   * AST from {@link https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_web | web-tree-sitter's} {@link Parser},
+   *
+   * - processes the {@link DocumentSymbol},
+   * - stores the commands used in the document,
+   * - collects all the sourced command {@link SyntaxNode}'s arguments
+   *   **(potential file paths)**
+   *
+   * @param LspDocument The {@link LspDocument} to analyze.
+   * @returns An {@link AnalyzedDocument} object.
    */
   private getAnalyzedDocument(document: LspDocument): AnalyzedDocument {
     const tree = this.parser.parse(document.getText());
@@ -287,7 +449,12 @@ export class Analyzer {
   /**
    * Analyze a workspace and all its documents.
    * Documents that are already analyzed will be skipped.
-   * For documents that are autoloaded completions, we
+   * For documents that are autoloaded completions, we only perform a partial analysis.
+   * This method also reports progress to the provided WorkDoneProgressReporter.
+   *
+   * @param workspace The workspace to analyze.
+   * @param progress Optional WorkDoneProgressReporter to report progress.
+   * @param callbackfn Optional callback function to report messages.
    */
   public async analyzeWorkspace(
     workspace: Workspace,
@@ -620,7 +787,9 @@ export class Analyzer {
 
   /**
    * Get the first definition of a position that we can find.
-   * Will first
+   * Will first retrieve {@link Analyzer#getDefinitionHelper()} to look for possible definitions.
+   * Symbols found are then handled based on their node type, to ensure we return the most relevant definition.
+   * If symbol exists, but doesn't match any of the special cases, we return the last symbol found.
    */
   public getDefinition(document: LspDocument, position: Position): FishSymbol | null {
     const symbols: FishSymbol[] = this.getDefinitionHelper(document, position);
@@ -688,9 +857,10 @@ export class Analyzer {
     }
     if (symbol) return [symbol.toLocation()];
 
-    // This is currently the only location where `config.fish_lsp_single_workspace_support` is used.
-    // It allows users to go-to-definition on commands that are not in the current workspace.
-    if (!config.fish_lsp_single_workspace_support && workspaceManager.current) {
+    // allow execCommandLocations to provide location for command when no other
+    // definition has been found. Previously, config.fish_lsp_single_workspace_support
+    // was used to prevent this case from being hit but now we always allow it.
+    if (workspaceManager.current) {
       const node = this.nodeAtPoint(document.uri, position.line, position.character);
       if (node && isCommandName(node)) {
         const text = node.text.toString();
@@ -804,6 +974,9 @@ export class Analyzer {
    * gets/finds the rootNode given a DocumentUri. if cached it will return the root from the cache,
    * Otherwise it will analyze the path and return the root node, which might not be possible if the path
    * is not readable or the file does not exist.
+   * @see {@link https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_web | web-tree-sitter's} {@link SyntaxNode}
+   * @param documentUri - the uri of the document to get the root node for
+   * @return {SyntaxNode | undefined} - the root node for the document, or undefined if the document is not in the cache
    */
   getRootNode(documentUri: string): SyntaxNode | undefined {
     if (this.cache.hasUri(documentUri)) {
@@ -880,11 +1053,11 @@ export class Analyzer {
   } {
     const document = this.cache.getDocument(documentUri)?.document;
     if (!document) {
-      return { nodes: (function*() { })(), namedNodes: (function*() { })() }; // Return an empty generator if the document is not found
+      return { nodes: (function* () { })(), namedNodes: (function* () { })() }; // Return an empty generator if the document is not found
     }
     const root = this.getRootNode(documentUri);
     if (!root) {
-      return { nodes: (function*() { })(), namedNodes: (function*() { })() }; // Return an empty generator if the root node is not found
+      return { nodes: (function* () { })(), namedNodes: (function* () { })() }; // Return an empty generator if the root node is not found
     }
     return {
       nodes: nodesGen(root),
@@ -912,15 +1085,6 @@ export class Analyzer {
       return [];
     }
     return getNamedChildNodes(this.parser.parse(document.getText()).rootNode);
-  }
-
-  /**
-   * Returns a list of all the diagnostics in the document (if the document is analyzed)
-   * @param documentUri - the uri of the document to get the diagnostics for
-   * @returns {Diagnostic[]} - an array of Diagnostic objects
-   */
-  public getDiagnostics(documentUri: string) {
-    return this.diagnostics.bindDiagnostics(documentUri);
   }
 
   /**
@@ -1188,12 +1352,17 @@ export class Analyzer {
 }
 
 /**
- * The cache for all of the analyzer's global FishSymbol's across all workspaces
+ * @local
+ * @class GlobalDefinitionCache
+ *
+ * @summary The cache for all of the analyzer's global FishSymbol's across all workspaces
  * analyzed.
  *
  * The enternal map uses the name of the symbol as the key, and the value is an array
  * of FishSymbol's that have the same name. This is because a symbol can be defined
  * multiple times in different scopes/workspaces, and we want to keep track of all of them.
+ *
+ * @see {@link analyzer.globalSymbols} the globally accessible location of this class
  */
 class GlobalDefinitionCache {
   constructor(private _definitions: Map<string, FishSymbol[]> = new Map()) { }
@@ -1253,7 +1422,12 @@ class GlobalDefinitionCache {
 }
 
 /**
- * The cache for all of the analyzed documents in the server.
+ * @local
+ *
+ * @summary The cache for all of the analyzed documents in the server.
+ *
+ * @see {@link analyzer.cache} the globally accessible location of this class
+ * inside our analyzer instance
  *
  * The internal map uses the uri of the document as the key, and the value is
  * the AnalyzedDocument object that contains:
@@ -1296,7 +1470,7 @@ class AnalyzedDocumentCache {
     return [];
   }
   getFlatDocumentSymbols(uri: URI): FishSymbol[] {
-    return flattenNested<FishSymbol>(...this.getDocumentSymbols(uri));
+    return this._documents.get(uri)?.flatSymbols || [];
   }
   getCommands(uri: URI): SyntaxNode[] {
     const doc = this._documents.get(uri);

@@ -88,20 +88,10 @@ const pipeline = new BuildPipeline()
   .register({
     name: 'Build Time',
     priority: 5,
-    tags: ['all', 'dev', 'setup', 'binary', 'npm', 'types', 'lint'],
+    tags: ['all', 'dev', 'binary', 'npm', 'types', 'lint'],
     timing: true,
     runner: async () => {
       execSync('node ./scripts/build-time', { stdio: 'inherit' });
-    },
-  })
-  .register({
-    name: 'Setup Files',
-    priority: 10,
-    tags: ['all', 'dev', 'setup', 'npm', 'types', 'tests', 'binary', 'lint'],
-    timing: true,
-    runner: async () => {
-      const { buildSetup } = await import('./tasks');
-      buildSetup();
     },
   })
   .register({

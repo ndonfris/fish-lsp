@@ -1,6 +1,9 @@
 import { spawnSync, SpawnSyncOptionsWithStringEncoding } from 'child_process';
 
 export const BuiltInList = [
+  '!',
+  '.',
+  ':',
   '[',
   '_',
   'abbr',
@@ -31,6 +34,8 @@ export const BuiltInList = [
   'exit',
   'false',
   'fg',
+  'fish_indent',
+  'fish_key_reader',
   'for',
   'function',
   'functions',
@@ -122,7 +127,7 @@ export function isReservedKeyword(word: string): boolean {
  */
 export function findShell() {
   const result = spawnSync('which fish', { shell: true, stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf-8' });
-  return result.stdout.toString().trim();
+  return result.stdout?.toString().trim() || 'fish';
 }
 const fishShell = findShell();
 
@@ -132,17 +137,24 @@ const spawnOpts: SpawnSyncOptionsWithStringEncoding = {
   encoding: 'utf-8',
 };
 
+/**
+ * Helper function to safely execute fish commands and return output as lines.
+ * Returns an empty array if stdout is not available or command fails.
+ */
+function execFishCommand(command: string): string[] {
+  const result = spawnSync(command, spawnOpts);
+  return result.stdout?.toString().split('\n') || [];
+}
+
 function createFunctionNamesList() {
-  const result = spawnSync('functions --names | string split -n \'\\n\'', spawnOpts);
-  return result.stdout.toString().split('\n');
+  return execFishCommand('functions --names | string split -n \'\\n\'');
 }
 export const FunctionNamesList = createFunctionNamesList();
 export function isFunction(word: string): boolean {
   return FunctionNamesList.includes(word);
 }
 function createFunctionEventsList() {
-  const result = spawnSync('functions --handlers | string match -vr \'^Event \\w+\' | string split -n \'\\n\'', spawnOpts);
-  return result.stdout.toString().split('\n');
+  return execFishCommand('functions --handlers | string match -vr \'^Event \\w+\' | string split -n \'\\n\'');
 }
 
 /**
@@ -154,14 +166,12 @@ export function isEvent(word: string): boolean {
 }
 
 function createAbbrList() {
-  const { stdout } = spawnSync('abbr --show', spawnOpts);
-  return stdout.toString().split('\n');
+  return execFishCommand('abbr --show');
 }
 export const AbbrList = createAbbrList();
 
 function createGlobalVariableList() {
-  const { stdout } = spawnSync('set -n', spawnOpts);
-  return stdout.toString().split('\n');
+  return execFishCommand('set -n');
 }
 
 export const GlobalVariableList = createGlobalVariableList();

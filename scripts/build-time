@@ -84,15 +84,20 @@ const verbose = (...args) => flags.verbose && console.log(...args);
 const exit = (code = 0) => process.exit(flags.forceSuccess ? 0 : code);
 
 try {
-    const now = new Date();
-    const timestamp = new Date().toLocaleString(undefined, {dateStyle: 'short', timeStyle: 'medium'});
+    // Use SOURCE_DATE_EPOCH for reproducible builds (standard for Nix/nixpkgs)
+    // Falls back to current time if not set
+    const now = process.env.SOURCE_DATE_EPOCH
+        ? new Date(parseInt(process.env.SOURCE_DATE_EPOCH) * 1000)
+        : new Date();
+    const timestamp = now.toLocaleString(undefined, {dateStyle: 'short', timeStyle: 'medium'});
     const buildTimeData = {
         date: now.toDateString(),
         timestamp,
         isoTimestamp: now.toISOString(),
         unix: Math.floor(now.getTime() / 1000),
         version: process.env.npm_package_version || 'unknown',
-        nodeVersion: process.version
+        nodeVersion: process.version,
+        reproducible: !!process.env.SOURCE_DATE_EPOCH
     };
 
     const scriptDir = path.dirname(path.resolve(__filename));

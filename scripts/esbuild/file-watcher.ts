@@ -49,11 +49,10 @@ const showHelp = (currentMode?: BuildType) => {
   console.log(` * ${'[D]'.cyan}          - Normal rebuild (yarn build)`);
   console.log(` * ${'[N]'.yellow}          - Node rebuild (yarn dev --npm)`);
   console.log(` * ${'[B]'.blue}          - Binary-only rebuild (yarn dev --binary)`);
-  console.log(` * ${'[S]'.white}          - Setup-only rebuild (yarn dev --setup)`);
   console.log(` * ${'[L]'.yellow}          - Lint on change rebuild (yarn dev --lint)`);
   console.log(` * ${'[T]'.green}          - Test only rebuild (yarn test)`);
   console.log(` * ${'[Y]'.white}          - Types-only rebuild (yarn dev --types)`);
-  console.log(` * ${'[1-7]'.dim}        - Quick mode switch (1:build, 2:npm, 3:lint, 4:binary, 5:setup, 6:test, 7:types)`);
+  console.log(` * ${'[1-6]'.dim}        - Quick mode switch (1:build, 2:npm, 3:lint, 4:binary, 5:test, 6:types)`);
   console.log(` * ${'[Q|Ctrl+C]'.red}   - Quit watch mode`);
   console.log('');
   if (currentMode) {
@@ -71,8 +70,6 @@ const getModeDisplayName = (mode: BuildType): string => {
   switch (mode) {
     case 'dev':
       return 'Full Project (yarn build)';
-    case 'setup':
-      return 'Setup Files (yarn dev --setup)';
     case 'binary':
       return 'Binary Build (yarn dev --binary)';
     case 'npm':
@@ -99,7 +96,7 @@ const showKeysReminder = (currentMode?: BuildType) => {
 // Build Manager - Handles all build operations consistently
 // ============================================================================
 
-type BuildType = 'dev' | 'setup' | 'binary' | 'npm' | 'types' | 'all' | 'lint' | 'test';
+type BuildType = 'dev' | 'binary' | 'npm' | 'types' | 'all' | 'lint' | 'test';
 type BuildTrigger = 'file-change' | 'manual' | 'mode-switch';
 
 class BuildManager {
@@ -248,8 +245,6 @@ class BuildManager {
     switch (type) {
       case 'dev':
         return ['dev'];
-      case 'setup':
-        return ['dev', '--setup'];
       case 'binary':
         return ['dev', '--binary'];
       case 'npm':
@@ -277,8 +272,6 @@ class BuildManager {
         return 'NPM';
       case 'lint':
         return 'Lint';
-      case 'setup':
-        return 'Setup';
       case 'types':
         return 'Types';
       case 'test':
@@ -323,13 +316,6 @@ class FileWatcher {
 
     // Debug: test if patterns match any files
     console.log(logger.dim('Testing glob patterns:'));
-
-    // In 'setup' mode, ignore .d.ts files and setup-workspace.ts
-    if (this.buildManager.mode === 'setup') {
-      this.config.ignorePatterns.push('**/*.d.ts')
-      this.config.watchPaths.splice(this.config.watchPaths.indexOf('**/*.d.ts'), 1);
-      this.config.watchPaths.splice(this.config.watchPaths.indexOf('tests/setup-workspace.ts'), 1);
-    }
 
     // Resolve globs to actual file paths
     this.config.watchPaths.forEach(pattern => {
@@ -527,6 +513,7 @@ class KeyboardHandler {
       case '1':
       case 'd':
         await this.buildManager.runBuild('dev', 'mode-switch');
+        break;
 
       case '2':
       case 'n':
@@ -544,16 +531,11 @@ class KeyboardHandler {
         break;
 
       case '5':
-      case 's':
-        await this.buildManager.runBuild('setup', 'mode-switch');
-        break;
-
-      case '6':
       case 't':
         await this.buildManager.runBuild('test', 'mode-switch');
         break;
 
-      case '7':
+      case '6':
       case 'y':
         await this.buildManager.runBuild('types', 'mode-switch');
         break;
@@ -569,9 +551,8 @@ class KeyboardHandler {
     console.log('\t' + logger.dim('2. NPM Build (yarn dev --npm)'));
     console.log('\t' + logger.dim('3. Lint Fix (yarn lint:fix)'));
     console.log('\t' + logger.dim('4. Binary Build (yarn dev --binary)'));
-    console.log('\t' + logger.dim('5. Setup Files (yarn dev --setup)'));
-    console.log('\t' + logger.dim('6. Tests Build (yarn test:run)'));
-    console.log('\t' + logger.dim('7. Types Build (yarn dev --types)'));
+    console.log('\t' + logger.dim('5. Tests Build (yarn test:run)'));
+    console.log('\t' + logger.dim('6. Types Build (yarn dev --types)'));
     console.log('\n\t' + logger.dim('Current: ') + getModeDisplayName(this.buildManager.mode).bgBlue.black.b + '\n');
     console.log(logger.highlight('Enter number (1-7) or press any other key to cancel:'));
 
@@ -600,14 +581,10 @@ class KeyboardHandler {
           break;
 
         case '5':
-          newMode = 'setup';
-          break;
-
-        case '6':
           newMode = 'test';
           break;
 
-        case '7':
+        case '6':
           newMode = 'types';
           break;
 
@@ -690,7 +667,7 @@ export async function startFileWatcher(initialMode: BuildType = 'dev'): Promise<
       '**/*.tmp',
       '**/*.temp'
     ],
-    debounceMs: initialMode === 'setup' ? 3000 : 1000,
+    debounceMs: 1000,
   }, buildManager);
 
   const keyboardHandler = new KeyboardHandler(buildManager, fileWatcher);

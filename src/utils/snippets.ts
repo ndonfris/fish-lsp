@@ -1,4 +1,3 @@
-// import pagerHighlightVariablesJson from '../../snippets/pager_colors.json'
 import helperCommandsJson from '../snippets/helperCommands.json';
 import themeVariablesJson from '../snippets/syntaxHighlightingVariables.json';
 import statusNumbersJson from '../snippets/statusNumbers.json';
@@ -79,7 +78,7 @@ export namespace EnvVariableJson {
     return o.type === 'variable' && o.specialType === 'fishlsp' && o.exactMatchOptions !== undefined;
   }
 
-  const joinValueTypes = (valueType: ValueType): string => {
+  const joinValueTypes = (valueType: ValueType = []): string => {
     if (!Array.isArray(valueType)) {
       return String.raw`${valueType}`;
     }

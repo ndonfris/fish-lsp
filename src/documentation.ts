@@ -1,6 +1,6 @@
-import { Hover, MarkupContent, MarkupKind } from 'vscode-languageserver-protocol/node';
+import { dirname } from 'path';
 import { SyntaxNode } from 'web-tree-sitter';
-// import { hasPossibleSubCommand } from './utils/builtins';
+import { Hover, MarkupContent, MarkupKind } from 'vscode-languageserver-protocol/node';
 import { execCommandDocs, execCommandType, CompletionArguments, execCompleteSpace, execCompleteCmdArgs, documentCommandDescription, execExpandBraceExpansion } from './utils/exec';
 import { getChildNodes, getNodeText } from './utils/tree-sitter';
 import { md } from './utils/markdown-builder';
@@ -9,7 +9,6 @@ import { getExpandedSourcedFilenameNode } from './parsing/source';
 import { isCommand, isOption } from './utils/node-types';
 import { LspDocument } from './document';
 import { uriToPath } from './utils/translation';
-import { dirname } from 'path';
 
 export type markdownFiletypes = 'fish' | 'man';
 
@@ -112,10 +111,14 @@ export async function handleBraceExpansionHover(current: SyntaxNode): Promise<Ho
   if (expanded.trim() === '' || expanded.trim() === '1  |``|') {
     return null; // No expansion found, return null
   }
+  const isBraceExpansion = text.includes('{') && text.includes('}');
+  const headerLines = isBraceExpansion ? [
+    `${md.boldItalic('BRACE EXPANSION')} - ${md.italic('https://fishshell.com/docs/current/language.html#brace-expansion')}`,
+    md.separator(),
+  ] : [];
   return {
     contents: enrichToMarkdown([
-      `${md.boldItalic('BRACE EXPANSION')} - ${md.italic('https://fishshell.com/docs/current/language.html#brace-expansion')}`,
-      md.separator(),
+      ...headerLines,
       md.codeBlock('fish', current.text),
       md.separator(),
       md.codeBlock('markdown', expanded),

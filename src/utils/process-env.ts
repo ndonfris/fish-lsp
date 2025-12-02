@@ -3,7 +3,7 @@ import { existsSync } from 'fs';
 import { PrebuiltDocumentationMap } from './snippets';
 import { md } from './markdown-builder';
 import { env } from './env-manager';
-import { execEmbeddedFishFile } from './exec';
+import { ExecFishFiles } from './exec';
 
 export const autoloadedFishVariableNames = [
   '__fish_bin_dir',
@@ -29,7 +29,7 @@ export let hasAutoloadedFishVariables = false;
 export async function setupProcessEnvExecFile() {
   if (hasAutoloadedFishVariables) return autoloadedFishVariableNames;
   try {
-    const result = await execEmbeddedFishFile('get-fish-autoloaded-paths.fish');
+    const result = await ExecFishFiles.getFishAutoloadedPaths();
 
     if (result.stderr) {
       process.stderr.write(`[WARN] fish script stderr: ${result.stderr}\n`);

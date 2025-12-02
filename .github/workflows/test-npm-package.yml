@@ -1,0 +1,128 @@
+## Test that the built npm package can be successfully installed and works correctly
+## This workflow builds the package, packs it, installs it globally, and runs verification commands
+name: Test NPM Package Installation
+
+on:
+  workflow_dispatch:
+    inputs:
+      timestamp:
+        description: 'Build timestamp (for reproducible builds)'
+        required: false
+        default: ''
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'scripts/build.ts'
+      - '.github/workflows/test-npm-package.yml'
+
+jobs:
+  test-npm-package:
+    name: Test NPM Package (Node ${{ matrix.node-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+        node-version:
+          - '20'      # Minimum supported version
+          - '22'      # Current LTS
+          - 'latest'  # Latest stable
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install Fish Shell (v4.x)
+        uses: fish-actions/install-fish@v1.2.0
+
+      - name: Generate Timestamp if Not Provided
+        id: timestamp
+        run: |
+          if [ -z "${{ github.event.inputs.timestamp }}" ]; then
+            echo "SOURCE_DATE_EPOCH=$(date +%s)" >> $GITHUB_ENV
+          else
+            echo "SOURCE_DATE_EPOCH=${{ github.event.inputs.timestamp }}" >> $GITHUB_ENV
+          fi
+
+      - name: Install Yarn
+        shell: fish {0}
+        run: npm install -g yarn@1.22.22
+
+      - name: Display Build Timestamp
+        shell: fish {0}
+        run: |
+          echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH"
+          echo "Human-readable: "(date -d @$SOURCE_DATE_EPOCH 2>/dev/null || date -r $SOURCE_DATE_EPOCH 2>/dev/null || echo "N/A")
+
+      - name: Install Dependencies
+        shell: fish {0}
+        run: yarn install
+
+      - name: Build for NPM
+        shell: fish {0}
+        run: yarn build:npm
+
+      - name: Pack the Package
+        shell: fish {0}
+        run: yarn package
+
+      - name: Upload Package Artifact
+        if: github.event_name != 'workflow_dispatch' || !env.ACT
+        uses: actions/upload-artifact@v4
+        with:
+          name: fish-lsp-package-node${{ matrix.node-version }}-${{ matrix.os }}
+          path: fish-lsp.tgz
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Install Package Globally
+        shell: fish {0}
+        run: |
+          set -l package_file (ls fish-lsp.tgz | head -n 1)
+          echo "Installing package: $package_file"
+          npm install -g $package_file
+
+      - name: Verify fish-lsp binary exists
+        run: which fish-lsp
+
+      - name: Test - fish-lsp --help
+        run: fish-lsp --help
+
+      - name: Test - fish-lsp --version
+        run: fish-lsp --version
+
+      - name: Test - fish-lsp info
+        run: fish-lsp info
+
+      - name: Test - fish-lsp info --build-time
+        run: fish-lsp info --build-time
+
+      - name: Test - fish-lsp info --path
+        run: fish-lsp info --path
+
+      - name: Test - fish-lsp env
+        run: fish-lsp env
+
+      - name: Test - fish-lsp info --time-startup
+        run: fish-lsp info --time-startup
+
+      - name: Test - fish-lsp complete
+        run: fish-lsp complete
+
+      - name: Test - fish-lsp start --dump
+        run: fish-lsp start --dump
+
+      - name: Cleanup - Uninstall Package
+        if: always()
+        run: npm uninstall -g fish-lsp

@@ -1,3 +1,39 @@
+# <small>1.1.1-pre.7 (2025-12-1)</small>
+
+* updated `get-docs.fish` to use `col -bx` ([cb98e1a](https://github.com/ndonfris/fish-lsp/pull/127/commits/cb98e1adcfe11590c35844645405ca6255257b62))
+* fix `$PATH/some_file` hover markup to correctly avoid showing `expand brace` documentation ([f8e14be](https://github.com/ndonfris/fish-lsp/pull/127/commits/f8e14bef06a286f86629bdde02f2e330b8ee6be7))
+* fix `src/utils/builtins.ts` error handling ([f8e14be](https://github.com/ndonfris/fish-lsp/pull/127/commits/f8e14bef06a286f86629bdde02f2e330b8ee6be7))
+* update `README.md` code blocks ([b50504f](https://github.com/ndonfris/fish-lsp/pull/127/commits/b50504f9188f14a959dbd3fe89a4c3f4b73532ed))
+* update `yarn.lock` deps ([a59dcc5](https://github.com/ndonfris/fish-lsp/pull/127/commits/a59dcc56e3bd1cab8cf1ee658c76bb0f6b514346))
+* update github workflow `test-npm-package.yml` ([f3235e8](https://github.com/ndonfris/fish-lsp/pull/127/commits/f3235e8c0fbf3345527441875dc3dd75f63d8976))
+
+
+## <small>1.1.1-pre.5 (2025-11-22)</small>
+
+* refactor: rename diagnostics/async-validate.ts --> diagnostics/validate.ts ([1419dc2](https://github.com/ndonfris/fish-lsp/commit/1419dc2))
+* chore: bump vite in the npm_and_yarn group across 1 directory (#117) ([e025970](https://github.com/ndonfris/fish-lsp/commit/e025970)), closes [#117](https://github.com/ndonfris/fish-lsp/issues/117)
+* chore(1.1.1-pre.5): bump for nightly release ([ccefbef](https://github.com/ndonfris/fish-lsp/commit/ccefbef))
+
+
+## <small>1.1.1-pre.3 (2025-11-18)</small>
+
+* fix: lints + bump 1.1.1-pre.3 ([f40ce9f](https://github.com/ndonfris/fish-lsp/commit/f40ce9f))
+* fix: race condition where `progress.report()` can be sent early to `async token` creation ([d6d6672](https://github.com/ndonfris/fish-lsp/commit/d6d6672))
+* feat: Add Semantic Tokens Support (#113) ([399dba7](https://github.com/ndonfris/fish-lsp/commit/399dba7)), closes [#113](https://github.com/ndonfris/fish-lsp/issues/113)
+* feat(src/analyze.ts): update fallback go-to-definition logic ([2f14670](https://github.com/ndonfris/fish-lsp/commit/2f14670))
+* feat(src/command.ts): `fish-lsp.showReferences` command opens all unopened reference uris ([63236de](https://github.com/ndonfris/fish-lsp/commit/63236de))
+* feat(src/utils/progress-notification.ts): hide `config.fish_lsp_show_client_popups` ([2383e46](https://github.com/ndonfris/fish-lsp/commit/2383e46))
+* fix(FishServer.onInitialized()): startup progress reporting in background process ([4ed8067](https://github.com/ndonfris/fish-lsp/commit/4ed8067))
+* revert(src/{server,utils/startup}.ts): use existing data from `server.onInitialized()` ([dd2fcd9](https://github.com/ndonfris/fish-lsp/commit/dd2fcd9))
+* perf(src/utils/startup.ts): `fish-lsp info --time-startup` matches normal server logs ([a8b8c66](https://github.com/ndonfris/fish-lsp/commit/a8b8c66))
+* refactor(src/command.ts): variadic parameter support for execute command handlers ([b934153](https://github.com/ndonfris/fish-lsp/commit/b934153))
+* refactor(src/diagnostics/*.ts): simplified diagnostics cache + `7001` unknown command ([d8aaa51](https://github.com/ndonfris/fish-lsp/commit/d8aaa51))
+* test(src/utils/file-operations.ts): added `SyncFileHelper.expandNormalize()` + 100% coverage ([5203269](https://github.com/ndonfris/fish-lsp/commit/5203269))
+* docs(src/cli.ts): remove deprecated `fish-lsp start --help` handlers ('logger', 'index') ([d648f5f](https://github.com/ndonfris/fish-lsp/commit/d648f5f))
+* chore: bump vite in the npm_and_yarn group across 1 directory (#117) ([e025970](https://github.com/ndonfris/fish-lsp/commit/e025970)), closes [#117](https://github.com/ndonfris/fish-lsp/issues/117)
+
+
+
 ## <small>1.1.1-pre.2 (2025-10-28)</small>
 
 * fix(src/semantic-tokens.ts): reuse def modifier on semantic token ([9d14620](https://github.com/ndonfris/fish-lsp/commit/9d14620))

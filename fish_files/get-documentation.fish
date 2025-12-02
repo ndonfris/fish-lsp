@@ -2,24 +2,23 @@
 
 ## commands like mkdir or touch should reach this point 
 function _flsp_get_command_without_manpage -d 'fallback for a command passed in without a manpage'
-    set -l completions_docs (fish -c "complete --do-complete='$argv -'")
-    #set -l cmd_hist (fish -c "history -p $argv -n 1")
-    if test -n ($completions_docs)
+    set -l completions_docs (complete --do-complete="$argv -")
+    if test -n "$completions_docs"
         echo -e "\t$argv Completions"
-        echo $completions_docs
-    else if test -n ( echo ($argv --help 2>> /dev/null ) )
-        echo "HISTORY FOR $argv"
-        history -p $argv -n 10 --show-time
+        echo $completions_docs[..10]
+    else if test -n "$($argv --help 2>> /dev/null)"
+        echo -e "\t$argv --help output"
+        $argv --help 2>> /dev/null
     else
         echo ''
     end
 end
 
 function _flsp_get_manpage -d 'for a command with a manpage'
-    man $argv | sed -r 's/^ {7}/ /' | tr -d '\b'
+    man $argv | command col
 end
 
-set -l type_result (type -t "$argv[1]" 2> /dev/null)
+set -l type_result (type -at "$argv[1]" 2> /dev/null)
 
 switch "$type_result"
 case "function"
@@ -30,7 +29,8 @@ case "function"
     end
 
 case "builtin"
-    man $argv | sed -r 's/^ {7}/ /' | tr -d '\b'
+    __fish_print_help $argv 2>/dev/null | command cat
+    return 0
 
 case "file"
     set -l bad_manpage ( man -a $argv 2> /dev/null )

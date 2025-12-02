@@ -7,7 +7,7 @@ import 'source-map-support/register';
 // This single file replaces the need for separate entry points and wrappers
 
 // Import polyfills for compatibility
-import './utils/array-polyfills';
+import './utils/polyfills';
 
 // Initialize virtual filesystem first (must be before any fs operations)
 import './virtual-fs';

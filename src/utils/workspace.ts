@@ -120,9 +120,25 @@ export async function initializeDefaultFishWorkspaces(...uris: string[]): Promis
   }).filter((ws): ws is FishUriWorkspace => ws !== null);
 
   const tmpConfigWorkspaces = FishUriWorkspace.initializeEnvWorkspaces();
-  const configWorkspaces = tmpConfigWorkspaces.filter(ws =>
+  let configWorkspaces = tmpConfigWorkspaces.filter(ws =>
     !newWorkspaces.some(newWs => newWs.uri === ws.uri),
   );
+
+  const singleWorkspaceModeEnabled = config.fish_lsp_single_workspace_support === true;
+
+  if (singleWorkspaceModeEnabled && newWorkspaces.length > 0) {
+    const activeWorkspacePaths = new Set(newWorkspaces.map(ws => ws.path));
+    const narrowedConfigWorkspaces = configWorkspaces.filter(ws => activeWorkspacePaths.has(ws.path));
+    if (narrowedConfigWorkspaces.length !== configWorkspaces.length) {
+      logger.info('initializeDefaultFishWorkspaces() narrowing indexed paths for single-workspace support', {
+        requestedWorkspaces: Array.from(activeWorkspacePaths),
+        droppedConfigWorkspaces: configWorkspaces
+          .filter(ws => !activeWorkspacePaths.has(ws.path))
+          .map(ws => ws.path),
+      });
+    }
+    configWorkspaces = narrowedConfigWorkspaces;
+  }
 
   // merge both arrays but keep the unique uris in the order they were passed in
   const allWorkspaces = [
@@ -527,6 +543,7 @@ export namespace FishUriWorkspace {
   export function initializeEnvWorkspaces(): FishUriWorkspace[] {
     // if (config.fish_lsp_single_workspace_support) return [];
     return config.fish_lsp_all_indexed_paths
+      .map(path => SyncFileHelper.expandEnvVars(path)) // Expand environment variables first
       .map(path => create(pathToUri(path)))
       .filter((ws): ws is FishUriWorkspace => ws !== null);
   }
