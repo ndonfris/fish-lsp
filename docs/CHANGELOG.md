@@ -1,3 +1,13 @@
+# <small>1.1.1-pre.7 (2025-12-1)</small>
+
+* updated `get-docs.fish` to use `col -bx` ([cb98e1a](https://github.com/ndonfris/fish-lsp/pull/127/commits/cb98e1adcfe11590c35844645405ca6255257b62))
+* fix `$PATH/some_file` hover markup to correctly avoid showing `expand brace` documentation ([f8e14be](https://github.com/ndonfris/fish-lsp/pull/127/commits/f8e14bef06a286f86629bdde02f2e330b8ee6be7))
+* fix `src/utils/builtins.ts` error handling ([f8e14be](https://github.com/ndonfris/fish-lsp/pull/127/commits/f8e14bef06a286f86629bdde02f2e330b8ee6be7))
+* update `README.md` code blocks ([b50504f](https://github.com/ndonfris/fish-lsp/pull/127/commits/b50504f9188f14a959dbd3fe89a4c3f4b73532ed))
+* update `yarn.lock` deps ([a59dcc5](https://github.com/ndonfris/fish-lsp/pull/127/commits/a59dcc56e3bd1cab8cf1ee658c76bb0f6b514346))
+* update github workflow `test-npm-package.yml` ([f3235e8](https://github.com/ndonfris/fish-lsp/pull/127/commits/f3235e8c0fbf3345527441875dc3dd75f63d8976))
+
+
 ## <small>1.1.1-pre.5 (2025-11-22)</small>
 
 * refactor: rename diagnostics/async-validate.ts --> diagnostics/validate.ts ([1419dc2](https://github.com/ndonfris/fish-lsp/commit/1419dc2))
@@ -8,7 +18,7 @@
 ## <small>1.1.1-pre.3 (2025-11-18)</small>
 
 * fix: lints + bump 1.1.1-pre.3 ([f40ce9f](https://github.com/ndonfris/fish-lsp/commit/f40ce9f))
-* fix: race condtion where `progress.report()` can be sent early to `async token` creation ([d6d6672](https://github.com/ndonfris/fish-lsp/commit/d6d6672))
+* fix: race condition where `progress.report()` can be sent early to `async token` creation ([d6d6672](https://github.com/ndonfris/fish-lsp/commit/d6d6672))
 * feat: Add Semantic Tokens Support (#113) ([399dba7](https://github.com/ndonfris/fish-lsp/commit/399dba7)), closes [#113](https://github.com/ndonfris/fish-lsp/issues/113)
 * feat(src/analyze.ts): update fallback go-to-definition logic ([2f14670](https://github.com/ndonfris/fish-lsp/commit/2f14670))
 * feat(src/command.ts): `fish-lsp.showReferences` command opens all unopened reference uris ([63236de](https://github.com/ndonfris/fish-lsp/commit/63236de))

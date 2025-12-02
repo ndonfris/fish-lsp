@@ -75,7 +75,7 @@ jobs:
 
       - name: Pack the Package
         shell: fish {0}
-        run: yarn pack --filename fish-lsp
+        run: yarn package
 
       - name: Upload Package Artifact
         if: github.event_name != 'workflow_dispatch' || !env.ACT
