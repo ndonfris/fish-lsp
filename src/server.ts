@@ -855,7 +855,7 @@ export default class FishServer {
 
     logger.log(`this.documentationCache.resolve() found ${!!globalItem}`, { docs: globalItem.docs });
     if (globalItem && globalItem.docs && allowsGlobalDocs) {
-      logger.log(globalItem.docs);
+      logger.log({ ...globalItem });
       return {
         contents: {
           kind: MarkupKind.Markdown,
@@ -870,7 +870,10 @@ export default class FishServer {
       current,
       this.documentationCache,
     );
-    logger.log(fallbackHover?.contents);
+    logger.log({
+      hover: { ...params },
+      ...fallbackHover,
+    });
     return fallbackHover;
   }
 

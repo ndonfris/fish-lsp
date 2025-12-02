@@ -55,7 +55,7 @@ export async function handleHover(
   const commandString = await collectCommandString(current);
 
   const result = await documentationHoverProvider(commandString);
-  logger.log({ commandString, result });
+  logger.log({ handleHover: 'handleHover()', commandString, result });
   return result;
 }
 

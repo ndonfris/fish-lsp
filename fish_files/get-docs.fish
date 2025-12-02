@@ -1,13 +1,15 @@
+#!/usr/bin/env fish
+
 # ┌───────┐
 # │ utils │
 # └───────┘
 function __handle_builtin -d 'Retrieve documentation for a fish builtin'
-    man $argv 2>/dev/null | command cat
+    man $argv 2>/dev/null | sed -r 's/^ {7}/ /' | col -bx
     # Alt Approach:
     #   >_ `__fish_print_help $argv 2>/dev/null | command cat`
 end
 function __handle_function -d 'Retrieve documentation for a fish function'
-    set output (functions -av $argv 2>/dev/null | command cat)
+    set output (functions -av $argv 2>/dev/null | col -bx)
     if test -n "$output"
         printf %s\n $output
         return 0
@@ -17,7 +19,7 @@ function __handle_function -d 'Retrieve documentation for a fish function'
     end
 end
 function __handle_command -d 'Retrieve documentation for a system command'
-    set output (man -a $argv 2>/dev/null | command cat)
+    set output (man -a $argv 2>/dev/null | sed -r 's/^ {7}/ /' | col -bx)
     if test -n "$output"
         printf %s\n $output
         return 0
@@ -98,36 +100,3 @@ end
 
 echo "ERROR: '$argv' is not a valid fish builtin, command or function" >&2
 return 1
-
-# if set -ql _flag_use_help
-#     if set -ql _flag_allow_help
-#         echo "ERROR: '--use-help' requires at least one of '--function', '--builtin', or '--command' to be specified" >&2
-#         return 1
-#     else
-#         return 0
-#     end
-# end
-#
-# if builtin -q $argv 
-#     __fish_print_help $argv 2>/dev/null | command cat
-# else if functions -aq $cmd
-#     set output (functions -av $cmd 2>/dev/null | command cat)
-#     if test -n "$output"
-#         echo $output
-#     else
-#         echo "ERROR(builtin): $argv doesn't have help documentation" >&2
-#         return 1
-#     end
-# else if command -aq $argv
-#     set output (man -a $argv 2>/dev/null | command cat)
-#     if test -n "$output"
-#         echo $output
-#     else
-#         echo "ERROR(man $argv): $argv doesn't have man page" >&2
-#         return 1
-#     end
-# else
-#     echo "ERROR: '$argv' is not a valid fish command or function" >&2
-#     return 1
-# end
-#

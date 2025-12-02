@@ -181,11 +181,15 @@ export async function getBuiltinDocString(name: string): Promise<string | undefi
   }
   const splitDocs = cmdDocs.split('\n');
   const startIndex = splitDocs.findIndex((line: string) => line.trim() === 'NAME');
+  const resultDocs =
+    splitDocs.slice(startIndex).length > 3
+      ? splitDocs.slice(startIndex).join('\n')
+      : splitDocs.join('\n');
   return [
     `__${name.toUpperCase()}__ - _https://fishshell.com/docs/current/cmds/${name.trim()}.html_`,
     '___',
     '```man',
-    splitDocs.slice(startIndex).join('\n'),
+    resultDocs,
     '```',
   ].join('\n');
 }
