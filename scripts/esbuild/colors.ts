@@ -73,7 +73,7 @@ export const logger = {
     const sizeColored = colorize(size, colors.yellow);
     const labelColored = colorize(label, colors.cyan);
     const pathColored = path ? colorize(path, colors.dim) : '';
-    return `${colorize('📦', colors.blue)} ${labelColored} size: ${sizeColored}${path ? ` (${pathColored})` : ''}`;
+    return `${colorize(' ', colors.blue)} ${labelColored} size: ${sizeColored}${path ? ` (${pathColored})` : ''}`;
   },
 
   // Progress indicators

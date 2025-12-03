@@ -120,9 +120,10 @@ const pipeline = new BuildPipeline()
     },
     postBuild: async () => {
       const config = buildConfigs.binary;
+      const { showDirectorySize } = await import('./utils');
       if (config.outfile) {
         makeExecutable(config.outfile);
-        showBuildStats(config.outfile, 'Universal Binary');
+        showDirectorySize('bin', 'bin/*');
       }
     },
   })
@@ -135,6 +136,10 @@ const pipeline = new BuildPipeline()
       const config = buildConfigs.npm;
       const buildOptions = createBuildOptions(config, args.production || args.minify, args.sourcemaps);
       await esbuild.build(buildOptions);
+    },
+    postBuild: async () => {
+      const { showDirectorySize } = await import('./utils');
+      showDirectorySize('dist', 'dist/*');
     },
   })
   .register({

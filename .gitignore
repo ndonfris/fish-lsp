@@ -35,6 +35,7 @@ release-assets
 tsconfig.types.json
 
 *.d.ts
+*.map
 temp-types
 tests/workspaces/*.snapshot
 temp-embedded-assets

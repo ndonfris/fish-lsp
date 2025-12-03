@@ -11,6 +11,7 @@ import { handleCLiDumpParseTree, handleCLiDumpSemanticTokens } from './utils/cli
 import PackageJSON from '@package';
 import chalk from 'chalk';
 import vfs from './virtual-fs';
+import FishServer from './server';
 
 /**
  *  creates local 'commandBin' used for commander.js
@@ -261,6 +262,9 @@ commandBin.command('info')
       if (args.sourceMaps) {
         exitCode = CommanderSubcommand.info.handleSourceMaps(args);
         shouldExit = true;
+        if (args.check) {
+          FishServer.throwError('Displaying error message from `fish-lsp info --source-maps --check`');
+        }
       }
       // normal info about the fish-lsp
       if (args.bin) {
@@ -423,7 +427,7 @@ commandBin.command('env')
           logger.logToStderr(`Valid variable names are:\n${Object.keys(Config.envDocs).join(', ')}`);
           process.exit(1);
         }
-        result += args.joined ? `${ name } ` : `${ name }\n`;
+        result += args.joined ? `${name} ` : `${name}\n`;
       });
       logger.logToStdout(result.trim());
       process.exit(0);

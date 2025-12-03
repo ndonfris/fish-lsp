@@ -1,3 +1,4 @@
+import './utils/polyfills';
 import * as LSP from 'vscode-languageserver';
 import { DocumentUri, Hover, Location, Position, SymbolKind, URI, WorkDoneProgressReporter, WorkspaceSymbol } from 'vscode-languageserver';
 import * as Parser from 'web-tree-sitter';
@@ -582,16 +583,18 @@ export class Analyzer {
   public findSymbols(
     callbackfn: (symbol: FishSymbol, doc?: LspDocument) => boolean,
   ): FishSymbol[] {
-    const symbols: FishSymbol[] = [];
+    const result: FishSymbol[] = [];
     for (const uri of this.getIterableUris()) {
       const document = this.cache.getDocument(uri)?.document;
-      const symbols = this.getFlatDocumentSymbols(document!.uri);
-      const newSymbols = symbols.filter(s => callbackfn(s, document));
-      if (newSymbols) {
-        symbols.push(...newSymbols);
+      if (!document) continue;
+
+      const docSymbols = this.getFlatDocumentSymbols(document.uri);
+      const newSymbols = docSymbols.filter(s => callbackfn(s, document));
+      if (newSymbols.length > 0) {
+        result.push(...newSymbols);
       }
     }
-    return symbols;
+    return result;
   }
 
   /**
@@ -605,7 +608,7 @@ export class Analyzer {
       const root = this.cache.getRootNode(uri);
       const document = this.cache.getDocument(uri)!.document;
       if (!root || !document) continue;
-      const node = getChildNodes(root).find((n) => callbackfn(n, document));
+      const node = nodesGen(root).find((n) => callbackfn(n, document));
       if (node) {
         return node;
       }
@@ -628,7 +631,7 @@ export class Analyzer {
       const root = this.cache.getRootNode(uri);
       const document = this.cache.getDocument(uri)?.document;
       if (!root || !document) continue;
-      const nodes = getChildNodes(root).filter((node) => callbackfn(node, document));
+      const nodes = nodesGen(root).filter((node) => callbackfn(node, document)).toArray();
       if (nodes.length > 0) {
         result.push({ uri: document.uri, nodes });
       }

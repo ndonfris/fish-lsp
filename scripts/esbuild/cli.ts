@@ -12,7 +12,7 @@ export interface BuildArgs {
   enhanced: boolean;
   fishWasm: boolean;
   typesOnly: boolean;
-  sourcemaps: 'optimized' | 'extended' | 'none' | 'special';
+  sourcemaps: 'optimized' | 'extended' | 'none' | 'special' | 'inline' | 'inline-optimized';
   specialSourceMaps: boolean;
 }
 
@@ -28,7 +28,7 @@ export function parseArgs(): BuildArgs {
     .option('-p, --production', 'Production build (minified, optimized sourcemaps)', false)
     .option('-c, --completions', 'Show shell completions for this command', false)
     .option('-m, --minify', 'Minify output', true)
-    .option('--sourcemaps <type>', 'Sourcemap type: optimized (default), extended (full debug), none, special (src-only)', 'optimized')
+    .option('--sourcemaps <type>', 'Sourcemap type: inline-optimized (default), optimized, extended (full debug), none, special (src-only), inline', 'inline-optimized')
     .option('--special-source-maps', 'Enable special sourcemap processing (src files only with content)', false)
     .option('--all', 'Build all targets: development, binary, npm, and web', false)
     .option('--binary, --bin', 'Create bundled binary in build/', false)
@@ -59,10 +59,10 @@ export function parseArgs(): BuildArgs {
   // else if (options.web || options.fishWasm) target = 'web';
 
   // Validate sourcemaps option
-  const validSourcemaps = ['optimized', 'extended', 'none', 'special'];
-  let sourcemaps = validSourcemaps.includes(options.sourcemaps) 
-    ? options.sourcemaps 
-    : 'optimized';
+  const validSourcemaps = ['optimized', 'extended', 'none', 'special', 'inline', 'inline-optimized'];
+  let sourcemaps = validSourcemaps.includes(options.sourcemaps)
+    ? options.sourcemaps
+    : 'inline-optimized';
   
   // Override sourcemaps if special flag is used
   if (options.specialSourceMaps) {
@@ -107,7 +107,7 @@ Options:
   --all               Build all targets: development, binary, npm
   --production, -p    Production build (minified, optimized sourcemaps)
   --minify, -m        Minify output
-  --sourcemaps <type> Sourcemap type: optimized (default), extended (full debug), none, special (src-only)
+  --sourcemaps <type> Sourcemap type: inline-optimized (default), optimized, extended (full debug), none, special (src-only), inline
   --special-source-maps Enable special sourcemap processing (src files only with content)
   --help, -h          Show this help message
 

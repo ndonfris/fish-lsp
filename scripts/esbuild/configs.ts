@@ -114,10 +114,13 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
   },
 };
 
-export function createBuildOptions(config: BuildConfig, production = false, sourcemapsMode: 'optimized' | 'extended' | 'none' | 'special' = 'optimized'): esbuild.BuildOptions {
+export function createBuildOptions(config: BuildConfig, production = false, sourcemapsMode: 'optimized' | 'extended' | 'none' | 'special' | 'inline' | 'inline-optimized' = 'inline-optimized'): esbuild.BuildOptions {
   // Configure sourcemaps based on mode
   const shouldGenerateSourceMaps = config.sourcemap !== false && sourcemapsMode !== 'none';
-  const sourcemapSetting = shouldGenerateSourceMaps ? 'external' : false;
+  const isInlineMode = sourcemapsMode === 'inline' || sourcemapsMode === 'inline-optimized';
+  const sourcemapSetting: esbuild.BuildOptions['sourcemap'] = shouldGenerateSourceMaps 
+    ? (isInlineMode ? 'inline' : 'external')
+    : false;
 
   return {
     entryPoints: config.bundle ? [config.entryPoint] : [config.entryPoint],
@@ -131,7 +134,7 @@ export function createBuildOptions(config: BuildConfig, production = false, sour
     ...(config.outfile ? { outfile: config.outfile } : { outdir: config.outdir }),
     minify: config.minify && production,
     sourcemap: sourcemapSetting,
-    sourcesContent: true, // Will be optimized by plugin based on environment
+    sourcesContent: sourcemapsMode !== 'inline-optimized', // Exclude sources for optimized inline mode
     keepNames: !production,
     treeShaking: config.bundle ? true : production,
     external: config.external,
@@ -144,10 +147,12 @@ export function createBuildOptions(config: BuildConfig, production = false, sour
     // mangleProps: false, // Don't mangle properties to avoid runtime overhead
     plugins: [
       ...createPlugins(config.internalPlugins),
-      // Always use the special sourcemap plugin for bundled builds
-      config.bundle 
+      // Always use the special sourcemap plugin for bundled builds (but skip for inline sourcemaps)
+      config.bundle && !isInlineMode
         ? createSpecialSourceMapPlugin({ preserveOnlySrcContent: true })
-        : createSourceMapOptimizationPlugin(sourcemapsMode === 'extended'), // Preserve source content for extended mode
+        : !isInlineMode
+          ? createSourceMapOptimizationPlugin(sourcemapsMode === 'extended')
+          : { name: 'no-sourcemap-plugin', setup() {} }, // Inline sourcemaps don't need post-processing
       ...(config.onBuildEnd ? [{
         name: 'build-end-hook',
         setup(build: esbuild.PluginBuild) {

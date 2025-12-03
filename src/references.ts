@@ -2,7 +2,7 @@ import { DocumentUri, Location, Position, Range, WorkDoneProgressReporter } from
 import { analyzer } from './analyze';
 import { LspDocument } from './document';
 import { findParentCommand, findParentFunction, isCommandName, isCommandWithName, isMatchingOption, isOption, isProgram, isString } from './utils/node-types';
-import { containsNode, getChildNodes, getRange } from './utils/tree-sitter';
+import { containsNode, getChildNodes, getRange, nodesGen } from './utils/tree-sitter';
 import { filterFirstPerScopeSymbol, FishSymbol } from './parsing/symbol';
 import { isMatchingOptionOrOptionValue, Option } from './parsing/options';
 import { logger } from './logger';
@@ -222,7 +222,7 @@ export function allUnusedLocalReferences(document: LspDocument): FishSymbol[] {
       logger.warning(`No root node found for document ${document.uri}`);
       continue;
     }
-    for (const node of getChildNodes(root)) {
+    for (const node of nodesGen(root)) {
       // skip nodes that are redefinitions of the symbol in the local scope
       if (localSymbols?.some(c => c.scopeContainsNode(node))) {
         continue;

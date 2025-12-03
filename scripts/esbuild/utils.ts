@@ -33,6 +33,27 @@ export function showBuildStats(filePath: string, label = 'Bundle'): void {
   }
 }
 
+export function showDirectorySize(dirPath: string, label?: string): void {
+  if (!existsSync(dirPath)) {
+    return;
+  }
+
+  const files = fs.readdirSync(dirPath);
+  let totalSize = 0;
+
+  for (const file of files) {
+    const filePath = `${dirPath}/${file}`;
+    const stats = statSync(filePath);
+    
+    if (stats.isFile()) {
+      totalSize += stats.size;
+    }
+  }
+
+  const displayLabel = label || dirPath;
+  console.log(logger.size(`${displayLabel} total`, formatBytes(totalSize)));
+}
+
 export function generateTypeDeclarations(): void {
   console.log(logger.info(' Generating TypeScript declarations...'));
   
@@ -48,7 +69,7 @@ export function generateTypeDeclarations(): void {
         "outDir": "temp-types",
         // Remove rootDir to avoid conflicts with path mapping
         "target": "es2018",
-        "lib": ["es2018", "es2019", "es2020", "es2021", "es2022", "es2023", "dom"],
+        "lib": ["es2018", "es2019", "es2020", "es2021", "es2022", "es2023", "esnext.iterator", "dom"],
         "module": "commonjs",
         "moduleResolution": "node",
         "esModuleInterop": true,
@@ -88,7 +109,7 @@ export function generateTypeDeclarations(): void {
         "emitDeclarationOnly": true,
         "outDir": "temp-types",
         "target": "es2018",
-        "lib": ["es2018", "es2019", "es2020", "es2021", "es2022", "es2023", "dom"],
+        "lib": ["es2018", "es2019", "es2020", "es2021", "es2022", "es2023", "esnext.iterator", "dom"],
         "module": "commonjs",
         "moduleResolution": "node",
         "esModuleInterop": true,

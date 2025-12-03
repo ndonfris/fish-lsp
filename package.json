@@ -30,7 +30,6 @@
   },
   "files": [
     "dist/fish-lsp",
-    "dist/fish-lsp.map",
     "dist/fish-lsp.d.ts",
     "package.json",
     "man/fish-lsp.1",
@@ -181,6 +180,7 @@
     "chalk": "^5.5.0",
     "commander": "^12.0.0",
     "deepmerge": "^4.3.1",
+    "es-iterator-helpers": "^1.2.1",
     "esbuild-wasm": "0.25.9",
     "fast-glob": "^3.3.2",
     "fs-extra": "^11.3.0",

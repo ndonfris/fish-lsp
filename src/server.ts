@@ -293,15 +293,8 @@ export default class FishServer {
     documents.listen(connection);
 
     documents.onDidOpen(async ({ document }) => {
-      const { uri, version, lineCount } = document;
-      const content = document.getText();
-      const truncated = content.length > 200 ? content.substring(0, 200) + '...' : content;
-      this.logParams('documents.onDidOpen', {
-        uri,
-        version,
-        content: truncated,
-        lineCount,
-      });
+      const { uri } = document;
+      this.logDocument('documents.onDidOpen', document);
       workspaceManager.handleOpenDocument(document);
       currentDocument = document;
       this.analyzeDocument(document);
@@ -318,21 +311,20 @@ export default class FishServer {
     });
 
     documents.onDidChangeContent(({ document }) => {
-      this.logParams('didChangeTextDocument', {
-        uri: document.uri,
-        version: document.version,
-        lastChangedSpan: document.lastChangedLineSpan,
-        diagnostics: { count: (analyzer.diagnostics.get(document.uri) || []).length },
-        diagnosticsInSpan: (analyzer.diagnostics.get(document.uri) || []).filter(d => {
-          return document.lastChangedLineSpan
-            ? rangeOverlapsLineSpan(d.range, document.lastChangedLineSpan)
-            : false;
-        }).map(d => ({
-          text: d.code,
-          line: d.range.start.line,
-          span: document.lastChangedLineSpan,
-        })),
-      });
+      this.logDocument('documents.didChangeTextDocument',
+        document,
+        {
+          diagnostics: { count: (analyzer.diagnostics.get(document.uri) || []).length },
+          diagnosticsInSpan: (analyzer.diagnostics.get(document.uri) || []).filter(d => {
+            return document.lastChangedLineSpan
+              ? rangeOverlapsLineSpan(d.range, document.lastChangedLineSpan)
+              : false;
+          }).map(d => ({
+            text: d.code,
+            line: d.range.start.line,
+            span: document.lastChangedLineSpan,
+          })),
+        });
 
       currentDocument = document;
 
@@ -687,17 +679,13 @@ export default class FishServer {
     const { doc } = this.getDefaults(params);
     if (!doc) return [];
 
-    const progress = await connection.window.createWorkDoneProgress();
-
     const defSymbol = analyzer.getDefinition(doc, params.position);
     if (!defSymbol) {
       logger.log('onReferences: no definition found at position', params.position);
       return [];
     }
 
-    const results = getReferences(defSymbol.document, defSymbol.toPosition(), {
-      reporter: progress,
-    });
+    const results = getReferences(defSymbol.document, defSymbol.toPosition());
 
     logger.info({
       onReferences: 'found references',
@@ -733,10 +721,12 @@ export default class FishServer {
   // REFACTOR into a procedure that conditionally determines output type needed.
   // Also plan to get rid of any other cache's, so that the garbage collector can do its job.
   async onHover(params: HoverParams): Promise<Hover | null> {
-    this.logParams('onHover', { params: {
-      uri: params.textDocument.uri,
-      position: params.position,
-    } });
+    this.logParams('onHover', {
+      params: {
+        uri: params.textDocument.uri,
+        position: params.position,
+      }
+    });
     const { doc, path, root, current } = this.getDefaults(params);
     if (!doc || !path || !root || !current) {
       return null;
@@ -1195,6 +1185,10 @@ export default class FishServer {
     return server;
   }
 
+  public static throwError(message: string) {
+    throw new Error(`[FishServer] ${message}`);
+  }
+
   /////////////////////////////////////////////////////////////////////////////////////
   // HELPERS
   /////////////////////////////////////////////////////////////////////////////////////
@@ -1241,6 +1235,24 @@ export default class FishServer {
     const path = doc?.path ?? uriToPath(params.textDocument.uri);
     const root = doc ? analyzer.getRootNode(doc.uri) : undefined;
     return { doc, path, root };
+  }
+
+  private logDocument(request: string, document: LspDocument | undefined, extra: any = {}) {
+    if (document) {
+      const { uri, version, lineCount } = document;
+      const content = document.getText();
+      const truncated = content.length > 200 ? content.substring(0, 200) + '...' : content;
+      logger.log(request, {
+        uri,
+        version,
+        content: truncated,
+        lineCount,
+        ...extra
+      });
+    } else {
+      logger.log(request, { document: 'undefined', ...extra });
+    }
+
   }
 }
 

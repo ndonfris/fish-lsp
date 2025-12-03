@@ -38,6 +38,11 @@ if (!Array.prototype.at) {
   };
 }
 
+// Iterator/Generator helper methods polyfill
+// Using es-iterator-helpers which implements the ES2023+ Iterator Helpers proposal
+// Type definitions come from TypeScript's lib.esnext.iterator.d.ts (included via "ESNext" in tsconfig)
+import 'es-iterator-helpers/auto';
+
 // string prototype extensions
 declare global {
   interface String {
