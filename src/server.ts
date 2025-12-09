@@ -3,12 +3,12 @@ import './utils/polyfills';
 // Initialize virtual filesystem (must be before any embedded asset usage)
 import './virtual-fs';
 import { SyntaxNode } from 'web-tree-sitter';
-import { AnalyzedDocument, analyzer, Analyzer } from './analyze';
+import { analyzer, Analyzer } from './analyze';
 import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent, SelectionRangeParams, SelectionRange } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, documents, rangeOverlapsLineSpan } from './document';
 import { formatDocumentWithIndentComments, formatDocumentContent } from './formatting';
-import { createServerLogger, logger } from './logger';
+import { createServerLogger, logger, now } from './logger';
 import { connection, createBrowserConnection, setExternalConnection } from './utils/startup';
 import { formatTextWithIndents, symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes } from './utils/tree-sitter';
@@ -22,7 +22,7 @@ import { FishCompletionItem } from './utils/completion/types';
 import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
 import { PrebuiltDocumentationMap, getPrebuiltDocUrl } from './utils/snippets';
-import { findParent, findParentCommand, isAliasDefinitionName, isBraceExpansion, isCommand, isConcatenatedValue, isConcatenation, isEndStdinCharacter, isOption, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
+import { findParent, findParentCommand, isAliasDefinitionName, isBraceExpansion, isCommand, isCommandName, isConcatenatedValue, isConcatenation, isEndStdinCharacter, isOption, isPathNode, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
 import { config, Config, configHandlers } from './config';
 import { enrichToMarkdown, handleBraceExpansionHover, handleEndStdinHover, handleSourceArgumentHover } from './documentation';
 import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getDefaultSignatures, getFunctionSignatureHelp, isRegexStringSignature } from './signature';
@@ -43,6 +43,7 @@ import { getReferenceCountCodeLenses } from './code-lens';
 import { getSelectionRanges } from './selection-range';
 import { PkgJson } from './utils/commander-cli-subcommands';
 import { ProgressNotification } from './utils/progress-notification';
+import { md } from './utils/markdown-builder';
 
 export type SupportedFeatures = {
   codeActionDisabledSupport: boolean;
@@ -69,11 +70,6 @@ export let currentDocument: LspDocument | null = null;
 type WebServerProps = {
   connection?: Connection;
   params?: InitializeParams;
-};
-
-type AnalyzeDocumentOptions = {
-  bypassCache?: boolean;
-  runDiagnostics?: boolean;
 };
 
 export let cachedDocumentation: DocumentationCache;
@@ -116,9 +112,11 @@ export default class FishServer {
 
     // Setup logger
     createServerLogger(config.fish_lsp_log_file, connection.console);
-    logger.log('Starting FISH-LSP server');
-    logger.log('Server started with the following handlers:', configHandlers);
-    logger.log('Server started with the following config:', config);
+    logger.info('Starting FISH-LSP server', {
+      time: now(),
+      handlers: configHandlers,
+      config: config,
+    });
 
     return await FishServer.create(connection, props.params);
   }
@@ -293,54 +291,33 @@ export default class FishServer {
     documents.listen(connection);
 
     documents.onDidOpen(async ({ document }) => {
-      const { uri, version, lineCount } = document;
-      const content = document.getText();
-      const truncated = content.length > 200 ? content.substring(0, 200) + '...' : content;
-      this.logParams('documents.onDidOpen', {
-        uri,
-        version,
-        content: truncated,
-        lineCount,
-      });
-      workspaceManager.handleOpenDocument(document);
-      currentDocument = document;
-      this.analyzeDocument(document);
+      this.logDocument('documents.onDidOpen', document);
+
+      const { uri } = this.analyzeDocument(document);
+
       if (workspaceManager.needsAnalysis() && !this.backgroundAnalysisInProgress) {
         logger.info('didOpenTextDocument: Starting workspace analysis with progress');
         const progress = await ProgressNotification.create('didOpenTextDocument');
-        progress.begin(`[fish-lsp] analyzing ${workspaceManager.allAnalysisDocuments().length} documents`, 0, 'open', true);
+        const allDocs = workspaceManager.allAnalysisDocuments().length;
+        progress.begin(`[fish-lsp] analyzing ${allDocs} documents`, 0, 'open', true);
         await workspaceManager.analyzePendingDocuments(progress, (str) => logger.info('didOpen', str));
         progress.done();
       } else if (this.backgroundAnalysisInProgress) {
         logger.info('didOpenTextDocument: Skipping analysis - background analysis already in progress');
       }
-      analyzer.diagnostics.requestUpdate(uri, true); // immediate on open
+      if (this.backgroundAnalysisComplete) {
+        analyzer.diagnostics.requestUpdate(uri, true); // full diagnostics pass on open
+      }
     });
 
     documents.onDidChangeContent(({ document }) => {
-      this.logParams('didChangeTextDocument', {
-        uri: document.uri,
-        version: document.version,
-        lastChangedSpan: document.lastChangedLineSpan,
-        diagnostics: { count: (analyzer.diagnostics.get(document.uri) || []).length },
-        diagnosticsInSpan: (analyzer.diagnostics.get(document.uri) || []).filter(d => {
-          return document.lastChangedLineSpan
-            ? rangeOverlapsLineSpan(d.range, document.lastChangedLineSpan)
-            : false;
-        }).map(d => ({
-          text: d.code,
-          line: d.range.start.line,
-          span: document.lastChangedLineSpan,
-        })),
+      this.logDocument('documents.onDidChangeContent', document, {
+        showDiagnostics: true,
+        showLastChangedSpan: true,
       });
 
-      currentDocument = document;
-
-      this.analyzeDocument(document);
-
-      workspaceManager.handleUpdateDocument(document);
-
-      const diagnostics = analyzer.diagnostics.get(document.uri) || [];
+      const { uri } = this.analyzeDocument(document);
+      const diagnostics = analyzer.diagnostics.get(uri) || [];
       const changeSpan = document.lastChangedLineSpan;
       const overlapExists =
         !changeSpan
@@ -348,11 +325,11 @@ export default class FishServer {
           : diagnostics?.some(d => rangeOverlapsLineSpan(d.range, changeSpan));
 
       // Get the first changed line for overlap detection
-      analyzer.diagnostics.requestUpdate(document.uri, overlapExists, changeSpan);
+      analyzer.diagnostics.requestUpdate(uri, overlapExists, changeSpan);
     });
 
     documents.onDidClose(({ document }) => {
-      this.logParams('didCloseTextDocument', document);
+      this.logDocument('documents.onDidClose', document);
       const { uri } = document;
       workspaceManager.handleCloseDocument(uri);
       analyzer.diagnostics.delete(uri);
@@ -363,30 +340,16 @@ export default class FishServer {
   }
 
   async didSaveTextDocument(params: LSP.DidSaveTextDocumentParams): Promise<void> {
-    this.logParams('didSaveTextDocument', {
-      params: {
-        uri: params.textDocument.uri,
-        text: params.text, // may be undefined
-      },
-    });
-    const uri = params.textDocument.uri;
-    const doc = documents.get(uri);
+    this.logParams('server.didSaveTextDocument', params);
+    const document = documents.get(params.textDocument.uri);
 
-    if (!doc) return;
+    if (!document) return;
 
-    this.analyzeDocument(doc);
-    workspaceManager.handleOpenDocument(doc);
-    workspaceManager.handleUpdateDocument(doc);
+    const { uri } = this.analyzeDocument(document);
+
     await workspaceManager.analyzePendingDocuments();
-    analyzer.diagnostics.requestUpdate(doc.uri, true); // immediate on save
-    logger.log({
-      didSaveTextDocument: 'analysis requested',
-      uri: uri,
-      diagnostics: analyzer.diagnostics.get(uri)?.map(d => ({
-        text: d.code,
-        line: d.range.start.line,
-      })),
-    });
+    analyzer.diagnostics.requestUpdate(uri, true); // immediate on save
+    this.logDocument('didSaveDocument', document, { showDiagnostics: true, showLastChangedSpan: true });
   }
 
   /**
@@ -422,7 +385,7 @@ export default class FishServer {
       buildPath: PkgJson.path,
       buildVersion: PkgJson.version,
       buildTime: PkgJson.buildTime,
-      executedAt: new Date().toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' }),
+      executedAt: now(),
     });
     if (hasWorkspaceFolderCapability) {
       try {
@@ -455,6 +418,11 @@ export default class FishServer {
       // Begin progress immediately
       progress.begin('[fish-lsp] analyzing workspaces', 0);
 
+      if (currentDocument) {
+        logger.info('Re-analyzing current document after background analysis', { uri: currentDocument.uri });
+        workspaceManager.current?.addPending(...analyzer.collectAllSources(currentDocument.uri));
+      }
+
       const result = await workspaceManager.analyzePendingDocuments(progress, (str) => logger.info('onInitialized', str));
       totalDocuments = result.totalDocuments;
       items = result.items;
@@ -466,11 +434,16 @@ export default class FishServer {
       this.backgroundAnalysisComplete = true;
       this.backgroundAnalysisInProgress = false;
       logger.info('Background analysis complete');
+      if (currentDocument) {
+        this.analyzeDocument(currentDocument);
+        analyzer.diagnostics.requestUpdate(currentDocument.uri, true); // full diagnostics pass after analysis
+      }
     } catch (error) {
       this.backgroundAnalysisInProgress = false;
       this.backgroundAnalysisComplete = false;
       logger.error('Error during background analysis onInitialized', error);
     }
+
     logger.info(`Initial analysis complete. Analyzed ${totalDocuments} documents.`);
     return {
       totalDocuments,
@@ -733,16 +706,27 @@ export default class FishServer {
   // REFACTOR into a procedure that conditionally determines output type needed.
   // Also plan to get rid of any other cache's, so that the garbage collector can do its job.
   async onHover(params: HoverParams): Promise<Hover | null> {
-    this.logParams('onHover', { params: {
-      uri: params.textDocument.uri,
-      position: params.position,
-    } });
+    this.logParams('onHover', {
+      params: {
+        uri: params.textDocument.uri,
+        position: params.position,
+      },
+    });
     const { doc, path, root, current } = this.getDefaults(params);
     if (!doc || !path || !root || !current) {
       return null;
     }
 
     let result: Hover | null = null;
+    // case: `./dist/fish-lsp`
+    if ((isCommand(current) || isCommandName(current)) && isPathNode(current)) {
+      return {
+        contents: enrichToMarkdown([
+          `${md.bold('(command)')} - ${md.italic(current.text)}`,
+        ].join('\n')),
+      };
+    }
+
     if (isSourceCommandArgumentName(current)) {
       result = handleSourceArgumentHover(analyzer, current, doc);
       if (result) return result;
@@ -1111,63 +1095,22 @@ export default class FishServer {
    * Parse and analyze a document. Adds diagnostics to the document, and finds `source` commands.
    * @param document - The document identifier to analyze
    */
-  public analyzeDocument(
-    document: LspDocument,
-    options: AnalyzeDocumentOptions = {},
-  ) {
-    const {
-      bypassCache = false,
-    } = options;
-    const { path, doc: foundDoc } = this.getDefaultsForPartialParams({ textDocument: document });
-
-    // remove the global symbols for the document before re-analyzing
+  public analyzeDocument(document: LspDocument) {
+    // remove existing symbols from analyzer.cache, as they will be re-collected
     analyzer.removeDocumentSymbols(document.uri);
 
-    // get the analyzedDoc.document for re-indexing the workspace,
-    // we will eventually want to store the resulting analyzedDoc.document in `doc` below
-    let analyzedDoc: AnalyzedDocument;
-    if (!foundDoc) {
-      const pathDoc = analyzer.analyzePath(path);
-      if (pathDoc) {
-        analyzedDoc = pathDoc;
-      } else {
-        logger.log('analyzeDocument: document not found', { path });
-        return;
-      }
-    } else {
-      if (bypassCache) {
-        // Force fresh analysis by always calling analyzer.analyze, bypassing cache
-        analyzedDoc = analyzer.analyze(foundDoc);
-      } else {
-        // Use cache if available
-        const cachedDoc = analyzer.cache.getDocument(foundDoc.uri);
-        if (cachedDoc) {
-          cachedDoc.ensureParsed();
-          analyzedDoc = cachedDoc;
-        } else {
-          analyzedDoc = analyzer.analyze(foundDoc);
-        }
-      }
-    }
-
-    // ensure parsed - type guard that guarantees `analyzedDoc.isFull()` with
-    // all properties available
-    const cached = analyzedDoc.ensureParsed();
-    const doc = cached.document;
+    const { document: doc } = analyzer.analyze(document).ensureParsed();
 
     // re-indexes the workspace and changes the current workspace to the document (if needed)
+    workspaceManager.handleOpenDocument(doc);
     workspaceManager.handleUpdateDocument(doc);
 
-    // Trigger async diagnostic update
-    // analyzer.diagnostics.requestUpdate(doc.uri, true);
-    //
-    // // Return cached diagnostics (may be undefined if not yet computed)
-    // const diagnostics = analyzer.diagnostics.get(doc.uri);
+    currentDocument = doc;
 
     return {
-      uri: cached.document.uri,
-      path: cached.document.path,
-      doc: cached.document,
+      uri: doc.uri,
+      path: doc.path,
+      doc: doc,
     };
   }
 
@@ -1195,6 +1138,10 @@ export default class FishServer {
     return server;
   }
 
+  public static throwError(message: string) {
+    throw new Error(message);
+  }
+
   /////////////////////////////////////////////////////////////////////////////////////
   // HELPERS
   /////////////////////////////////////////////////////////////////////////////////////
@@ -1206,7 +1153,7 @@ export default class FishServer {
    * @param {any[]} params - the params passed into the method
    */
   private logParams(methodName: string, ...params: any[]) {
-    logger.log({ handler: methodName, params });
+    logger.log({ time: now(), handler: methodName, params });
   }
 
   // helper to get all the default objects needed when a TextDocumentPositionParam is passed
@@ -1241,6 +1188,48 @@ export default class FishServer {
     const path = doc?.path ?? uriToPath(params.textDocument.uri);
     const root = doc ? analyzer.getRootNode(doc.uri) : undefined;
     return { doc, path, root };
+  }
+
+  private logDocument(request: string, document: LspDocument | undefined, options: {
+    showDiagnostics?: boolean;
+    showLastChangedSpan?: boolean;
+  } = {
+    showDiagnostics: false,
+    showLastChangedSpan: false,
+  }) {
+    const extra: any = {};
+
+    if (document) {
+      const { uri, version, lineCount } = document;
+      const content = document.getText();
+      const truncated = content.length > 200 ? content.substring(0, 200) + '...' : content;
+      if (options.showDiagnostics) {
+        extra.diagnostics = { count: (analyzer.diagnostics.get(document.uri) || []).length };
+        extra.diagnosticsInSpan = (analyzer.diagnostics.get(document.uri) || []).filter(d => {
+          return document.lastChangedLineSpan
+            ? rangeOverlapsLineSpan(d.range, document.lastChangedLineSpan)
+            : false;
+        }).map(d => ({
+          text: d.code,
+          line: d.range.start.line,
+          span: document.lastChangedLineSpan,
+        }));
+      }
+      if (options.showLastChangedSpan) {
+        extra.lastChangedSpan = document.lastChangedLineSpan;
+      }
+      logger.log({
+        time: now(),
+        request,
+        uri,
+        version,
+        content: truncated,
+        lineCount,
+        ...extra,
+      });
+    } else {
+      logger.log({ time: now(), request, document: 'undefined', ...extra });
+    }
   }
 }
 

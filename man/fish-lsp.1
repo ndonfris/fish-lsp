@@ -1,4 +1,4 @@
-.TH "FISH\-LSP" "1" "November 2025" "1.1.1-pre.6" "fish-lsp"
+.TH "FISH\-LSP" "1" "December 2025" "1.1.1-pre.8" "fish-lsp"
 .SH "NAME"
 \fBfish-lsp\fR \- A language server for the fish shell
 .SH SYNOPSIS
@@ -116,6 +116,12 @@ show the build info of fish\-lsp
 \fB\-\-dump\-semantic\-tokens <FILE>\fP  show the semantic\-tokens for the specified file
 .br
 \fB\-\-no\-color\fP                disable color output in the \fBfish\-lsp info \-\-dump\-file\-tree\fP/\fBfish\-lsp info \-\-semantic\-tokens\fP output
+.br
+\fB\-\-source\-maps\fP             show the source\-maps
+.br
+\fB\-\-check\fP                   used in combination with \fB\-\-source\-maps\fP, verifies source\-maps are working by throwing an error
+.br
+\fB\-\-status\fP                  used in combination with \fB\-\-source\-maps\fP, shows status of source\-maps loading
 .SS \fBurl\fP
 .P
 show a helpful url related to the fish\-lsp
@@ -154,6 +160,8 @@ Provide completions for the \fBfish\-lsp\fP
 \fB\-\-env\-variable\-names\fP      show env variable names
 .br
 \fB\-\-names\-with\-summary\fP      show the names with the summary for the completions
+.br
+\fB\-\-abbreviations\fP           show the 'fish\-lsp' subcommand abbreviations
 .SH EXAMPLES
 
 .RS 1

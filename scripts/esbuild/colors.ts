@@ -60,11 +60,11 @@ export const logger = {
   // Status indicators
   building: (target: string) => `${colorize('⚡', colors.yellow)} Building ${colorize(target, colors.cyan)}...`,
   watching: (target: string) => `${colorize(' ', colors.blue)} Watching ${colorize(target, colors.cyan)} for changes...`,
-  complete: (target: string) => `${colorize('✅', colors.green)} ${colorize(target, colors.cyan)} build complete!`,
-  failed: (target: string) => `${colorize('❌', colors.red)} ${colorize(target, colors.cyan)} build failed!`,
+  complete: (target: string) => `${colorize(' ', colors.green)} ${colorize(target, colors.cyan)} build complete!`,
+  failed: (target: string) => `${colorize(' ', colors.red)} ${colorize(target, colors.cyan)} build failed!`,
 
   // File operations
-  copied: (from: string, to?: string) => `${colorize('📋', colors.cyan)} Copied ${colorize(toRelativePath(from), colors.dim)}${to ? ` → ${colorize(toRelativePath(to), colors.dim)}` : ''}`,
+  copied: (from: string, to?: string) => `${colorize(' ', colors.cyan)} Copied ${colorize(toRelativePath(from), colors.dim)}${to ? ` → ${colorize(toRelativePath(to), colors.dim)}` : ''}`,
   generated: (file: string) => `${colorize(' ', colors.cyan)} Generated ${colorize(toRelativePath(file), colors.dim)}`,
   executable: (file: string) => `${colorize(' ', colors.green)} Made executable: ${colorize(toRelativePath(file), colors.dim)}`,
 
@@ -73,7 +73,7 @@ export const logger = {
     const sizeColored = colorize(size, colors.yellow);
     const labelColored = colorize(label, colors.cyan);
     const pathColored = path ? colorize(path, colors.dim) : '';
-    return `${colorize('📦', colors.blue)} ${labelColored} size: ${sizeColored}${path ? ` (${pathColored})` : ''}`;
+    return `${colorize(' ', colors.blue)} ${labelColored} size: ${sizeColored}${path ? ` (${pathColored})` : ''}`;
   },
 
   // Progress indicators
@@ -81,6 +81,11 @@ export const logger = {
     const progress = colorize(`[${current}/${total}]`, colors.white);
     const desc = colorize(description, colors.cyan);
     return `${progress} ${desc}`;
+  },
+
+  time: (text: string) => {
+    // alt icon: 
+    return `${logger.success(' ')} ${colorize(text, colors.dim)}`;
   },
 
   // Headers and sections
@@ -94,9 +99,9 @@ export const logger = {
   },
 
   // Error handling
-  warn: (message: string) => console.warn(colorize(`⚠️  ${message}`, colors.yellow)),
+  warn: (message: string) => console.warn(colorize(`  ${message}`, colors.yellow)),
   logError: (message: string, error?: Error) => {
-    console.error(colorize(`❌ ${message}`, colors.red));
+    console.error(colorize(`  ${message}`, colors.red));
     if (error && process.env.DEBUG) {
       console.error(colorize(error.stack || error.message, colors.red + colors.dim));
     }

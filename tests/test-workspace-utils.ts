@@ -294,15 +294,21 @@ export namespace TestFileSpec {
 
 export interface TestFileSpecLegacy {
   path: string;
-  text: string;
+  text: string | string[];
 }
 
 export namespace TestFileSpecLegacy {
   export function is(item: any): item is TestFileSpecLegacy {
-    return item && typeof item.path === 'string' && typeof item.text === 'string';
+    return item && typeof item.path === 'string' && typeof item.text === 'string' && (typeof item.text === 'string' || Array.isArray(item.text));
   }
 
   export function toNewFormat(item: TestFileSpecLegacy): TestFileSpec {
+    if (Array.isArray(item.text)) {
+      return {
+        relativePath: item.path,
+        content: item.text.join('\n'),
+      };
+    }
     return {
       relativePath: item.path,
       content: item.text,
@@ -1312,6 +1318,7 @@ export class TestWorkspace {
         workspaceManager.handleOpenDocument(doc);
         analyzer.analyze(doc);
         workspaceManager.current?.addUri(doc.uri);
+        testOpenDocument(doc);
       }
     }
     await workspaceManager.analyzePendingDocuments();

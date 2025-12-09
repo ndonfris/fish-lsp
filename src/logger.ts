@@ -408,13 +408,19 @@ export class Logger {
 }
 
 export function now(): string {
-  const now = new Date();
-  return `${padLeft(`${now.getUTCHours()}`, 2, '0')}:${padLeft(`${now.getMinutes()}`, 2, '0')}:${padLeft(`${now.getUTCSeconds()}`, 2, '0')}.${now.getMilliseconds()}`;
+  const currentTime = new Date();
+  const hours = currentTime.getHours();
+  const hour12 = hours % 12 || 12;
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+
+  return [
+    hour12.toString().padStart(2, '0'),
+    currentTime.getMinutes().toString().padStart(2, '0'),
+    currentTime.getSeconds().toString().padStart(2, '0'),
+    Math.floor(currentTime.getMilliseconds() / 10).toString().padStart(2, '0'),
+  ].join(':') + ` ${ampm}`;
 }
 
-function padLeft(s: string, n: number, pad = ' ') {
-  return pad.repeat(Math.max(0, n - s.length)) + s;
-}
 export const logger: Logger = new Logger();
 
 export function createServerLogger(logFilePath: string, connectionConsole?: IConsole): Logger {

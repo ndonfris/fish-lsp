@@ -32,7 +32,7 @@ jobs:
         node-version:
           - '20'      # Minimum supported version
           - '22'      # Current LTS
-          - 'latest'  # Latest stable
+          - '24'  # Latest stable
 
     steps:
       - name: Checkout Code

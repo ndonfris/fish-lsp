@@ -1,5 +1,9 @@
 #!/usr/bin/env fish
 
+# Automation script to build all assets for releasing fish-lsp. The files
+# outputted by this script are intended to be located in the release-assets/
+# folder. 
+#
 # These files are included in the release-assets/ folder:
 #   - fish-lsp.standalone                                  (standalone binary -- bundled dependencies into a single executable, npm package will be smaller)
 #   - fish-lsp.standalone.extra-assets.tar                 (standalone w/ sourcemaps, manpage, completions, and TypeScript declarations)
@@ -7,16 +11,40 @@
 #   - fish-lsp.1                                           (man page) 
 #   - fish-lsp.fish                                        (shell completions)
 #
+# Usage:
+#
+#   Build assets, and upload them to a GitHub release
+#   >_ yarn sh:build-assets [--clean] [--fresh-install]
+#   >_ gh release upload <tag> ./release-assets/*
+#
+#   >_ fish ./scripts/build-assets.fish # Build assets without using yarn
+#
 
-source ./scripts/continue-or-exit.fish
-source ./scripts/pretty-print.fish
+source ./scripts/fish/continue-or-exit.fish
+source ./scripts/fish/pretty-print.fish
 
-argparse clean fresh-install -- "$argv"
+argparse clean fresh-install h/help -- "$argv"
 or fail 'Failed to parse arguments.'
+
+if set -q _flag_help
+    echo 'Usage:'
+    echo '  yarn sh:build-assets [--clean] [--fresh-install] [--help]'
+    echo '  fish ./scripts/build-assets.fish [--clean] [--fresh-install] [--help]'
+    echo ''
+    echo 'Synopsis:'
+    echo '  Script to build all assets for releasing fish-lsp. Assets are outputted'
+    echo '  in the ./release-assets/ directory.'
+    echo ''
+    echo 'Options:'
+    echo '  --clean            Remove the release-assets/ directory and exit.'
+    echo '  --fresh-install    Install dependencies from scratch before building.'
+    echo '  -h, --help         Show this help message and exit.'
+    exit 0
+end
 
 if set -q _flag_clean
     not test -d release-assets &&
-        and log_warning '' '[WARNING]' 'release-assets/ directory does not exist. Nothing to clean.'
+    and log_warning '' '[WARNING]' 'release-assets/ directory does not exist. Nothing to clean.'
     and exit 0
 
     rm -rf release-assets
@@ -48,22 +76,22 @@ yarn build &>/dev/null
 log_info '' '[INFO]' 'Project built successfully!'
 
 log_info '' '[INFO]' 'Creating npm package tarball...'
-echo n | yarn pack --filename release-assets/fish-lsp.tgz --silent
+yarn pack --filename release-assets/fish-lsp.tgz --silent
 or fail 'Failed to create npm package tarball.'
 
 log_info '' '[INFO]' 'Creating standalone binary...'
 yarn build:all &>/dev/null
 
 log_info '' '[INFO]' 'Creating release-assets extra files...'
-yarn run -s generate:man &>/dev/null && cp man/fish-lsp.1 release-assets/fish-lsp.1
-dist/fish-lsp complete >release-assets/fish-lsp.fish
+yarn run -s generate:man &>/dev/null && command cp man/fish-lsp.1 release-assets/fish-lsp.1
+./dist/fish-lsp complete >release-assets/fish-lsp.fish
 
 log_info '' '[INFO]' 'Creating tarball for extra files...'
 tar -cf release-assets/fish-lsp.standalone.with-all-assets.tar bin man dist/fish-lsp.d.ts &>/dev/null
 or log_warning '' '[WARNING]' 'failed to create `release-assets/fish-lsp.standalone.with-all-assets.tar` archive.'
 
 log_info '' '[INFO]' 'Copying standalone binary to release-assets/ directory...'
-cp bin/fish-lsp release-assets/fish-lsp.standalone
+command cp bin/fish-lsp release-assets/fish-lsp.standalone
 or log_warning '' '[WARNING]' 'failed to copy `bin/fish-lsp` to `release-assets/fish-lsp.standalone`!'
 
 print_separator

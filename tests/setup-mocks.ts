@@ -7,6 +7,10 @@ vi.mock('web-tree-sitter/tree-sitter.wasm', () => ({
   default: readFileSync(resolve(__dirname, '../node_modules/web-tree-sitter/tree-sitter.wasm')),
 }));
 
+vi.mock('@esdmr/tree-sitter-fish/tree-sitter-fish.wasm', () => ({
+  default: readFileSync(resolve(__dirname, '../node_modules/@esdmr/tree-sitter-fish/tree-sitter-fish.wasm')),
+}));
+
 // Legacy mocks for backward compatibility (if needed)
 vi.mock('@embedded_assets/tree-sitter-fish.wasm', () => ({
   default: readFileSync(resolve(__dirname, '../node_modules/@esdmr/tree-sitter-fish/tree-sitter-fish.wasm')),

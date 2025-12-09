@@ -4,7 +4,7 @@ import * as Parser from 'web-tree-sitter';
 import { SyntaxNode, Tree } from 'web-tree-sitter';
 import { dirname } from 'path';
 import { config } from './config';
-import { LspDocument } from './document';
+import { documents, LspDocument } from './document';
 import { logger } from './logger';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol, processCompletion } from './parsing/complete';
@@ -379,6 +379,19 @@ export class Analyzer {
   public removeDocumentSymbols(uri: string): void {
     this.globalSymbols.removeSymbolsByUri(uri);
     this.cache.clear(uri);
+  }
+
+  /**
+   * @param uri the DocumentUri of the document that needs resolution
+   * @returns AnalyzedDocument {@link @AnalyzedDocument} or undefined if the file could not be found.
+   */
+  public analyzeUri(uri: DocumentUri): AnalyzedDocument | undefined {
+    const document = documents.get(uri) || SyncFileHelper.loadDocumentSync(uriToPath(uri));
+    if (!document) {
+      logger.warning(`analyzer.analyzePath: ${uri} not found`);
+      return undefined;
+    }
+    return this.analyze(document);
   }
 
   /**
@@ -1208,6 +1221,28 @@ export class Analyzer {
     }
 
     return sourcedSymbols;
+  }
+
+  /**
+   * Collects all reachable symbols for a document:
+   * - local defined symbols inside the document itself
+   * - all sourced symbols from reachable source files
+   *
+   * @param documentUri - the uri of the document to collect symbols for
+   * @returns {FishSymbol[]} - array of all reachable symbols
+   */
+  public allReachableSymbols(documentUri: string): FishSymbol[] {
+    const seenSymbols = this.getFlatDocumentSymbols(documentUri);
+    analyzer.collectAllSources(documentUri).forEach((s) => {
+      const cached = analyzer.analyzeUri(s);
+      cached?.flatSymbols
+        .filter(s => s.isRootLevel() || s.isGlobal())
+        .filter(s => s.name !== 'argv')
+        .forEach(sym => {
+          seenSymbols.push(sym);
+        });
+    });
+    return seenSymbols;
   }
 
   /**

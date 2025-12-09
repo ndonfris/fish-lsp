@@ -79,6 +79,9 @@ show the build info of fish-lsp
   `--dump-parse-tree <FILE>`  show the tree-sitter AST for the specified file  
   `--dump-semantic-tokens <FILE>`  show the semantic-tokens for the specified file  
   `--no-color`                disable color output in the `fish-lsp info --dump-file-tree`/`fish-lsp info --semantic-tokens` output  
+  `--source-maps`             show the source-maps  
+  `--check`                   used in combination with `--source-maps`, verifies source-maps are working by throwing an error  
+  `--status`                  used in combination with `--source-maps`, shows status of source-maps loading  
 
 ### `url`
 
@@ -105,6 +108,7 @@ Provide completions for the `fish-lsp`
   `--env-variables`           show env variable completions  
   `--env-variable-names`      show env variable names  
   `--names-with-summary`      show the names with the summary for the completions  
+  `--abbreviations`           show the 'fish-lsp' subcommand abbreviations  
 
 ## EXAMPLES
 

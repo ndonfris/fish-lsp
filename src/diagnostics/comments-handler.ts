@@ -139,6 +139,10 @@ export class DiagnosticCommentsHandler {
     };
   }
 
+  private get rootState(): DiagnosticState {
+    return this.stateStack[0]!;
+  }
+
   private get currentState(): DiagnosticState {
     return this.stateStack[this.stateStack.length - 1]!;
   }
@@ -369,12 +373,22 @@ export class DiagnosticCommentsHandler {
     return this.currentState.enabledCodes.has(code);
   }
 
+  public isRootEnabled(code: ErrorCodes.CodeTypes): boolean {
+    return this.rootState.enabledCodes.has(code);
+  }
+
   public getStackDepth(): number {
     return this.stateStack.length;
   }
 
   public getCurrentState(): DiagnosticState {
     return this.currentState;
+  }
+
+  public * stateIterator(): IterableIterator<DiagnosticState> {
+    for (const state of this.stateStack) {
+      yield state;
+    }
   }
 
   /**

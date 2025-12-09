@@ -1,6 +1,7 @@
 #!/usr/bin/env fish
 
-source ./scripts/pretty-print.fish
+set -l DIR (status current-filename | path resolve | path dirname)
+source "$DIR/pretty-print.fish"
 
 ### Example:
 ### ```fish

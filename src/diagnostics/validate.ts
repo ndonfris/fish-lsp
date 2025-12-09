@@ -1,7 +1,7 @@
 import { Diagnostic, DiagnosticRelatedInformation, Range } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
-import { getRange, nodesGen } from '../utils/tree-sitter';
+import { getRange, namedNodesGen } from '../utils/tree-sitter';
 import { isMatchingOption, Option } from '../parsing/options';
 import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage, isDotSourceCommand, isMatchingAbbrFunction, isFunctionWithEventHookCallback, isVariableDefinitionWithExpansionCharacter, isPosixCommandInsteadOfFishCommand, getFishBuiltinEquivalentCommandName, getAutoloadedFunctionsWithoutDescription, isWrapperFunction /*isKnownCommand*/ } from './node-types';
 import { ErrorCodes } from './error-codes';
@@ -18,8 +18,8 @@ import { FishSymbol } from '../parsing/symbol';
 import { findUnreachableCode } from '../parsing/unreachable';
 import { allUnusedLocalReferences } from '../references';
 import { FishDiagnostic } from './types';
-import { FishCompletionItemKind } from '../utils/completion/types';
 import { server } from '../server';
+import { FishCompletionItemKind } from '../utils/completion/types';
 
 // Number of nodes to process before yielding to event loop
 const CHUNK_SIZE = 100;
@@ -48,6 +48,12 @@ export async function getDiagnosticsAsync(
   // Helper to check if we've hit the diagnostic limit
   const hasReachedLimit = () => maxDiagnostics > 0 && diagnostics.length >= maxDiagnostics;
 
+  // Helper to add diagnostics and check if limit was reached
+  const addDiagnostics = (...diags: Diagnostic[]): boolean => {
+    diagnostics.push(...diags);
+    return hasReachedLimit();
+  };
+
   const handler = new DiagnosticCommentsHandler();
   const isAutoloadedFunctionName = isAutoloadedUriLoadsFunctionName(doc);
 
@@ -73,15 +79,16 @@ export async function getDiagnosticsAsync(
   // Process nodes in chunks to avoid blocking the main thread
   // Using generator for better memory efficiency
   let i = 0;
-  for (const node of nodesGen(root)) {
+  for (const node of namedNodesGen(root)) {
     // Check if computation was cancelled
     if (signal?.aborted) {
-      throw new Error('Diagnostic computation cancelled');
+      logger.warning('Diagnostic computation cancelled');
+      return diagnostics;
     }
 
     // Early exit if we've hit the diagnostic limit
     if (hasReachedLimit()) {
-      break;
+      return diagnostics;
     }
 
     handler.handleNode(node);
@@ -91,7 +98,11 @@ export async function getDiagnosticsAsync(
     if (invalidDiagnosticCodes.length > 0) {
       // notice, this is the only case where we don't check if the user has disabled the error code
       // because `# @fish-lsp-disable` will always be recognized as a disabled error code
-      diagnostics.push(...invalidDiagnosticCodes);
+      if (addDiagnostics(...invalidDiagnosticCodes)) return diagnostics;
+    }
+
+    if (isComment(node)) {
+      continue;
     }
 
     if (node.type === 'variable_name' || node.text.startsWith('$') || isString(node)) {
@@ -113,46 +124,51 @@ export async function getDiagnosticsAsync(
     if (node.isError) {
       const found: SyntaxNode | null = findErrorCause(node.children);
       if (found && handler.isCodeEnabled(ErrorCodes.missingEnd)) {
-        diagnostics.push(FishDiagnostic.create(ErrorCodes.missingEnd, node));
+        if (addDiagnostics(FishDiagnostic.create(ErrorCodes.missingEnd, node))) return diagnostics;
       }
     }
 
     if (isExtraEnd(node) && handler.isCodeEnabled(ErrorCodes.extraEnd)) {
-      diagnostics.push(FishDiagnostic.create(ErrorCodes.extraEnd, node));
+      if (addDiagnostics(FishDiagnostic.create(ErrorCodes.extraEnd, node))) return diagnostics;
     }
 
     if (isZeroIndex(node) && handler.isCodeEnabled(ErrorCodes.missingEnd)) {
-      diagnostics.push(FishDiagnostic.create(ErrorCodes.zeroIndexedArray, node));
+      if (addDiagnostics(FishDiagnostic.create(ErrorCodes.zeroIndexedArray, node))) return diagnostics;
     }
 
     if (isSingleQuoteVariableExpansion(node) && handler.isCodeEnabled(ErrorCodes.singleQuoteVariableExpansion)) {
       // don't add this diagnostic if the autoload type is completions
       if (doc.getAutoloadType() !== 'completions') {
-        diagnostics.push(FishDiagnostic.create(ErrorCodes.singleQuoteVariableExpansion, node));
+        if (addDiagnostics(FishDiagnostic.create(ErrorCodes.singleQuoteVariableExpansion, node))) return diagnostics;
       }
     }
 
     if (isWrapperFunction(node, handler)) {
-      diagnostics.push(FishDiagnostic.create(ErrorCodes.usedWrapperFunction, node));
+      if (addDiagnostics(FishDiagnostic.create(ErrorCodes.usedWrapperFunction, node))) return diagnostics;
     }
 
     if (isUniversalDefinition(node) && docType !== 'conf.d' && handler.isCodeEnabled(ErrorCodes.usedUnviersalDefinition)) {
-      diagnostics.push(FishDiagnostic.create(ErrorCodes.usedUnviersalDefinition, node));
+      if (addDiagnostics(FishDiagnostic.create(ErrorCodes.usedUnviersalDefinition, node))) return diagnostics;
     }
 
     if (isPosixCommandInsteadOfFishCommand(node) && handler.isCodeEnabled(ErrorCodes.usedExternalShellCommandWhenBuiltinExists)) {
-      diagnostics.push(FishDiagnostic.create(ErrorCodes.usedExternalShellCommandWhenBuiltinExists, node, `Use the Fish builtin command '${getFishBuiltinEquivalentCommandName(node)!}' instead of the external shell command.`));
+      const diagnostic = FishDiagnostic.create(
+        ErrorCodes.usedExternalShellCommandWhenBuiltinExists,
+        node,
+        `Use the Fish builtin command '${getFishBuiltinEquivalentCommandName(node)!}' instead of the external shell command.`,
+      );
+      if (addDiagnostics(diagnostic)) return diagnostics;
     }
     if (isSourceFilename(node) && handler.isCodeEnabled(ErrorCodes.sourceFileDoesNotExist)) {
-      diagnostics.push(FishDiagnostic.create(ErrorCodes.sourceFileDoesNotExist, node));
+      if (addDiagnostics(FishDiagnostic.create(ErrorCodes.sourceFileDoesNotExist, node))) return diagnostics;
     }
 
     if (isDotSourceCommand(node) && handler.isCodeEnabled(ErrorCodes.dotSourceCommand)) {
-      diagnostics.push(FishDiagnostic.create(ErrorCodes.dotSourceCommand, node));
+      if (addDiagnostics(FishDiagnostic.create(ErrorCodes.dotSourceCommand, node))) return diagnostics;
     }
 
     if (isTestCommandVariableExpansionWithoutString(node) && handler.isCodeEnabled(ErrorCodes.testCommandMissingStringCharacters)) {
-      diagnostics.push(FishDiagnostic.create(ErrorCodes.testCommandMissingStringCharacters, node));
+      if (addDiagnostics(FishDiagnostic.create(ErrorCodes.testCommandMissingStringCharacters, node))) return diagnostics;
     }
 
     if (isConditionalWithoutQuietCommand(node) && handler.isCodeEnabled(ErrorCodes.missingQuietOption)) {
@@ -167,24 +183,24 @@ export async function getDiagnosticsAsync(
         end: { line: subCommand.endPosition.row, character: subCommand.endPosition.column },
       };
 
-      diagnostics.push({
+      if (addDiagnostics({
         ...FishDiagnostic.create(ErrorCodes.missingQuietOption, node),
         range,
-      });
+      })) return diagnostics;
     }
 
     if (isArgparseWithoutEndStdin(node) && handler.isCodeEnabled(ErrorCodes.argparseMissingEndStdin)) {
-      diagnostics.push(FishDiagnostic.create(ErrorCodes.argparseMissingEndStdin, node));
+      if (addDiagnostics(FishDiagnostic.create(ErrorCodes.argparseMissingEndStdin, node))) return diagnostics;
     }
 
     // store the defined variable expansions and then use them in the next check
     if (isVariableDefinitionWithExpansionCharacter(node, definedVariables) && handler.isCodeEnabled(ErrorCodes.dereferencedDefinition)) {
-      diagnostics.push(FishDiagnostic.create(ErrorCodes.dereferencedDefinition, node));
+      if (addDiagnostics(FishDiagnostic.create(ErrorCodes.dereferencedDefinition, node))) return diagnostics;
     }
 
     if (isFishLspDeprecatedVariableName(node) && handler.isCodeEnabled(ErrorCodes.fishLspDeprecatedEnvName)) {
       logger.log('isFishLspDeprecatedVariableName', doc.getText(getRange(node)));
-      diagnostics.push(FishDiagnostic.create(ErrorCodes.fishLspDeprecatedEnvName, node, getDeprecatedFishLspMessage(node)));
+      if (addDiagnostics(FishDiagnostic.create(ErrorCodes.fishLspDeprecatedEnvName, node, getDeprecatedFishLspMessage(node)))) return diagnostics;
     }
 
     /** store any functions we see, to reuse later */
@@ -195,18 +211,18 @@ export async function getDiagnosticsAsync(
       if (!isAutoloadedFunctionName(node)) localFunctions.push(node);
       if (isFunctionWithEventHook(node)) {
         // TODO: add support for `emit` to reference the event hook
-        diagnostics.push(
+        if (addDiagnostics(
           FishDiagnostic.create(
             ErrorCodes.autoloadedFunctionWithEventHookUnused,
             node,
             `Function '${node.text}' has an event hook but is not called anywhere in the workspace.`,
           ),
-        );
+        )) return diagnostics;
       }
     }
 
-    // skip comments and options
-    if (isComment(node) || isOption(node)) {
+    // skip options like: '-f'
+    if (isOption(node)) {
       // Yield to event loop every CHUNK_SIZE iterations
       if (++i % CHUNK_SIZE === 0) {
         await new Promise(resolve => setImmediate(resolve));
@@ -303,7 +319,8 @@ export async function getDiagnosticsAsync(
 
   // Check if computation was cancelled before post-processing
   if (signal?.aborted) {
-    throw new Error('Diagnostic computation cancelled');
+    logger.warning('Diagnostic computation cancelled');
+    return diagnostics;
   }
 
   // Skip post-processing if we've already hit the diagnostic limit
@@ -323,20 +340,20 @@ export async function getDiagnosticsAsync(
 
   // no function definition for autoloaded function file
   if (isMissingAutoloadedFunction && topLevelFunctions.length === 0 && handler.isCodeEnabledAtNode(ErrorCodes.autoloadedFunctionMissingDefinition, root)) {
-    diagnostics.push(FishDiagnostic.create(ErrorCodes.autoloadedFunctionMissingDefinition, root));
+    if (addDiagnostics(FishDiagnostic.create(ErrorCodes.autoloadedFunctionMissingDefinition, root))) return diagnostics;
   }
   // has functions/file.fish has top level functions, but none match the filename
   if (isMissingAutoloadedFunctionButContainsOtherFunctions) {
     topLevelFunctions.forEach(node => {
       if (handler.isCodeEnabledAtNode(ErrorCodes.autoloadedFunctionFilenameMismatch, node)) {
-        diagnostics.push(FishDiagnostic.create(ErrorCodes.autoloadedFunctionFilenameMismatch, node));
+        if (addDiagnostics(FishDiagnostic.create(ErrorCodes.autoloadedFunctionFilenameMismatch, node))) return diagnostics;
       }
     });
   }
   // has functions with invalid names -- (reserved keywords)
   functionsWithReservedKeyword.forEach(node => {
     if (handler.isCodeEnabledAtNode(ErrorCodes.functionNameUsingReservedKeyword, node)) {
-      diagnostics.push(FishDiagnostic.create(ErrorCodes.functionNameUsingReservedKeyword, node));
+      if (addDiagnostics(FishDiagnostic.create(ErrorCodes.functionNameUsingReservedKeyword, node))) return diagnostics;
     }
   });
 
@@ -369,14 +386,14 @@ export async function getDiagnosticsAsync(
           s.toLocation(),
           `${s.scopeTag.toUpperCase()} duplicate '${s.name}' defined on line ${s.focusedNode.startPosition.row}`,
         ));
-        diagnostics.push(diagnostic);
+        if (addDiagnostics(diagnostic)) return diagnostics;
       }
     });
   });
 
-  // `4008` autoloaded functions without description
+  // `4008` -> auto-loaded functions without description
   getAutoloadedFunctionsWithoutDescription(doc, handler, allFunctions).forEach((symbol) => {
-    diagnostics.push(FishDiagnostic.fromSymbol(ErrorCodes.requireAutloadedFunctionHasDescription, symbol));
+    if (addDiagnostics(FishDiagnostic.fromSymbol(ErrorCodes.requireAutloadedFunctionHasDescription, symbol))) return diagnostics;
   });
 
   localFunctions.forEach(node => {
@@ -394,14 +411,14 @@ export async function getDiagnosticsAsync(
     const completeNames: Set<string> = new Set();
     for (const completeCommandName of completeCommandNames) {
       if (!completeNames.has(completeCommandName.text) && handler.isCodeEnabledAtNode(ErrorCodes.autoloadedCompletionMissingCommandName, completeCommandName)) {
-        diagnostics.push(FishDiagnostic.create(ErrorCodes.autoloadedCompletionMissingCommandName, completeCommandName, completeCommandName.text));
+        if (addDiagnostics(FishDiagnostic.create(ErrorCodes.autoloadedCompletionMissingCommandName, completeCommandName, completeCommandName.text))) return diagnostics;
         completeNames.add(completeCommandName.text);
       }
     }
   }
 
   // 4004 -> unused local function/variable definitions
-  if (handler.isCodeEnabled(ErrorCodes.unusedLocalDefinition)) {
+  if (handler.isRootEnabled(ErrorCodes.unusedLocalDefinition)) {
     const unusedLocalDefinitions = allUnusedLocalReferences(doc);
     for (const unusedLocalDefinition of unusedLocalDefinitions) {
       // skip definitions that do not need local references
@@ -414,35 +431,25 @@ export async function getDiagnosticsAsync(
         continue;
       }
       if (handler.isCodeEnabledAtNode(ErrorCodes.unusedLocalDefinition, unusedLocalDefinition.focusedNode)) {
-        diagnostics.push(
+        if (addDiagnostics(
           FishDiagnostic.fromSymbol(ErrorCodes.unusedLocalDefinition, unusedLocalDefinition),
-        );
+        )) return diagnostics;
       }
     }
   }
 
   // 5555 -> code is not reachable
-  if (handler.isCodeEnabled(ErrorCodes.unreachableCode)) {
+  if (handler.isRootEnabled(ErrorCodes.unreachableCode)) {
     const unreachableNodes = findUnreachableCode(root);
     for (const unreachableNode of unreachableNodes) {
       if (handler.isCodeEnabledAtNode(ErrorCodes.unreachableCode, unreachableNode)) {
-        diagnostics.push(FishDiagnostic.create(ErrorCodes.unreachableCode, unreachableNode));
-      }
-    }
-  }
-
-  // add 9999 diagnostics from `fish --no-execute` if the user enabled it
-  if (config.fish_lsp_enable_experimental_diagnostics) {
-    const noExecuteDiagnostics = getNoExecuteDiagnostics(doc);
-    for (const diagnostic of noExecuteDiagnostics) {
-      if (handler.isCodeEnabledAtNode(ErrorCodes.syntaxError, diagnostic.data.node)) {
-        diagnostics.push(diagnostic);
+        if (addDiagnostics(FishDiagnostic.create(ErrorCodes.unreachableCode, unreachableNode))) return diagnostics;
       }
     }
   }
 
   // 7001 -> unknown command
-  if (handler.isCodeEnabled(ErrorCodes.unknownCommand)) {
+  if (handler.isRootEnabled(ErrorCodes.unknownCommand)) {
     // Cache expensive lookups that are reused for every command
     const knownCommandsCache = new Set<string>();
     const unknownCommandsCache = new Set<string>();
@@ -450,18 +457,17 @@ export async function getDiagnosticsAsync(
     // Pre-compute expensive lookups once
     const localSymbols = analyzer.getFlatDocumentSymbols(doc.uri);
     const localFunctionNames = new Set(localSymbols.filter(s => s.isFunction()).map(s => s.name));
-    const allAccessibleSymbols = analyzer.allSymbolsAccessibleAtPosition(doc, { line: 0, character: 0 });
-    const accessibleFunctionNames = new Set(allAccessibleSymbols.filter(s => s.isFunction()).map(s => s.name));
+    const allAccessibleSymbols = analyzer.allReachableSymbols(doc.uri);
 
     // Pre-load completion cache if available
     let commandCompletions: Set<string> | null = null;
     if (server) {
       const completions = server.completions;
       const commandCompletionList = completions.allOfKinds(
-        FishCompletionItemKind.COMMAND,
-        FishCompletionItemKind.FUNCTION,
-        FishCompletionItemKind.BUILTIN,
         FishCompletionItemKind.ALIAS,
+        FishCompletionItemKind.BUILTIN,
+        FishCompletionItemKind.FUNCTION,
+        FishCompletionItemKind.COMMAND,
       );
       commandCompletions = new Set(commandCompletionList.map(c => c.label));
     }
@@ -474,19 +480,28 @@ export async function getDiagnosticsAsync(
         continue;
       }
 
+      if (!handler.isCodeEnabledAtNode(ErrorCodes.unknownCommand, commandNode)) {
+        continue;
+      }
+
+      // Skip commands that are actually relative paths (start with '.')
+      if (commandName.startsWith('.') || commandName.includes('/')) {
+        continue;
+      }
+
       // Check cache first
       if (knownCommandsCache.has(commandName)) {
         continue;
       }
       if (unknownCommandsCache.has(commandName)) {
         if (handler.isCodeEnabledAtNode(ErrorCodes.unknownCommand, commandNode)) {
-          diagnostics.push(
+          if (addDiagnostics(
             FishDiagnostic.create(
               ErrorCodes.unknownCommand,
               commandNode,
               `'${commandName}' is not a known builtin, function, or command`,
             ),
-          );
+          )) return diagnostics;
         }
         continue;
       }
@@ -500,7 +515,7 @@ export async function getDiagnosticsAsync(
       } else if (localFunctionNames.has(commandName)) {
         // Check local functions (cached)
         isKnown = true;
-      } else if (accessibleFunctionNames.has(commandName)) {
+      } else if (allAccessibleSymbols.some(s => s.name === commandName)) {
         // Check accessible functions (cached)
         isKnown = true;
       } else if (analyzer.globalSymbols.find(commandName).length > 0) {
@@ -517,14 +532,24 @@ export async function getDiagnosticsAsync(
       } else {
         unknownCommandsCache.add(commandName);
         if (handler.isCodeEnabledAtNode(ErrorCodes.unknownCommand, commandNode)) {
-          diagnostics.push(
+          if (addDiagnostics(
             FishDiagnostic.create(
               ErrorCodes.unknownCommand,
               commandNode,
               `'${commandName}' is not a known builtin, function, or command`,
             ),
-          );
+          )) return diagnostics;
         }
+      }
+    }
+  }
+
+  // add 9999 diagnostics from `fish --no-execute` if the user enabled it
+  if (config.fish_lsp_enable_experimental_diagnostics) {
+    const noExecuteDiagnostics = getNoExecuteDiagnostics(doc);
+    for (const diagnostic of noExecuteDiagnostics) {
+      if (handler.isCodeEnabledAtNode(ErrorCodes.syntaxError, diagnostic.data.node)) {
+        if (addDiagnostics(diagnostic)) return diagnostics;
       }
     }
   }

@@ -1,7 +1,7 @@
 import './utils/polyfills';
-import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, FishLspHelp, FishLspManPage, SourcesDict, SubcommandEnv, CommanderSubcommand, getBuildTypeString, PkgJson, SourceMaps } from './utils/commander-cli-subcommands';
+import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, FishLspHelp, FishLspManPage, SourcesDict, SubcommandEnv, CommanderSubcommand, getBuildTypeString, PkgJson } from './utils/commander-cli-subcommands';
 import { Command, Option } from 'commander';
-import { buildFishLspCompletions } from './utils/get-lsp-completions';
+import { buildFishLspAbbreviations, buildFishLspCompletions } from './utils/get-lsp-completions';
 import { logger } from './logger';
 import { configHandlers, config, updateHandlers, validHandlers, Config, handleEnvOutput } from './config';
 import { ConnectionOptions, ConnectionType, createConnectionType, maxWidthForOutput, startServer, timeServerStartup } from './utils/startup';
@@ -226,7 +226,7 @@ commandBin.command('info')
       argsCount = argsCount - 1;
     }
 
-    const sourceMaps = Object.values(SourceMaps);
+    const sourceMaps = CommanderSubcommand.info.sourcemaps();
     // immediately exit if the user requested a specific info
     CommanderSubcommand.info.handleBadArgs(args);
 
@@ -315,8 +315,7 @@ commandBin.command('info')
       CommanderSubcommand.info.log(argsCount, 'Binary File', PathObj.bin, true);
       CommanderSubcommand.info.log(argsCount, 'Man File', PathObj.manFile, true);
       CommanderSubcommand.info.log(argsCount, 'Log File', config.fish_lsp_log_file, true);
-      const sourceMapString = sourceMaps.length > 1 ? `\n${sourceMaps.join('\n')}` : sourceMaps.join('\n');
-      CommanderSubcommand.info.log(argsCount, 'Sourcemaps', sourceMapString, true);
+      CommanderSubcommand.info.log(argsCount, 'Sourcemaps', sourceMaps, true);
       if (args.extra || args.capabilities || args.verbose) {
         logger.logToStdout('_'.repeat(maxWidthForOutput()));
         CommanderSubcommand.info.log(argsCount, 'Capabilities', capabilities, false);
@@ -363,6 +362,7 @@ commandBin.command('complete')
   .option('--features', 'show features')
   .option('--env-variables', 'show env variables')
   .option('--env-variable-names', 'show env variable names')
+  .option('--abbreviations', 'show abbreviations')
   .description('copy completions output to fish-lsp completions file')
   .allowUnknownOption(false)
   .action(async (args: CommanderSubcommand.complete.schemaType) => {
@@ -387,7 +387,11 @@ commandBin.command('complete')
     } else if (args.envVariableNames) {
       Object.keys(Config.envDocs).forEach((name) => logger.logToStdout(name.toString()));
       process.exit(0);
+    } else if (args.abbreviations) {
+      logger.logToStdout(buildFishLspAbbreviations());
+      if (Object.values(args).filter(v => v === true).length === 1) process.exit(0);
     }
+
     logger.logToStdout(buildFishLspCompletions(commandBin));
     process.exit(0);
   });
@@ -423,7 +427,7 @@ commandBin.command('env')
           logger.logToStderr(`Valid variable names are:\n${Object.keys(Config.envDocs).join(', ')}`);
           process.exit(1);
         }
-        result += args.joined ? `${ name } ` : `${ name }\n`;
+        result += args.joined ? `${name} ` : `${name}\n`;
       });
       logger.logToStdout(result.trim());
       process.exit(0);

@@ -28,6 +28,8 @@ import { CompletionItemMap } from '../src/utils/completion/startup-cache';
 import { Server } from 'http';
 import FishServer from '../src/server';
 import { connection, startServer } from '../src/utils/startup';
+import TestWorkspace from './test-workspace-utils';
+import { FishSymbol } from '../src/parsing/symbol';
 // import { isFunctionDefinitionName, isFunctionVariableDefinitionName } from '../src/parsing/function';
 // import TestWorkspace from './test-workspace-utils';
 // import { isArgparseVariableDefinitionName } from '../src/parsing/argparse';
@@ -74,12 +76,20 @@ function severityStr(severity: DiagnosticSeverity | undefined) {
 
 function logDiagnostics(diagnostic: Diagnostic, root: SyntaxNode) {
   console.log('-'.repeat(80));
-  console.log(`entire text:     \n${root.text.slice(0, 20) + '...'}`);
+  // console.log(`entire text:     \n${root.text.slice(0, 20) + '...'}`);
   console.log(`diagnostic node: ${getNodeAtRange(root, diagnostic.range)?.text}`);
+  console.log(`code:            ${diagnostic.code!.toString()}`); // check uri for config.fish
   console.log(`message:         ${diagnostic.message.toString()}`); // check uri for config.fish
   console.log(`severity:        ${severityStr(diagnostic.severity)}`); // check uri for config.fish
   console.log(`range:           ${JSON.stringify(diagnostic.range)}`); // check uri for config.fish
   console.log('-'.repeat(80));
+}
+
+function mapDiagnostics(diagnostics: Diagnostic) {
+  return {
+    code: diagnostics.code,
+    text: diagnostics.data.node.text,
+  };
 }
 
 function extractDiagnostics(tree: Tree) {
@@ -883,6 +893,215 @@ function foo
         const finalRes = getNoExecuteDiagnostics(document);
         console.log({ finalRes, result });
       });
+    });
+  });
+
+  describe('diagnostic workspace', () => {
+    const tw = TestWorkspace
+      .create({ name: 'diagnostic-workspace' })
+      .addFiles(
+        {
+          relativePath: 'script-1.fish',
+          content: [
+            'function foo',
+            '    echo "hello world"',
+            'end',
+          ],
+        },
+        {
+          relativePath: 'script-2.fish',
+          content: [
+            'set var1 value1',
+            'set var2 value2',
+            'function script-2',
+            '    echo script-2',
+            'end',
+          ],
+        },
+        {
+          relativePath: 'script-3.fish',
+          content: [
+            'source ./script-1.fish',
+            'source ./script-2.fish',
+            'foo',
+            'script-2',
+          ],
+        },
+        {
+          relativePath: 'script-4.fish',
+          content: [
+            'source ./script-3.fish',
+            'foo',
+            'script-2',
+            '',
+            'function script-4',
+            '    echo \'inside script-4\'',
+            'end',
+            '',
+          ],
+        },
+        {
+          relativePath: 'script-5.fish',
+          content: [
+            'function wrapper-func',
+            '    function inner-func',
+            '        echo "inside inner-func"',
+            '    end',
+            'end',
+            '# @fish-lsp-disable 4004',
+            'function disabled-wrapper',
+            '    function disabled-inner',
+            '        echo "inside disabled-inner"',
+            '    end',
+            'end',
+            '# @fish-lsp-enable 4004',
+            'function another-wrapper',
+            '    function another-inner',
+            '        echo "inside another-inner"',
+            '    end',
+            'end',
+          ],
+        },
+        {
+          relativePath: 'conf.d/autoloaded-foo.fish',
+          content: [
+            'set -Ux universal_var "I am universal"',
+            'source ./script-1.fish',
+            'source ./script-2.fish',
+            'function __foo-wrapper',
+            '    foo $argv',
+            'end',
+            'function __script-2-wrapper',
+            '    function __wrapper',
+            '        script-2 $argv',
+            '    end',
+            'end',
+            '# @fish-lsp-disable 4004',
+            'function baz-wrapper',
+            '    function baz',
+            '        echo "inside baz"',
+            '    end',
+            'end',
+            '# @fish-lsp-enable 4004',
+            'function bar-wrapper',
+            '    function bar',
+            '        echo "inside bar"',
+            '    end',
+            'end',
+            'unknown_command_here',
+          ],
+        },
+        {
+          relativePath: 'conf.d/lots-of-comments.fish',
+          content: Array.from({ length: 2500 }, (_, i) => `# This is comment line number ${i + 1}`).join('\n'),
+        },
+      ).initialize();
+
+    let script1: LspDocument;
+    let script2: LspDocument;
+    let script3: LspDocument;
+    let script4: LspDocument;
+    let script5: LspDocument;
+    let autoloadedFoo: LspDocument;
+    let lotsOfComments: LspDocument;
+    beforeAll(async () => {
+      await Analyzer.initialize();
+      script1 = tw.find('script-1.fish')!;
+      script2 = tw.find('script-2.fish')!;
+      script3 = tw.find('script-3.fish')!;
+      script4 = tw.find('script-4.fish')!;
+      script5 = tw.find('script-5.fish')!;
+      autoloadedFoo = tw.find('conf.d/autoloaded-foo.fish')!;
+      lotsOfComments = tw.find('conf.d/lots-of-comments.fish')!;
+    });
+
+    it('VALIDATE: setup workspace files', () => {
+      expect(script1).toBeDefined();
+      expect(script2).toBeDefined();
+      expect(script3).toBeDefined();
+      expect(script4).toBeDefined();
+      expect(autoloadedFoo).toBeDefined();
+    });
+
+    it.skip('VALIDATE: diagnostics across workspace files', async () => {
+      const { root, document: doc, sourceNodes, flatSymbols } = analyzer.analyze(script4).ensureParsed();
+      sourceNodes.forEach((sourceNode) => {
+        console.log({
+          text: sourceNode.text,
+        });
+      });
+      Array.from(analyzer.collectAllSources(doc.uri)).forEach((s, i) => console.log(i, s));
+      const sourcedSymbols: FishSymbol[] = [];
+      analyzer.collectAllSources(doc.uri).forEach((s) => {
+        const cached = analyzer.analyzeUri(s);
+        cached?.flatSymbols
+          .filter(s => s.isRootLevel() || s.isGlobal())
+          .filter(s => s.name !== 'argv')
+          .forEach(sym => {
+            sourcedSymbols.push(sym);
+          });
+      });
+      // NOW USE: analyzer.allReachableSymbols(doc.document.uri)
+      for (const symbol of sourcedSymbols) {
+        console.log({
+          type: 'sourced',
+          name: symbol.name,
+          uri: symbol.uri,
+        });
+      }
+      for (const symbol of flatSymbols) {
+        console.log({
+          type: 'current',
+          name: symbol.name,
+          uri: symbol.uri,
+        });
+      }
+
+      analyzer.allReachableSymbols(doc.uri).forEach((s, i) => {
+        console.log(i, {
+          tpe: 'all-reachable',
+          name: s.name,
+          uri: s.uri,
+          kind: s.kind,
+        });
+      });
+    });
+
+    it('VALIDATE: definitions across workspace files', async () => {
+      const { root, document: doc } = analyzer.analyze(script4).ensureParsed();
+      const result = await getDiagnosticsAsync(root, doc);
+      // result.forEach(d => logDiagnostics(d, root));
+      expect(result.map(mapDiagnostics)).toEqual([
+        { code: 4004, text: 'script-4' },
+      ]);
+    });
+
+    it('VALIDATE: @fish-lsp-(disable|enable)', async () => {
+      const { root, document: doc } = analyzer.analyze(autoloadedFoo).ensureParsed();
+      const result = await getDiagnosticsAsync(root, doc);
+      // result.forEach(d => logDiagnostics(d, root));
+      expect(result.map(mapDiagnostics)).toEqual([
+        { code: 4004, text: '__wrapper' },
+        { code: 4004, text: 'bar' },
+        { code: 7001, text: 'unknown_command_here' },
+      ]);
+    });
+
+    it('VALIDATE: universal variable definition in autoloaded file', async () => {
+      const { root, document: doc } = analyzer.analyze(script5).ensureParsed();
+      const result = await getDiagnosticsAsync(root, doc);
+      result.forEach(d => logDiagnostics(d, root));
+      // expect(result.map(mapDiagnostics)).toContainEqual({
+      //   code: 5001,
+      //   text: '-Ux',
+      // });
+    });
+
+    it('VALIDATE: large number of comments', async () => {
+      const { root, document: doc } = analyzer.analyze(lotsOfComments).ensureParsed();
+      const result = await getDiagnosticsAsync(root, doc);
+      result.forEach(d => logDiagnostics(d, root));
+      expect(result.length).toBe(0);
     });
   });
 });

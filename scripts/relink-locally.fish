@@ -7,7 +7,7 @@
 # Use this for testing changes to the fish-lsp package.
 
 # Usage: ./relink-locally.sh
-source ./scripts/pretty-print.fish
+source ./scripts/fish/pretty-print.fish
 
 argparse --max-args 1 h/help q/quiet v/verbose no-stderr -- $argv
 or return
