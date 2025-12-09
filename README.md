@@ -411,7 +411,7 @@ set -gx fish_lsp_commit_characters '\t' ';' ' '
 
 # $fish_lsp_log_file <STRING>
 # A path to the fish-lsp's logging file. Empty string disables logging.
-# (Example Options: '/tmp/fish_lsp.logs', '~/path/to/fish_lsp/logs.txt')
+# (Example Options: '/tmp/fish_lsp.log', '~/path/to/fish_lsp/logs.txt')
 # (Default: '')
 set -gx fish_lsp_log_file ''
 
@@ -574,7 +574,7 @@ set -gx fish_lsp_commit_characters
 
 # $fish_lsp_log_file <STRING>
 # A path to the fish-lsp's logging file. Empty string disables logging.
-# (Example Options: '/tmp/fish_lsp.logs', '~/path/to/fish_lsp/logs.txt')
+# (Example Options: '/tmp/fish_lsp.log', '~/path/to/fish_lsp/logs.txt')
 # (Default: '')
 set -gx fish_lsp_log_file 
 
@@ -867,7 +867,7 @@ If you encounter any issues with the server, the following commands may be usefu
 - <a id="logs"></a>Check the <b>server logs</b>, while a server is running.
 
   ```fish
-  set -gx fish_lsp_log_file /tmp/fish_lsp.logs
+  set -gx fish_lsp_log_file /tmp/fish_lsp.log
   tail -f (fish-lsp info --log-file)
   # open the server somewhere else
   ```

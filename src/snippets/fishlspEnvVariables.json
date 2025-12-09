@@ -114,7 +114,7 @@
     "shortDescription": "path to the fish-lsp's log file",
     "exactMatchOptions": false,
     "options": [
-      "/tmp/fish_lsp.logs",
+      "/tmp/fish_lsp.log",
       "~/path/to/fish_lsp/logs.txt"
     ],
     "defaultValue": "",
