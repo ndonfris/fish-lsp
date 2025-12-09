@@ -5,6 +5,7 @@ import { configHandlers } from '../config';
 import { getDiagnosticsAsync } from './validate';
 import { connection } from '../utils/startup';
 import { logger } from '../logger';
+import { config } from '../config';
 
 /**
  * Buffered async diagnostic cache that:
@@ -53,6 +54,9 @@ export class BufferedAsyncDiagnosticCache {
         has: this.debounceTimers.has(uri),
       },
     });
+    if (config.fish_lsp_disabled_handlers.includes('diagnostic')) {
+      return;
+    }
     // Log the change span for debugging purposes
     if (changedSpan && !changedSpan.isFullDocument) {
       const prev = this.cache.get(uri);

@@ -861,6 +861,7 @@ export namespace CommanderSubcommand {
         features: z.boolean().optional().default(false),
         envVariables: z.boolean().optional().default(false),
         envVariablesNames: z.boolean().optional().default(false),
+        abbreviations: z.boolean().optional().default(false),
       }),
     );
     export type schemaType = z.infer<typeof schema>;

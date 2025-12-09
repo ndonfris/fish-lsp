@@ -108,6 +108,7 @@ Provide completions for the `fish-lsp`
   `--env-variables`           show env variable completions  
   `--env-variable-names`      show env variable names  
   `--names-with-summary`      show the names with the summary for the completions  
+  `--abbreviations`           show the 'fish-lsp' subcommand abbreviations  
 
 ## EXAMPLES
 
