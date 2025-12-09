@@ -35,8 +35,4 @@ export async function build(_customArgs?: string[]): Promise<void> {
   }
 }
 
-// Auto-run if this file is executed directly                                  
-if (typeof require !== 'undefined' && require.main === module) {
-  build();
-}
-
+build(); 

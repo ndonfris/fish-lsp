@@ -1,9 +1,10 @@
-import * as esbuild from 'esbuild';
-import { BuildArgs } from './cli';
-import { buildConfigs, createBuildOptions } from './configs';
-import { generateTypeDeclarations, copyDevelopmentAssets, makeExecutable, showBuildStats, showDirectorySize } from './utils';
-import { logger } from './colors';
 import { execSync } from 'child_process';
+import * as esbuild from 'esbuild';
+import fs from 'fs';
+import { BuildArgs } from './cli';
+import { logger } from './colors';
+import { buildConfigs, createBuildOptions } from './configs';
+import { copyDevelopmentAssets, generateTypeDeclarations, makeExecutable, showBuildStats, showDirectorySize } from './utils';
 
 interface BuildStep {
   name: string;
@@ -97,7 +98,7 @@ const pipeline = new BuildPipeline()
   .register({
     name: 'Development',
     priority: 20,
-    tags: ['all', 'dev', 'development'],
+    tags: ['all', 'dev', 'development', 'npm'],
     timing: true,
     runner: async (args) => {
       const config = buildConfigs.development;
@@ -109,12 +110,25 @@ const pipeline = new BuildPipeline()
     },
   })
   .register({
+    name: 'TypeScript Declarations',
+    priority: 25,
+    tags: ['all', 'types', 'dev', 'npm'],
+    timing: true,
+    runner: async () => {
+      generateTypeDeclarations();
+    },
+    postBuild: async () => {
+      showBuildStats('dist/fish-lsp.d.ts', 'Type Declarations');
+    },
+  })
+  .register({
     name: 'NPM Package',
     priority: 30,
     tags: ['all', 'npm', 'dev'],
     timing: true,
     runner: async (args) => {
       const config = buildConfigs.npm;
+      // fs.mkdirSync('dist', { recursive: true });
       const buildOptions = createBuildOptions(config, args.production || args.minify);
       await esbuild.build(buildOptions);
     },
@@ -147,18 +161,6 @@ const pipeline = new BuildPipeline()
     },
   })
   .register({
-    name: 'TypeScript Declarations',
-    priority: 50,
-    tags: ['all', 'types', 'dev', 'npm'],
-    timing: true,
-    runner: async () => {
-      generateTypeDeclarations();
-    },
-    postBuild: async () => {
-      showBuildStats('dist/fish-lsp.d.ts', 'Type Declarations');
-    },
-  })
-  .register({
     name: 'Test Suite',
     priority: 60,
     tags: ['test'],
@@ -178,4 +180,5 @@ const pipeline = new BuildPipeline()
   });
 
 // Export both the pipeline instance and the BuildPipeline class for extensibility
-export { pipeline, BuildPipeline, type BuildStep };
+export { BuildPipeline, pipeline, type BuildStep };
+

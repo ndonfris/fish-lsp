@@ -1,5 +1,5 @@
 // Build utility functions
-import * as fs from 'fs-extra';
+import fs from 'fs-extra';
 import { existsSync, statSync, unlinkSync } from 'fs';
 import { execSync } from 'child_process';
 import { logger, toRelativePath } from './colors';
