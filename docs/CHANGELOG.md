@@ -1,3 +1,16 @@
+## <small>1.1.1-pre.8 (2025-12-09)</small>
+
+* fix(tests): test utils like: `tests/setup-mocks.ts` and `tests/test-workspace-utils.ts` ([5197ad8](https://github.com/ndonfris/fish-lsp/commit/5197ad8))
+* fix(v1.1.1-pre.8): polyfills, references, diagnostics, `scripts/*` + lints ([c0694fb](https://github.com/ndonfris/fish-lsp/commit/c0694fb))
+* build(scripts/*): moved sourced fish files in build scripts to `scripts/fish/*` ([4c0e418](https://github.com/ndonfris/fish-lsp/commit/4c0e418))
+* chore: bump `v1.1.1` ([6a9b917](https://github.com/ndonfris/fish-lsp/commit/6a9b917))
+* chore: bump js-yaml in the npm_and_yarn group across 1 directory (#125)ff ([6bfd51f](https://github.com/ndonfris/fish-lsp/commit/6bfd51f)), closes [#125](https://github.com/ndonfris/fish-lsp/issues/125)
+* chore: bump vite in the npm_and_yarn group across 1 directory (#117) ([f207d01](https://github.com/ndonfris/fish-lsp/commit/f207d01)), closes [#117](https://github.com/ndonfris/fish-lsp/issues/117)
+* feat: Add Semantic Tokens Support (#113) ([399dba7](https://github.com/ndonfris/fish-lsp/commit/399dba7)), closes [#113](https://github.com/ndonfris/fish-lsp/issues/113)
+* feat: v1.1.1 nightly (#127) ([25527b0](https://github.com/ndonfris/fish-lsp/commit/25527b0)), closes [#127](https://github.com/ndonfris/fish-lsp/issues/127)
+
+
+
 # <small>1.1.1-pre.7 (2025-12-1)</small>
 
 * updated `get-docs.fish` to use `col -bx` ([cb98e1a](https://github.com/ndonfris/fish-lsp/pull/127/commits/cb98e1adcfe11590c35844645405ca6255257b62))
