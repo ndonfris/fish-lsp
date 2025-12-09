@@ -18,8 +18,8 @@ import { FishSymbol } from '../parsing/symbol';
 import { findUnreachableCode } from '../parsing/unreachable';
 import { allUnusedLocalReferences } from '../references';
 import { FishDiagnostic } from './types';
-import { FishCompletionItemKind } from '../utils/completion/types';
 import { server } from '../server';
+import { FishCompletionItemKind } from '../utils/completion/types';
 
 // Number of nodes to process before yielding to event loop
 const CHUNK_SIZE = 100;
@@ -374,7 +374,7 @@ export async function getDiagnosticsAsync(
     });
   });
 
-  // `4008` autoloaded functions without description
+  // `4008` -> auto-loaded functions without description
   getAutoloadedFunctionsWithoutDescription(doc, handler, allFunctions).forEach((symbol) => {
     diagnostics.push(FishDiagnostic.fromSymbol(ErrorCodes.requireAutloadedFunctionHasDescription, symbol));
   });
@@ -401,7 +401,7 @@ export async function getDiagnosticsAsync(
   }
 
   // 4004 -> unused local function/variable definitions
-  if (handler.isCodeEnabled(ErrorCodes.unusedLocalDefinition)) {
+  if (handler.isRootEnabled(ErrorCodes.unusedLocalDefinition)) {
     const unusedLocalDefinitions = allUnusedLocalReferences(doc);
     for (const unusedLocalDefinition of unusedLocalDefinitions) {
       // skip definitions that do not need local references
@@ -422,7 +422,7 @@ export async function getDiagnosticsAsync(
   }
 
   // 5555 -> code is not reachable
-  if (handler.isCodeEnabled(ErrorCodes.unreachableCode)) {
+  if (handler.isRootEnabled(ErrorCodes.unreachableCode)) {
     const unreachableNodes = findUnreachableCode(root);
     for (const unreachableNode of unreachableNodes) {
       if (handler.isCodeEnabledAtNode(ErrorCodes.unreachableCode, unreachableNode)) {
@@ -431,18 +431,8 @@ export async function getDiagnosticsAsync(
     }
   }
 
-  // add 9999 diagnostics from `fish --no-execute` if the user enabled it
-  if (config.fish_lsp_enable_experimental_diagnostics) {
-    const noExecuteDiagnostics = getNoExecuteDiagnostics(doc);
-    for (const diagnostic of noExecuteDiagnostics) {
-      if (handler.isCodeEnabledAtNode(ErrorCodes.syntaxError, diagnostic.data.node)) {
-        diagnostics.push(diagnostic);
-      }
-    }
-  }
-
   // 7001 -> unknown command
-  if (handler.isCodeEnabled(ErrorCodes.unknownCommand)) {
+  if (handler.isRootEnabled(ErrorCodes.unknownCommand)) {
     // Cache expensive lookups that are reused for every command
     const knownCommandsCache = new Set<string>();
     const unknownCommandsCache = new Set<string>();
@@ -450,18 +440,17 @@ export async function getDiagnosticsAsync(
     // Pre-compute expensive lookups once
     const localSymbols = analyzer.getFlatDocumentSymbols(doc.uri);
     const localFunctionNames = new Set(localSymbols.filter(s => s.isFunction()).map(s => s.name));
-    const allAccessibleSymbols = analyzer.allSymbolsAccessibleAtPosition(doc, { line: 0, character: 0 });
-    const accessibleFunctionNames = new Set(allAccessibleSymbols.filter(s => s.isFunction()).map(s => s.name));
+    const allAccessibleSymbols = analyzer.allReachableSymbols(doc.uri);
 
     // Pre-load completion cache if available
     let commandCompletions: Set<string> | null = null;
     if (server) {
       const completions = server.completions;
       const commandCompletionList = completions.allOfKinds(
-        FishCompletionItemKind.COMMAND,
-        FishCompletionItemKind.FUNCTION,
-        FishCompletionItemKind.BUILTIN,
         FishCompletionItemKind.ALIAS,
+        FishCompletionItemKind.BUILTIN,
+        FishCompletionItemKind.FUNCTION,
+        FishCompletionItemKind.COMMAND,
       );
       commandCompletions = new Set(commandCompletionList.map(c => c.label));
     }
@@ -471,6 +460,15 @@ export async function getDiagnosticsAsync(
 
       // Skip empty commands or commands that are already errors
       if (!commandName || commandNode.isError) {
+        continue;
+      }
+
+      if (!handler.isCodeEnabledAtNode(ErrorCodes.unknownCommand, commandNode)) {
+        continue;
+      }
+
+      // Skip commands that are actually relative paths (start with '.')
+      if (commandName.startsWith('.') || commandName.includes('/')) {
         continue;
       }
 
@@ -500,7 +498,7 @@ export async function getDiagnosticsAsync(
       } else if (localFunctionNames.has(commandName)) {
         // Check local functions (cached)
         isKnown = true;
-      } else if (accessibleFunctionNames.has(commandName)) {
+      } else if (allAccessibleSymbols.some(s => s.name === commandName)) {
         // Check accessible functions (cached)
         isKnown = true;
       } else if (analyzer.globalSymbols.find(commandName).length > 0) {
@@ -525,6 +523,16 @@ export async function getDiagnosticsAsync(
             ),
           );
         }
+      }
+    }
+  }
+
+  // add 9999 diagnostics from `fish --no-execute` if the user enabled it
+  if (config.fish_lsp_enable_experimental_diagnostics) {
+    const noExecuteDiagnostics = getNoExecuteDiagnostics(doc);
+    for (const diagnostic of noExecuteDiagnostics) {
+      if (handler.isCodeEnabledAtNode(ErrorCodes.syntaxError, diagnostic.data.node)) {
+        diagnostics.push(diagnostic);
       }
     }
   }

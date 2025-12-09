@@ -1,5 +1,8 @@
 #!/usr/bin/env fish 
 
+set -l DIR (status current-filename | path resolve | path dirname)
+source "$DIR/fish/pretty-print.fish"
+
 argparse install uninstall -- $argv
 or return 
 
@@ -35,12 +38,15 @@ end
 # Append each completion to the cached file
 yarn -s run dev -c >> $cached_file
 # yarn -s run tag-and-publish -c >>$cached_file
-yarn -s run publish-and-release -c >>$cached_file
+# yarn -s run publish-and-release -c >>$cached_file
 yarn -s run publish-nightly -c >>$cached_file
 node ./scripts/build-time -c >>$cached_file
 yarn -s run sh:workspace-cli -c >>$cached_file
 yarn -s run generate:snippets -c >>$cached_file
 # fish ./scripts/build-assets.fish --complete >>$cached_file
+
+print_success "Generated fish-lsp development completions in $BLUE$cached_file$NORMAL"
+
 
 source ~/.config/fish/config.fish
 

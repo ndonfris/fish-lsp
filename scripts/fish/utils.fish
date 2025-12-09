@@ -1,7 +1,8 @@
 #!/usr/bin/env fish
 
-source ./scripts/continue-or-exit.fish
-source ./scripts/pretty-print.fish
+set -l DIR (status current-filename | path resolve | path dirname)
+source "$DIR/continue-or-exit.fish"
+source "$DIR/pretty-print.fish"
 
 set -g exec_count 1
 

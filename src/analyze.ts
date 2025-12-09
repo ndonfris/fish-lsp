@@ -1,11 +1,10 @@
-import './utils/polyfills';
 import * as LSP from 'vscode-languageserver';
 import { DocumentUri, Hover, Location, Position, SymbolKind, URI, WorkDoneProgressReporter, WorkspaceSymbol } from 'vscode-languageserver';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode, Tree } from 'web-tree-sitter';
 import { dirname } from 'path';
 import { config } from './config';
-import { LspDocument } from './document';
+import { documents, LspDocument } from './document';
 import { logger } from './logger';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol, processCompletion } from './parsing/complete';
@@ -383,6 +382,19 @@ export class Analyzer {
   }
 
   /**
+   * @param uri the DocumentUri of the document that needs resolution
+   * @returns AnalyzedDocument {@link @AnalyzedDocument} or undefined if the file could not be found.
+   */
+  public analyzeUri(uri: DocumentUri): AnalyzedDocument | undefined {
+    const document = documents.get(uri) || SyncFileHelper.loadDocumentSync(uriToPath(uri));
+    if (!document) {
+      logger.warning(`analyzer.analyzePath: ${uri} not found`);
+      return undefined;
+    }
+    return this.analyze(document);
+  }
+
+  /**
    * @summary
    * Takes a path to a file and turns it into a LspDocument, to then be analyzed
    * and cached. This is useful for testing purposes, or for the rare occasion that
@@ -583,18 +595,16 @@ export class Analyzer {
   public findSymbols(
     callbackfn: (symbol: FishSymbol, doc?: LspDocument) => boolean,
   ): FishSymbol[] {
-    const result: FishSymbol[] = [];
+    const symbols: FishSymbol[] = [];
     for (const uri of this.getIterableUris()) {
       const document = this.cache.getDocument(uri)?.document;
-      if (!document) continue;
-
-      const docSymbols = this.getFlatDocumentSymbols(document.uri);
-      const newSymbols = docSymbols.filter(s => callbackfn(s, document));
-      if (newSymbols.length > 0) {
-        result.push(...newSymbols);
+      const symbols = this.getFlatDocumentSymbols(document!.uri);
+      const newSymbols = symbols.filter(s => callbackfn(s, document));
+      if (newSymbols) {
+        symbols.push(...newSymbols);
       }
     }
-    return result;
+    return symbols;
   }
 
   /**
@@ -608,7 +618,7 @@ export class Analyzer {
       const root = this.cache.getRootNode(uri);
       const document = this.cache.getDocument(uri)!.document;
       if (!root || !document) continue;
-      const node = nodesGen(root).find((n) => callbackfn(n, document));
+      const node = getChildNodes(root).find((n) => callbackfn(n, document));
       if (node) {
         return node;
       }
@@ -631,7 +641,7 @@ export class Analyzer {
       const root = this.cache.getRootNode(uri);
       const document = this.cache.getDocument(uri)?.document;
       if (!root || !document) continue;
-      const nodes = nodesGen(root).filter((node) => callbackfn(node, document)).toArray();
+      const nodes = getChildNodes(root).filter((node) => callbackfn(node, document));
       if (nodes.length > 0) {
         result.push({ uri: document.uri, nodes });
       }
@@ -1211,6 +1221,28 @@ export class Analyzer {
     }
 
     return sourcedSymbols;
+  }
+
+  /**
+   * Collects all reachable symbols for a document:
+   * - local defined symbols inside the document itself
+   * - all sourced symbols from reachable source files
+   *
+   * @param documentUri - the uri of the document to collect symbols for
+   * @returns {FishSymbol[]} - array of all reachable symbols
+   */
+  public allReachableSymbols(documentUri: string): FishSymbol[] {
+    const seenSymbols = this.getFlatDocumentSymbols(documentUri);
+    analyzer.collectAllSources(documentUri).forEach((s) => {
+      const cached = analyzer.analyzeUri(s);
+      cached?.flatSymbols
+        .filter(s => s.isRootLevel() || s.isGlobal())
+        .filter(s => s.name !== 'argv')
+        .forEach(sym => {
+          seenSymbols.push(sym);
+        });
+    });
+    return seenSymbols;
   }
 
   /**

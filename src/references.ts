@@ -2,7 +2,7 @@ import { DocumentUri, Location, Position, Range, WorkDoneProgressReporter } from
 import { analyzer } from './analyze';
 import { LspDocument } from './document';
 import { findParentCommand, findParentFunction, isCommandName, isCommandWithName, isMatchingOption, isOption, isProgram, isString } from './utils/node-types';
-import { containsNode, getChildNodes, getRange, nodesGen } from './utils/tree-sitter';
+import { containsNode, getRange, nodesGen } from './utils/tree-sitter';
 import { filterFirstPerScopeSymbol, FishSymbol } from './parsing/symbol';
 import { isMatchingOptionOrOptionValue, Option } from './parsing/options';
 import { logger } from './logger';

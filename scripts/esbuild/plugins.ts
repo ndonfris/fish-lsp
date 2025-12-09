@@ -230,7 +230,7 @@ export function createSourceMapOptimizationPlugin(preserveSourceContent?: boolea
             // Remove embedded source content to reduce file size
             // This keeps file references but removes the full source code
             if (preserveSourceContent) {
-              console.log(`📦 Source map: ${colorize(toRelativePath(sourcemapFile), colors.white)}`);
+              console.log(`  Source map: ${colorize(toRelativePath(sourcemapFile), colors.white)}`);
               console.log(`  Size: ${colorize((originalSize/1024/1024).toFixed(1) + 'MB', colors.white)} (with source content for debugging)`);
               console.log(`  Sources: ${colorize(sourcemap.sources.length + ' files', colors.white)}`);
             } else if (sourcemap.sourcesContent) {
@@ -242,7 +242,7 @@ export function createSourceMapOptimizationPlugin(preserveSourceContent?: boolea
               const newSize = optimizedContent.length;
               const reduction = ((originalSize - newSize) / originalSize * 100).toFixed(1);
               
-              console.log(`📦 Optimized source map: ${colorize(toRelativePath(sourcemapFile), colors.white)}`);
+              console.log(`  Optimized source map: ${colorize(toRelativePath(sourcemapFile), colors.white)}`);
               const reductionSize = colorize(`${reduction}% (${(originalSize/1024/1024).toFixed(1)}MB → ${(newSize/1024/1024).toFixed(1)}MB)`, colors.white);
               console.log(`  Size reduction: ${reductionSize}`);
               console.log(`  Sources: ${colorize(sourcemap.sources.length + ' files', colors.white)}`);
@@ -317,7 +317,7 @@ export function createSpecialSourceMapPlugin(options: { preserveOnlySrcContent?:
                 sourcesContent: optimizedSourcesContent
               };
               
-              console.log(`📦 Special source map: ${colorize(toRelativePath(sourcemapFile), colors.white)}`);
+              console.log(`  Special source map: ${colorize(toRelativePath(sourcemapFile), colors.white)}`);
               console.log(`  Total sources: ${colorize(sourcemap.sources.length + ' files', colors.white)}`);
               console.log(`  src/ files with content: ${colorize(srcFileCount + ' files', colors.white)}`);
               console.log(`  Other sources (content removed): ${colorize((sourcemap.sources.length - srcFileCount) + ' files', colors.white)}`);
@@ -341,7 +341,7 @@ export function createSpecialSourceMapPlugin(options: { preserveOnlySrcContent?:
               }
             } else {
               // Fallback to regular sourcemap optimization
-              console.log(`📦 Source map: ${colorize(toRelativePath(sourcemapFile), colors.white)}`);
+              console.log(`  Source map: ${colorize(toRelativePath(sourcemapFile), colors.white)}`);
               console.log(`  Size: ${colorize((originalSize/1024/1024).toFixed(1) + 'MB', colors.white)} (preserved for debugging)`);
               // console.log(`  Sources: ${colorize(sourcemap.sources.length + ' files', colors.white)}`);
               console.log(`  Sources: ${colorize(sourcemap.sources.length + ' files', colors.white)}`);

@@ -878,8 +878,8 @@ export function isDirectoryPath(node: SyntaxNode): boolean {
 /**
  * Check if a node represents any kind of path (file or directory)
  */
-export function isPath(node: SyntaxNode): boolean {
-  return isFilepath(node) || isDirectoryPath(node);
+export function isPathNode(node: SyntaxNode): boolean {
+  return isFilepath(node) || isDirectoryPath(node) || node.text.includes('/');
 }
 
 export function isBuiltin(node: SyntaxNode) {

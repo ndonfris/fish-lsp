@@ -4,9 +4,10 @@ import { createServerLogger, logger } from './logger';
 import { PrebuiltDocumentationMap, EnvVariableJson } from './utils/snippets';
 import { AllSupportedActions } from './code-actions/action-kinds';
 import { LspCommands } from './command';
-import { PackageVersion, SubcommandEnv } from './utils/commander-cli-subcommands';
+import { getBuildTimeJsonObj, PackageVersion, SubcommandEnv } from './utils/commander-cli-subcommands';
 import { ErrorCodes } from './diagnostics/error-codes';
 import { FishSemanticTokens } from './utils/semantics';
+import { getProjectRootPath } from './utils/path-resolution';
 
 /********************************************
  **********  Handlers/Providers   ***********
@@ -628,6 +629,14 @@ export namespace Config {
    * Therefore, these values must be set/updated before calling this function.
    */
   export function getResultCapabilities(): InitializeResult {
+    // Extend the serverInfo object with additional information
+    const serverInfo = {
+      name: 'fish-lsp',
+      version: PackageVersion,
+      buildTime: getBuildTimeJsonObj()?.timestamp,
+      buildPath: getProjectRootPath(),
+    } as InitializeResult['serverInfo'];
+
     return {
       capabilities: {
         textDocumentSync: {
@@ -685,10 +694,7 @@ export namespace Config {
           },
         },
       },
-      serverInfo: {
-        name: 'fish-lsp',
-        version: PackageVersion,
-      },
+      serverInfo,
     };
   }
 

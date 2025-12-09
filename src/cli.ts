@@ -1,5 +1,5 @@
 import './utils/polyfills';
-import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, FishLspHelp, FishLspManPage, SourcesDict, SubcommandEnv, CommanderSubcommand, getBuildTypeString, PkgJson, SourceMaps } from './utils/commander-cli-subcommands';
+import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, FishLspHelp, FishLspManPage, SourcesDict, SubcommandEnv, CommanderSubcommand, getBuildTypeString, PkgJson } from './utils/commander-cli-subcommands';
 import { Command, Option } from 'commander';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
 import { logger } from './logger';
@@ -11,7 +11,6 @@ import { handleCLiDumpParseTree, handleCLiDumpSemanticTokens } from './utils/cli
 import PackageJSON from '@package';
 import chalk from 'chalk';
 import vfs from './virtual-fs';
-import FishServer from './server';
 
 /**
  *  creates local 'commandBin' used for commander.js
@@ -227,7 +226,7 @@ commandBin.command('info')
       argsCount = argsCount - 1;
     }
 
-    const sourceMaps = Object.values(SourceMaps);
+    const sourceMaps = CommanderSubcommand.info.sourcemaps();
     // immediately exit if the user requested a specific info
     CommanderSubcommand.info.handleBadArgs(args);
 
@@ -262,9 +261,6 @@ commandBin.command('info')
       if (args.sourceMaps) {
         exitCode = CommanderSubcommand.info.handleSourceMaps(args);
         shouldExit = true;
-        if (args.check) {
-          FishServer.throwError('Displaying error message from `fish-lsp info --source-maps --check`');
-        }
       }
       // normal info about the fish-lsp
       if (args.bin) {
@@ -319,8 +315,7 @@ commandBin.command('info')
       CommanderSubcommand.info.log(argsCount, 'Binary File', PathObj.bin, true);
       CommanderSubcommand.info.log(argsCount, 'Man File', PathObj.manFile, true);
       CommanderSubcommand.info.log(argsCount, 'Log File', config.fish_lsp_log_file, true);
-      const sourceMapString = sourceMaps.length > 1 ? `\n${sourceMaps.join('\n')}` : sourceMaps.join('\n');
-      CommanderSubcommand.info.log(argsCount, 'Sourcemaps', sourceMapString, true);
+      CommanderSubcommand.info.log(argsCount, 'Sourcemaps', sourceMaps, true);
       if (args.extra || args.capabilities || args.verbose) {
         logger.logToStdout('_'.repeat(maxWidthForOutput()));
         CommanderSubcommand.info.log(argsCount, 'Capabilities', capabilities, false);

@@ -286,7 +286,7 @@ end
 function __fish_lsp_info_sourcemaps_complete -d 'complete the source map url for the current lsp version'
     __fish_seen_subcommand_from info
     and __fish_contains_opt source-maps
-    and __fish_lsp_not_contains_opt all all-paths check install status remove 
+    and __fish_lsp_not_contains_opt all all-paths check status 
 end
 
 # Utility function for checking if we have seen any switches yet.
@@ -428,8 +428,6 @@ complete -c fish-lsp -n '__fish_lsp_info_complete_opt source-maps;'             
 complete -c fish-lsp -n '__fish_lsp_info_sourcemaps_complete'                                                                                      -l all             -d 'verbose info showing all sourcemaps used by the server on the local machine' 
 complete -c fish-lsp -n '__fish_lsp_info_sourcemaps_complete'                                                                                      -l all-paths       -d 'the absolute paths of the installed sourcemaps' 
 complete -c fish-lsp -n '__fish_lsp_info_sourcemaps_complete'                                                                                      -l check           -d 'check if the sourcemaps are installed & valid' 
-complete -c fish-lsp -n '__fish_lsp_info_sourcemaps_complete'                                                                                      -l remove          -d 'remove the sourcemaps' 
-complete -c fish-lsp -n '__fish_lsp_info_sourcemaps_complete'                                                                                      -l install         -d 'install the sourcemaps' 
 complete -c fish-lsp -n '__fish_lsp_info_sourcemaps_complete'                                                                                      -l status          -d 'info about the sourcemaps' 
 complete -c fish-lsp -n '__fish_lsp_info_complete_opt dump-parse-tree; and __fish_lsp_is_first_switch'                                             -l dump-parse-tree -d 'dump the tree-sitter parse tree of a file'       -k -xa '(__fish_complete_suffix "*.fish" --description="path to show tree-sitter AST" | string match -rei -- ".*\\.fish|.*/")'
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_lsp_last_switch --dump-parse-tree; and test (__fish_lsp_count_after_last_switch) -le 1'         -d 'fish script file'                                -k -xa '(__fish_complete_suffix "*.fish" --description="path to show tree-sitter AST" | string match -rei -- ".*\\.fish|.*/")' 

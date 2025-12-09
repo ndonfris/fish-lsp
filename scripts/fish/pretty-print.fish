@@ -55,7 +55,6 @@ set -gx BG_MAGENTA (set_color --background magenta)
 set -gx BG_WHITE (set_color --background white)
 set -gx BG_BLACK (set_color --background black)
 
-# @fish-lsp-disable 4004
 function icon_check -d 'Check icon'
     printf %s '  '
 end
@@ -80,7 +79,8 @@ end
 
 # helpers
 
-function print_separator -d '<hr />'
+# @fish-lsp-disable 4004
+function print_separator -d '\\<hr \/\\>'
     string repeat --count=80 -- '─'
 end
 

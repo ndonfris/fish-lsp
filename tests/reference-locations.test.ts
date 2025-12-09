@@ -803,8 +803,7 @@ describe('find definition locations of symbols', () => {
 
       it('setup test', () => {
         expect(workspaceManager.current?.uris.indexed).toHaveLength(4);
-        console.log('current uris:', workspaceManager.current?.uris.all.map(uri => LspDocument.testUri(uri)));
-        expect(workspaceManager.current?.uris.indexed).toHaveLength(4);
+        expect(workspaceManager.current?.uris.all).toHaveLength(4);
         expect(functionDoc).toBeDefined();
         expect(completionDoc).toBeDefined();
         expect(confdDoc).toBeDefined();

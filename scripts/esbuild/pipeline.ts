@@ -1,7 +1,7 @@
 import * as esbuild from 'esbuild';
 import { BuildArgs } from './cli';
 import { buildConfigs, createBuildOptions } from './configs';
-import { generateTypeDeclarations, copyDevelopmentAssets, makeExecutable, showBuildStats } from './utils';
+import { generateTypeDeclarations, copyDevelopmentAssets, makeExecutable, showBuildStats, showDirectorySize } from './utils';
 import { logger } from './colors';
 import { execSync } from 'child_process';
 
@@ -52,7 +52,7 @@ class BuildPipeline {
 
       if (step.timing) {
         const buildTime = Date.now() - startTime;
-        console.log(logger.success(`✨ ${step.name} built in ${buildTime} ms`));
+        console.log(logger.time(`${step.name} built in ${buildTime} ms`));
       }
     }
 
@@ -71,12 +71,12 @@ class BuildPipeline {
       return false;
     }).sort((a, b) => a.priority - b.priority);
   }
-  
+
   // Get all registered steps - useful for introspection
   getAllSteps(): ReadonlyArray<BuildStep> {
     return [...this.steps];
   }
-  
+
   // Check if a target exists
   hasTarget(target: string): boolean {
     return this.steps.some(step => step.tags.includes(target));
@@ -109,37 +109,41 @@ const pipeline = new BuildPipeline()
     },
   })
   .register({
-    name: 'Universal Binary',
-    priority: 30,
-    tags: ['all', 'binary', 'dev'],
-    timing: true,
-    runner: async (args) => {
-      const config = buildConfigs.binary;
-      const buildOptions = createBuildOptions(config, args.production || args.minify, args.sourcemaps);
-      await esbuild.build(buildOptions);
-    },
-    postBuild: async () => {
-      const config = buildConfigs.binary;
-      const { showDirectorySize } = await import('./utils');
-      if (config.outfile) {
-        makeExecutable(config.outfile);
-        showDirectorySize('bin', 'bin/*');
-      }
-    },
-  })
-  .register({
     name: 'NPM Package',
-    priority: 40,
+    priority: 30,
     tags: ['all', 'npm', 'dev'],
     timing: true,
     runner: async (args) => {
       const config = buildConfigs.npm;
-      const buildOptions = createBuildOptions(config, args.production || args.minify, args.sourcemaps);
+      const buildOptions = createBuildOptions(config, args.production || args.minify);
       await esbuild.build(buildOptions);
     },
     postBuild: async () => {
-      const { showDirectorySize } = await import('./utils');
-      showDirectorySize('dist', 'dist/*');
+      const config = buildConfigs.npm;
+      if (config.outfile) {
+        makeExecutable(config.outfile);
+        showBuildStats(config.outfile, 'NPM Package Binary');
+        showDirectorySize('dist', 'dist/*');
+      }
+    },
+  })
+  .register({
+    name: 'Universal Binary',
+    priority: 40,
+    tags: ['all', 'binary', 'dev'],
+    timing: true,
+    runner: async (args) => {
+      const config = buildConfigs.binary;
+      const buildOptions = createBuildOptions(config, args.production || args.minify);
+      await esbuild.build(buildOptions);
+    },
+    postBuild: async () => {
+      const config = buildConfigs.binary;
+      if (config.outfile) {
+        makeExecutable(config.outfile);
+        showBuildStats(config.outfile, 'Universal Binary');
+        showDirectorySize('bin', 'bin/*');
+      }
     },
   })
   .register({
@@ -149,6 +153,9 @@ const pipeline = new BuildPipeline()
     timing: true,
     runner: async () => {
       generateTypeDeclarations();
+    },
+    postBuild: async () => {
+      showBuildStats('dist/fish-lsp.d.ts', 'Type Declarations');
     },
   })
   .register({

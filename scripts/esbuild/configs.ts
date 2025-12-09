@@ -14,7 +14,7 @@ export interface BuildConfig extends esbuild.BuildOptions {
   platform: 'node' | 'browser';
   bundle: boolean;
   minify: boolean;
-  sourcemap: boolean;
+  sourcemap: boolean | 'inline' | 'external';
   external?: string[];
   plugins?: esbuild.Plugin[];
   internalPlugins: PluginOptions;
@@ -48,7 +48,7 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
       polyfills: 'minimal', // Include minimal polyfills for browser compatibility when needed
       embedAssets: true, // Enable embedded assets for binary builds
     },
-    onBuildEnd: () => {}
+    onBuildEnd: () => { }
   },
 
   development: {
@@ -118,7 +118,7 @@ export function createBuildOptions(config: BuildConfig, production = false, sour
   // Configure sourcemaps based on mode
   const shouldGenerateSourceMaps = config.sourcemap !== false && sourcemapsMode !== 'none';
   const isInlineMode = sourcemapsMode === 'inline' || sourcemapsMode === 'inline-optimized';
-  const sourcemapSetting: esbuild.BuildOptions['sourcemap'] = shouldGenerateSourceMaps 
+  const sourcemapSetting: esbuild.BuildOptions['sourcemap'] = shouldGenerateSourceMaps
     ? (isInlineMode ? 'inline' : 'external')
     : false;
 
@@ -152,7 +152,7 @@ export function createBuildOptions(config: BuildConfig, production = false, sour
         ? createSpecialSourceMapPlugin({ preserveOnlySrcContent: true })
         : !isInlineMode
           ? createSourceMapOptimizationPlugin(sourcemapsMode === 'extended')
-          : { name: 'no-sourcemap-plugin', setup() {} }, // Inline sourcemaps don't need post-processing
+          : { name: 'no-sourcemap-plugin', setup() { } }, // Inline sourcemaps don't need post-processing
       ...(config.onBuildEnd ? [{
         name: 'build-end-hook',
         setup(build: esbuild.PluginBuild) {
@@ -162,3 +162,4 @@ export function createBuildOptions(config: BuildConfig, production = false, sour
     ],
   };
 }
+

@@ -1,5 +1,5 @@
 // Build utility functions
-import fs from 'fs-extra';
+import * as fs from 'fs-extra';
 import { existsSync, statSync, unlinkSync } from 'fs';
 import { execSync } from 'child_process';
 import { logger, toRelativePath } from './colors';
@@ -44,7 +44,7 @@ export function showDirectorySize(dirPath: string, label?: string): void {
   for (const file of files) {
     const filePath = `${dirPath}/${file}`;
     const stats = statSync(filePath);
-    
+
     if (stats.isFile()) {
       totalSize += stats.size;
     }
@@ -55,8 +55,8 @@ export function showDirectorySize(dirPath: string, label?: string): void {
 }
 
 export function generateTypeDeclarations(): void {
-  console.log(logger.info(' Generating TypeScript declarations...'));
-  
+  console.log(logger.info('  Generating TypeScript declarations...'));
+
   try {
     execSync('mkdir -p dist');
 
@@ -69,7 +69,7 @@ export function generateTypeDeclarations(): void {
         "outDir": "temp-types",
         // Remove rootDir to avoid conflicts with path mapping
         "target": "es2018",
-        "lib": ["es2018", "es2019", "es2020", "es2021", "es2022", "es2023", "esnext.iterator", "dom"],
+        "lib": ["es2018", "es2019", "es2020", "es2021", "es2022", "es2023", "dom"],
         "module": "commonjs",
         "moduleResolution": "node",
         "esModuleInterop": true,
@@ -98,9 +98,9 @@ export function generateTypeDeclarations(): void {
         "node_modules/vitest/**/*"
       ]
     });
-    
+
     fs.writeFileSync('tsconfig.types.json', tsconfigContent);
-    
+
     // Step 2.5: Create debug tsconfig for dts-bundle-generator
     const debugTsconfigContent = JSON.stringify({
       "extends": ["@tsconfig/node22/tsconfig.json"],
@@ -109,7 +109,7 @@ export function generateTypeDeclarations(): void {
         "emitDeclarationOnly": true,
         "outDir": "temp-types",
         "target": "es2018",
-        "lib": ["es2018", "es2019", "es2020", "es2021", "es2022", "es2023", "esnext.iterator", "dom"],
+        "lib": ["es2018", "es2019", "es2020", "es2021", "es2022", "es2023", "dom"],
         "module": "commonjs",
         "moduleResolution": "node",
         "esModuleInterop": true,
@@ -131,22 +131,22 @@ export function generateTypeDeclarations(): void {
       ],
       "exclude": [
         "node_modules/**/*",
-        "tests/**/*", 
+        "tests/**/*",
         "**/*.test.ts",
         "**/vitest/**/*",
         "node_modules/vitest/**/*"
       ]
     });
-    
+
     fs.writeFileSync('tsconfig.debug.json', debugTsconfigContent);
-    
+
     // Step 3: Generate .d.ts files with TypeScript compiler
     console.log(logger.info('  Compiling TypeScript declarations...'));
     execSync('node_modules/typescript/bin/tsc -p tsconfig.types.json', { stdio: 'inherit' });
-    
+
     // Step 4: Bundle all declarations with dts-bundle-generator
     console.log(logger.info('  Bundling type declarations...'));
-    
+
     const dtsConfig = {
       "compilationOptions": {
         "preferredConfigPath": "./tsconfig.debug.json",
@@ -170,12 +170,12 @@ export function generateTypeDeclarations(): void {
         }
       ]
     };
-    
+
     fs.writeFileSync('dts-bundle.config.json', JSON.stringify(dtsConfig, null, 2));
     execSync('yarn dts-bundle-generator --silent --config dts-bundle.config.json --external-inlines=web-tree-sitter --external-types=web-tree-sitter --disable-symlinks-following', { stdio: 'ignore' });
-    
+
     console.log(logger.generated('Successfully generated bundled type declarations'));
-    
+
   } catch (error) {
     console.error(logger.error('Type generation failed:'), error);
     throw error;
@@ -184,15 +184,15 @@ export function generateTypeDeclarations(): void {
     console.log(logger.info('  Cleaning up temporary files...'));
     try {
       unlinkSync('tsconfig.types.json');
-    } catch {}
+    } catch { }
     try {
       unlinkSync('tsconfig.debug.json');
-    } catch {}
+    } catch { }
     try {
       unlinkSync('dts-bundle.config.json');
-    } catch {}
+    } catch { }
     try {
       execSync('rm -rf temp-types', { stdio: 'pipe' });
-    } catch {}
+    } catch { }
   }
 }

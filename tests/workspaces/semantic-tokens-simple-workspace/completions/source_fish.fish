@@ -1,7 +1,0 @@
-
-complete -c source_fish -s f -l force -d 'Force reload of fish config'
-complete -c source_fish -s h -l help -d 'Show help'
-complete -c source_fish -s q -l quiet -d 'Silence'
-complete -c source_fish -l no-parse -d 'Skip parsing check'
-complete -c source_fish -l sleep -d 'Add sleep delay'
-complete -c source_fish -s e -l edit -d 'Edit ~/.config/fish/{functions,completions}/source_fish.fish files'

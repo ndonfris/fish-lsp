@@ -11,6 +11,7 @@ import { SyncFileHelper } from './file-operations';
 import { getCurrentExecutablePath, getFishBuildTimeFilePath, getManFilePath, getProjectRootPath, isBundledEnvironment } from './path-resolution';
 import { maxWidthForOutput } from './startup';
 import { vfs } from '../virtual-fs';
+import FishServer from '../server';
 
 /**
  * Accumulate the arguments into two arrays, '--enable' and '--disable'
@@ -613,8 +614,6 @@ export namespace CommanderSubcommand {
         showFiles: z.boolean().optional().default(false),
         sourceMaps: z.boolean().optional().default(false),
         check: z.boolean().optional().default(false),
-        install: z.boolean().optional().default(false),
-        remove: z.boolean().optional().default(false),
         status: z.boolean().optional().default(false),
         dumpParseTree: z.union([z.string(), z.boolean()]).optional().default(''),
         dumpSemanticTokens: z.union([z.string(), z.boolean()]).optional().default(''),
@@ -723,86 +722,100 @@ export namespace CommanderSubcommand {
 
       // check if all sourcemaps are present
       Object.values(SourceMaps).forEach(v => {
-        if (!fs.existsSync(v)) {
+        if (!fs.existsSync(v) && !fs.readFileSync(getCurrentExecutablePath()).includes('//# sourceMappingURL=')) {
           exitStatus = 1;
         }
       });
 
+      const showSourceMaps = () => {
+        logger.logToStdout('-'.repeat(maxWidthForOutput())); // Add a blank line between maps
+        const hasExternalSourceMaps = () => {
+          for (const v of Object.values(SourceMaps)) {
+            if (fs.existsSync(v)) return true;
+          }
+          return false;
+        };
+        if (!hasExternalSourceMaps() && fs.readFileSync(getCurrentExecutablePath()).includes('//# sourceMappingURL=')) {
+          logger.logToStdoutJoined(chalk.white.bold('Inline Sourcemaps:'), ' ', chalk.blue(getCurrentExecutablePath().replace(homedir(), '~')));
+        } else {
+          for (const [k, v] of Object.entries(SourceMaps)) {
+            const exists = fs.existsSync(v);
+            logger.logToStdoutJoined(`${chalk.white('Sourcemap \'')}`, chalk.blue(k), chalk.white("': "), exists ? chalk.green('✅ Available') : chalk.red('❌ Not found'));
+            if (exists) {
+              logger.logToStdout(`${chalk.white('Path:')} ${chalk.blue(v.replace(homedir(), '~'))}`);
+            } else {
+              logger.logToStdout(`${chalk.white('Path:')} ${chalk.blue(v.replace(homedir(), '~'))} ${chalk.red('(not found)')}`);
+            }
+          }
+        }
+        logger.logToStdout('-'.repeat(maxWidthForOutput())); // Add a blank line between maps
+      };
+
       if (args.all && !args.allPaths) {
         logger.logToStdout('-'.repeat(maxWidthForOutput()));
-        Object.entries(SourceMaps).forEach(([k, v]) => {
-          const exists = fs.existsSync(v);
-          logger.logToStdoutJoined(`${chalk.white('Sourcemap \'')}`, chalk.blue(k), chalk.white("': "), exists ? chalk.green('✅ Available') : chalk.red('❌ Not found'));
-          if (exists) {
-            const stats = fs.statSync(v);
-            logger.logToStdoutJoined(chalk.white('Location: '), chalk.blue(`${v}`));
-            logger.logToStdoutJoined(chalk.white('Size:     '), chalk.blue(`${(stats.size / 1024 / 1024).toFixed(1)} MB`));
-            logger.logToStdoutJoined(chalk.white('Modified: '), chalk.blue(`${stats.mtime.toLocaleDateString()} ${stats.mtime.toLocaleTimeString()}`));
+        sourcemaps().split('\n').forEach(line => {
+          if (line.includes(' (embedded inline)')) {
+            logger.logToStdoutJoined(chalk.white('Sourcemaps are embedded in the binary at:'), ' ', chalk.blue(line.replace(' (embedded inline)', '').replace(homedir(), '~')));
+            return 0;
           }
-          logger.logToStdout('-'.repeat(maxWidthForOutput())); // Add a blank line between maps
+          const exists = fs.existsSync(line);
+          logger.logToStdoutJoined(`${chalk.white('Sourcemap at path \'')}`, chalk.blue(line.replace(homedir(), '~')), chalk.white("': "), exists ? chalk.green('✅ Available') : chalk.red('❌ Not found'));
         });
+        logger.logToStdout('-'.repeat(maxWidthForOutput())); // Add a blank line between maps
         return exitStatus;
       }
 
       if (args.allPaths) {
-        Object.entries(SourceMaps).forEach(([_, v]) => {
-          logger.logToStdout(v);
+        sourcemaps().split('\n').forEach(line => {
+          if (line.includes(' (embedded inline)')) {
+            logger.logToStdout(line.replace(' (embedded inline)', ''));
+          } else {
+            logger.logToStdout(line);
+          }
         });
         return exitStatus;
       }
 
       if (args.check) {
-        logger.logToStdout('-'.repeat(maxWidthForOutput())); // Add a blank line between maps
-        Object.entries(SourceMaps).forEach(([k, v]) => {
-          const exists = fs.existsSync(v);
-          logger.logToStdoutJoined(`${chalk.white('Sourcemap \'')}`, chalk.blue(k), chalk.white("': "), exists ? chalk.green('✅ Available') : chalk.red('❌ Not found'));
-          if (exists) {
-            logger.logToStdout(`${chalk.white('Path:')} ${chalk.blue(v.replace(homedir(), '~'))}`);
-          } else {
-            logger.logToStdout(`${chalk.white('Path:')} ${chalk.blue(v.replace(homedir(), '~'))} ${chalk.red('(not found)')}`);
-          }
-          logger.logToStdout('-'.repeat(maxWidthForOutput())); // Add a blank line between maps
-        });
+        showSourceMaps();
+        try {
+          FishServer.throwError('Source map checking `fish-lsp info --source-maps --check`');
+        } catch (error) {
+          logger.logToStdoutJoined(chalk.dim('(Should throw error) '), chalk.red.underline.bold('Sourcemap check:'), ' ', chalk.red.dim((error as Error).message));
+          FishServer.throwError('Source map checking passed `fish-lsp info --source-maps --check`');
+          exitStatus = 1;
+        }
         return exitStatus;
       }
 
-      if (args.remove) {
-        exitStatus = 0;
-        Object.entries(SourceMaps).forEach(([_, v]) => {
-          if (fs.existsSync(v)) {
-            fs.unlinkSync(v);
-            logger.logToStdout(`✅ Removed sourcemap at ${v.replace(homedir(), '~')}`);
+      if (args.status) {
+        sourcemaps().split('\n').forEach(line => {
+          if (line.includes(' (embedded inline)')) {
+            logger.logToStdoutJoined(line.split(' ').at(0)!, ' ', chalk.blue('(embedded inline)'));
           } else {
-            logger.logToStdout(`❌ Sourcemap not found at ${v.replace(homedir(), '~')}, nothing to remove`);
-            exitStatus = 1;
+            logger.logToStdoutJoined(line, ' ', fs.existsSync(line) ? chalk.green('(available)') : chalk.red('(not found)'));
           }
         });
-        return exitStatus;
-      }
-
-      if (args.install) {
-        logger.logToStdout(`🔍 Download sourcemaps for v${PackageVersion}...`);
-
-        const rootDir = getProjectRootPath();
-        const sourceMapUrl = SourcesDict.sourceMap!.toString();
-        logger.logToStdoutJoined(chalk.white('sourcemap url: '), chalk.blue(sourceMapUrl));
-        logger.logToStdoutJoined(chalk.white('destination:  '), chalk.blue(path.join(rootDir, 'sourcemaps.tar.gz').replace(homedir(), '~')));
         return exitStatus;
       }
 
       // Default source map path
-      logger.logToStdout('-'.repeat(maxWidthForOutput())); // Add a blank line between maps
-      Object.entries(SourceMaps).forEach(([k, v]) => {
-        const exists = fs.existsSync(v);
-        logger.logToStdoutJoined(`${chalk.white('Sourcemap \'')}`, chalk.blue(k), chalk.white("': "), exists ? chalk.green('✅ Available') : chalk.red('❌ Not found'));
-        if (exists) {
-          logger.logToStdout(`${chalk.white('Path:')} ${chalk.blue(v.replace(homedir(), '~'))}`);
-        } else {
-          logger.logToStdout(`${chalk.white('Path:')} ${chalk.blue(v.replace(homedir(), '~'))} ${chalk.red('(not found)')}`);
-        }
-        logger.logToStdout('-'.repeat(maxWidthForOutput())); // Add a blank line between maps
-      });
+      showSourceMaps();
       return exitStatus;
+    }
+
+    export function sourcemaps() {
+      const result: string[] = [];
+      if (fs.readFileSync(getCurrentExecutablePath()).includes('//# sourceMappingURL=')) {
+        result.push(getCurrentExecutablePath() + ' (embedded inline)');
+      } else {
+        for (const v of Object.values(SourceMaps)) {
+          if (fs.existsSync(v)) {
+            result.push(v);
+          }
+        }
+      }
+      return result.join('\n');
     }
 
     export function log(argsCount: number, title: string, message: string, alwaysShowTitle = false) {
