@@ -991,6 +991,10 @@ function foo
             'unknown_command_here',
           ],
         },
+        {
+          relativePath: 'conf.d/lots-of-comments.fish',
+          content: Array.from({ length: 2500 }, (_, i) => `# This is comment line number ${i + 1}`).join('\n'),
+        },
       ).initialize();
 
     let script1: LspDocument;
@@ -999,6 +1003,7 @@ function foo
     let script4: LspDocument;
     let script5: LspDocument;
     let autoloadedFoo: LspDocument;
+    let lotsOfComments: LspDocument;
     beforeAll(async () => {
       await Analyzer.initialize();
       script1 = tw.find('script-1.fish')!;
@@ -1007,6 +1012,7 @@ function foo
       script4 = tw.find('script-4.fish')!;
       script5 = tw.find('script-5.fish')!;
       autoloadedFoo = tw.find('conf.d/autoloaded-foo.fish')!;
+      lotsOfComments = tw.find('conf.d/lots-of-comments.fish')!;
     });
 
     it('VALIDATE: setup workspace files', () => {
@@ -1089,6 +1095,13 @@ function foo
       //   code: 5001,
       //   text: '-Ux',
       // });
+    });
+
+    it('VALIDATE: large number of comments', async () => {
+      const { root, document: doc } = analyzer.analyze(lotsOfComments).ensureParsed();
+      const result = await getDiagnosticsAsync(root, doc);
+      result.forEach(d => logDiagnostics(d, root));
+      expect(result.length).toBe(0);
     });
   });
 });
