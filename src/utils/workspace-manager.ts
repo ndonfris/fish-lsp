@@ -1,10 +1,10 @@
 import { DocumentUri, WorkDoneProgressServerReporter, WorkspaceFoldersChangeEvent } from 'vscode-languageserver';
 import { logger } from '../logger';
-import { Workspace, WorkspaceUri } from './workspace';
+import { FishUriWorkspace, Workspace, WorkspaceUri } from './workspace';
 import { documents, LspDocument } from '../document';
 import { analyzer, AnalyzedDocument } from '../analyze';
 import { config } from '../config';
-import { isPath, PathLike, pathToUri } from './translation';
+import { isPath, PathLike, pathToUri, uriToPath } from './translation';
 import { ProgressNotification } from './progress-notification';
 
 type WorkspaceUpdateOptions = {
@@ -185,9 +185,25 @@ export class WorkspaceManager {
    * Check if the workspace manager already has a workspace that contains the given URI.
    */
   private getWorkspaceContainingUri(uri: DocumentUri): Workspace | null {
-    return this.all.find((workspace) =>
+    // First check if any workspace already contains this URI
+    const directMatch = this.all.find((workspace) =>
       workspace.uris.has(uri) || workspace.uri === uri,
-    ) || null;
+    );
+    if (directMatch) return directMatch;
+
+    // For funced files, check if we have a workspace that matches the funced workspace root
+    const uriPath = uriToPath(uri);
+    if (FishUriWorkspace.isFuncedPath(uriPath)) {
+      const funcedWorkspace = FishUriWorkspace.create(uri);
+      if (funcedWorkspace) {
+        // Find the workspace that matches the funced workspace's root
+        return this.all.find((workspace) =>
+          workspace.uri === funcedWorkspace.uri,
+        ) || null;
+      }
+    }
+
+    return null;
   }
 
   /**

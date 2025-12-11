@@ -426,6 +426,23 @@ export namespace FishUriWorkspace {
   }
 
   /**
+   * Checks if a path is a funced file (from `funced foo` command)
+   * These files are stored in /tmp/fish-funced.* directories
+   */
+  export function isFuncedPath(path: string): boolean {
+    return path.startsWith('/tmp/fish-funced.');
+  }
+
+  /**
+   * Gets the fish config directory path for funced files
+   * Returns undefined if not a funced file
+   */
+  export function getFuncedWorkspaceRoot(): string | undefined {
+    const fishConfigDir = env.get('__fish_config_dir');
+    return fishConfigDir;
+  }
+
+  /**
    * Removes file path component from a fish file URI unless it's config.fish
    */
   export function trimFishFilePath(uri: string): string | undefined {
@@ -446,6 +463,15 @@ export namespace FishUriWorkspace {
 
     let current = path;
     const base = basename(current);
+
+    // Handle funced files specially - they should be treated as part of __fish_config_dir
+    if (isFuncedPath(current)) {
+      const funcedRoot = getFuncedWorkspaceRoot();
+      if (funcedRoot) return funcedRoot;
+      // Fallback to default if __fish_config_dir is not set
+      logger.warning('getFuncedWorkspaceRoot() returned undefined, falling back to ~/.config/fish');
+      return join(process.env.HOME || '/tmp', '.config', 'fish');
+    }
 
     if (current.startsWith('/tmp')) {
       return current;
@@ -553,12 +579,31 @@ export namespace FishUriWorkspace {
    * @returns null if the URI is not in a fish workspace, otherwise the workspace
    */
   export function create(uri: string): FishUriWorkspace | null {
+    const uriPath = uriToPath(uri);
+
+    // Handle funced files - they should be treated as part of __fish_config_dir
+    if (isFuncedPath(uriPath)) {
+      const rootPath = getWorkspaceRootFromUri(uri);
+      const workspaceName = getWorkspaceName(uri);
+
+      if (!rootPath || !workspaceName) {
+        logger.warning('Failed to get workspace root/name for funced file', { uri, rootPath, workspaceName });
+        return null;
+      }
+
+      return {
+        name: workspaceName,
+        uri: pathToUri(rootPath),
+        path: rootPath,
+      };
+    }
+
     // skip workspaces for tmp
     if (isTmpWorkspace(uri)) {
       return {
-        name: uriToPath(uri),
+        name: uriPath,
         uri,
-        path: uriToPath(uri),
+        path: uriPath,
       };
     }
 
