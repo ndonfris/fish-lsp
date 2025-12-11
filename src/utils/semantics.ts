@@ -95,35 +95,6 @@ export namespace SemanticToken {
   }
 }
 
-/**
- * Standard LSP semantic token types
- */
-// export const SemanticTokenTypes = {
-//   namespace: 'namespace',
-//   type: 'type',
-//   class: 'class',
-//   enum: 'enum',
-//   interface: 'interface',
-//   struct: 'struct',
-//   typeParameter: 'typeParameter',
-//   parameter: 'parameter',
-//   variable: 'variable',
-//   property: 'property',
-//   enumMember: 'enumMember',
-//   event: 'event',
-//   function: 'function',
-//   method: 'method',
-//   macro: 'macro',
-//   keyword: 'keyword',
-//   modifier: 'modifier',
-//   comment: 'comment',
-//   string: 'string',
-//   number: 'number',
-//   regexp: 'regexp',
-//   operator: 'operator',
-//   decorator: 'decorator',
-// } as const;
-
 export const SemanticTokenTypes = {
   ['function']: 'function',     // User-defined functions and fish-shipped functions
   ['variable']: 'variable',     // Variables
@@ -165,165 +136,22 @@ export namespace FishSemanticTokens {
     tokenModifiers: Object.values(SemanticTokenModifiers),
   };
 
+  export function modMaskToStringArray(mask: number): string[] {
+    const result: string[] = [];
+    for (const [mod, index] of Object.entries(mods)) {
+      if (mask & 1 << index) {
+        result.push(mod);
+      }
+    }
+    return result;
+  }
+
 }
 
-/**
- * Standard LSP semantic token modifiers
- */
-// export const SemanticTokenModifiers = {
-//   declaration: 'declaration',
-//   definition: 'definition',
-//   readonly: 'readonly',
-//   static: 'static',
-//   deprecated: 'deprecated',
-//   abstract: 'abstract',
-//   async: 'async',
-//   modification: 'modification',
-//   documentation: 'documentation',
-//   defaultLibrary: 'defaultLibrary',
-// } as const;
-
-/**
- * Fish-specific semantic token modifiers
- */
-// export const FishSemanticTokenModifiers = {
-//   ...SemanticTokenModifiers,
-//   local: 'local',
-//   function: 'function',
-//   global: 'global',
-//   universal: 'universal',
-//   inherit: 'inherit',
-//   export: 'export',
-//   autoloaded: 'autoloaded',
-//   'not-autoloaded': 'not-autoloaded',
-//   builtin: 'builtin',
-//   script: 'script',
-//   'fish-lsp-directive': 'fish-lsp-directive',
-//   shebang: 'shebang',
-//   flag: 'flag',
-//   argument: 'argument',
-//   path: 'path',
-//   filename: 'filename',
-// } as const;
-
-// export type FishSemanticTokenModifier = keyof typeof SemanticTokenModifiers;
-// export type FishSemanticTokenType = keyof typeof SemanticTokenTypes;
-
-// export const SEMANTIC_TOKEN_MODIFIERS = Object.values(FishSemanticTokenModifiers);
-
-/**
- * Tree-sitter capture name to LSP semantic token type mappings
- */
-// const CAPTURE_TO_TOKEN_MAPPINGS: Record<string, string> = {
-//   keyword: SemanticTokenTypes.keyword,
-//   function: SemanticTokenTypes.function,
-//   string: SemanticTokenTypes.string,
-//   'string.escape': SemanticTokenTypes.string,
-//   'string.special': SemanticTokenTypes.string,
-//   number: SemanticTokenTypes.number,
-//   comment: SemanticTokenTypes.comment,
-//   operator: SemanticTokenTypes.operator,
-//   'punctuation.bracket': SemanticTokenTypes.operator,
-//   'punctuation.delimiter': SemanticTokenTypes.operator,
-//   constant: SemanticTokenTypes.variable,
-//   'constant.builtin': SemanticTokenTypes.variable,
-//   variable: SemanticTokenTypes.variable,
-//   event: SemanticTokenTypes.event,
-//   parameter: SemanticTokenTypes.parameter,
-//   property: SemanticTokenTypes.property,
-//   decorator: SemanticTokenTypes.decorator,
-// };
-
-// export function getQueriesList(queriesRawText: string): string[] {
-//   const result: string[] = [];
-//   let openParenCount = 0;
-//   let openBracketCount = 0;
-//   let isQuoteCharMet = false;
-//   let isComment = false;
-//   let currentQuery = '';
-//
-//   for (const char of queriesRawText) {
-//     if (char === '"') isQuoteCharMet = !isQuoteCharMet;
-//     if (isQuoteCharMet) {
-//       currentQuery += char;
-//       continue;
-//     } else if (!isQuoteCharMet && char === ';') isComment = true;
-//     else if (isComment && char !== '\n') continue;
-//     else if (char === '(') openParenCount++;
-//     else if (char === ')') openParenCount--;
-//     else if (char === '[') openBracketCount++;
-//     else if (char === ']') openBracketCount--;
-//     else if (char === '\n') {
-//       isComment = false;
-//       if (!openParenCount && !openBracketCount && currentQuery) {
-//         const fixedQuery = currentQuery.trim();
-//         if (!fixedQuery.includes('"^\\\[$"')) {
-//           result.push(fixedQuery);
-//         }
-//         currentQuery = '';
-//       }
-//       continue;
-//     }
-//     if (!isComment) currentQuery += char;
-//   }
-//
-//   return result;
-// }
-
-// function extractCaptureNames(queriesText: string): Set<string> {
-//   const captureRegex = /@(\w+(?:\.\w+)*)/g;
-//   const captureNames = new Set<string>();
-//   let match;
-//
-//   while ((match = captureRegex.exec(queriesText)) !== null) {
-//     if (match[1]) {
-//       captureNames.add(match[1]);
-//     }
-//   }
-//
-//   return captureNames;
-// }
-//
-// function mapCaptureToTokenType(captureName: string): string {
-//   if (CAPTURE_TO_TOKEN_MAPPINGS[captureName]) {
-//     return CAPTURE_TO_TOKEN_MAPPINGS[captureName];
-//   }
-//
-//   const baseName = captureName.split('.')[0];
-//   if (baseName && CAPTURE_TO_TOKEN_MAPPINGS[baseName]) {
-//     return CAPTURE_TO_TOKEN_MAPPINGS[baseName];
-//   }
-//
-//   return SemanticTokenTypes.variable;
-// }
-
-// function generateDynamicLegendFromTreeSitter(): SemanticTokensLegend {
-//   const captureNames = extractCaptureNames(highlights);
-//   const tokenTypes = new Set<string>();
-//
-//   for (const captureName of captureNames) {
-//     const tokenType = mapCaptureToTokenType(captureName);
-//     tokenTypes.add(tokenType);
-//   }
-//
-//   tokenTypes.add(SemanticTokenTypes.event);
-//   tokenTypes.add(SemanticTokenTypes.parameter);
-//   tokenTypes.add(SemanticTokenTypes.property);
-//   tokenTypes.add(SemanticTokenTypes.decorator);
-//
-//   return {
-//     tokenTypes: Array.from(tokenTypes).sort(),
-//     tokenModifiers: SEMANTIC_TOKEN_MODIFIERS,
-//   };
-// }
-
-// export const FISH_SEMANTIC_TOKENS_LEGEND: SemanticTokensLegend = generateDynamicLegendFromTreeSitter();
-//
-
-export const FISH_SEMANTIC_TOKENS_LEGEND: SemanticTokensLegend = {
-  tokenTypes: SemanticTokenTypes ? Object.values(SemanticTokenTypes) : [],
-  tokenModifiers: SemanticTokenModifiers ? Object.values(SemanticTokenModifiers) : [],
-} as SemanticTokensLegend;
+// export const FISH_SEMANTIC_TOKENS_LEGEND: SemanticTokensLegend = {
+//   tokenTypes: SemanticTokenTypes ? Object.values(SemanticTokenTypes) : [],
+//   tokenModifiers: SemanticTokenModifiers ? Object.values(SemanticTokenModifiers) : [],
+// } as SemanticTokensLegend;
 
 export function getTokenTypeIndex(tokenType: string): number {
   return FishSemanticTokens.types[tokenType as SemanticTokenType] || 0;
@@ -407,16 +235,16 @@ export function getPositionFromOffset(content: string, offset: number): { line: 
 }
 
 export function getTokenTypePriority(tokenTypeIndex: number, modifiersMask: number = 0): number {
-  const tokenTypesArray = FISH_SEMANTIC_TOKENS_LEGEND.tokenTypes;
+  const tokenTypesArray = FishSemanticTokens.legend.tokenTypes;
   const tokenType = tokenTypesArray[tokenTypeIndex];
 
   if (!tokenType) {
     return 30;
   }
 
-  const pathModifierIndex = FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.indexOf('path');
-  const filenameModifierIndex = FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.indexOf('filename');
-  const definitionModifierIndex = FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.indexOf('definition');
+  const pathModifierIndex = FishSemanticTokens.legend.tokenModifiers.indexOf('path');
+  const filenameModifierIndex = FishSemanticTokens.legend.tokenModifiers.indexOf('filename');
+  const definitionModifierIndex = FishSemanticTokens.legend.tokenModifiers.indexOf('definition');
 
   if (modifiersMask > 0) {
     if (tokenType === 'variable' && definitionModifierIndex !== -1 && modifiersMask & 1 << definitionModifierIndex) {
