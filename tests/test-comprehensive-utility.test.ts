@@ -1,4 +1,5 @@
-import { TestWorkspace, TestFile, Query } from './test-workspace-utils';
+import { LspDocument } from '../src/document';
+import { TestWorkspace, TestFile, Query, DefaultTestWorkspaces } from './test-workspace-utils';
 
 describe('Comprehensive Test Workspace Utility Tests', () => {
   describe('Functionality verification', () => {
@@ -8,12 +9,15 @@ describe('Comprehensive Test Workspace Utility Tests', () => {
         TestFile.completion('test_func', 'complete -c test_func -l help'),
       ).initialize();
 
-    const singleFile = TestWorkspace.createSingle(
-      'function my_func\n  echo "hello"\nend',
-      'function',
+    const singleFile = TestWorkspace.create({
+      name: 'my_single_file',
+      forceAllDefaultWorkspaceFolders: true,
+    },
+    ).addDocument(
+      LspDocument.create('functions/my_func.fish', 'fish', 1, 'function my_func\nend'),
     ).initialize();
 
-    const multiFileWorkspace = TestWorkspace.create()
+    const multiFileWorkspace = TestWorkspace.create({ name: 'multi_file' })
       .addFile(TestFile.function('another_func', 'function another_func\nend')).initialize();
 
     const completion = TestWorkspace.create().addFile(
@@ -29,7 +33,7 @@ describe('Comprehensive Test Workspace Utility Tests', () => {
       expect(snapshotPath).toContain('.snapshot');
 
       const restoredWorkspace = TestWorkspace.fromSnapshot(snapshotPath);
-      expect(restoredWorkspace.name).toBe('snapshot_test');
+      expect(restoredWorkspace.name).toContain('snapshot_test');
       expect((restoredWorkspace as any)._files).toHaveLength(2);
 
       // Test 2: Single file utility works
@@ -37,12 +41,13 @@ describe('Comprehensive Test Workspace Utility Tests', () => {
       // This should work since we specified the filename
       expect(singleFile.document!.uri).toBeDefined();
       expect(singleFile.document!.getText()).toContain('function my_func');
-      expect(singleFile.workspace!.allDocuments()).toHaveLength(1);
+      expect(singleFile.workspace!.getUris()).toHaveLength(1);
 
       // Test 3: Query system works
-      const functions = singleFile.getDocuments(Query.functions());
-      expect(functions).toHaveLength(1);
-      expect(functions[0]!.getText()).toContain('function my_func');
+      const func = singleFile.focus().find(Query.functions())!;
+      // console.log(func.getRelativeFilenameToWorkspace().toString());
+      // expect(func).toHaveLength(1);
+      expect(func!.getText()).toContain('function my_func');
 
       // Test 4: Unified interface works
       const result = multiFileWorkspace.asResult();

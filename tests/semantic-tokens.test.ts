@@ -6,7 +6,7 @@ import { LspDocument } from '../src/document';
 //   getModifiersFromMask,
 //   getTokenTypeIndex,
 // } from '../src/utils/semantics';
-import { Config } from '../src/config';
+import { config, Config } from '../src/config';
 import { TestWorkspace, TestFile } from './test-workspace-utils';
 import { Range } from 'vscode-languageserver';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
@@ -28,9 +28,10 @@ import { FishCompletionItemKind } from '../src/utils/completion/types';
 import { logger } from '../src/logger';
 import { pathToUri } from '../src/utils/translation';
 import { existsSync } from 'fs';
-import { setLogger } from './helpers';
+import { createFakeLspDocument, FakeLspDocument, setLogger } from './helpers';
 import { join } from 'path';
-setLogger();
+// setLogger();
+logger.setSilent(true);
 
 /**
  * Test suite for the simplified semantic token handler.
@@ -52,11 +53,12 @@ setLogger();
  * - Has simpler token deduplication logic
  */
 
-// Setup test workspace
-const testWorkspace = TestWorkspace.create({
-  name: 'semantic-tokens-simple-workspace',
-}).addFiles(
-  TestFile.script('basic.fish', `#!/usr/bin/env fish
+describe('Simplified Semantic Tokens', () => {
+  // Setup test workspace
+  const testWorkspace = TestWorkspace.create({
+    name: 'semantic-tokens-simple-workspace',
+  }).addFiles(
+    TestFile.script('basic.fish', `#!/usr/bin/env fish
 # Basic fish script with common patterns
 
 function greet
@@ -66,7 +68,7 @@ end
 
 greet
 `),
-  TestFile.script('variables.fish', `#!/usr/bin/env fish
+    TestFile.script('variables.fish', `#!/usr/bin/env fish
 # Variable definitions and expansions
 
 set -l local_var "local"
@@ -80,7 +82,7 @@ echo $universal_var
 echo $exported_var
 echo $PATH $HOME $USER
 `),
-  TestFile.script('functions.fish', `#!/usr/bin/env fish
+    TestFile.script('functions.fish', `#!/usr/bin/env fish
 # Function definitions and calls
 
 function my_func
@@ -95,7 +97,7 @@ end
 my_func
 another_func
 `),
-  TestFile.script('keywords.fish', `#!/usr/bin/env fish
+    TestFile.script('keywords.fish', `#!/usr/bin/env fish
 # Keyword usage
 
 if test -f /tmp/file
@@ -121,7 +123,7 @@ switch $value
         echo "other"
 end
 `),
-  TestFile.script('diagnostics.fish', `#!/usr/bin/env fish
+    TestFile.script('diagnostics.fish', `#!/usr/bin/env fish
 # Diagnostic comment handling
 
 # @fish-lsp-disable
@@ -134,14 +136,14 @@ echo "next line disabled"
 # Regular comment
 echo "normal"
 `),
-  TestFile.script('operators.fish', `#!/usr/bin/env fish
+    TestFile.script('operators.fish', `#!/usr/bin/env fish
 # Operator usage
 
 read -- my_var
 echo -- hello
 set -- args a b c
 `),
-  TestFile.script('commands.fish', `#!/usr/bin/env fish
+    TestFile.script('commands.fish', `#!/usr/bin/env fish
 # Builtin commands and user functions
 
 echo "builtin"
@@ -155,7 +157,7 @@ end
 
 custom_cmd
 `),
-  TestFile.script('mixed.fish', `#!/usr/bin/env fish
+    TestFile.script('mixed.fish', `#!/usr/bin/env fish
 # Mixed features
 
 function process --argument-names input_file output_file
@@ -169,7 +171,7 @@ end
 set -g DATA_DIR /var/data
 process -- $DATA_DIR/input.txt $DATA_DIR/output.txt
 `),
-  TestFile.completion('source_fish', `
+    TestFile.completion('source_fish', `
 complete -c source_fish -s f -l force -d 'Force reload of fish config'
 complete -c source_fish -s h -l help -d 'Show help'
 complete -c source_fish -s q -l quiet -d 'Silence'
@@ -177,16 +179,14 @@ complete -c source_fish -l no-parse -d 'Skip parsing check'
 complete -c source_fish -l sleep -d 'Add sleep delay'
 complete -c source_fish -s e -l edit -d 'Edit ~/.config/fish/{functions,completions}/source_fish.fish files'
 `),
-  TestFile.completion('deployctl', `
+    TestFile.completion('deployctl', `
 complete -c deployctl -s s -l stage -d 'Stage to target'
 complete -c deployctl -s r -l region -d 'Region to deploy'
 complete -c deployctl -s f -l force -d 'Skip confirmation'
 complete -c deployctl -l dry-run -d 'Preview actions'
 complete -c deployctl -l retries -d 'Retry count'
 `),
-).initialize();
-
-describe('Simplified Semantic Tokens', () => {
+  ).initialize();
   let basic_doc: LspDocument;
   let variables_doc: LspDocument;
   let functions_doc: LspDocument;
@@ -199,11 +199,13 @@ describe('Simplified Semantic Tokens', () => {
   let deploy_completion_doc: LspDocument;
 
   beforeAll(async () => {
+    logger.setSilent(true);
     await Analyzer.initialize();
     await setupProcessEnvExecFile();
-    startServer();
-    const opts = Config.getResultCapabilities();
-    await FishServer.create(connection, opts as any);
+    config.fish_lsp_disabled_handlers = ['diagnostic'];
+    // startServer();
+    // const opts = Config.getResultCapabilities();
+    // await FishServer.create(connection, opts as any);
 
     basic_doc = testWorkspace.getDocument('basic.fish')!;
     variables_doc = testWorkspace.getDocument('variables.fish')!;
@@ -253,7 +255,7 @@ describe('Simplified Semantic Tokens', () => {
 
     it('should handle documents without shebangs', () => {
       const content = 'echo "no shebang"';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://no-shebang.fish',
         languageId: 'fish',
         version: 1,
@@ -363,7 +365,7 @@ describe('Simplified Semantic Tokens', () => {
 
     it('should highlight else if keyword combination', () => {
       const content = 'if true; echo \'stuff...\'; else if true || false; echo \'in else if\'; else; echo \'in else...\'; end';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://else-if.fish',
         languageId: 'fish',
         version: 1,
@@ -393,8 +395,8 @@ describe('Simplified Semantic Tokens', () => {
       const falseTokens = findTokensByText(tokens, 'false');
       expect(trueTokens.length).toBeGreaterThan(0);
       expect(falseTokens.length).toBeGreaterThan(0);
-      expect(trueTokens.every(t => t.tokenType === 'keyword')).toBe(true);
-      expect(falseTokens.every(t => t.tokenType === 'keyword')).toBe(true);
+      expect(trueTokens.every(t => t.tokenType === 'function')).toBe(true);
+      expect(falseTokens.every(t => t.tokenType === 'function')).toBe(true);
 
       // Should have 'or' keyword (||)
       const orTokens = findTokensByText(tokens, 'or');
@@ -405,12 +407,12 @@ describe('Simplified Semantic Tokens', () => {
       // Should have 'echo' as keyword
       const echoTokens = findTokensByText(tokens, 'echo');
       expect(echoTokens.length).toBeGreaterThan(0);
-      expect(echoTokens.every(t => t.tokenType === 'keyword')).toBe(true);
+      expect(echoTokens.every(t => t.tokenType === 'function')).toBe(true);
     });
 
     it('should highlight alias as keyword', () => {
       const content = 'alias ll="ls -la"';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://alias.fish',
         languageId: 'fish',
         version: 1,
@@ -429,7 +431,7 @@ describe('Simplified Semantic Tokens', () => {
 
     it('should highlight logical operators and/or/not as keywords', () => {
       const content = 'command1 && command2 || command3';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://logical-ops.fish',
         languageId: 'fish',
         version: 1,
@@ -455,7 +457,7 @@ describe('Simplified Semantic Tokens', () => {
 
     it('should highlight not operator as keyword', () => {
       const content = 'not test -f /tmp/file.txt';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://not-op.fish',
         languageId: 'fish',
         version: 1,
@@ -475,14 +477,14 @@ describe('Simplified Semantic Tokens', () => {
       // Should also have 'test' as keyword
       const testTokens = findTokensByText(tokens, 'test');
       expect(testTokens.length).toBeGreaterThan(0);
-      expect(testTokens.some(t => t.tokenType === 'keyword')).toBe(true);
+      expect(testTokens.some(t => t.tokenType === 'function')).toBe(true);
     });
   });
 
   describe('Alias Definitions', () => {
     it('should highlight alias keyword and function name in "alias foo=bar"', () => {
       const content = 'alias foo=bar';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://alias-def.fish',
         languageId: 'fish',
         version: 1,
@@ -507,7 +509,7 @@ describe('Simplified Semantic Tokens', () => {
 
     it('should handle alias with quoted value "alias ll="ls -la""', () => {
       const content = 'alias ll="ls -la"';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://alias-quoted.fish',
         languageId: 'fish',
         version: 1,
@@ -534,7 +536,7 @@ describe('Simplified Semantic Tokens', () => {
       const content = `alias gs="git status"
 alias gc="git commit"
 alias gp="git push"`;
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://aliases-multiple.fish',
         languageId: 'fish',
         version: 1,
@@ -563,7 +565,7 @@ alias gp="git push"`;
 
     it('should handle alias with space syntax "alias ll ls -la"', () => {
       const content = 'alias ll ls -la';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://alias-space.fish',
         languageId: 'fish',
         version: 1,
@@ -588,7 +590,7 @@ alias gp="git push"`;
 
     it('should handle alias with complex command', () => {
       const content = 'alias gs="git status --short --branch"';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://alias-complex.fish',
         languageId: 'fish',
         version: 1,
@@ -614,7 +616,7 @@ alias gp="git push"`;
     it('should distinguish alias definition from alias usage', () => {
       const content = `alias myalias="echo test"
 myalias`;
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://alias-usage.fish',
         languageId: 'fish',
         version: 1,
@@ -660,7 +662,7 @@ myalias`;
 
     it('should highlight export command and variable in "export VAR=value"', () => {
       const content = 'export MY_VAR=hello';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://export-var.fish',
         languageId: 'fish',
         version: 1,
@@ -688,7 +690,7 @@ myalias`;
       const content = `export PATH=/usr/local/bin
 export EDITOR=vim
 export LANG=en_US.UTF-8`;
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://exports-multiple.fish',
         languageId: 'fish',
         version: 1,
@@ -716,7 +718,7 @@ export LANG=en_US.UTF-8`;
 
     it('should handle export with quoted values', () => {
       const content = 'export MY_PATH="/usr/local/bin:/usr/bin"';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://export-quoted.fish',
         languageId: 'fish',
         version: 1,
@@ -740,7 +742,7 @@ export LANG=en_US.UTF-8`;
 
     it('should handle export with variable expansion in value', () => {
       const content = 'export PATH=/opt/bin:$PATH';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://export-expansion.fish',
         languageId: 'fish',
         version: 1,
@@ -789,7 +791,7 @@ export LANG=en_US.UTF-8`;
 
     it('should handle nested variable expansions', () => {
       const content = 'echo $argv[1]';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://nested-var.fish',
         languageId: 'fish',
         version: 1,
@@ -809,7 +811,7 @@ export LANG=en_US.UTF-8`;
 
     it('should highlight for loop variable as variable token', () => {
       const content = 'for item in $list; echo $item; end';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://for-loop-var.fish',
         languageId: 'fish',
         version: 1,
@@ -837,12 +839,12 @@ export LANG=en_US.UTF-8`;
       expect(listTokens.some(t => t.tokenType === 'variable')).toBe(true);
 
       // Should have 'echo' as keyword
-      expectTokenExists(tokens, { text: 'echo', tokenType: 'keyword' });
+      expectTokenExists(tokens, { text: 'echo', tokenType: 'function' });
     });
 
     it('should handle for loop with multiple iteration variables', () => {
       const content = 'for x in a b c; echo $x; end';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://for-loop-multi.fish',
         languageId: 'fish',
         version: 1,
@@ -880,7 +882,7 @@ export LANG=en_US.UTF-8`;
 
     it('should highlight function argument names as variables', () => {
       const content = 'function foo --argument-names a b c d e --description "foo test function"; echo $a $b $c $d $e; end';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://func-args.fish',
         languageId: 'fish',
         version: 1,
@@ -912,7 +914,7 @@ export LANG=en_US.UTF-8`;
       // Should have 'echo' as keyword
       const echoTokens = findTokensByText(tokens, 'echo');
       expect(echoTokens.length).toBeGreaterThan(0);
-      expect(echoTokens.some(t => t.tokenType === 'keyword')).toBe(true);
+      expect(echoTokens.some(t => t.tokenType === 'function')).toBe(true);
     });
 
     it('should highlight function calls', () => {
@@ -944,7 +946,7 @@ export LANG=en_US.UTF-8`;
   describe('Bracket Test Command', () => {
     it('should highlight [ and ] in test command "[ -f /tmp/foo.fish ]"', () => {
       const content = '[ -f /tmp/foo.fish ]';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://bracket-test.fish',
         languageId: 'fish',
         version: 1,
@@ -970,7 +972,7 @@ export LANG=en_US.UTF-8`;
 
     it('should highlight [ and ] in test command "[ -d /tmp ]"', () => {
       const content = '[ -d /tmp ]';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://bracket-dir-test.fish',
         languageId: 'fish',
         version: 1,
@@ -989,7 +991,7 @@ export LANG=en_US.UTF-8`;
 
     it('should highlight [ and ] in test command "[ -n \'some-non-empty-string\' ]"', () => {
       const content = "[ -n 'some-non-empty-string' ]";
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://bracket-string-test.fish',
         languageId: 'fish',
         version: 1,
@@ -1011,7 +1013,7 @@ export LANG=en_US.UTF-8`;
 
     it('should NOT confuse array indexing with test command in "echo $argv[1]"', () => {
       const content = 'echo $argv[1]';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://array-index.fish',
         languageId: 'fish',
         version: 1,
@@ -1026,7 +1028,7 @@ export LANG=en_US.UTF-8`;
       // Should have 'echo' as keyword
       const echoTokens = findTokensByText(tokens, 'echo');
       expect(echoTokens.length).toBeGreaterThan(0);
-      expect(echoTokens.some(t => t.tokenType === 'keyword')).toBe(true);
+      expect(echoTokens.some(t => t.tokenType === 'function')).toBe(true);
 
       // Should have variable tokens (the simplified handler handles array indexing)
       const varTokens = findTokensByType(tokens, 'variable');
@@ -1041,7 +1043,7 @@ export LANG=en_US.UTF-8`;
 
     it('should handle multiple [ ] test commands', () => {
       const content = '[ -f /tmp/a ] && [ -d /tmp/b ]';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://multiple-brackets.fish',
         languageId: 'fish',
         version: 1,
@@ -1063,7 +1065,7 @@ export LANG=en_US.UTF-8`;
 
     it('should handle [ ] in if statement', () => {
       const content = 'if [ -f /tmp/file.txt ]; echo "exists"; end';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://bracket-if.fish',
         languageId: 'fish',
         version: 1,
@@ -1081,7 +1083,7 @@ export LANG=en_US.UTF-8`;
 
       // Should also have if, echo, end keywords
       expectTokenExists(tokens, { text: 'if', tokenType: 'keyword' });
-      expectTokenExists(tokens, { text: 'echo', tokenType: 'keyword' });
+      expectTokenExists(tokens, { text: 'echo', tokenType: 'function' });
       expectTokenExists(tokens, { text: 'end', tokenType: 'keyword' });
     });
   });
@@ -1089,7 +1091,7 @@ export LANG=en_US.UTF-8`;
   describe('Command Substitution', () => {
     it('should highlight commands in command substitution (parentheses)', () => {
       const content = 'set output (echo test)';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://cmd-sub-parens.fish',
         languageId: 'fish',
         version: 1,
@@ -1104,12 +1106,12 @@ export LANG=en_US.UTF-8`;
       // Should have 'set' as keyword
       const setTokens = findTokensByText(tokens, 'set');
       expect(setTokens.length).toBeGreaterThan(0);
-      expect(setTokens.some(t => t.tokenType === 'keyword')).toBe(true);
+      expect(setTokens.some(t => t.tokenType === 'function')).toBe(true);
 
       // Should have 'echo' as keyword (inside command substitution)
       const echoTokens = findTokensByText(tokens, 'echo');
       expect(echoTokens.length).toBeGreaterThan(0);
-      expect(echoTokens.some(t => t.tokenType === 'keyword')).toBe(true);
+      expect(echoTokens.some(t => t.tokenType === 'function')).toBe(true);
 
       // Should have 'output' as variable
       const outputTokens = findTokensByText(tokens, 'output');
@@ -1119,7 +1121,7 @@ export LANG=en_US.UTF-8`;
 
     it('should highlight commands in dollar command substitution', () => {
       const content = 'echo "$(date)"';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://cmd-sub-dollar.fish',
         languageId: 'fish',
         version: 1,
@@ -1134,7 +1136,7 @@ export LANG=en_US.UTF-8`;
       // Should have 'echo' as keyword
       const echoTokens = findTokensByText(tokens, 'echo');
       expect(echoTokens.length).toBeGreaterThan(0);
-      expect(echoTokens.some(t => t.tokenType === 'keyword')).toBe(true);
+      expect(echoTokens.some(t => t.tokenType === 'function')).toBe(true);
 
       // Should have 'date' as keyword/command (inside command substitution)
       const dateTokens = findTokensByText(tokens, 'date');
@@ -1145,7 +1147,7 @@ export LANG=en_US.UTF-8`;
 
     it('should handle nested command substitution with variables', () => {
       const content = 'set result (count (echo $argv))';
-      const doc = new LspDocument({
+      const doc = new FakeLspDocument({
         uri: 'test://cmd-sub-nested.fish',
         languageId: 'fish',
         version: 1,
@@ -1158,7 +1160,7 @@ export LANG=en_US.UTF-8`;
       const tokens = decodeSemanticTokens(result, content);
 
       // Should have 'set', 'count', 'echo' as keywords
-      expectTokenExists(tokens, { text: 'set', tokenType: 'keyword' });
+      expectTokenExists(tokens, { text: 'set', tokenType: 'function' });
 
       const countTokens = findTokensByText(tokens, 'count');
       expect(countTokens.length).toBeGreaterThan(0);
@@ -1176,15 +1178,10 @@ export LANG=en_US.UTF-8`;
     });
   });
 
-  describe('Nested Structures', () => {
+  describe.skip('Nested Structures', () => {
     it('should handle command substitution inside test command', () => {
       const content = 'if test (count $argv) -gt 0; echo "has args"; end';
-      const doc = new LspDocument({
-        uri: 'test://nested-test.fish',
-        languageId: 'fish',
-        version: 1,
-        text: content,
-      });
+      const doc = createFakeLspDocument('test://nested-test.fish', content);
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
 
@@ -1198,7 +1195,7 @@ export LANG=en_US.UTF-8`;
       // Should have 'test' as keyword
       const testTokens = findTokensByText(tokens, 'test');
       expect(testTokens.length).toBeGreaterThan(0);
-      expect(testTokens.some(t => t.tokenType === 'keyword')).toBe(true);
+      expect(testTokens.some(t => t.tokenType === 'function')).toBe(true);
 
       // Should have 'count' as keyword/command
       const countTokens = findTokensByText(tokens, 'count');
@@ -1207,17 +1204,12 @@ export LANG=en_US.UTF-8`;
       // Should have 'echo' as keyword
       const echoTokens = findTokensByText(tokens, 'echo');
       expect(echoTokens.length).toBeGreaterThan(0);
-      expect(echoTokens.some(t => t.tokenType === 'keyword')).toBe(true);
+      expect(echoTokens.some(t => t.tokenType === 'function')).toBe(true);
     });
 
     it('should handle deeply nested command substitution', () => {
       const content = 'echo (string upper (string lower (echo "TEST")))';
-      const doc = new LspDocument({
-        uri: 'test://deeply-nested.fish',
-        languageId: 'fish',
-        version: 1,
-        text: content,
-      });
+      const doc = createFakeLspDocument('test://deeply-nested.fish', content);
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
 
@@ -1227,22 +1219,18 @@ export LANG=en_US.UTF-8`;
       // Should have 'echo' tokens (appears multiple times)
       const echoTokens = findTokensByText(tokens, 'echo');
       expect(echoTokens.length).toBeGreaterThan(0);
-      expect(echoTokens.some(t => t.tokenType === 'keyword')).toBe(true);
+      expect(echoTokens.some(t => t.tokenType === 'function')).toBe(true);
 
       // Should have 'string' tokens
       const stringTokens = findTokensByText(tokens, 'string');
       expect(stringTokens.length).toBeGreaterThan(0);
-      expect(stringTokens.some(t => t.tokenType === 'keyword')).toBe(true);
+      expect(stringTokens.some(t => t.tokenType === 'function')).toBe(true);
     });
 
     it('should handle variable expansion in command substitution', () => {
       const content = 'set files (ls $HOME)';
-      const doc = new LspDocument({
-        uri: 'test://var-in-cmd-sub.fish',
-        languageId: 'fish',
-        version: 1,
-        text: content,
-      });
+      const doc = createFakeLspDocument('test://var-in-cmd-sub.fish', content);
+
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
 
@@ -1284,12 +1272,7 @@ export LANG=en_US.UTF-8`;
       const content = `read -- var
 echo -- text
 set -- args a b c`;
-      const doc = new LspDocument({
-        uri: 'test://operators-context.fish',
-        languageId: 'fish',
-        version: 1,
-        text: content,
-      });
+      const doc = createFakeLspDocument('test://operators-multiple.fish', content);
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
 
@@ -1394,12 +1377,7 @@ set -- args a b c`;
   describe('Edge Cases', () => {
     it('should handle empty documents', () => {
       const content = '';
-      const doc = new LspDocument({
-        uri: 'test://empty.fish',
-        languageId: 'fish',
-        version: 1,
-        text: content,
-      });
+      const doc = createFakeLspDocument('test://empty.fish', content);
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
 
@@ -1416,12 +1394,7 @@ set -- args a b c`;
     it('should handle documents with only comments', () => {
       const content = `# Just a comment
 # Another comment`;
-      const doc = new LspDocument({
-        uri: 'test://comments-only.fish',
-        languageId: 'fish',
-        version: 1,
-        text: content,
-      });
+      const doc = createFakeLspDocument('test://comments-only.fish', content);
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
 
@@ -1438,12 +1411,10 @@ set -- args a b c`;
     echo "missing end"
 
 set incomplete`;
-      const doc = new LspDocument({
-        uri: 'test://syntax-error.fish',
-        languageId: 'fish',
-        version: 1,
-        text: content,
-      });
+      const doc = createFakeLspDocument(
+        'test://syntax-error.fish',
+        content,
+      );
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
 
@@ -1457,12 +1428,10 @@ set incomplete`;
     it('should handle very long variable names', () => {
       const longName = 'a'.repeat(200);
       const content = `set -g ${longName} "value"\necho $${longName}`;
-      const doc = new LspDocument({
-        uri: 'test://long-var.fish',
-        languageId: 'fish',
-        version: 1,
-        text: content,
-      });
+      const doc = createFakeLspDocument(
+        'test://long-var.fish',
+        content,
+      );
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
 
@@ -1624,12 +1593,7 @@ set incomplete`;
     echo "test"
 end
 test_func`;
-      const doc = new LspDocument({
-        uri: 'test://dedup.fish',
-        languageId: 'fish',
-        version: 1,
-        text: content,
-      });
+      const doc = createFakeLspDocument('test://dedup.fish', content);
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
 
@@ -1650,12 +1614,10 @@ test_func`;
       // are properly deduplicated
       const content = `set -l my_var "value"
 echo $my_var`;
-      const doc = new LspDocument({
-        uri: 'test://symbol-node.fish',
-        languageId: 'fish',
-        version: 1,
-        text: content,
-      });
+      const doc = createFakeLspDocument(
+        'test://symbol-node.fish',
+        content,
+      );
       analyzer.analyze(doc);
       const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
 

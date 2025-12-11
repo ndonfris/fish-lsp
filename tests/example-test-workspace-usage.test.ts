@@ -213,7 +213,7 @@ source ./test3_script_2
       expect(test3Func?.getText()).toContain('function test3');
     });
 
-    it('show file tree', () => {
+    it.only('show file tree', () => {
       const output: string[] = [];
       focusedWorkspace!.allDocuments().forEach(doc => {
         output.push(doc.getRelativeFilenameToWorkspace());
@@ -221,8 +221,8 @@ source ./test3_script_2
         output.push(doc.getTree());
       });
       const res = output.join('\n');
-      // const fileTree = focusedWorkspace!.showAllTreeSitterParseTrees();
-      // console.log(fileTree);
+      const fileTree = focusedWorkspace!.showAllTreeSitterParseTrees();
+      console.log(fileTree);
       expect(res).toContain('test3.fish');
       expect(res).toContain('test3_script_1');
       expect(res).toContain('test3_script_2');

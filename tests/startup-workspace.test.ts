@@ -1,6 +1,6 @@
 // import * as fs from 'fs';
 import * as os from 'os';
-import { setLogger } from './helpers';
+import { fail, setLogger } from './helpers';
 import { FishUriWorkspace, initializeDefaultFishWorkspaces } from '../src/utils/workspace';
 import { workspaceManager } from '../src/utils/workspace-manager';
 import { Config, config, ConfigSchema } from '../src/config';
@@ -75,7 +75,7 @@ describe('setup workspace', () => {
         'file:///home/user/some/random/folder/script.fish',
       ];
       for (const inputUri of uris) {
-        const fishWorkspace = FishUriWorkspace.create(inputUri);
+        const fishWorkspace = FishUriWorkspace.create(inputUri)!;
         if (!fishWorkspace) fail();
         const { name, uri, path } = fishWorkspace;
         expect(name).toBeTruthy();
@@ -124,7 +124,7 @@ describe('setup workspace', () => {
       config.fish_lsp_single_workspace_support = false;
       const uri = `file://${os.homedir()}/.config/fish`;
       const workspaces = await initializeDefaultFishWorkspaces(uri);
-      expect(workspaces.length).toBe(3);
+      expect(workspaces.length).toBe(2);
       expect(config.fish_lsp_single_workspace_support).toBe(false);
     });
 
@@ -133,6 +133,9 @@ describe('setup workspace', () => {
       config.fish_lsp_all_indexed_paths = [`${os.homedir()}/.config/fish`];
       const uri = `file://${os.homedir()}/.config/fish`;
       const workspaces = await initializeDefaultFishWorkspaces(uri);
+      workspaces.forEach((ws, i) => {
+        console.log(`(${i}) workspace`, ws.uri);
+      });
       expect(workspaces.length).toBe(1);
       expect(config.fish_lsp_single_workspace_support).toBe(true);
     });

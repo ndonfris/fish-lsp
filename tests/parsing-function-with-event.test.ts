@@ -8,6 +8,7 @@ import { flattenNested } from '../src/utils/flatten';
 import { getDiagnosticsAsync } from '../src/diagnostics/validate';
 import { ErrorCodes } from '../src/diagnostics/error-codes';
 import { config } from '../src/config';
+import FishServer from '../src/server';
 
 const inputDocs: TestLspDocument[] = [];
 let documents: LspDocument[] = [];
@@ -94,6 +95,7 @@ describe('FishSymbol parsing functions tests', () => {
 
     beforeEach(async () => {
       documents = createTestWorkspace(analyzer, ...inputDocs);
+      await FishServer.setupForTestUtilities();
     });
 
     it('should analyze a simple function definition', async () => {
@@ -114,6 +116,12 @@ describe('FishSymbol parsing functions tests', () => {
       expect(functionSymbol?.isFunction()).toBeTruthy();
 
       const diagnostics = await getDiagnosticsAsync(functionCached.root!, functionCached.document);
+      console.log({
+        diagnostics: diagnostics.map(d => ({
+          code: d.code,
+          message: d.message,
+        })),
+      });
       expect(diagnostics.length).toBe(0);
     });
   });

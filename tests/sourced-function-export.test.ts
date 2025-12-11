@@ -9,7 +9,6 @@ import { workspaceManager } from '../src/utils/workspace-manager';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { Server } from 'http';
 import { Workspace } from '../src/utils/workspace';
 
 describe('Sourced Function Export', () => {
@@ -29,21 +28,22 @@ describe('Sourced Function Export', () => {
     workspaceManager.clear();
   });
 
+  const continueOrExitPath = resolve(__dirname, '../scripts/fish/continue-or-exit.fish');
+  const prettyPrintPath = resolve(__dirname, '../scripts/fish/pretty-print.fish');
+  const publishNightlyPath = resolve(__dirname, '../scripts/publish-nightly.fish');
+
+  const continueOrExitContent = readFileSync(continueOrExitPath, 'utf8');
+  const prettyPrintContent = readFileSync(prettyPrintPath, 'utf8');
+  const publishNightlyContent = readFileSync(publishNightlyPath, 'utf8');
+
+  const continueOrExitDoc = createFakeLspDocument('scripts/fish/continue-or-exit.fish', continueOrExitContent);
+  const prettyPrintDoc = createFakeLspDocument('scripts/fish/pretty-print.fish', prettyPrintContent);
+  const publishNightlyDoc = createFakeLspDocument('scripts/publish-nightly.fish', publishNightlyContent);
+
   test('should handle real script files with sourcing', () => {
     // Read the actual files from the repository
-    const continueOrExitPath = resolve(__dirname, '../scripts/continue-or-exit.fish');
-    const prettyPrintPath = resolve(__dirname, '../scripts/pretty-print.fish');
-    const publishNightlyPath = resolve(__dirname, '../scripts/publish-nightly.fish');
-
-    const continueOrExitContent = readFileSync(continueOrExitPath, 'utf8');
-    const prettyPrintContent = readFileSync(prettyPrintPath, 'utf8');
-    const publishNightlyContent = readFileSync(publishNightlyPath, 'utf8');
 
     // Create documents using the real file content
-    const continueOrExitDoc = createFakeLspDocument('scripts/continue-or-exit.fish', continueOrExitContent);
-    const prettyPrintDoc = createFakeLspDocument('scripts/pretty-print.fish', prettyPrintContent);
-    const publishNightlyDoc = createFakeLspDocument('scripts/publish-nightly.fish', publishNightlyContent);
-
     // Analyze all documents
     analyzer.analyze(continueOrExitDoc);
     analyzer.analyze(prettyPrintDoc);
@@ -303,10 +303,6 @@ end
 
   test('should include sourced symbols in analyzer collectSourcedSymbols method', () => {
     // Read actual helper files first to get their paths
-    const continueOrExitPath = resolve(__dirname, '../scripts/continue-or-exit.fish');
-    const prettyPrintPath = resolve(__dirname, '../scripts/pretty-print.fish');
-    const continueOrExitContent = readFileSync(continueOrExitPath, 'utf8');
-    const prettyPrintContent = readFileSync(prettyPrintPath, 'utf8');
 
     // Create a main script that sources other files using absolute paths
     const mainScript = `#!/usr/bin/env fish
@@ -325,8 +321,6 @@ set -g MAIN_VAR "main variable"
 
     // Create documents
     const mainDoc = createFakeLspDocument('scripts/main.fish', mainScript);
-    const continueOrExitDoc = createFakeLspDocument(continueOrExitPath, continueOrExitContent);
-    const prettyPrintDoc = createFakeLspDocument(prettyPrintPath, prettyPrintContent);
 
     // Analyze all documents
     analyzer.analyze(mainDoc);
@@ -364,9 +358,6 @@ set -g MAIN_VAR "main variable"
 
   test('should integrate sourced symbols with server onDocumentSymbols', () => {
     // Read helper file first
-    const continueOrExitPath = resolve(__dirname, '../scripts/continue-or-exit.fish');
-    const continueOrExitContent = readFileSync(continueOrExitPath, 'utf8');
-
     // Create a main script that sources helper files using absolute path
     const mainScript = `#!/usr/bin/env fish
 
@@ -439,9 +430,6 @@ set -g MAIN_VAR "main"
 
   test('should find sourced functions in allSymbolsAccessibleAtPosition', () => {
     // Create a main script that sources pretty-print and uses log_info
-    const prettyPrintPath = resolve(__dirname, '../scripts/pretty-print.fish');
-    const prettyPrintContent = readFileSync(prettyPrintPath, 'utf8');
-
     const mainScript = `#!/usr/bin/env fish
 
 source ${prettyPrintPath}
@@ -488,7 +476,7 @@ end
 
   test('should resolve definition for sourced functions correctly', () => {
     // Create a main script that sources pretty-print and uses log_info
-    const prettyPrintPath = resolve(__dirname, '../scripts/pretty-print.fish');
+    const prettyPrintPath = resolve(__dirname, '../scripts/fish/pretty-print.fish');
     const prettyPrintContent = readFileSync(prettyPrintPath, 'utf8');
 
     const mainScript = `#!/usr/bin/env fish
@@ -523,23 +511,13 @@ end
   // TODO: reenable this test, skipping because we restructured publish-nightly.fish
   test.skip('should resolve publish-nightly.fish log_info function call', async () => {
     // Test the exact use case from the user's example
-    const publishNightlyPath = resolve(__dirname, '../scripts/publish-nightly.fish');
-    const prettyPrintPath = resolve(__dirname, '../scripts/pretty-print.fish');
-    const continueOrExitPath = resolve(__dirname, '../scripts/continue-or-exit.fish');
-
-    const publishNightlyContent = readFileSync(publishNightlyPath, 'utf8');
-    const prettyPrintContent = readFileSync(prettyPrintPath, 'utf8');
-    const continueOrExitContent = readFileSync(continueOrExitPath, 'utf8');
-
     // Create a modified version of publish-nightly.fish with absolute paths for sourcing
     const modifiedPublishNightlyContent = publishNightlyContent
-      .replace('source ./scripts/continue-or-exit.fish', `source ${continueOrExitPath}`)
-      .replace('source ./scripts/pretty-print.fish', `source ${prettyPrintPath}`);
+      .replace('source ./scripts/fish/continue-or-exit.fish', `source ${continueOrExitPath}`)
+      .replace('source ./scripts/fish/pretty-print.fish', `source ${prettyPrintPath}`);
 
     // Create documents using the real file paths
     const publishNightlyDoc = createFakeLspDocument(publishNightlyPath, modifiedPublishNightlyContent);
-    const prettyPrintDoc = createFakeLspDocument(prettyPrintPath, prettyPrintContent);
-    const continueOrExitDoc = createFakeLspDocument(continueOrExitPath, continueOrExitContent);
 
     // Analyze documents
     analyzer.analyze(publishNightlyDoc);
@@ -575,7 +553,7 @@ end
     const mainScript = `#!/usr/bin/env fish
 
 # Use relative paths like in the real files
-source ./scripts/pretty-print.fish
+source ./scripts/fish/pretty-print.fish
 
 function test_function
     log_info "test" "Testing relative path resolution"
@@ -583,9 +561,6 @@ end
 `;
 
     // Read the actual pretty-print.fish file
-    const prettyPrintPath = resolve(__dirname, '../scripts/pretty-print.fish');
-    const prettyPrintContent = readFileSync(prettyPrintPath, 'utf8');
-
     // Create documents - the main script will be in the project root so relative paths work
     const mainDoc = createFakeLspDocument(resolve(__dirname, '../main.fish'), mainScript);
     const prettyPrintDoc = createFakeLspDocument(prettyPrintPath, prettyPrintContent);
@@ -622,7 +597,7 @@ end
   });
 
   describe('scripts/publish-nightly.fish', () => {
-    const document = LspDocument.createFromPath(resolve(__dirname, '../scripts/publish-nightly.fish'));
+    const document = publishNightlyDoc;
     let ws: Workspace | null = null;
     beforeEach(async () => {
       workspaceManager.clear();

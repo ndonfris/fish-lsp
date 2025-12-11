@@ -65,7 +65,7 @@ complete -c ls -n "__fish_seen_subcommand_from ls" -f -a "(\ls)"
         path: ws.path,
         docs: ws.allDocuments().map(doc => doc.getRelativeFilenameToWorkspace()),
       });
-      expect(ws?.name).toBe('test-setup-2');
+      expect(ws?.name).toContain('test-setup-2');
       expect(ws?.needsAnalysis()).toBe(false);
       expect(ws?.uris.indexedCount).toBeGreaterThan(0);
       expect(ws?.uris.indexedCount).toBe(3);

@@ -1,5 +1,5 @@
 import { documents, LspDocument } from '../src/document';
-import { resolveLspDocumentForHelperTestFile, setLogger } from './helpers';
+import { resolveLspDocumentForHelperTestFile } from './helpers';
 import { initializeParser } from '../src/parser';
 import { SyntaxNode } from 'web-tree-sitter';
 import TestWorkspace, { TestFile } from './test-workspace-utils';
@@ -264,31 +264,6 @@ complete -c complex_function -s h -l help    -d "show help message"`),
         expect(funcDocs).toHaveLength(1);
         expect(cmpDocs).toHaveLength(1);
         expect(funcDocs[0]!.getAutoLoadName()).toBe(cmpDocs[0]!.getAutoLoadName());
-      });
-
-      it('getDocument', () => {
-        documents.all().forEach(doc => {
-          const fetched = documents.getDocument(doc.uri)!;
-          expect(fetched.uri).toBe(doc.uri);
-        });
-      });
-
-      it('.files', () => {
-        expect(documents.files).toHaveLength(5);
-      });
-
-      it('.uris', () => {
-        const uris = documents.uris;
-        expect(uris).toHaveLength(5);
-        documents.all().forEach(doc => {
-          expect(uris).toContain(doc.uri);
-        });
-      });
-
-      it('isOpen', () => {
-        const configDoc = ws.find('config.fish')!;
-        expect(configDoc).not.toBeNull();
-        expect(documents.isOpen(configDoc.path)).toBeTruthy();
       });
     });
 

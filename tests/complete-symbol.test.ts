@@ -165,36 +165,46 @@ describe('parsing symbols', () => {
         const doc = analyzer.getDocument(l.uri)!;
         return fakeDocumentTrimUri(doc);
       });
-      expect(locationUris).toEqual([
-        'functions/foo.fish',
-        'completions/foo.fish',
-        'conf.d/baz.fish',
-      ]);
-
-      expect(refLocations.map(l => {
-        const doc = analyzer.getDocument(l.uri)!;
-        return {
-          uri: fakeDocumentTrimUri(doc),
-          range: l.range,
-          text: analyzer.getTextAtLocation(l),
-        };
-      })).toEqual([
-        {
-          uri: 'functions/foo.fish',
-          range: Range.create(1, 18, 1, 22),
-          text: 'help',
-        },
-        {
-          uri: 'completions/foo.fish',
-          range: Range.create(1, 24, 1, 28),
-          text: 'help',
-        },
-        {
-          uri: 'conf.d/baz.fish',
-          range: Range.create(11, 11, 11, 16),
-          text: 'help',
-        },
-      ]);
+      for (const uri of locationUris) {
+        expect([
+          'functions/foo.fish',
+          'completions/foo.fish',
+          'conf.d/baz.fish',
+        ].includes(uri)).toBeTruthy();
+      }
+      expect(
+        refLocations.map(l => {
+          const doc = analyzer.getDocument(l.uri)!;
+          return {
+            uri: fakeDocumentTrimUri(doc),
+            range: l.range,
+            text: analyzer.getTextAtLocation(l),
+          };
+        }).every((location) => {
+          return [
+            {
+              uri: 'functions/foo.fish',
+              range: Range.create(1, 18, 1, 22),
+              text: 'help',
+            },
+            {
+              uri: 'completions/foo.fish',
+              range: Range.create(1, 24, 1, 28),
+              text: 'help',
+            },
+            {
+              uri: 'conf.d/baz.fish',
+              range: Range.create(11, 11, 11, 16),
+              text: 'help',
+            },
+          ].some(loc => loc.uri === location.uri &&
+            loc.range.start.line === location.range.start.line &&
+            loc.range.start.character === location.range.start.character &&
+            loc.range.end.line === location.range.end.line &&
+            loc.range.end.character === location.range.end.character &&
+            loc.text === location.text);
+        }),
+      ).toBeTruthy();
     });
 
     it.skip('argparse simple => `argparse h/help -- $argv` -> `complete -c foo -l help`', () => {

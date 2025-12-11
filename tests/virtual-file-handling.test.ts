@@ -1,5 +1,5 @@
 import { setLogger, setupStartupMock, createMockConnection } from './helpers';
-import { analyzer, Analyzer } from '../src/analyze';
+import { AnalyzedDocument, analyzer, Analyzer } from '../src/analyze';
 import { documents, LspDocument } from '../src/document';
 import { workspaceManager } from '../src/utils/workspace-manager';
 import { initializeParser } from '../src/parser';
@@ -9,6 +9,14 @@ import * as LSP from 'vscode-languageserver';
 import { Workspace } from '../src/utils/workspace';
 import { getDiagnosticsAsync } from '../src/diagnostics/validate';
 import { testChangeDocument, testClearDocuments, testOpenDocument } from './document-test-helpers';
+
+const testDiagnosticsWrapper = async (analyzedDoc: AnalyzedDocument) => {
+  // analyzer.diagnostics.requestUpdate(analyzedDoc.documnt.uri, true);
+  const abortSig = new AbortController();
+  const diags = await getDiagnosticsAsync(analyzedDoc.root!, analyzedDoc.document, abortSig.signal, 10);
+  analyzer.diagnostics.setForTesting(analyzedDoc.document.uri, diags);
+  return analyzer.diagnostics.get(analyzedDoc.document.uri);
+};
 
 // Mock the startup module at the top level
 setupStartupMock();
@@ -378,8 +386,9 @@ end
         expect(analyzed).toBeDefined();
         expect(analyzed.document.getText()).toBe(content);
 
+        // analyzer.diagnostics.requestUpdate(virtualUri, true);
         // Should be able to get diagnostics even without file system
-        const diagnostics = analyzer.diagnostics.get(virtualUri);
+        const diagnostics = await testDiagnosticsWrapper(analyzed);
         expect(diagnostics).toBeDefined();
         expect(Array.isArray(diagnostics)).toBe(true);
       } finally {
@@ -624,7 +633,7 @@ virtual_only_func
       expect(symbols.some(s => s.name === 'virtual_only_func')).toBe(true);
 
       // Verify we can get diagnostics even without physical file
-      const diagnostics = analyzer.diagnostics.get(nonExistentPath);
+      const diagnostics = await testDiagnosticsWrapper(analyzedDoc);
       expect(diagnostics).toBeDefined();
       expect(Array.isArray(diagnostics)).toBe(true);
     });
@@ -672,7 +681,8 @@ set $local_var "trying to set with dollar sign"
       expect(analyzedDoc.document.uri).toBe(virtualUri);
 
       // Verify diagnostics can be retrieved for virtual document
-      const diagnostics = analyzer.diagnostics.get(virtualUri);
+      // analyzer.diagnostics.requestUpdate(virtualUri, true);
+      const diagnostics = await testDiagnosticsWrapper(analyzedDoc);
       expect(diagnostics).toBeDefined();
       expect(Array.isArray(diagnostics)).toBe(true);
 
@@ -717,7 +727,7 @@ set $invalid_var "dollar sign issue"
       // Manually analyze to get diagnostics
       const initialAnalyzed = analyzer.analyze(initialDoc!);
       expect(initialAnalyzed).toBeDefined();
-      const initialDiagnostics = analyzer.diagnostics.get(virtualUri);
+      const initialDiagnostics = await testDiagnosticsWrapper(initialAnalyzed);
 
       // Update document to fix the issues
       const fixedContent = `
@@ -749,7 +759,7 @@ end
       expect(updatedAnalyzed).toBeDefined();
       expect(updatedAnalyzed.document.getText()).toBe(fixedContent);
 
-      const updatedDiagnostics = analyzer.diagnostics.get(virtualUri);
+      const updatedDiagnostics = await testDiagnosticsWrapper(updatedAnalyzed);
 
       // Basic verification that we can track diagnostics over document changes
       expect(Array.isArray(initialDiagnostics)).toBe(true);
@@ -781,7 +791,7 @@ end
       expect(symbols.some(s => s.name === 'test_non_fish_extension')).toBe(true);
 
       // Should provide diagnostics
-      const diagnostics = analyzer.diagnostics.get(virtualUri);
+      const diagnostics = await testDiagnosticsWrapper(analyzedDoc);
       expect(diagnostics).toBeDefined();
       expect(Array.isArray(diagnostics)).toBe(true);
     });

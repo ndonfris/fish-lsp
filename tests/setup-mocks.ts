@@ -1,6 +1,8 @@
 import { vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { setupProcessEnvExecFile } from '../src/utils/process-env';
+import { env } from 'process';
 
 // Use actual WASM files for tree-sitter functionality in tests
 vi.mock('web-tree-sitter/tree-sitter.wasm', () => ({
@@ -49,14 +51,8 @@ vi.mock('../src/utils/path-resolution', async () => {
 // Mock process-env fish execution to prevent temp file errors in test environment
 vi.mock('../src/utils/process-env', async () => {
   const actual = await vi.importActual('../src/utils/process-env') as any;
+
   return {
     ...actual,
-    setupProcessEnvExecFile: vi.fn().mockResolvedValue(undefined),
-    getProcessEnvFishPaths: vi.fn().mockResolvedValue({
-      __fish_config_dir: '/home/user/.config/fish',
-      __fish_data_dir: '/usr/share/fish',
-      fish_function_path: '/home/user/.config/fish/functions:/usr/share/fish/functions',
-      fish_complete_path: '/home/user/.config/fish/completions:/usr/share/fish/completions',
-    }),
   };
 });
