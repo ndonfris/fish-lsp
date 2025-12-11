@@ -20,8 +20,8 @@ import { containsRange, getChildNodes, getNamedChildNodes, getRange, isPositionA
 import { Workspace } from './utils/workspace';
 import { workspaceManager } from './utils/workspace-manager';
 import { initializeParser } from './parser';
-import { connection } from './utils/startup';
 import { BufferedAsyncDiagnosticCache } from './diagnostics/buffered-async-cache';
+import { env } from 'src/utils/env-manager';
 
 /*************************************************************/
 /*     ts-doc type imports for links to other files here     */
@@ -877,19 +877,20 @@ export class Analyzer {
       const node = this.nodeAtPoint(document.uri, position.line, position.character);
       if (node && isCommandName(node)) {
         const text = node.text.toString();
-        const locations = execCommandLocations(text);
-        for (const { uri, path } of locations) {
-          const content = SyncFileHelper.read(path, 'utf8');
-          const doc = LspDocument.createTextDocumentItem(uri, content);
-          workspaceManager.handleOpenDocument(doc);
-          connection.sendNotification('workspace/didChangeWorkspaceFolders', {
-            event: {
-              added: [path],
-              removed: [],
-            },
-          });
-          workspaceManager.analyzePendingDocuments();
-        }
+        const locations = findCommandLocations(text);
+        // const paths = locations.map(loc => loc.path);
+        // for (const { uri, path } of locations) {
+        // const content = SyncFileHelper.read(path, 'utf8');
+        // const doc = LspDocument.createTextDocumentItem(uri, content);
+        // workspaceManager.handleOpenDocument(doc);
+        // connection.sendNotification('workspace/didChangeWorkspaceFolders', {
+        //   event: {
+        //     added: paths,
+        //     removed: [],
+        //   },
+        // });
+        // workspaceManager.analyzePendingDocuments();
+        // }
         // consider just finding the definition symbol since we analyze the document
         // with the above `workspaceManager.handleOpenDocument(doc)` call
         return locations.map(({ uri }) =>
@@ -1564,4 +1565,19 @@ class AnalyzedDocumentCache {
   clear(uri: URI) {
     this._documents.delete(uri);
   }
+}
+
+export function findCommandLocations(cmd: string) {
+  const paths: { path: string; uri: DocumentUri; }[] = env.findAutoloadedFunctionPath(cmd).map(filePath => ({
+    uri: pathToUri(filePath),
+    path: filePath,
+  }));
+  if (paths.length === 0) {
+    const potentialPaths = execCommandLocations(cmd).filter(p => {
+      if (p.path.startsWith('embedded:')) return false;
+      return SyncFileHelper.isFile(p.path);
+    });
+    paths.push(...potentialPaths);
+  }
+  return paths;
 }

@@ -350,16 +350,16 @@ export function calculateModifiersMask(...modifiers: string[]): number {
 //   return (mask & 1 << index) !== 0;
 // }
 //
-// export function getModifiersFromMask(mask: number): string[] {
-//   const modifiers: string[] = [];
-//   for (let i = 0; i < FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.length; i++) {
-//     const modifier = FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers[i];
-//     if (modifier && mask & 1 << i) {
-//       modifiers.push(modifier);
-//     }
-//   }
-//   return modifiers;
-// }
+export function getModifiersFromMask(mask: number): string[] {
+  const modifiers: string[] = [];
+  for (let i = 0; i < Object.values(FishSemanticTokens.mods).length; i++) {
+    const modifier = Object.keys(FishSemanticTokens.mods)[i];
+    if (modifier && mask & 1 << i) {
+      modifiers.push(modifier);
+    }
+  }
+  return modifiers;
+}
 
 // export function getCaptureToTokenMapping(): Record<string, { tokenType: string; index: number; }> {
 //   const captureNames = extractCaptureNames(highlights);

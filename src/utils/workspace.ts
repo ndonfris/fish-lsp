@@ -335,7 +335,7 @@ export class Workspace implements FishWorkspace {
 
   allDocuments(): LspDocument[] {
     const docs: LspDocument[] = [];
-    for (const uri of this.uris.all) {
+    for (const uri of this.getUris()) {
       const analyzedDoc = analyzer.getDocument(uri);
       if (analyzedDoc) {
         docs.push(analyzedDoc);

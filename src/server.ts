@@ -1231,6 +1231,42 @@ export default class FishServer {
       logger.log({ time: now(), request, document: 'undefined', ...extra });
     }
   }
+
+  static async setupForTestUtilities() {
+    await setupProcessEnvExecFile();
+    // const capabilities = params.capabilities;
+    const initializeResult = Config.initialize({} as InitializeParams, connection);
+    // set this only it it hasn't been set yet
+
+    const initializeUris = getWorkspacePathsFromInitializationParams({} as InitializeParams);
+
+    // Run these operations in parallel rather than sequentially
+    const [
+      cache,
+      _workspaces,
+      completionsMap,
+    ] = await Promise.all([
+      initializeDocumentationCache(),
+      initializeDefaultFishWorkspaces(...initializeUris),
+      CompletionItemMap.initialize(),
+    ]);
+
+    cachedDocumentation = cache;
+    cachedCompletionMap = completionsMap;
+
+    await Analyzer.initialize();
+
+    const completions = await initializeCompletionPager(logger, completionsMap);
+
+    server = new FishServer(
+      completions,
+      completionsMap,
+      cache,
+      {} as InitializeParams,
+    );
+
+    return { server, initializeResult };
+  }
 }
 
 // Type export

@@ -1,5 +1,38 @@
+import path from 'path';
 import { Config } from '../config';
 import { AutoloadedPathVariables } from './process-env';
+import fs from 'fs';
+
+export function allPossibleAutoloadedFunctionPaths(functionName: string): string[] {
+  const files: string[] = [];
+  const file = `${functionName}.fish`;
+  env.getAsArray('__fish_user_data_dir').forEach(p => {
+    files.push(path.join(p, 'functions', file));
+  });
+  env.getAsArray('__fish_data_dir').forEach(p => {
+    files.push(path.join(p, 'functions', file));
+  });
+  env.getAsArray('__fish_sysconfdir').forEach(p => {
+    files.push(path.join(p, 'functions', file));
+  });
+  env.getAsArray('__fish_sysconf_dir').forEach(p => {
+    files.push(path.join(p, 'functions', file));
+  });
+  env.getAsArray('__fish_vendor_functionsdirs').forEach(p => {
+    files.push(path.join(p, file));
+  });
+  env.getAsArray('__fish_added_user_paths').forEach(p => {
+    files.push(path.join(p, 'functions', file));
+    files.push(path.join(p, file));
+  });
+  env.getAsArray('fish_function_path').forEach(p => {
+    files.push(path.join(p, file));
+  });
+  env.getAsArray('__fish_config_dir').forEach(p => {
+    files.push(path.join(p, 'functions', file));
+  });
+  return files;
+}
 
 /**
  * Parses fish shell variable strings into arrays based on their format
@@ -260,6 +293,17 @@ export class EnvManager {
 
   public parser() {
     return FishVariableParser;
+  }
+
+  public findAutoloadedFunctionPath(functionName: string): string[] {
+    const paths: string[] = allPossibleAutoloadedFunctionPaths(functionName);
+    const results: string[] = [];
+    for (const p of paths) {
+      if (fs.existsSync(p)) {
+        results.push(p);
+      }
+    }
+    return results;
   }
 
   /**

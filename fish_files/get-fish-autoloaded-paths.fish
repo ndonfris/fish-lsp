@@ -6,7 +6,11 @@ echo -e "__fish_config_dir\t$(string join ':' -- $__fish_config_dir)"
 echo -e "__fish_data_dir\t$(string join ':' -- $__fish_data_dir)"
 echo -e "__fish_help_dir\t$(string join ':' -- $__fish_help_dir)"
 
+# docs unclear: https://fishshell.com/docs/current/language.html#syntax-function-autoloading
+# includes __fish_sysconfdir but __fish_sysconf_dir is defined on local system 
+echo -e "__fish_sysconfdir\t$(string join ':' -- $__fish_sysconfdir)"
 echo -e "__fish_sysconf_dir\t$(string join ':' -- $__fish_sysconf_dir)"
+
 echo -e "__fish_user_data_dir\t$(string join ':' -- $__fish_user_data_dir)"
 echo -e "__fish_added_user_paths\t$(string join ':' -- $__fish_added_user_paths)"
 

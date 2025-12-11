@@ -270,4 +270,8 @@ export class BufferedAsyncDiagnosticCache {
   isPending(uri: DocumentUri): boolean {
     return this.pendingCalculations.has(uri);
   }
+
+  public setForTesting(uri: DocumentUri, diagnostics: Diagnostic[]) {
+    this.cache.set(uri, diagnostics);
+  }
 }
