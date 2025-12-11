@@ -17,7 +17,7 @@ import { DocumentationCache, initializeDocumentationCache } from './utils/docume
 import { getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspaces } from './utils/workspace';
 import { workspaceManager } from './utils/workspace-manager';
 import { formatFishSymbolTree, filterLastPerScopeSymbol, FishSymbol } from './parsing/symbol';
-import { CompletionPager, initializeCompletionPager, SetupData } from './utils/completion/pager';
+import { CompletionPager, initializeCompletionPager, isInVariableExpansionContext, SetupData } from './utils/completion/pager';
 import { FishCompletionItem } from './utils/completion/types';
 import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
@@ -494,9 +494,9 @@ export default class FishServer {
     }
     const symbols = analyzer.allSymbolsAccessibleAtPosition(doc, params.position);
     const { line, word } = analyzer.parseCurrentLine(doc, params.position);
-    logger.log({
-      symbols: symbols.map(s => s.name),
-    });
+    // logger.log({
+    //   symbols: symbols.map(s => s.name),
+    // });
 
     if (!line) return await this.completion.completeEmpty(symbols);
 
@@ -514,7 +514,7 @@ export default class FishServer {
         logger.log('completeComment');
         return buildCommentCompletions(line, params.position, current, fishCompletionData, word);
       }
-      if (word.trim().endsWith('$') || line.trim().endsWith('$') || word.trim() === '$' && !word.startsWith('$$')) {
+      if (isInVariableExpansionContext(doc, params.position, line, word, current ?? null)) {
         logger.log('completeVariables');
         return this.completion.completeVariables(line, word, fishCompletionData, symbols);
       }
