@@ -11,6 +11,9 @@ export const autoloadedFishVariableNames = [
   '__fish_data_dir',
   '__fish_help_dir',
   '__fish_initialized',
+  // docs unclear: https://fishshell.com/docs/current/language.html#syntax-function-autoloading
+  // includes __fish_sysconfdir but __fish_sysconf_dir is defined on local system
+  '__fish_sysconfdir',
   '__fish_sysconf_dir',
   '__fish_user_data_dir',
   '__fish_added_user_paths',
