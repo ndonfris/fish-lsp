@@ -4,7 +4,7 @@ import * as LSP from 'vscode-languageserver';
 import { logger } from './logger';
 import { FishSymbol } from './parsing/symbol';
 import { flattenNested } from './utils/flatten';
-import { calculateModifiersMask, createTokensFromMatches, FISH_SEMANTIC_TOKENS_LEGEND, getTextMatchPositions, getVariableModifiers, SemanticToken, SemanticTokenModifier, FishSemanticTokens } from './utils/semantics';
+import { calculateModifiersMask, createTokensFromMatches, getTextMatchPositions, getVariableModifiers, SemanticToken, SemanticTokenModifier, FishSemanticTokens } from './utils/semantics';
 import { isCommandName, isCommandWithName, isEndStdinCharacter, isShebang, isVariableExpansion } from './utils/node-types';
 import { LspDocument } from './document';
 import { BuiltInList } from './utils/builtins';
@@ -41,7 +41,7 @@ import { AutoloadedPathVariables } from './utils/process-env';
  */
 function modifiersToBitmask(modifiers: SemanticTokenModifier[]): number {
   return modifiers.reduce((mask, mod) => {
-    const idx = FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.indexOf(mod);
+    const idx = FishSemanticTokens.legend.tokenModifiers.indexOf(mod);
     return idx >= 0 ? mask | 1 << idx : mask;
   }, 0);
 }
@@ -233,7 +233,7 @@ const nodeToTokenHandler: NodeToToken[] = [
     if (funcSymbol) {
       // Use getSymbolModifiers and filter to supported modifiers
       const mods = getSymbolModifiers(funcSymbol).filter(m =>
-        FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.includes(m as any),
+        FishSemanticTokens.legend.tokenModifiers.includes(m as any),
       );
       modifiers = modifiersToBitmask(mods);
     } else {
@@ -242,7 +242,7 @@ const nodeToTokenHandler: NodeToToken[] = [
       const globalFunc = globalSymbols.find(s => s.isFunction());
       if (globalFunc) {
         const mods = getSymbolModifiers(globalFunc).filter(m =>
-          FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.includes(m as any),
+          FishSemanticTokens.legend.tokenModifiers.includes(m as any),
         );
         modifiers = modifiersToBitmask(mods);
       } else {

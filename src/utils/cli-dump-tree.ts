@@ -6,7 +6,7 @@ import path from 'path';
 import chalk from 'chalk';
 import { CommanderSubcommand } from './commander-cli-subcommands';
 import { semanticTokenHandler } from '../semantic-tokens';
-import { FISH_SEMANTIC_TOKENS_LEGEND, FishSemanticTokens } from './semantics';
+import { FishSemanticTokens } from './semantics';
 import { createInterface } from 'node:readline';
 import { startServer } from './startup';
 
@@ -313,7 +313,7 @@ function getTokenTypeColor(tokenType: string, useColors: boolean): (text: string
  */
 function decodeModifiers(modifiersMask: number): string[] {
   const modifiers: string[] = [];
-  const legend = FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers;
+  const legend = FishSemanticTokens.legend.tokenModifiers;
 
   for (let i = 0; i < legend.length; i++) {
     if (modifiersMask & 1 << i) {
