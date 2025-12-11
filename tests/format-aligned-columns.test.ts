@@ -1,268 +1,4 @@
 import { formatAlignedColumns, AlignedItem } from '../src/utils/startup';
-// Inline the function for testing to avoid complex import chains
-// type AlignedItem = string | {
-//   text: string;
-//   align?: 'left' | 'center' | 'right';
-//
-//   // Truncation options
-//   truncate?: boolean;
-//   truncateIndicator?: string;
-//   truncateBehavior?: 'left' | 'right' | 'middle';
-//   maxWidth?: number;
-//
-//   // Padding options (applied after truncation, before alignment)
-//   // Note: padLeft/padRight cannot be used with pad
-//   pad?: string;
-//   padLeft?: string;
-//   padRight?: string;
-//
-//   // Text transformation
-//   transform?: 'uppercase' | 'lowercase' | 'capitalize';
-//
-//   // Width constraints
-//   minWidth?: number;
-//   fixedWidth?: number;
-// };
-
-// // Helper function to process individual items with all formatting options
-// function processAlignedItem(item: AlignedItem, availableWidth: number, defaultAlign: 'left' | 'center' | 'right'): { text: string; cleanLength: number; align: 'left' | 'center' | 'right'; } {
-//   if (typeof item === 'string') {
-//     return { text: item, cleanLength: item.replace(/\x1b\[[0-9;]*m/g, '').length, align: defaultAlign };
-//   }
-//
-//   let processedText = item.text;
-//
-//   // Apply text transformation
-//   if (item.transform) {
-//     const cleanText = processedText.replace(/\x1b\[[0-9;]*m/g, '');
-//     const ansiMatches = processedText.match(/\x1b\[[0-9;]*m/g) || [];
-//     let transformedClean = cleanText;
-//
-//     switch (item.transform) {
-//       case 'uppercase': transformedClean = cleanText.toUpperCase(); break;
-//       case 'lowercase': transformedClean = cleanText.toLowerCase(); break;
-//       case 'capitalize': transformedClean = cleanText.charAt(0).toUpperCase() + cleanText.slice(1).toLowerCase(); break;
-//     }
-//
-//     // Reinsert ANSI codes (simplified approach)
-//     processedText = transformedClean;
-//     ansiMatches.forEach((ansi, i) => {
-//       if (i < transformedClean.length) {
-//         processedText = processedText.slice(0, i) + ansi + processedText.slice(i);
-//       } else {
-//         processedText += ansi;
-//       }
-//     });
-//   }
-//
-//   // Calculate padding lengths
-//   let padLeftLen = 0, padRightLen = 0;
-//   let padLeftText = '', padRightText = '';
-//
-//   if (item.pad) {
-//     padLeftLen = padRightLen = item.pad.length;
-//     padLeftText = padRightText = item.pad;
-//   } else {
-//     if (item.padLeft) {
-//       padLeftLen = item.padLeft.length;
-//       padLeftText = item.padLeft;
-//     }
-//     if (item.padRight) {
-//       padRightLen = item.padRight.length;
-//       padRightText = item.padRight;
-//     }
-//   }
-//
-//   // Determine alignment direction for truncation
-//   const align = item.align || defaultAlign;
-//   let targetWidth = item.maxWidth || availableWidth;
-//
-//   // Account for padding in target width
-//   const totalPaddingLength = padLeftLen + padRightLen;
-//   const availableTextWidth = targetWidth - totalPaddingLength;
-//
-//   // Handle truncation if needed
-//   if (item.truncate !== false && availableTextWidth > 0) { // default to true if maxWidth is set
-//     const cleanText = processedText.replace(/\x1b\[[0-9;]*m/g, '');
-//     if (cleanText.length > availableTextWidth) {
-//       const indicator = item.truncateIndicator || '…';
-//       const indicatorLen = indicator.length;
-//       const maxContentLength = availableTextWidth - indicatorLen;
-//
-//       if (maxContentLength <= 0) {
-//         processedText = indicator;
-//       } else {
-//         let truncatedText = '';
-//
-//         // Determine truncation direction: use explicit truncateBehavior if provided, otherwise use alignment
-//         const truncationDirection = item.truncateBehavior || (align === 'right' ? 'left' : align === 'center' ? 'middle' : 'right');
-//
-//         if (truncationDirection === 'left') {
-//           // Truncate from left (remove from beginning)
-//           truncatedText = indicator + cleanText.slice(cleanText.length - maxContentLength);
-//         } else if (truncationDirection === 'middle') {
-//           // Truncate from both sides (middle)
-//           const leftPortion = Math.floor(maxContentLength / 2);
-//           const rightPortion = maxContentLength - leftPortion;
-//           if (maxContentLength < cleanText.length) {
-//             truncatedText = cleanText.slice(0, leftPortion) + indicator + cleanText.slice(cleanText.length - rightPortion);
-//           } else {
-//             truncatedText = cleanText;
-//           }
-//         } else {
-//           // Truncate from right (remove from end - default)
-//           truncatedText = cleanText.slice(0, maxContentLength) + indicator;
-//         }
-//
-//         processedText = truncatedText;
-//       }
-//     }
-//   }
-//
-//   // Apply padding after truncation
-//   const finalText = padLeftText + processedText + padRightText;
-//
-//   // Handle width constraints
-//   if (item.fixedWidth) {
-//     const cleanLength = finalText.replace(/\x1b\[[0-9;]*m/g, '').length;
-//     if (cleanLength < item.fixedWidth) {
-//       const padding = item.fixedWidth - cleanLength;
-//       if (align === 'center') {
-//         const leftPad = Math.floor(padding / 2);
-//         const rightPad = padding - leftPad;
-//         return { text: ' '.repeat(leftPad) + finalText + ' '.repeat(rightPad), cleanLength: item.fixedWidth, align };
-//       } else if (align === 'right') {
-//         return { text: ' '.repeat(padding) + finalText, cleanLength: item.fixedWidth, align };
-//       } else {
-//         return { text: finalText + ' '.repeat(padding), cleanLength: item.fixedWidth, align };
-//       }
-//     }
-//   }
-//
-//   if (item.minWidth) {
-//     const cleanLength = finalText.replace(/\x1b\[[0-9;]*m/g, '').length;
-//     if (cleanLength < item.minWidth) {
-//       const padding = item.minWidth - cleanLength;
-//       if (align === 'center') {
-//         const leftPad = Math.floor(padding / 2);
-//         const rightPad = padding - leftPad;
-//         return { text: ' '.repeat(leftPad) + finalText + ' '.repeat(rightPad), cleanLength: item.minWidth, align };
-//       } else if (align === 'right') {
-//         return { text: ' '.repeat(padding) + finalText, cleanLength: item.minWidth, align };
-//       } else {
-//         return { text: finalText + ' '.repeat(padding), cleanLength: item.minWidth, align };
-//       }
-//     }
-//   }
-//
-//   return {
-//     text: finalText,
-//     cleanLength: finalText.replace(/\x1b\[[0-9;]*m/g, '').length,
-//     align
-//   };
-// }
-//
-// function formatAlignedColumns(items: AlignedItem[], maxWidth?: number): string {
-//   const width = maxWidth || parseInt(process.env.COLUMNS || '95', 10);
-//
-//   if (items.length === 0) return '';
-//
-//   // Determine default alignment for each position
-//   const getDefaultAlign = (index: number, total: number): 'left' | 'center' | 'right' => {
-//     if (total === 1) return 'center';
-//     if (total === 2) return index === 0 ? 'left' : 'right';
-//     if (total === 3) return index === 0 ? 'left' : index === 1 ? 'center' : 'right';
-//     return index === 0 ? 'left' : index === total - 1 ? 'right' : 'center';
-//   };
-//
-//   // Process all items with their formatting options
-//   const processedItems = items.map((item, index) => {
-//     const defaultAlign = getDefaultAlign(index, items.length);
-//     return processAlignedItem(item, width, defaultAlign);
-//   });
-//
-//   // Calculate total content length
-//   const totalContentLength = processedItems.reduce((sum, item) => sum + item.cleanLength, 0);
-//   const availableSpace = Math.max(0, width - totalContentLength);
-//
-//   if (availableSpace === 0) {
-//     return processedItems.map(item => item.text).join('');
-//   }
-//
-//   // Separate items by alignment
-//   const leftItems = processedItems.filter(item => item.align === 'left');
-//   const centerItems = processedItems.filter(item => item.align === 'center');
-//   const rightItems = processedItems.filter(item => item.align === 'right');
-//
-//   // Special case: only center items (single item should be centered)
-//   if (leftItems.length === 0 && rightItems.length === 0 && centerItems.length === 1) {
-//     const leftPadding = Math.max(0, Math.floor(availableSpace / 2));
-//     const rightPadding = Math.max(0, availableSpace - leftPadding);
-//     return ' '.repeat(leftPadding) + centerItems[0].text + ' '.repeat(rightPadding);
-//   }
-//
-//   // Build the result string
-//   let result = '';
-//
-//   // Add left-aligned items
-//   leftItems.forEach(item => {
-//     result += item.text;
-//   });
-//
-//   // Calculate remaining space after left and right items
-//   const leftLength = leftItems.reduce((sum, item) => sum + item.cleanLength, 0);
-//   const rightLength = rightItems.reduce((sum, item) => sum + item.cleanLength, 0);
-//   const centerLength = centerItems.reduce((sum, item) => sum + item.cleanLength, 0);
-//
-//   const remainingSpace = width - leftLength - rightLength - centerLength;
-//
-//   if (centerItems.length === 0) {
-//     // Only left and right items
-//     result += ' '.repeat(Math.max(0, remainingSpace));
-//   } else {
-//     // Distribute remaining space around center items
-//     const numGaps = (leftItems.length > 0 ? 1 : 0) + Math.max(0, centerItems.length - 1) + (rightItems.length > 0 ? 1 : 0);
-//     const gapSize = numGaps > 0 ? Math.max(1, Math.floor(remainingSpace / numGaps)) : Math.floor(remainingSpace / 2);
-//     const extraSpace = remainingSpace - (gapSize * numGaps);
-//
-//     // Add gap before center items if there are left items
-//     if (leftItems.length > 0) {
-//       result += ' '.repeat(gapSize + (extraSpace > 0 ? 1 : 0));
-//     } else if (centerItems.length > 0 && rightItems.length > 0) {
-//       result += ' '.repeat(gapSize);
-//     }
-//
-//     // Add center items with gaps between them
-//     centerItems.forEach((item, index) => {
-//       result += item.text;
-//       if (index < centerItems.length - 1) {
-//         result += ' '.repeat(gapSize);
-//       }
-//     });
-//
-//     // Add gap after center items if there are right items
-//     if (rightItems.length > 0) {
-//       const usedExtraSpace = (leftItems.length > 0 && extraSpace > 0) ? 1 : 0;
-//       const finalGapSize = gapSize + (extraSpace - usedExtraSpace > 0 ? 1 : 0);
-//       result += ' '.repeat(Math.max(1, finalGapSize));
-//     }
-//   }
-//
-//   // Add right-aligned items
-//   rightItems.forEach(item => {
-//     result += item.text;
-//   });
-//
-//   return result;
-// }
-
-// beforeAll(() => {
-//   jest.mock('PkgJson', () => ({
-//     version: '1.0.0',
-//     name: 'test-package',
-//     bin: 'fish-lsp-test'
-//   }));
-// });
 describe('formatAlignedColumns tests', () => {
   describe('empty input', () => {
     it('should return empty string for empty array', () => {
@@ -409,8 +145,8 @@ describe('formatAlignedColumns tests', () => {
       testCases.forEach(testCase => {
         const result = formatAlignedColumns(testCase, 95);
         expect(result.length).toBe(95);
-        expect(result.startsWith(testCase[0])).toBe(true);
-        expect(result.endsWith(testCase[1])).toBe(true);
+        expect(result.startsWith(testCase.at(0)!)).toBe(true);
+        expect(result.endsWith(testCase.at(1)!)).toBe(true);
       });
     });
 
@@ -652,16 +388,23 @@ describe('formatAlignedColumns tests', () => {
       });
 
       it('should maintain backward compatibility with alignment-based truncation', () => {
-        const input: AlignedItem[] = [
+        const input: (AlignedItem & { align: 'left' | 'right' | 'center';})[] = [
           { text: 'VeryLongTextForTesting', align: 'left', maxWidth: 15, truncate: true },
           { text: 'VeryLongTextForTesting', align: 'right', maxWidth: 15, truncate: true },
           { text: 'VeryLongTextForTesting', align: 'center', maxWidth: 15, truncate: true },
         ];
 
         // Test each alignment's default truncation behavior
-        input.forEach((item, index) => {
+        input.forEach((item /*index*/) => {
           const result = formatAlignedColumns([item], 20);
           const cleaned = result.trim();
+
+          // console.log({
+          //   alignment: item.align,
+          //   result,
+          //   cleaned,
+          //   index
+          // })
 
           if (item.align === 'left') {
             // Left alignment should truncate from right by default

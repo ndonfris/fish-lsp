@@ -1,4 +1,4 @@
-import { FISH_SEMANTIC_TOKENS_LEGEND, getModifiersFromMask } from '../src/utils/semantics';
+import { FishSemanticTokens, getModifiersFromMask } from '../src/utils/semantics';
 import type { SemanticTokens } from 'vscode-languageserver';
 
 /**
@@ -41,7 +41,7 @@ export function decodeSemanticTokens(
     line += lineDelta;
     startChar = lineDelta === 0 ? startChar + charDelta : charDelta;
 
-    const tokenType = FISH_SEMANTIC_TOKENS_LEGEND.tokenTypes[tokenTypeIndex] || `UNKNOWN(${tokenTypeIndex})`;
+    const tokenType = FishSemanticTokens.legend.tokenTypes[tokenTypeIndex] || `UNKNOWN(${tokenTypeIndex})`;
     const modifiers = getModifiersFromMask(modifiersMask);
 
     const token: DecodedToken = {

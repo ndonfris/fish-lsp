@@ -58,13 +58,13 @@ import { Workspace } from '../src/utils/workspace';
 import { workspaceManager } from '../src/utils/workspace-manager';
 import { Analyzer, analyzer } from '../src/analyze';
 import { pathToUri, uriToPath } from '../src/utils/translation';
-import { logger } from '../src/logger';
+import { logger, now } from '../src/logger';
 import { SyncFileHelper } from '../src/utils/file-operations';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { execFileSync, execSync } from 'child_process';
 import fastGlob from 'fast-glob';
 import { Command } from 'commander';
-import { testOpenDocument, testCloseDocument, testClearDocuments, testChangeDocument } from './document-test-helpers';
+import { testOpenDocument, testCloseDocument, testClearDocuments, testChangeDocument, testGetDocumentCount } from './document-test-helpers';
 
 /**
  * Query builder for advanced document selection
@@ -493,7 +493,7 @@ export class TestWorkspace {
 
   private constructor(config: TestWorkspaceConfig = {}) {
     this._config = {
-      name: config.name ?? this._generateUniqueName(),
+      name: config.name ?? this._generateUniqueName() + performance.now().toString().replace('.', ''),
       baseDir: config.baseDir || 'tests/workspaces',
       debug: config.debug ?? false,
       autoAnalyze: config.autoAnalyze ?? true,
@@ -508,6 +508,11 @@ export class TestWorkspace {
     this._name = this._config.name;
     this._basePath = path.resolve(this._config.baseDir);
     this._workspacePath = path.join(this._basePath, this._name);
+    if (SyncFileHelper.exists(this._workspacePath)) {
+      this._name = this.name + this._generateUniqueName() + new Date().getMilliseconds().toString() + randomBytes(2).toString('hex');
+      this._basePath = path.resolve(this._config.baseDir);
+      this._workspacePath = path.join(this._basePath, this._name);
+    }
     if (this._config.addEnclosingFishFolder) {
       this._workspacePath = path.join(this._workspacePath, 'fish');
     }
@@ -546,6 +551,7 @@ export class TestWorkspace {
     this._isInitialized = false;
     this._isInspecting = false;
     this._focusedDocumentPath = null;
+    return this;
   }
 
   /**
@@ -597,6 +603,7 @@ export class TestWorkspace {
     fastGlob.sync(['**/*.fish'], {
       cwd: absPath,
       absolute: true,
+      onlyFiles: true,
     }).forEach(filePath => {
       let relPath = path.relative(absPath, filePath);
       if (basePath.endsWith('fish') && relPath.startsWith('fish/')) {
@@ -761,6 +768,10 @@ export class TestWorkspace {
    * Adds a single file to the workspace
    */
   addFile(file: TestFileSpecInput): TestWorkspace {
+    const newFilePath = TestFileSpecLegacy.is(file) ? file.path : file.relativePath;
+    if (this._files.some(f => f.relativePath === newFilePath)) {
+      return this;
+    }
     if (TestFileSpecLegacy.is(file)) {
       this._files.push(TestFileSpecLegacy.toNewFormat(file));
     } else {
@@ -886,7 +897,7 @@ export class TestWorkspace {
         content: item.content,
       };
       SyncFileHelper.write(path.join(this._workspacePath, fileSpec.relativePath), Array.isArray(item.content) ? item.content.join('\n') : item.content);
-      const doc = LspDocument.create(path.join(this._workspacePath, fileSpec.relativePath));
+      const doc = LspDocument.createFromPath(path.join(this._workspacePath, fileSpec.relativePath));
       this._files.push(fileSpec);
       workspaceManager.current?.addPending(doc.uri);
     }
@@ -961,7 +972,7 @@ export class TestWorkspace {
         const wasSilentBefore = logger.isSilent();
         logger.setSilent(true);
         if (!this._isInitialized) {
-          if (!this._config.debug) logger.setSilent(true);
+          logger.setSilent(true);
           workspaceManager.clear();
           await setupProcessEnvExecFile();
           await this._resetAnalysisState();
@@ -1103,8 +1114,26 @@ export class TestWorkspace {
       const results = query.execute(this._documents);
       results.forEach(doc => allResults.add(doc.uri));
     }
+    for (const uri of Array.from(allResults)) {
+      if (allResults.has(uri) && !this._documents.some(doc => doc.uri === uri)) {
+        allResults.delete(uri);
+      }
+    }
 
-    return [...allResults].map(uri => this._documents.find(doc => doc.uri === uri)!).filter(Boolean);
+    const finalResults: LspDocument[] = [];
+    for (const uri of Array.from(allResults)) {
+      const found = this._documents.find(doc => {
+        if (doc.uri === uri) {
+          finalResults.push(doc);
+          return true;
+        }
+      });
+      if (found && !finalResults.map(d => d.uri).includes(found.uri)) {
+        finalResults.push(found);
+      }
+    }
+
+    return finalResults;
   }
 
   find(...query: (Query | string | number)[]) {
@@ -1293,31 +1322,39 @@ export class TestWorkspace {
     if (!analyzer || !analyzer.started) {
       await Analyzer.initialize();
     }
+    // const curr = documents.all()
+    // workspaceManager.clear();
 
     // Create workspace instance
     this._workspace = Workspace.syncCreateFromUri(this.uri);
     if (!this._workspace) {
       throw new Error(`Failed to create workspace from ${this.uri}`);
     }
-    this._workspace!.name = this._name;
+    // this._workspace.allUris.clear();
+    // this._workspace.addPending(...Array.from(new Set(this._files.map(f => pathToUri(path.join(this._workspacePath, f.relativePath))))));
+    // this._workspace!.name = this._name;
 
     // Add workspace to manager
-    workspaceManager.add(this._workspace);
+    // workspaceManager.clear()
 
     // Create LspDocument instances for all files
-    for (const file of this._files) {
+    for (const file of Array.from(new Set(this._files))) {
       const filePath = path.join(this._workspacePath, file.relativePath);
-      SyncFileHelper.writeRecursive(filePath, Array.isArray(file.content) ? file.content.join('\n') : file.content, 'utf8');
+      if (!fs.existsSync(filePath)) {
+        SyncFileHelper.writeRecursive(filePath, Array.isArray(file.content) ? file.content.join('\n') : file.content, 'utf8');
+      }
       const uri = pathToUri(filePath);
       const doc = LspDocument.createFromUri(uri);
 
+      if (this._documents.some(d => d.uri === doc.uri)) {
+        continue;
+      }
       this._documents.push(doc);
       this._workspace.add(uri);
 
       if (this._config.autoAnalyze) {
         workspaceManager.handleOpenDocument(doc);
         analyzer.analyze(doc);
-        workspaceManager.current?.addUri(doc.uri);
         testOpenDocument(doc);
       }
     }
@@ -1357,9 +1394,10 @@ export class TestWorkspace {
       this._workspace.add(uri);
 
       if (this._config.autoAnalyze) {
+        testOpenDocument(doc);
         workspaceManager.handleOpenDocument(doc);
         analyzer.analyze(doc);
-        workspaceManager.current?.addUri(doc.uri);
+        // workspaceManager.current?.addUri(doc.uri);
       }
     }
     await workspaceManager.analyzePendingDocuments();
@@ -1373,8 +1411,13 @@ export class TestWorkspace {
 
     // Re-add our documents if needed
     if (this._config.autoAnalyze) {
-      for (const doc of this._documents) {
-        testOpenDocument(doc);
+      for (const doc of this._files) {
+        const filePath = path.join(this._workspacePath, doc.relativePath);
+        const uri = pathToUri(filePath);
+        const lspDoc = LspDocument.createFromUri(uri);
+        workspaceManager.handleOpenDocument(lspDoc);
+        analyzer.analyze(lspDoc);
+        testOpenDocument(lspDoc);
       }
     }
   }
@@ -1451,6 +1494,10 @@ export class TestLogger {
  * Predefined test workspaces for common testing scenarios
  */
 export class DefaultTestWorkspaces {
+  static emptyWorkspace(): TestWorkspace {
+    return TestWorkspace.create({ name: `empty_workspace_${now().replace(' ', '_')}` }).reset();
+  }
+
   /**
    * Creates a basic fish function workspace
    */

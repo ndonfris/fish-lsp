@@ -21,6 +21,7 @@ import { getChildNodes, getNamedChildNodes } from '../src/utils/tree-sitter';
 import { Workspace } from '../src/utils/workspace';
 import { workspaceManager } from '../src/utils/workspace-manager';
 import { testOpenDocument } from './document-test-helpers';
+import { logger } from '../src/logger';
 
 /**
  * Sets up mock for the startup module.
@@ -478,7 +479,25 @@ export function createTestWorkspace(
   return result;
 }
 
+type FakeLspDocumentType = {
+  uri: string;
+  languageId?: string;
+  version?: number;
+  text: string;
+};
+
+export class FakeLspDocument extends LspDocument {
+  constructor(input: FakeLspDocumentType = { languageId: 'fish', version: 0, uri: 'file://fake/path.fish', text: '' }) {
+    super(createFakeLspDocument(input.uri, input.text).asTextDocumentItem());
+  }
+
+  static from(uri: string, ...text: string[]): FakeLspDocument {
+    return new FakeLspDocument({ uri, text: text.join('\n') });
+  }
+}
+
 export function createFakeLspDocument(name: string, ...text: string[]): LspDocument {
+  logger.setSilent(true);
   const uri = createFakeUriPath(name);
   const doc = LspDocument.createTextDocumentItem(uri, text.join('\n'));
   // get the current workspace, if it exists, otherwise create a test workspace

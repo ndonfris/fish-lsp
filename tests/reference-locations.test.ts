@@ -1,7 +1,7 @@
 import * as fs from 'fs';
-import { AnalyzedDocument, analyzer, Analyzer } from '../src/analyze';
+import { AnalyzedDocument, analyzer, Analyzer, EnsuredAnalyzeDocument } from '../src/analyze';
 import { workspaceManager } from '../src/utils/workspace-manager';
-import { printClientTree, printLocations, setLogger, TestLspDocument } from './helpers';
+import { fail, printClientTree, printLocations, setLogger, TestLspDocument } from './helpers';
 import { getChildNodes, getRange, pointToPosition } from '../src/utils/tree-sitter';
 import { isCompletionCommandDefinition } from '../src/parsing/complete';
 import { isArgumentThatCanContainCommandCalls, isCommand, isCommandWithName, isDefinitionName, isEndStdinCharacter, isOption, isString, isVariable, isVariableDefinitionName } from '../src/utils/node-types';
@@ -10,7 +10,7 @@ import { getRenames } from '../src/renames';
 import { allUnusedLocalReferences, getReferences, getImplementation } from '../src/references';
 import { Position, Location } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
-import { LspDocument } from '../src/document';
+import { documents, LspDocument } from '../src/document';
 import * as path from 'path';
 import { Workspace } from '../src/utils/workspace';
 import { pathToUri } from '../src/utils/translation';
@@ -18,9 +18,10 @@ import { filterFirstPerScopeSymbol } from '../src/parsing/symbol';
 import { isMatchingOptionValue } from '../src/parsing/options';
 import { Option } from '../src/parsing/options';
 import { extractCommands, extractMatchingCommandLocations } from '../src/parsing/nested-strings';
+import { testChangeDocument, testClearDocuments, testOpenDocument } from './document-test-helpers';
 
 // let currentWorkspace: CurrentWorkspace = new CurrentWorkspace();
-let documents: LspDocument[] = [];
+// let documents: LspDocument[] = [];
 
 /**
  * @param workspacePath `path.join('__dirname', 'workspaces', 'test_workspace_NAME')`
@@ -38,7 +39,7 @@ const setupWorkspace = (workspacePath: string, ...docs: TestLspDocument[]) => {
       rootPath: workspacePath,
       rootUri: pathToUri(workspacePath),
       beforeAll: async () => {
-        documents = [];
+        testClearDocuments();
         await Analyzer.initialize();
         fs.promises.mkdir(workspacePath, { recursive: true });
         const folders = ['functions', 'completions', 'conf.d'];
@@ -49,14 +50,14 @@ const setupWorkspace = (workspacePath: string, ...docs: TestLspDocument[]) => {
         for (const doc of docs) {
           const fullPath = path.join(workspacePath, doc.path);
           await fs.promises.writeFile(fullPath, Array.isArray(doc.text) ? doc.text.join('\n') : doc.text);
-          documents.push(LspDocument.createFromPath(fullPath));
+          testOpenDocument(LspDocument.createFromPath(fullPath));
         }
       },
       beforeEach: async () => {
         await Analyzer.initialize();
         workspaceManager.clear();
         workspaceManager.setCurrent(ws);
-        documents.forEach(doc => {
+        documents.all().forEach(doc => {
           workspaceManager.handleOpenDocument(doc);
           analyzer.analyze(doc);
           workspaceManager.current?.addUri(doc.uri);
@@ -93,7 +94,9 @@ const setupWorkspace = (workspacePath: string, ...docs: TestLspDocument[]) => {
       }),
       beforeEach(async () => {
         await setupObject.beforeEach();
-        documents = setupObject.documents();
+        setupObject.documents().all().forEach(doc => {
+          testOpenDocument(doc);
+        });
         await beforeEachCallback();
       });
       afterAll(async () => {
@@ -171,13 +174,13 @@ describe('find definition locations of symbols', () => {
         ],
       },
     ).setup(async () => {
-      functionDoc = documents.find(doc => doc.uri.endsWith('functions/test.fish'))!;
-      completionDoc = documents.find(doc => doc.uri.endsWith('completions/test.fish'))!;
-      confdDoc = documents.find(doc => doc.uri.endsWith('conf.d/test.fish'))!;
+      functionDoc = documents.all().find(doc => doc.uri.endsWith('functions/test.fish'))!;
+      completionDoc = documents.all().find(doc => doc.uri.endsWith('completions/test.fish'))!;
+      confdDoc = documents.all().find(doc => doc.uri.endsWith('conf.d/test.fish'))!;
     });
 
     it('`{functions,completions,conf.d}/test.fish`', () => {
-      expect(documents).toHaveLength(3);
+      expect(documents.all()).toHaveLength(3);
       expect(functionDoc).toBeDefined();
       expect(completionDoc).toBeDefined();
       expect(confdDoc).toBeDefined();
@@ -275,13 +278,13 @@ describe('find definition locations of symbols', () => {
         ],
       },
     ).setup(async () => {
-      functionDoc = documents.find(doc => doc.uri.endsWith('functions/test.fish'))!;
-      confdDoc = documents.find(doc => doc.uri.endsWith('conf.d/_foo.fish'))!;
-      globalTestDoc = documents.find(doc => doc.uri.endsWith('conf.d/global_test.fish'))!;
+      functionDoc = documents.all().find(doc => doc.uri.endsWith('functions/test.fish'))!;
+      confdDoc = documents.all().find(doc => doc.uri.endsWith('conf.d/_foo.fish'))!;
+      globalTestDoc = documents.all().find(doc => doc.uri.endsWith('conf.d/global_test.fish'))!;
     });
 
     it('foo local in conf.d/_foo.fish `2 refs for \'foo\'`', () => {
-      expect(documents).toHaveLength(5);
+      expect(documents.all()).toHaveLength(5);
       expect(functionDoc).toBeDefined();
       const found = analyzer.findNode((n, document) => {
         return document!.uri === confdDoc.uri && n.text === 'foo';
@@ -487,7 +490,7 @@ describe('find definition locations of symbols', () => {
     });
 
     it('global alias', () => {
-      const searchDoc = documents.find(doc => doc.uri.endsWith('conf.d/alias.fish'))!;
+      const searchDoc = documents.all().find(doc => doc.uri.endsWith('conf.d/alias.fish'))!;
       expect(searchDoc).toBeDefined();
       const found = analyzer.findNode((n, document) => {
         return document!.uri === searchDoc.uri && n.text === 'ls=';
@@ -594,7 +597,7 @@ describe('find definition locations of symbols', () => {
     });
 
     it('local alias', () => {
-      const searchDoc = documents.find(doc => doc.uri.endsWith('functions/local-alias.fish'))!;
+      const searchDoc = documents.all().find(doc => doc.uri.endsWith('functions/local-alias.fish'))!;
       expect(searchDoc).toBeDefined();
       const found = analyzer.findNode((n, document) => {
         return document!.uri === searchDoc.uri && n.text === 'ls=';
@@ -644,8 +647,8 @@ describe('find definition locations of symbols', () => {
     ).setup();
 
     it('conf.d/foo.fish ->  foo function definition', () => {
-      expect(documents).toHaveLength(4);
-      const searchDoc = documents.find(doc => doc.uri.endsWith('conf.d/foo.fish'))!;
+      expect(documents.all()).toHaveLength(4);
+      const searchDoc = documents.all().find(doc => doc.uri.endsWith('conf.d/foo.fish'))!;
       expect(searchDoc).toBeDefined();
       const found = analyzer.findNode((n, document) => {
         return document!.uri === searchDoc.uri && n.text === 'foo';
@@ -664,7 +667,7 @@ describe('find definition locations of symbols', () => {
 
   describe('renames', () => {
     describe('using `conf.d/test.fish` document', () => {
-      let cached: AnalyzedDocument;
+      let cached: EnsuredAnalyzeDocument;
       let document: LspDocument;
 
       setupWorkspace(
@@ -693,8 +696,8 @@ describe('find definition locations of symbols', () => {
         },
       ).setup(
         async () => {
-          document = documents.find(doc => doc.uri.endsWith('conf.d/test.fish'))!;
-          cached = analyzer.analyze(document);
+          document = documents.all().find(doc => doc.uri.endsWith('conf.d/test.fish'))!;
+          cached = analyzer.analyze(document).ensureParsed();
         },
       );
 
@@ -791,10 +794,10 @@ describe('find definition locations of symbols', () => {
           "alias baz='foo'",
         ],
       }).setup(async () => {
-        functionDoc = documents.find(doc => doc.uri.endsWith('functions/foo_test.fish'))!;
-        completionDoc = documents.find(doc => doc.uri.endsWith('completions/foo_test.fish'))!;
-        confdDoc = documents.find(doc => doc.uri.endsWith('conf.d/__test.fish'))!;
-        configDoc = documents.find(doc => doc.uri.endsWith('config.fish'))!;
+        functionDoc = documents.all().find(doc => doc.uri.endsWith('functions/foo_test.fish'))!;
+        completionDoc = documents.all().find(doc => doc.uri.endsWith('completions/foo_test.fish'))!;
+        confdDoc = documents.all().find(doc => doc.uri.endsWith('conf.d/__test.fish'))!;
+        configDoc = documents.all().find(doc => doc.uri.endsWith('config.fish'))!;
         expect(functionDoc).toBeDefined();
         expect(completionDoc).toBeDefined();
         expect(confdDoc).toBeDefined();
@@ -951,8 +954,8 @@ describe('find definition locations of symbols', () => {
       },
     ).setup(
       async () => {
-        funcDoc = documents.find(doc => doc.uri.endsWith('functions/_test.fish'))!;
-        configDoc = documents.find(doc => doc.uri.endsWith('config.fish'))!;
+        funcDoc = documents.all().find(doc => doc.uri.endsWith('functions/_test.fish'))!;
+        configDoc = documents.all().find(doc => doc.uri.endsWith('config.fish'))!;
       },
     );
 
@@ -1057,11 +1060,11 @@ describe('find definition locations of symbols', () => {
       },
 
     ).setup(async () => {
-      focusedDoc1 = documents.find(doc => doc.uri.endsWith('event_test.fish'))!;
-      focusedDoc2 = documents.find(doc => doc.uri.endsWith('other_event_test.fish'))!;
-      focusedDoc3 = documents.find(doc => doc.uri.endsWith('event_without_emit.fish'))!;
-      customFishDoc = documents.find(doc => doc.uri.endsWith('functions/custom_fish_prompt.fish'))!;
-      configDoc = documents.find(doc => doc.uri.endsWith('config.fish'))!;
+      focusedDoc1 = documents.all().find(doc => doc.uri.endsWith('event_test.fish'))!;
+      focusedDoc2 = documents.all().find(doc => doc.uri.endsWith('other_event_test.fish'))!;
+      focusedDoc3 = documents.all().find(doc => doc.uri.endsWith('event_without_emit.fish'))!;
+      customFishDoc = documents.all().find(doc => doc.uri.endsWith('functions/custom_fish_prompt.fish'))!;
+      configDoc = documents.all().find(doc => doc.uri.endsWith('config.fish'))!;
       expect(focusedDoc1).toBeDefined();
       expect(focusedDoc2).toBeDefined();
       expect(focusedDoc3).toBeDefined();
@@ -1206,7 +1209,7 @@ describe('find definition locations of symbols', () => {
     ).setup();
 
     it('test global variable w/o local references', () => {
-      const doc = documents.find(d => d.uri.endsWith('functions/local_test_var.fish'))!;
+      const doc = documents.all().find(d => d.uri.endsWith('functions/local_test_var.fish'))!;
       expect(doc).toBeDefined();
       const focusedSymbol = analyzer.getFlatDocumentSymbols(doc.uri).find(s => s.name === 'test_var')!;
 
@@ -1224,7 +1227,7 @@ describe('find definition locations of symbols', () => {
     });
 
     it('test global variable w/ local references', () => {
-      const doc = documents.find(d => d.uri.endsWith('functions/local_test_var.fish'))!;
+      const doc = documents.all().find(d => d.uri.endsWith('functions/local_test_var.fish'))!;
       expect(doc).toBeDefined();
       const focusedSymbol = analyzer.getFlatDocumentSymbols(doc.uri).find(s => s.name === 'test_var' && s.parent?.name === 'local_test_var')!;
       console.log('focusedSymbol', focusedSymbol.toString());
@@ -1247,7 +1250,7 @@ describe('find definition locations of symbols', () => {
     });
 
     it('test variable w/ local references && {localOnly: true}', () => {
-      const doc = documents.find(d => d.uri.endsWith('functions/local_test_var.fish'))!;
+      const doc = documents.all().find(d => d.uri.endsWith('functions/local_test_var.fish'))!;
       expect(doc).toBeDefined();
       const focusedSymbol = analyzer.getFlatDocumentSymbols(doc.uri).find(s => s.name === 'test_var' && s.parent?.name === 'local_test_var')!;
       console.log('focusedSymbol', focusedSymbol.toString());

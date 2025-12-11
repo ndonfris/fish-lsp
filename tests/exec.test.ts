@@ -163,13 +163,12 @@ describe('src/utils/exec.ts tests', () => {
       it('builtin', async () => {
         console.log('Testing ExecFishFiles.getDocs for all built-in commands...');
         const badCmds: string[] = [];
-        for (const cmd of BuiltInList) {
+        await Promise.all(BuiltInList.map(async (cmd) => {
           const output = await ExecFishFiles.getDocs(cmd);
-          // console.log('ExecFishFiles getCommandDoc: ', cmd, '---', output.stdout.toString());
           printDocsStdout({ ...output, cmd });
           expector.pass(output);
           if (output.stdout.toString().length === 0) badCmds.push(cmd);
-        }
+        }));
         badCmds.forEach((cmd) => {
           console.error('ExecFishFiles getCommandDoc failed for command: ', cmd);
         });

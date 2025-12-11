@@ -1128,7 +1128,7 @@ end`,
       //   console.log(AutoloadedPathVariables.getHoverDocumentation(path));
       //   console.log('-'.repeat(80));
       // });
-      expect(AutoloadedPathVariables.all().length).toBe(14);
+      expect(AutoloadedPathVariables.all().length).toBe(15);
     });
 
     it('AutoloadedPathVariables', () => {
@@ -1201,7 +1201,7 @@ complete -c foo -s d -l describe -d 'describe'`);
   describe('paths', () => {
     it('isFilepath(node) === true', () => {
       const { rootNode } = parser.parse('alias foo /usr/local/bin/fish');
-      const fileName = getChildNodes(rootNode).find(child => NodeTypes.isPath(child));
+      const fileName = getChildNodes(rootNode).find(child => NodeTypes.isPathNode(child));
       console.log(fileName?.text);
       // expect(NodeTypes.isFilepath(fileName)).toBeTruthy();
     });
@@ -1221,7 +1221,7 @@ complete -c foo -s d -l describe -d 'describe'`);
       const { rootNode } = parser.parse('alias foo /usr/local/bin/fish');
       const results: SyntaxNode[] = [];
       for (const child of getChildNodes(rootNode)) {
-        if (NodeTypes.isPath(child)) {
+        if (NodeTypes.isPathNode(child)) {
           results.push(child);
         }
       }
@@ -1251,7 +1251,7 @@ complete -c foo -s d -l describe -d 'describe'`);
       const { rootNode } = parser.parse('alias foo /usr/local/bin/fish');
       const results: SyntaxNode[] = [];
       for (const child of getChildNodes(rootNode)) {
-        if (NodeTypes.isPath(child)) {
+        if (NodeTypes.isPathNode(child)) {
           results.push(child);
         }
       }
