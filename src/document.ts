@@ -314,6 +314,9 @@ export class LspDocument implements TextDocument {
     const docPath = uriToPath(this.uri);
     if (!docPath) return null;
 
+    // Treat funced files as if they were in the functions directory
+    if (this.isFunced()) return 'functions';
+
     const dirName = path.basename(path.dirname(docPath));
     const fileName = path.basename(docPath);
 
@@ -336,7 +339,12 @@ export class LspDocument implements TextDocument {
   isAutoloaded(): boolean {
     const folderType = this.getFolderType();
     if (!folderType) return false;
+    if (this.isFunced()) return true;
     return ['functions', 'conf.d', 'config'].includes(folderType);
+  }
+
+  isFunced(): boolean {
+    return this.path.startsWith('/tmp/fish-funced.');
   }
 
   /**
