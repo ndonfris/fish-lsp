@@ -1,3 +1,16 @@
+## <small>1.1.2 (2025-12-12)</small>
+
+* chore: bump 1.1.2-pre.1 + update docs/CHANGELOG.md ([4d2b5a7](https://github.com/ndonfris/fish-lsp/commit/4d2b5a7))
+* chore: bump to v1.1.2-pre.0 ([9a337ef](https://github.com/ndonfris/fish-lsp/commit/9a337ef))
+* chore: removed `FISH_SEMANTIC_TOKENS_LEGEND` now using namespace `FishSemanticTokens` ([4f0016f](https://github.com/ndonfris/fish-lsp/commit/4f0016f))
+* feat: treat `funced` paths as if they are in `__fish_config_dir` workspace ([96064df](https://github.com/ndonfris/fish-lsp/commit/96064df))
+* feat(code-actions): path replacement, alias, redirects, set `-a`/`-p` ([1b1ed2e](https://github.com/ndonfris/fish-lsp/commit/1b1ed2e))
+* fix(tests): tests updated to pass with `>=1.1.1~1.1.2-pre.0` changes ([25f78d6](https://github.com/ndonfris/fish-lsp/commit/25f78d6))
+* refactor: `env` autoloaded path values check for `functions/NAME.fish` ([02c5822](https://github.com/ndonfris/fish-lsp/commit/02c5822))
+* revert(CompletionItem): dollar completions to ae08f7e ([eee3caf](https://github.com/ndonfris/fish-lsp/commit/eee3caf))
+
+
+
 ## <small>1.1.2-pre.1 (2025-12-12)</small>
 
 * feat: treat `funced` paths as if they are in `__fish_config_dir` workspace ([aef7550](https://github.com/ndonfris/fish-lsp/commit/aef7550))
