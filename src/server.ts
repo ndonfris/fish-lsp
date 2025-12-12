@@ -243,7 +243,7 @@ export default class FishServer {
    */
   register(connection: Connection): void {
     // setup callback handlers
-    const { onCodeAction } = codeActionHandlers(documents, analyzer);
+    const { onCodeActionCallback, onCodeActionResolveCallback } = codeActionHandlers();
     const documentHighlightHandler = getDocumentHighlights(analyzer);
     // Semantic tokens handler using simplified unified handler
     // The semanticTokenHandler handles both full document and range requests internally
@@ -272,7 +272,8 @@ export default class FishServer {
     connection.onDocumentFormatting(this.onDocumentFormatting.bind(this));
     connection.onDocumentRangeFormatting(this.onDocumentRangeFormatting.bind(this));
     connection.onDocumentOnTypeFormatting(this.onDocumentTypeFormatting.bind(this));
-    connection.onCodeAction(onCodeAction);
+    connection.onCodeAction(onCodeActionCallback);
+    connection.onCodeActionResolve(onCodeActionResolveCallback);
 
     connection.onCodeLens(this.onCodeLens.bind(this));
     connection.onFoldingRanges(this.onFoldingRanges.bind(this));

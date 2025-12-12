@@ -744,9 +744,9 @@ export function createExecuteCommandHandler(
       return;
     }
 
-    const { onCodeAction } = codeActionHandlers(documents, analyzer);
+    const { onCodeActionCallback } = codeActionHandlers();
 
-    const actions = await onCodeAction({
+    const actions = await onCodeActionCallback({
       textDocument: document.asTextDocumentIdentifier(),
       range: getRange(root),
       context: {

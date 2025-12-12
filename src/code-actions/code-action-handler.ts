@@ -1,17 +1,18 @@
 import { CodeAction, CodeActionParams, Diagnostic, Range } from 'vscode-languageserver';
 import { getDisableDiagnosticActions } from './disable-actions';
 import { createFixAllAction, getQuickFixes } from './quick-fixes';
-import { uriToPath } from '../utils/translation';
 import { logger } from '../logger';
-import { Documents, LspDocument } from '../document';
-import { Analyzer } from '../analyze';
+import { documents, LspDocument } from '../document';
+import { analyzer, Analyzer } from '../analyze';
 import { getNodeAtRange } from '../utils/tree-sitter';
-import { convertIfToCombiners, extractCommandToFunction, extractFunctionToFile, extractFunctionWithArgparseToCompletionsFile, extractToFunction, extractToVariable } from './refactors';
+import { convertIfToCombiners, extractCommandToFunction, extractFunctionToFile, extractFunctionWithArgparseToCompletionsFile, extractToFunction, extractToVariable, replaceAbsolutePathWithVariable, simplifySetAppendPrepend } from './refactors';
 import { createArgparseCompletionsCodeAction } from './argparse-completions';
-import { isCommandWithName, isProgram } from '../utils/node-types';
+import { isCommandName, isCommandWithName, isProgram, isAliasDefinitionName } from '../utils/node-types';
 import { createAliasInlineAction, createAliasSaveActionNewFile } from './alias-wrapper';
+import { SyntaxNode } from 'web-tree-sitter';
+import { handleRedirectActions } from './redirect-actions';
 
-export function createCodeActionHandler(docs: Documents, analyzer: Analyzer) {
+export function createCodeActionHandler() {
   /**
    * small helper for now, used to add code actions that are not `preferred`
    * quickfixes to the list of results, when a quickfix is requested.
@@ -23,12 +24,19 @@ export function createCodeActionHandler(docs: Documents, analyzer: Analyzer) {
     const selectedNode = getNodeAtRange(rootNode, range);
     if (!selectedNode) return [];
 
+    const commands: SyntaxNode[] = [];
+
     const results: CodeAction[] = [];
     if (isProgram(selectedNode)) {
       analyzer.getNodes(document.uri).forEach(n => {
         if (isCommandWithName(n, 'argparse')) {
           const argparseAction = createArgparseCompletionsCodeAction(n, document);
           if (argparseAction) results.push(argparseAction);
+        }
+        if (isCommandName(n) && !commands.some(c => n.id === c.id)) {
+          const redirectActions = handleRedirectActions(document, n.parent!);
+          if (redirectActions) results.push(...redirectActions);
+          commands.push(n);
         }
         // if (isIfStatement(n)) {
         //   const convertIfAction = convertIfToCombiners(document, n, false);
@@ -42,11 +50,26 @@ export function createCodeActionHandler(docs: Documents, analyzer: Analyzer) {
       if (commandToFunctionAction) results.push(commandToFunctionAction);
     }
 
-    if (isCommandWithName(selectedNode, 'alias')) {
-      const aliasInlineFunction = await createAliasInlineAction(document, selectedNode);
-      const aliasNewFile = await createAliasSaveActionNewFile(document, selectedNode);
-      if (aliasInlineFunction) results.push(aliasInlineFunction);
-      if (aliasNewFile) results.push(aliasNewFile);
+    // Note: Alias refactoring is handled in processRefactors to avoid duplication
+    if (isCommandWithName(selectedNode, 'argparse')) {
+      const argparseAction = createArgparseCompletionsCodeAction(selectedNode, document);
+      if (argparseAction) results.push(argparseAction);
+    }
+
+    if (isCommandName(selectedNode) && !commands.some(c => selectedNode.id === c.id)) {
+      commands.push(selectedNode);
+      const redirectActions = handleRedirectActions(document, selectedNode.parent!);
+      if (redirectActions) results.push(...redirectActions);
+    }
+
+    // if (isCommand(selectedNode) || hasParent(selectedNode, isCommand) && !commands.some(c => selectedNode.id === c.id)) {
+    //   commands.push(selectedNode);
+    //   const addSilenceAction = silenceCommandAction(document, selectedNode);
+    //   if (addSilenceAction) results.push(addSilenceAction);
+    // }
+
+    if (results.length === 0) {
+      logger.log('No selection code actions for node', selectedNode.type, selectedNode.text);
     }
 
     return results;
@@ -85,7 +108,18 @@ export function createCodeActionHandler(docs: Documents, analyzer: Analyzer) {
 
     // try refactoring aliases first
     let aliasCommand = selectedNode;
-    if (selectedNode.text === 'alias') aliasCommand = selectedNode.parent!;
+
+    // Check if cursor is on the 'alias' keyword
+    if (selectedNode.text === 'alias') {
+      aliasCommand = selectedNode.parent!;
+
+    // Check if cursor is on the alias definition name (e.g., "foo" in "alias foo=bar")
+    } else if (isAliasDefinitionName(selectedNode)) {
+      aliasCommand = selectedNode.parent?.type === 'concatenation'
+        ? selectedNode.parent.parent!
+        : selectedNode.parent!;
+    }
+
     if (aliasCommand && isCommandWithName(aliasCommand, 'alias')) {
       logger.log('isCommandWithName(alias)', aliasCommand.text);
       const aliasInlineFunction = await createAliasInlineAction(document, aliasCommand);
@@ -114,15 +148,30 @@ export function createCodeActionHandler(docs: Documents, analyzer: Analyzer) {
     const convertIf = convertIfToCombiners(document, selectedNode);
     if (convertIf) results.push(convertIf);
 
+    const replacePathWithVarActions = replaceAbsolutePathWithVariable(document, range);
+    results.push(...replacePathWithVarActions);
+
+    const simplifySetActions = simplifySetAppendPrepend(document, selectedNode);
+    results.push(...simplifySetActions);
+
     return results;
   }
 
   return async function handleCodeAction(params: CodeActionParams): Promise<CodeAction[]> {
-    logger.log('onCodeAction', params);
+    logger.log('onCodeAction', {
+      params: {
+        context: {
+          only: params.context.only,
+          diagnostics: params.context.diagnostics.map(d => `${d.code}:${d.range.start.line}`),
+          triggerKind: params.context.triggerKind?.toString(),
+        },
+        uri: params.textDocument.uri,
+        range: params.range,
+      },
+    });
 
-    const uri = uriToPath(params.textDocument.uri);
-    const document = docs.get(uri);
-    if (!document || !uri) return [];
+    const document = documents.get(params.textDocument.uri);
+    if (!document) return [];
 
     const results: CodeAction[] = [];
 
@@ -136,7 +185,7 @@ export function createCodeActionHandler(docs: Documents, analyzer: Analyzer) {
     const onlyQuickFix = params.context.only?.some(kind => kind.startsWith('quickfix'));
 
     logger.log('Requested actions', { onlyRefactoring, onlyQuickFix });
-    logger.log('Diagnostics', diagnostics.map(d => d.message));
+    logger.log('Diagnostics', diagnostics.map(d => ({ code: d.code, message: d.message })));
 
     // Add disable actions
     if (diagnostics.length > 0 && !onlyRefactoring) {
@@ -164,6 +213,7 @@ export function createCodeActionHandler(docs: Documents, analyzer: Analyzer) {
     logger.log('Processing all actions');
     results.push(...await processQuickFixes(document, diagnostics, analyzer));
     results.push(...await getSelectionCodeActions(document, params.range));
+    results.push(...await processRefactors(document, params.range));
     const allAction = createFixAllAction(document, results);
     if (allAction) {
       logger.log({
@@ -190,16 +240,16 @@ export function equalDiagnostics(d1: Diagnostic, d2: Diagnostic) {
     d1.data.node?.text === d2.data.node?.text;
 }
 
-export function createOnCodeActionResolveHandler(_docs: Documents, _analyzer: Analyzer) {
+export function createOnCodeActionResolveHandler() {
   return async function codeActionResolover(codeAction: CodeAction) {
     return codeAction;
   };
 }
 
-export function codeActionHandlers(docs: Documents, analyzer: Analyzer) {
+export function codeActionHandlers() {
   return {
-    onCodeAction: createCodeActionHandler(docs, analyzer),
-    onCodeActionResolve: createOnCodeActionResolveHandler(docs, analyzer),
+    onCodeActionCallback: createCodeActionHandler(),
+    onCodeActionResolveCallback: createOnCodeActionResolveHandler(),
   };
 }
 
