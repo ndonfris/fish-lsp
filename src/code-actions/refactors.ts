@@ -3,13 +3,15 @@ import { ChangeAnnotation, CodeAction, CodeActionKind, CreateFile, Range, TextDo
 import { LspDocument } from '../document';
 import { SyntaxNode } from 'web-tree-sitter';
 import { findEnclosingScope, getChildNodes, getRange } from '../utils/tree-sitter';
-import { findParentCommand, isCommand, isCommandWithName, isFunctionDefinitionName, isIfStatement } from '../utils/node-types';
+import { findParentCommand, isBlock, isCommand, isCommandWithName, isFunctionDefinitionName, isIfStatement, isPathNode, isProgram, isStatement } from '../utils/node-types';
 import { SupportedCodeActionKinds } from './action-kinds';
 import { convertIfToCombinersString } from './combiner';
 import path from 'path';
 import { formatTextWithIndents, pathToUri, uriToReadablePath } from '../utils/translation';
 import { logger } from '../logger';
 import { buildCompleteString, findFlagsToComplete } from './argparse-completions';
+import { analyzer } from '../analyze';
+import { env } from '../utils/env-manager';
 
 /**
  * Notice how this file compared to the other code-actions, uses a node as it's parameter
@@ -39,7 +41,7 @@ export function extractFunctionWithArgparseToCompletionsFile(
   range: Range,
   node: SyntaxNode,
 ) {
-  logger.log('extractFunctionWithArgparseToCompletionsFile', document, range, { node: { text: node.text, type: node.type } });
+  logger.log('extractFunctionWithArgparseToCompletionsFile', { document: document.uri }, range, { node: { text: node.text, type: node.type } });
 
   let selectedNode = node;
   if (isFunctionDefinitionName(node)) {
@@ -97,7 +99,7 @@ export function extractFunctionToFile(
   range: Range,
   node: SyntaxNode,
 ) {
-  logger.log('extractFunctionToFile', document, range, { node: { text: node.text, type: node.type } });
+  logger.log('extractFunctionToFile', { document: document.uri }, range, { node: { text: node.text, type: node.type } });
 
   let selectedNode = node;
   if (isFunctionDefinitionName(node)) {
@@ -149,7 +151,7 @@ export function extractToFunction(
   document: LspDocument,
   range: Range,
 ): CodeAction | undefined {
-  logger.log('extractToFunction', document, range);
+  logger.log('extractToFunction', { document: document.uri }, { range });
   // Generate a unique function name
   const functionName = `extracted_function_${Math.floor(Math.random() * 1000)}`;
 
@@ -157,6 +159,28 @@ export function extractToFunction(
   const selectedText = document.getText(range);
   // make sure we're not extracting nothing
   if (selectedText.trim() === '' && document.getLine(range.start.line).trim() !== '') return;
+
+  const node = analyzer.nodeAtPoint(document.uri, range.start.line, range.start.character);
+  const goodTypes = [
+    isCommand,
+    isBlock,
+    isStatement,
+    (n: SyntaxNode) => isCommandWithName(n, 'alias'),
+  ];
+  const badTypes = [
+    isProgram,
+    isFunctionDefinitionName,
+    (n: SyntaxNode) => n.type === 'function_definition',
+  ];
+
+  const isGoodNode = (n: SyntaxNode | null) => {
+    if (!n) return false;
+    return goodTypes.some(fn => fn(n)) && !badTypes.some(fn => fn(n));
+  };
+
+  if (node && !isGoodNode(node)) {
+    return undefined;
+  }
 
   const indent = document.getIndentAtLine(range.start.line);
   // Create the new function
@@ -175,8 +199,10 @@ export function extractToFunction(
   // Replace the selected text with a call to the new function
   const replaceEdit = TextEdit.replace(range, `${functionName}`);
 
+  const truncatedSelectedText = selectedText.split(' ').slice(0, 2).join(' ').trimEnd();
+  const msgText = truncatedSelectedText.length > 10 ? `${truncatedSelectedText.slice(0, 10)}...` : truncatedSelectedText;
   return createRefactorAction(
-    `Extract to local function '${functionName}'`,
+    `Extract '${msgText}' to local function '${functionName}' (line: ${range.start.line + 1})`,
     SupportedCodeActionKinds.RefactorExtract,
     {
       [document.uri]: [replaceEdit, insertEdit],
@@ -188,7 +214,7 @@ export function extractCommandToFunction(
   document: LspDocument,
   selectedNode: SyntaxNode,
 ) {
-  logger.log('extractCommandToFunction', document, { selectedNode: { text: selectedNode.text, type: selectedNode.type } });
+  logger.log('extractCommandToFunction', { document: document.uri }, { selectedNode: { text: selectedNode.text, type: selectedNode.type } });
   // Generate a unique function name
   const functionName = `extracted_function_${Math.floor(Math.random() * 1000)}`;
 
@@ -218,7 +244,7 @@ export function extractCommandToFunction(
   );
 
   return createRefactorAction(
-    `Extract command to local function '${functionName}'`,
+    `Extract command '${cmd.firstNamedChild!.text}' to local function '${functionName}' (line ${cmd.startPosition.row + 1} to EOF)`,
     SupportedCodeActionKinds.RefactorExtract,
     {
       [document.uri]: [replaceEdit, insertEdit],
@@ -232,7 +258,7 @@ export function extractToVariable(
   range: Range,
   selectedNode: SyntaxNode,
 ): CodeAction | undefined {
-  logger.log('extractToVariable', document, { selectedNode: { text: selectedNode.text, type: selectedNode.type } });
+  logger.log('extractToVariable', { document: document.uri }, { selectedNode: { text: selectedNode.text, type: selectedNode.type } });
   // Only allow extracting commands or expressions
   if (!isCommand(selectedNode)) return undefined;
 
@@ -259,7 +285,7 @@ export function convertIfToCombiners(
   selectedNode: SyntaxNode,
   isSelected: boolean = true,
 ): CodeAction | undefined {
-  logger.log('convertIfToCombiners', document, { selectedNode: { text: selectedNode.text, type: selectedNode.type } });
+  logger.log('convertIfToCombiners', { uri: document.uri }, { selectedNode: { text: selectedNode.text, type: selectedNode.type } });
   let node = selectedNode;
   if (node.type === 'if' && !isIfStatement(node)) {
     node = node.parent!;
@@ -286,4 +312,277 @@ export function convertIfToCombiners(
     },
     true, // Mark as preferred action
   );
+}
+
+/**
+ * Helper to check if a command is modifying PATH
+ */
+function isPathModifyingCommand(node: SyntaxNode): boolean {
+  const cmd = findParentCommand(node);
+  if (!cmd) return false;
+
+  const cmdName = cmd.firstNamedChild?.text;
+  if (!cmdName) return false;
+
+  // Check for fish_add_path command
+  if (cmdName === 'fish_add_path') return true;
+
+  // Check for set PATH commands
+  if (cmdName === 'set') {
+    const args = cmd.namedChildren.slice(1); // Skip the command name
+    // Look for PATH variable being set
+    for (const arg of args) {
+      if (arg.text === 'PATH' || arg.text === 'path') return true;
+    }
+  }
+
+  return false;
+}
+
+export function replaceAbsolutePathWithVariable(
+  document: LspDocument,
+  range: Range,
+): CodeAction[] {
+  logger.log('replaceAbsolutePathWithVariable', { document: document.uri }, range);
+  const selectedText = document.getText(range);
+  const node = analyzer.nodeAtPoint(document.uri, range.start.line, range.start.character);
+  if (!node) return [];
+
+  if (!isPathNode(node)) {
+    logger.warning({
+      action: 'replaceAbsolutePathWithVariable',
+      reason: 'not a path node',
+      nodeText: node.text,
+      nodeType: node.type,
+    });
+    return []; // not a path node
+  }
+
+  if (!node.text.startsWith('/') || node.parent?.type === 'concatenation') {
+    logger.warning({
+      action: 'replaceAbsolutePathWithVariable',
+      reason: 'not absolute path or part of concatenation',
+      nodeText: node.text,
+      nodeParent: {
+        text: node.parent?.text,
+        type: node.parent?.type,
+      },
+    });
+    return []; // not an absolute path
+  }
+
+  // Check if this is a PATH-modifying command
+  const isModifyingPath = isPathModifyingCommand(node);
+
+  // Collect all matching variables with their array indices
+  const matches: Array<{ key: string; value: string; length: number; index: number | null; }> = [];
+
+  // Check each environment variable to find matching prefixes
+  for (const envKey of env.keys) {
+    // Skip PATH if we're in a PATH-modifying command
+    if (isModifyingPath && envKey === 'PATH') continue;
+
+    const envValues = env.getAsArray(envKey);
+
+    for (let i = 0; i < envValues.length; i++) {
+      const envValue = envValues[i];
+      // Skip empty values
+      if (!envValue || envValue.length === 0) continue;
+
+      // Check if the absolute path starts with this environment value
+      if (node.text.startsWith(envValue) && envValue.length > 1) {
+        // Don't add if it's an exact match to a PATH entry when modifying PATH
+        if (isModifyingPath && node.text === envValue) continue;
+
+        // Store index only if the variable has multiple values (fish uses 1-based indexing)
+        const arrayIndex = envValues.length > 1 ? i + 1 : null;
+
+        matches.push({
+          key: envKey,
+          value: envValue,
+          length: envValue.length,
+          index: arrayIndex,
+        });
+      }
+    }
+  }
+
+  // Add HOME replacement option
+  const homeValue = env.get('HOME');
+  if (homeValue && node.text.startsWith(homeValue)) {
+    // Add $HOME option if not already in matches
+    if (!matches.some(m => m.key === 'HOME')) {
+      matches.push({
+        key: 'HOME',
+        value: homeValue,
+        length: homeValue.length,
+        index: null,
+      });
+    }
+  }
+
+  // Sort matches by length (longest first)
+  matches.sort((a, b) => b.length - a.length);
+
+  // No matches found
+  if (matches.length === 0) return [];
+
+  const results: CodeAction[] = [];
+  const nodeRange = getRange(node);
+
+  // Create code actions for each match (limit to top 5 to avoid clutter)
+  const topMatches = matches.slice(0, 5);
+
+  for (const match of topMatches) {
+    const remainingPath = node.text.slice(match.value.length);
+    const needsSlash = remainingPath.length > 0 && !remainingPath.startsWith('/');
+
+    // Build variable reference with index if needed
+    const varRef = match.index !== null
+      ? `$${match.key}[${match.index}]`
+      : `$${match.key}`;
+
+    // Create replacement text
+    const varReplacement = `${varRef}${needsSlash ? '/' : ''}${remainingPath}`;
+
+    // Replace the entire node text (not just the matched prefix)
+    results.push(createRefactorAction(
+      `Replace with '${varRef}${needsSlash ? '/' : ''}...' (line: ${range.start.line + 1})`,
+      SupportedCodeActionKinds.RefactorRewrite,
+      {
+        [document.uri]: [TextEdit.replace(nodeRange, varReplacement)],
+      },
+    ));
+
+    // For HOME, also offer tilde (~) replacement
+    if (match.key === 'HOME' && match.index === null) {
+      const tildeReplacement = `~${needsSlash ? '/' : ''}${remainingPath}`;
+      results.push(createRefactorAction(
+        `Replace with '~${needsSlash ? '/' : ''}...' (line: ${range.start.line + 1})`,
+        SupportedCodeActionKinds.RefactorRewrite,
+        {
+          [document.uri]: [TextEdit.replace(nodeRange, tildeReplacement)],
+        },
+      ));
+    }
+  }
+
+  logger.debug({
+    action: 'replaceAbsolutePathWithVariable',
+    nodeText: node.text,
+    selectedText,
+    matches: topMatches,
+    isModifyingPath,
+    resultsCount: results.length,
+  });
+
+  return results;
+}
+
+/**
+ * Simplifies set commands that manually append or prepend values
+ * - set VAR $VAR appended → set -a VAR appended
+ * - set VAR prepended $VAR → set --prepend VAR prepended
+ */
+export function simplifySetAppendPrepend(
+  document: LspDocument,
+  selectedNode: SyntaxNode,
+): CodeAction[] {
+  logger.log('simplifySetAppendPrepend', { document: document.uri }, { selectedNode: { text: selectedNode.text, type: selectedNode.type } });
+
+  // Find the set command
+  let cmd = selectedNode;
+  if (selectedNode.type !== 'command') {
+    cmd = findParentCommand(selectedNode) || selectedNode;
+  }
+
+  if (!cmd || !isCommandWithName(cmd, 'set')) {
+    return [];
+  }
+
+  const results: CodeAction[] = [];
+  const cmdRange = getRange(cmd);
+
+  // Get all named children (arguments) of the set command
+  const args = cmd.namedChildren;
+  if (args.length < 2) return []; // Need at least 'set' and variable name
+
+  // Find where the variable name is (skip flags)
+  let varNameIndex = -1;
+  let varName = '';
+  const flags: string[] = [];
+
+  for (let i = 1; i < args.length; i++) {
+    const arg = args[i];
+    if (!arg) continue;
+    if (arg.text.startsWith('-')) {
+      flags.push(arg.text);
+    } else {
+      varNameIndex = i;
+      varName = arg.text;
+      break;
+    }
+  }
+
+  if (varNameIndex === -1 || !varName) return [];
+
+  // Get the value arguments (everything after the variable name)
+  const valueArgs = args.slice(varNameIndex + 1);
+  if (valueArgs.length === 0) return [];
+
+  // Check for append pattern: set VAR $VAR value1 value2...
+  const firstValue = valueArgs[0];
+  if (!firstValue) return [];
+  const isAppendPattern = firstValue.text === `$${varName}` || firstValue.text === `\$${varName}`;
+
+  // Check for prepend pattern: set VAR value1 value2... $VAR
+  const lastValue = valueArgs[valueArgs.length - 1];
+  if (!lastValue) return [];
+  const isPrependPattern = lastValue.text === `$${varName}` || lastValue.text === `\$${varName}`;
+
+  // Append pattern: set VAR $VAR appended → set -a VAR appended
+  if (isAppendPattern && valueArgs.length > 1) {
+    const remainingValues = valueArgs.slice(1); // Skip $VAR
+    const newFlags = [...flags, '-a'].join(' ');
+    const newValues = remainingValues.map(v => v.text).join(' ');
+    const replacement = `set ${newFlags} ${varName} ${newValues}`.trim().replace(/\s+/g, ' ');
+
+    results.push(createRefactorAction(
+      `Simplify to 'set -a ${varName} ...' (line: ${cmdRange.start.line + 1})`,
+      SupportedCodeActionKinds.RefactorRewrite,
+      {
+        [document.uri]: [TextEdit.replace(cmdRange, replacement)],
+      },
+      true, // Mark as preferred
+    ));
+  }
+
+  // Prepend pattern: set VAR prepended $VAR → set --prepend VAR prepended
+  if (isPrependPattern && valueArgs.length > 1) {
+    const remainingValues = valueArgs.slice(0, -1); // Skip last $VAR
+    const newFlags = [...flags, '--prepend'].join(' ');
+    const newValues = remainingValues.map(v => v.text).join(' ');
+    const replacement = `set ${newFlags} ${varName} ${newValues}`.trim().replace(/\s+/g, ' ');
+
+    results.push(createRefactorAction(
+      `Simplify to 'set --prepend ${varName} ...' (line: ${cmdRange.start.line + 1})`,
+      SupportedCodeActionKinds.RefactorRewrite,
+      {
+        [document.uri]: [TextEdit.replace(cmdRange, replacement)],
+      },
+      true, // Mark as preferred
+    ));
+  }
+
+  logger.debug({
+    action: 'simplifySetAppendPrepend',
+    cmdText: cmd.text,
+    varName,
+    valueArgs: valueArgs.map(v => v.text),
+    isAppendPattern,
+    isPrependPattern,
+    resultsCount: results.length,
+  });
+
+  return results;
 }
