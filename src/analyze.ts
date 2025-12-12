@@ -878,21 +878,6 @@ export class Analyzer {
       if (node && isCommandName(node)) {
         const text = node.text.toString();
         const locations = findCommandLocations(text);
-        // const paths = locations.map(loc => loc.path);
-        // for (const { uri, path } of locations) {
-        // const content = SyncFileHelper.read(path, 'utf8');
-        // const doc = LspDocument.createTextDocumentItem(uri, content);
-        // workspaceManager.handleOpenDocument(doc);
-        // connection.sendNotification('workspace/didChangeWorkspaceFolders', {
-        //   event: {
-        //     added: paths,
-        //     removed: [],
-        //   },
-        // });
-        // workspaceManager.analyzePendingDocuments();
-        // }
-        // consider just finding the definition symbol since we analyze the document
-        // with the above `workspaceManager.handleOpenDocument(doc)` call
         return locations.map(({ uri }) =>
           Location.create(uri, {
             start: { line: 0, character: 0 },

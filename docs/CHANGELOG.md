@@ -1,3 +1,17 @@
+## <small>1.1.2-pre.1 (2025-12-12)</small>
+
+* feat: treat `funced` paths as if they are in `__fish_config_dir` workspace ([aef7550](https://github.com/ndonfris/fish-lsp/commit/aef7550))
+* feat(code-actions): path replacement, alias, redirects, set `-a`/`-p` ([2e182b5](https://github.com/ndonfris/fish-lsp/commit/2e182b5))
+* fix(tests): tests updated to pass with `>=1.1.1~1.1.2-pre.0` changes ([00db775](https://github.com/ndonfris/fish-lsp/commit/00db775))
+* chore: removed `FISH_SEMANTIC_TOKENS_LEGEND` now using namespace `FishSemanticTokens` ([e85176f](https://github.com/ndonfris/fish-lsp/commit/e85176f))
+* refactor: `env` autoloaded path values check for `functions/NAME.fish` ([8eac87e](https://github.com/ndonfris/fish-lsp/commit/8eac87e))
+
+
+## <small>1.1.1-pre.0 (2025-12-11)</small>
+
+* revert: `$` completions from branch [fix/dollar-completions](https://github.com/ndonfris/fish-lsp/tree/fix/dollar-completions) (3e6b5fc)(https://github.com/ndonfris/fish-lsp/commit/3e6b5fc64a1d72d8a42dbc49bfee0222892e119d)
+
+
 ## <small>1.1.1 (2025-12-09)</small>
 
 * feat: Add Semantic Tokens Support (#113) ([399dba7](https://github.com/ndonfris/fish-lsp/commit/399dba7)), closes [#113](https://github.com/ndonfris/fish-lsp/issues/113)
