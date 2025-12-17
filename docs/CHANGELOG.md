@@ -1,3 +1,9 @@
+## <small>1.1.3-pre.0 (2025-12-17)</small>
+
+* build(conda-forge): remove `"tree-sitter": "^0.21.0"` dep in `package.json` ([aacd1a1](https://github.com/ndonfris/fish-lsp/commit/aacd1a1))
+
+
+
 ## <small>1.1.2 (2025-12-12)</small>
 
 * chore: bump 1.1.2-pre.1 + update docs/CHANGELOG.md ([4d2b5a7](https://github.com/ndonfris/fish-lsp/commit/4d2b5a7))
