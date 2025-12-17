@@ -427,7 +427,7 @@ export function handleSingleQuoteVarFix(
 ): CodeAction {
   // Replace single quotes with double quotes
   const text = document.getText(diagnostic.range);
-  const newText = text.replace(/'/g, '"').replace(/\$/g, '\\$');
+  const newText = text.replace(/\\/g, '\\\\').replace(/'/g, '"').replace(/\$/g, '\\$');
 
   const edit = TextEdit.replace(
     diagnostic.range,

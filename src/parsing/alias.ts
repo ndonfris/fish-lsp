@@ -107,7 +107,7 @@ export namespace FishAlias {
     const { name, value, prefix, wraps, hasEquals } = aliasInfo;
 
     // Escape special characters in the value for both the wraps and description
-    const escapedValue = value.replace(/'/g, "\\'");
+    const escapedValue = value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
     // Build the description string that matches fish's alias format
     const description = hasEquals ?
