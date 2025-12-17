@@ -345,11 +345,19 @@ export class LspDocument implements TextDocument {
   }
 
   isFunced(): boolean {
-    return this.path.startsWith('/tmp/fish-funced.');
+    return LspDocument.isFuncedPath(this.path);
   }
 
   isCommandlineBuffer(): boolean {
-    return this.path.startsWith('/tmp/fish.') && this.path.endsWith('command-line.fish');
+    return LspDocument.isCommandlineBufferPath(this.path);
+  }
+
+  static isFuncedPath(path: string): boolean {
+    return path.startsWith('/tmp/fish-funced.');
+  }
+
+  static isCommandlineBufferPath(path: string): boolean {
+    return path.startsWith('/tmp/fish.') && path.endsWith('command-line.fish');
   }
 
   /**

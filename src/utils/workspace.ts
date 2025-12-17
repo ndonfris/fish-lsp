@@ -426,27 +426,14 @@ export namespace FishUriWorkspace {
   }
 
   /**
-   * Checks if a path is a funced file (from `funced foo` command)
-   * These files are stored in /tmp/fish-funced.* directories
-   */
-  export function isFuncedPath(path: string): boolean {
-    return path.startsWith('/tmp/fish-funced.');
-  }
-
-  export function isCommandlinePath(path: string): boolean {
-    return path.startsWith('/tmp/fish.') && path.endsWith('command-line.fish');
-  }
-
-  /**
-   * Gets the fish config directory path for funced files
+   * Gets the fish config directory path for funced files or command-line buffers
+   *
+   * `funced ...`
+   * `... # (PRESS 'edit_commandline_buffer' key) normally alt+e`
+   *
    * Returns undefined if not a funced file
    */
-  export function getFuncedWorkspaceRoot(): string | undefined {
-    const fishConfigDir = env.get('__fish_config_dir');
-    return fishConfigDir;
-  }
-
-  export function getCommandlineWorkspaceRoot(): string | undefined {
+  export function getFuncedOrCommandlineWorkspaceRoot(): string | undefined {
     const fishConfigDir = env.get('__fish_config_dir');
     return fishConfigDir;
   }
@@ -474,9 +461,9 @@ export namespace FishUriWorkspace {
     const base = basename(current);
 
     // Handle funced files specially - they should be treated as part of __fish_config_dir
-    if (isFuncedPath(current) || isCommandlinePath(current)) {
-      const funcedRoot = getFuncedWorkspaceRoot();
-      if (funcedRoot) return funcedRoot;
+    if (LspDocument.isFuncedPath(current) || LspDocument.isCommandlineBufferPath(current)) {
+      const specialRoot = getFuncedOrCommandlineWorkspaceRoot();
+      if (specialRoot) return specialRoot;
       // Fallback to default if __fish_config_dir is not set
       logger.warning('getFuncedWorkspaceRoot() returned undefined, falling back to ~/.config/fish');
       return join(process.env.HOME || '/tmp', '.config', 'fish');
@@ -591,28 +578,13 @@ export namespace FishUriWorkspace {
     const uriPath = uriToPath(uri);
 
     // Handle funced files - they should be treated as part of __fish_config_dir
-    if (isFuncedPath(uriPath)) {
+    if (LspDocument.isFuncedPath(uriPath) || LspDocument.isCommandlineBufferPath(uriPath)) {
+      const pathType = LspDocument.isFuncedPath(uriPath) ? 'funced' : 'command-line';
       const rootPath = getWorkspaceRootFromUri(uri);
       const workspaceName = getWorkspaceName(uri);
 
       if (!rootPath || !workspaceName) {
-        logger.warning('Failed to get workspace root/name for funced file', { uri, rootPath, workspaceName });
-        return null;
-      }
-
-      return {
-        name: workspaceName,
-        uri: pathToUri(rootPath),
-        path: rootPath,
-      };
-    }
-
-    if (isCommandlinePath(uriPath)) {
-      const rootPath = getWorkspaceRootFromUri(uri);
-      const workspaceName = getWorkspaceName(uri);
-
-      if (!rootPath || !workspaceName) {
-        logger.warning('Failed to get workspace root/name for command-line file', { uri, rootPath, workspaceName });
+        logger.warning(`Failed to get workspace root/name for ${pathType} file`, { uri, rootPath, workspaceName });
         return null;
       }
 
