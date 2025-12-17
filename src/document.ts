@@ -347,6 +347,10 @@ export class LspDocument implements TextDocument {
     return this.path.startsWith('/tmp/fish-funced.');
   }
 
+  isCommandlineBuffer(): boolean {
+    return this.path.startsWith('/tmp/fish.') && this.path.endsWith('commandline.fish');
+  }
+
   /**
    * checks if the document is in a location:
    *  - `fish/{conf.d,functions,completions}/file.fish`
