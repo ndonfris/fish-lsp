@@ -88,7 +88,6 @@ export class MarkdownBuilder {
   appendText(value: string, newlineStyle: MarkdownStringTextNewlineStyle = MarkdownStringTextNewlineStyle.Paragraph): MarkdownBuilder {
     this.value += escapeMarkdownSyntaxTokens(value)
       .replace(/([ \t]+)/g, (_match, g1) => '&nbsp;'.repeat(g1.length))
-      .replace(/>/gm, '\\>')
       .replace(/\n/g, newlineStyle === MarkdownStringTextNewlineStyle.Break ? '\\\n' : '\n\n');
 
     return this;
@@ -139,5 +138,5 @@ export class MarkdownBuilder {
 
 export function escapeMarkdownSyntaxTokens(text: string): string {
   // escape markdown syntax tokens: http://daringfireball.net/projects/markdown/syntax#backslash
-  return text.replace(/[\\`*_{}[\]()#+\-!]/g, '\\$&');
+  return text.replace(/[\\`*_{}[\]()#+\-!>]/g, '\\$&');
 }
