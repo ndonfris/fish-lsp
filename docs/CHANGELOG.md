@@ -1,3 +1,13 @@
+## <small>1.1.3-pre.1 (2025-12-17)</small>
+
+* feat: added initial `LspDocument.isCommandlineBuffer()` for `edit_command_buffer` ([76c6a0b](https://github.com/ndonfris/fish-lsp/commit/76c6a0b))
+* feat: full bind `edit_command_buffer` support, to handle as `$__fish_config_dir/conf.d` ([8b7cb16](https://github.com/ndonfris/fish-lsp/commit/8b7cb16))
+* feat: simplified `argparse` in `fish_files/get-docs.fish` incase fish version != latest ([38255e8](https://github.com/ndonfris/fish-lsp/commit/38255e8))
+* refactor(`LspDocument`): added static `LspDocument.is{Funced,CommandlineBuffer}Path()` utils ([52fa306](https://github.com/ndonfris/fish-lsp/commit/52fa306))
+* chore: added code-scanning fixes for `js/incomplete-sanitization` warning ([ba6a554](https://github.com/ndonfris/fish-lsp/commit/ba6a554))
+
+
+
 ## <small>1.1.3-pre.0 (2025-12-17)</small>
 
 * build(conda-forge): remove `"tree-sitter": "^0.21.0"` dep in `package.json` ([aacd1a1](https://github.com/ndonfris/fish-lsp/commit/aacd1a1))
