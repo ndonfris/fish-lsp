@@ -13,6 +13,7 @@ echo "-----------------------------------"
 echo "Building and testing npm package..."
 
 npm un -g fish-lsp || true
+   # npm install -g -ddd --no-scripts --build-from-source ./fish-lsp-$version.tgz 
 npm i --no-package-lock --ignore-scripts
 npm run build:npm 
 npm pack --pack-destination release-assets/npm/
