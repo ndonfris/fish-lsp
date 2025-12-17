@@ -88,20 +88,19 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
     preserveSymlinks: true,
     // External dependencies - don't bundle these, npm will provide them
     external: [
+      '@esdmr/tree-sitter-fish',
       'chalk',
       'commander',
       'deepmerge',
       'fast-glob',
       'fs-extra',
-      'tree-sitter',
       'unionfs',
       'vscode-languageserver',
       'vscode-languageserver-protocol',
       'vscode-languageserver-textdocument',
       'vscode-uri',
-      'zod',
-      '@ndonfris/tree-sitter-fish',
-      'web-tree-sitter'
+      'web-tree-sitter',
+      'zod'
       // Note: keeping 'esbuild-wasm', 'memfs' bundled
       // as they may be needed for embedded functionality
     ],
