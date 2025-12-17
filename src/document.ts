@@ -316,6 +316,7 @@ export class LspDocument implements TextDocument {
 
     // Treat funced files as if they were in the functions directory
     if (this.isFunced()) return 'functions';
+    if (this.isCommandlineBuffer()) return 'conf.d';
 
     const dirName = path.basename(path.dirname(docPath));
     const fileName = path.basename(docPath);
@@ -348,7 +349,7 @@ export class LspDocument implements TextDocument {
   }
 
   isCommandlineBuffer(): boolean {
-    return this.path.startsWith('/tmp/fish.') && this.path.endsWith('commandline.fish');
+    return this.path.startsWith('/tmp/fish.') && this.path.endsWith('command-line.fish');
   }
 
   /**
