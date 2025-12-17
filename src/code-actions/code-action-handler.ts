@@ -28,20 +28,39 @@ export function createCodeActionHandler() {
 
     const results: CodeAction[] = [];
     if (isProgram(selectedNode)) {
+      const MAX_REDIRECT_COMMANDS = 2;
+      const cursorPosition = range.start;
+      const commandsForRedirect: SyntaxNode[] = [];
+
+      // First pass: collect all command nodes and handle argparse
       analyzer.getNodes(document.uri).forEach(n => {
         if (isCommandWithName(n, 'argparse')) {
           const argparseAction = createArgparseCompletionsCodeAction(n, document);
           if (argparseAction) results.push(argparseAction);
         }
         if (isCommandName(n) && !commands.some(c => n.id === c.id)) {
-          const redirectActions = handleRedirectActions(document, n.parent!);
-          if (redirectActions) results.push(...redirectActions);
           commands.push(n);
+          commandsForRedirect.push(n);
         }
         // if (isIfStatement(n)) {
         //   const convertIfAction = convertIfToCombiners(document, n, false);
         //   if (convertIfAction) results.push(convertIfAction);
         // }
+      });
+
+      // Sort commands by distance to cursor and take the 2 closest
+      const closestCommands = commandsForRedirect
+        .sort((a, b) => {
+          const distA = Math.abs(a.startPosition.row - cursorPosition.line);
+          const distB = Math.abs(b.startPosition.row - cursorPosition.line);
+          return distA - distB;
+        })
+        .slice(0, MAX_REDIRECT_COMMANDS);
+
+      // Add redirect actions only for the closest commands
+      closestCommands.forEach(n => {
+        const redirectActions = handleRedirectActions(document, n.parent!);
+        if (redirectActions) results.push(...redirectActions);
       });
     }
 
