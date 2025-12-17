@@ -12,6 +12,7 @@ import { logger } from '../logger';
 import { buildCompleteString, findFlagsToComplete } from './argparse-completions';
 import { analyzer } from '../analyze';
 import { env } from '../utils/env-manager';
+import { getParentCommandNodeForCodeAction } from './code-action-handler';
 
 /**
  * Notice how this file compared to the other code-actions, uses a node as it's parameter
@@ -212,20 +213,46 @@ export function extractToFunction(
 
 export function extractCommandToFunction(
   document: LspDocument,
+  selectionRange: Range | undefined,
   selectedNode: SyntaxNode,
 ) {
-  logger.log('extractCommandToFunction', { document: document.uri }, { selectedNode: { text: selectedNode.text, type: selectedNode.type } });
+  logger.log('extractCommandToFunction', { document: document.uri }, { selectionRange, selectedNode: { text: selectedNode.text, type: selectedNode.type } });
   // Generate a unique function name
   const functionName = `extracted_function_${Math.floor(Math.random() * 1000)}`;
 
-  let cmd = selectedNode;
-  if (selectedNode.type !== 'command') {
-    cmd = findParentCommand(selectedNode) || selectedNode;
+  let extractRange: Range;
+  let commandName: string;
+
+  // If there's a selection, use it directly
+  if (selectionRange) {
+    extractRange = selectionRange;
+    const selectedText = document.getText(selectionRange);
+    // Try to get a meaningful name from the first few words
+    const firstLine = selectedText.trim().split('\n')[0];
+    const words = firstLine?.split(/\s+/) || [];
+    commandName = words[0] || 'selection';
+  } else {
+    // Otherwise, fall back to finding the command node
+    const parentCmd = getParentCommandNodeForCodeAction(selectedNode);
+    if (parentCmd) selectedNode = parentCmd;
+    if (!selectedNode || !isCommand(selectedNode)) {
+      logger.warning({
+        action: 'extractCommandToFunction',
+        reason: 'not a command node',
+      });
+      return;
+    }
+    extractRange = getRange(selectedNode);
+    commandName = selectedNode.firstNamedChild?.text || 'command';
   }
-  if (!cmd || !isCommand(cmd)) return;
+
+  // Replace the selected text with a call to the new function
+  const callText = selectionRange ? `$(${functionName})` : `${functionName}`;
+  const repRange = selectionRange ? selectionRange : extractRange;
 
   // Get the selected text
-  const selectedText = document.getText(getRange(cmd));
+  const selectedText = document.getText(repRange);
+
   // Create the new function
   const functionText = [
     `\nfunction ${functionName}`,
@@ -233,21 +260,23 @@ export function extractCommandToFunction(
     'end\n',
   ].join('\n');
 
-  // Replace the selected text with a call to the new function
-  const replaceEdit = TextEdit.replace(getRange(cmd), `${functionName}`);
+  const replaceEdit = TextEdit.replace(repRange, callText);
 
-  // Insert the new function before the current scope
-  // const insertPosition = getRange(selectedNode).start;
+  // Insert the new function at end of file
   const insertEdit = TextEdit.insert(
-    { line: document.getLines(), character: 0 },
+    { line: document.lineCount, character: 0 },
     `\n${functionText}\n`,
   );
 
+  const title = selectionRange
+    ? `Extract selection to local function '${functionName}' (line ${extractRange.start.line + 1} to EOF)`
+    : `Extract command '${commandName}' to local function '${functionName}' (line ${extractRange.start.line + 1} to EOF)`;
+
   return createRefactorAction(
-    `Extract command '${cmd.firstNamedChild!.text}' to local function '${functionName}' (line ${cmd.startPosition.row + 1} to EOF)`,
+    title,
     SupportedCodeActionKinds.RefactorExtract,
     {
-      [document.uri]: [replaceEdit, insertEdit],
+      [document.uri]: [insertEdit, replaceEdit],
     },
 
   );
@@ -260,19 +289,22 @@ export function extractToVariable(
 ): CodeAction | undefined {
   logger.log('extractToVariable', { document: document.uri }, { selectedNode: { text: selectedNode.text, type: selectedNode.type } });
   // Only allow extracting commands or expressions
+  const parentCmd = getParentCommandNodeForCodeAction(selectedNode);
+  if (parentCmd) selectedNode = parentCmd;
   if (!isCommand(selectedNode)) return undefined;
 
-  const selectedText = document.getText(range);
+  const newRange = getRange(selectedNode);
+  const selectedText = document.getText(newRange);
   const varName = `extracted_var_${Math.floor(Math.random() * 1000)}`;
 
   // Create variable declaration
   const declaration = `set -l ${varName} (${selectedText})\n`;
 
   // Replace original text with variable
-  const replaceEdit = TextEdit.replace(range, declaration);
+  const replaceEdit = TextEdit.replace(newRange, declaration);
 
   return createRefactorAction(
-    `Extract selected '${selectedNode.firstNamedChild!.text}' command to local variable '${varName}'`,
+    `Extract selected '${selectedNode.firstNamedChild!.text}' command to local variable '${varName}' (line: ${newRange.start.line + 1})`,
     SupportedCodeActionKinds.RefactorExtract,
     {
       [document.uri]: [replaceEdit],

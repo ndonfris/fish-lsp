@@ -4,13 +4,46 @@ import { createFixAllAction, getQuickFixes } from './quick-fixes';
 import { logger } from '../logger';
 import { documents, LspDocument } from '../document';
 import { analyzer, Analyzer } from '../analyze';
-import { getNodeAtRange } from '../utils/tree-sitter';
-import { convertIfToCombiners, extractCommandToFunction, extractFunctionToFile, extractFunctionWithArgparseToCompletionsFile, extractToFunction, extractToVariable, replaceAbsolutePathWithVariable, simplifySetAppendPrepend } from './refactors';
+import { findFirstParent, getNodeAtRange } from '../utils/tree-sitter';
+import { convertIfToCombiners, extractCommandToFunction, extractFunctionToFile, extractFunctionWithArgparseToCompletionsFile, extractToVariable, replaceAbsolutePathWithVariable, simplifySetAppendPrepend } from './refactors';
 import { createArgparseCompletionsCodeAction } from './argparse-completions';
-import { isCommandName, isCommandWithName, isProgram, isAliasDefinitionName } from '../utils/node-types';
+import { isCommandName, isCommandWithName, isProgram, isAliasDefinitionName, isCommand } from '../utils/node-types';
 import { createAliasInlineAction, createAliasSaveActionNewFile } from './alias-wrapper';
 import { SyntaxNode } from 'web-tree-sitter';
 import { handleRedirectActions } from './redirect-actions';
+
+/**
+ * Sort code actions by kind to group similar actions together
+ */
+function sortCodeActionsByKind(actions: CodeAction[]): CodeAction[] {
+  const kindOrder = {
+    'quickfix.disable': 0,      // Disable comments first
+    'quickfix.fix': 1,           // Then quick fixes
+    'quickfix.fixAll': 2,        // Then fix all
+    'refactor.extract': 3,       // Then extractions
+    'refactor.rewrite': 4,       // Then rewrites (redirects, prefixes, etc.)
+    'source.rename': 5,          // Then renames
+  };
+
+  return actions.sort((a, b) => {
+    const orderA = a.kind ? kindOrder[a.kind as keyof typeof kindOrder] ?? 999 : 999;
+    const orderB = b.kind ? kindOrder[b.kind as keyof typeof kindOrder] ?? 999 : 999;
+    return orderA - orderB;
+  });
+}
+
+/**
+ * Check if a range represents a selection (non-zero width)
+ */
+function isSelection(range: Range): boolean {
+  return range.start.line !== range.end.line ||
+    range.start.character !== range.end.character;
+}
+
+export function getParentCommandNodeForCodeAction(node: SyntaxNode | null): SyntaxNode | null {
+  if (!node) return null;
+  return findFirstParent(node, isCommand);
+}
 
 export function createCodeActionHandler() {
   /**
@@ -64,12 +97,8 @@ export function createCodeActionHandler() {
       });
     }
 
-    if (!isProgram(selectedNode)) {
-      const commandToFunctionAction = extractCommandToFunction(document, selectedNode);
-      if (commandToFunctionAction) results.push(commandToFunctionAction);
-    }
-
     // Note: Alias refactoring is handled in processRefactors to avoid duplication
+    // Note: extractCommandToFunction is handled in processRefactors to avoid duplication
     if (isCommandWithName(selectedNode, 'argparse')) {
       const argparseAction = createArgparseCompletionsCodeAction(selectedNode, document);
       if (argparseAction) results.push(argparseAction);
@@ -132,7 +161,7 @@ export function createCodeActionHandler() {
     if (selectedNode.text === 'alias') {
       aliasCommand = selectedNode.parent!;
 
-    // Check if cursor is on the alias definition name (e.g., "foo" in "alias foo=bar")
+      // Check if cursor is on the alias definition name (e.g., "foo" in "alias foo=bar")
     } else if (isAliasDefinitionName(selectedNode)) {
       aliasCommand = selectedNode.parent?.type === 'concatenation'
         ? selectedNode.parent.parent!
@@ -149,14 +178,18 @@ export function createCodeActionHandler() {
     }
 
     // Try each refactoring action
-    const extractFunction = extractToFunction(document, range);
-    if (extractFunction) results.push(extractFunction);
+    // const extractFunction = extractToFunction(document, range);
+    // if (extractFunction) results.push(extractFunction);
+    // const selectedRange = isSelection(range) ? range : undefined;
 
-    const extractCommandFunction = extractCommandToFunction(document, selectedNode);
-    if (extractCommandFunction) results.push(extractCommandFunction);
+    // Pass range and selection info to extractCommandToFunction
+    if (!isSelection(range)) {
+      const extractCommandFunction = extractCommandToFunction(document, range, selectedNode);
+      if (extractCommandFunction) results.push(extractCommandFunction);
 
-    const extractVar = extractToVariable(document, range, selectedNode);
-    if (extractVar) results.push(extractVar);
+      const extractVar = extractToVariable(document, range, selectedNode);
+      if (extractVar) results.push(extractVar);
+    }
 
     const extractFuncToFile = extractFunctionToFile(document, range, selectedNode);
     if (extractFuncToFile) results.push(extractFuncToFile);
@@ -177,7 +210,7 @@ export function createCodeActionHandler() {
   }
 
   return async function handleCodeAction(params: CodeActionParams): Promise<CodeAction[]> {
-    logger.log('onCodeAction', {
+    logger.debug('onCodeAction', {
       params: {
         context: {
           only: params.context.only,
@@ -186,6 +219,7 @@ export function createCodeActionHandler() {
         },
         uri: params.textDocument.uri,
         range: params.range,
+        isSelection: isSelection(params.range),
       },
     });
 
@@ -218,7 +252,7 @@ export function createCodeActionHandler() {
       const allAction = createFixAllAction(document, results);
       if (allAction) results.push(allAction);
       logger.log('CodeAction results', results.map(r => r.title));
-      return results;
+      return sortCodeActionsByKind(results);
     }
 
     // add the refactors
@@ -226,7 +260,7 @@ export function createCodeActionHandler() {
       logger.log('Processing onlyRefactors');
       results.push(...await processRefactors(document, params.range));
       logger.log('CodeAction results', results.map(r => r.title));
-      return results;
+      return sortCodeActionsByKind(results);
     }
 
     logger.log('Processing all actions');
@@ -245,7 +279,7 @@ export function createCodeActionHandler() {
       results.push(allAction);
     }
     logger.log('CodeAction results', results.map(r => r.title));
-    return results;
+    return sortCodeActionsByKind(results);
   };
 }
 
