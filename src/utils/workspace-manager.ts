@@ -193,25 +193,15 @@ export class WorkspaceManager {
 
     // For funced files, check if we have a workspace that matches the funced workspace root
     const uriPath = uriToPath(uri);
-    if (FishUriWorkspace.isFuncedPath(uriPath)) {
-      const funcedWorkspace = FishUriWorkspace.create(uri);
-      if (funcedWorkspace) {
+    if (LspDocument.isFuncedPath(uriPath) || LspDocument.isCommandlineBufferPath(uriPath)) {
+      const rootWorkspace = FishUriWorkspace.create(uri);
+      if (rootWorkspace) {
         // Find the workspace that matches the funced workspace's root
         return this.all.find((workspace) =>
-          workspace.uri === funcedWorkspace.uri,
+          workspace.uri === rootWorkspace.uri,
         ) || null;
       }
     }
-    if (FishUriWorkspace.isCommandlinePath(uriPath)) {
-      const cmdlineWorkspace = FishUriWorkspace.create(uri);
-      if (cmdlineWorkspace) {
-        // Find the workspace that matches the commandline workspace's root
-        return this.all.find((workspace) =>
-          workspace.uri === cmdlineWorkspace.uri,
-        ) || null;
-      }
-    }
-
     return null;
   }
 
