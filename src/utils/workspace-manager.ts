@@ -202,6 +202,15 @@ export class WorkspaceManager {
         ) || null;
       }
     }
+    if (FishUriWorkspace.isCommandlinePath(uriPath)) {
+      const cmdlineWorkspace = FishUriWorkspace.create(uri);
+      if (cmdlineWorkspace) {
+        // Find the workspace that matches the commandline workspace's root
+        return this.all.find((workspace) =>
+          workspace.uri === cmdlineWorkspace.uri,
+        ) || null;
+      }
+    }
 
     return null;
   }

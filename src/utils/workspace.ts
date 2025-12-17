@@ -433,11 +433,20 @@ export namespace FishUriWorkspace {
     return path.startsWith('/tmp/fish-funced.');
   }
 
+  export function isCommandlinePath(path: string): boolean {
+    return path.startsWith('/tmp/fish.') && path.endsWith('command-line.fish');
+  }
+
   /**
    * Gets the fish config directory path for funced files
    * Returns undefined if not a funced file
    */
   export function getFuncedWorkspaceRoot(): string | undefined {
+    const fishConfigDir = env.get('__fish_config_dir');
+    return fishConfigDir;
+  }
+
+  export function getCommandlineWorkspaceRoot(): string | undefined {
     const fishConfigDir = env.get('__fish_config_dir');
     return fishConfigDir;
   }
@@ -465,7 +474,7 @@ export namespace FishUriWorkspace {
     const base = basename(current);
 
     // Handle funced files specially - they should be treated as part of __fish_config_dir
-    if (isFuncedPath(current)) {
+    if (isFuncedPath(current) || isCommandlinePath(current)) {
       const funcedRoot = getFuncedWorkspaceRoot();
       if (funcedRoot) return funcedRoot;
       // Fallback to default if __fish_config_dir is not set
@@ -588,6 +597,22 @@ export namespace FishUriWorkspace {
 
       if (!rootPath || !workspaceName) {
         logger.warning('Failed to get workspace root/name for funced file', { uri, rootPath, workspaceName });
+        return null;
+      }
+
+      return {
+        name: workspaceName,
+        uri: pathToUri(rootPath),
+        path: rootPath,
+      };
+    }
+
+    if (isCommandlinePath(uriPath)) {
+      const rootPath = getWorkspaceRootFromUri(uri);
+      const workspaceName = getWorkspaceName(uri);
+
+      if (!rootPath || !workspaceName) {
+        logger.warning('Failed to get workspace root/name for command-line file', { uri, rootPath, workspaceName });
         return null;
       }
 
