@@ -1,3 +1,12 @@
+## <small>1.1.3-pre.2 (2025-12-18)</small>
+
+* feat: fix `argparse` code-action for `funced`/`edit_command_buffer` ([88b6d2e](https://github.com/ndonfris/fish-lsp/commit/88b6d2e))
+* feat(quickfix.fixAll): `createFixAllAction()` + `tests/code-action.test.ts` ([f76ab14](https://github.com/ndonfris/fish-lsp/commit/f76ab14))
+* fix: `src/code-actions/refactors.ts` in code-action handler ([79c966e](https://github.com/ndonfris/fish-lsp/commit/79c966e))
+* fix: max redirect code-actions when entire document's commands in range ([fafa8ce](https://github.com/ndonfris/fish-lsp/commit/fafa8ce))
+
+
+
 ## <small>1.1.3-pre.1 (2025-12-17)</small>
 
 * feat: added initial `LspDocument.isCommandlineBuffer()` for `edit_command_buffer` ([76c6a0b](https://github.com/ndonfris/fish-lsp/commit/76c6a0b))
