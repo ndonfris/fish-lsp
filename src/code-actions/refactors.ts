@@ -269,8 +269,8 @@ export function extractCommandToFunction(
   );
 
   const title = selectionRange
-    ? `Extract selection to local function '${functionName}' (line ${extractRange.start.line + 1} to EOF)`
-    : `Extract command '${commandName}' to local function '${functionName}' (line ${extractRange.start.line + 1} to EOF)`;
+    ? `Extract selected '${commandName}' to local function '${functionName}' (line ${extractRange.start.line + 1})`
+    : `Extract selected '${commandName}' command to local function '${functionName}' (line ${extractRange.start.line + 1})`;
 
   return createRefactorAction(
     title,

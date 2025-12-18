@@ -262,6 +262,9 @@ export class LspDocument implements TextDocument {
     const home = homedir();
     const path = this.uri.replace(home, '~');
     const dirs = path.split('/');
+    if (this.isCommandlineBuffer() || this.isFunced()) {
+      return this.path.split('/').pop() as string;
+    }
     const workspaceRootIndex = dirs.find(dir => dir === 'fish')
       ? dirs.indexOf('fish')
       : dirs.find(dir => ['conf.d', 'functions', 'completions', 'config.fish'].includes(dir))

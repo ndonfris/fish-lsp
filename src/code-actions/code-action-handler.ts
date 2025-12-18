@@ -57,6 +57,15 @@ export function createCodeActionHandler() {
     const selectedNode = getNodeAtRange(rootNode, range);
     if (!selectedNode) return [];
 
+    logger.log('getSelectionCodeActions', {
+      selectedNodeType: selectedNode.type,
+      selectedNodeText: selectedNode.text.substring(0, 50),
+      isProgram: isProgram(selectedNode),
+      isCommandWithNameArgparse: isCommandWithName(selectedNode, 'argparse'),
+      parentType: selectedNode.parent?.type,
+      parentIsArgparse: selectedNode.parent ? isCommandWithName(selectedNode.parent, 'argparse') : false,
+    });
+
     const commands: SyntaxNode[] = [];
 
     const results: CodeAction[] = [];
@@ -101,6 +110,10 @@ export function createCodeActionHandler() {
     // Note: extractCommandToFunction is handled in processRefactors to avoid duplication
     if (isCommandWithName(selectedNode, 'argparse')) {
       const argparseAction = createArgparseCompletionsCodeAction(selectedNode, document);
+      if (argparseAction) results.push(argparseAction);
+    } else if (selectedNode.parent && isCommandWithName(selectedNode.parent, 'argparse')) {
+      // Also handle when cursor is on a child of argparse command (e.g., on the word "argparse")
+      const argparseAction = createArgparseCompletionsCodeAction(selectedNode.parent, document);
       if (argparseAction) results.push(argparseAction);
     }
 
@@ -184,7 +197,11 @@ export function createCodeActionHandler() {
 
     // Pass range and selection info to extractCommandToFunction
     if (!isSelection(range)) {
-      const extractCommandFunction = extractCommandToFunction(document, range, selectedNode);
+      const extractCommandFunction = extractCommandToFunction(
+        document,
+        isSelection(range) ? range : undefined,
+        selectedNode,
+      );
       if (extractCommandFunction) results.push(extractCommandFunction);
 
       const extractVar = extractToVariable(document, range, selectedNode);
@@ -242,7 +259,13 @@ export function createCodeActionHandler() {
 
     // Add disable actions
     if (diagnostics.length > 0 && !onlyRefactoring) {
-      results.push(...getDisableDiagnosticActions(document, diagnostics));
+      const disableActions = getDisableDiagnosticActions(document, diagnostics);
+      logger.log('Disable actions', disableActions.map(a => a.title));
+      for (const action of disableActions) {
+        if (results.every(existing => existing.title !== action.title)) {
+          results.push(action);
+        }
+      }
     }
     // Add quick fixes if requested
     if (onlyQuickFix) {
