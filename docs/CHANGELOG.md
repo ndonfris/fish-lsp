@@ -1,3 +1,10 @@
+## <small>1.1.3 (2025-12-18)</small>
+
+* test(test-conda.sh): removed `scripts/test-conda.sh` for #130 ([f03367b](https://github.com/ndonfris/fish-lsp/commit/f03367b)), closes [#130](https://github.com/ndonfris/fish-lsp/issues/130)
+* docs: added `conda install fish-lsp` to `README.md` ([c19b12b](https://github.com/ndonfris/fish-lsp/commit/c19b12b))
+
+
+
 ## <small>1.1.3-pre.2 (2025-12-18)</small>
 
 * feat: fix `argparse` code-action for `funced`/`edit_command_buffer` ([88b6d2e](https://github.com/ndonfris/fish-lsp/commit/88b6d2e))
