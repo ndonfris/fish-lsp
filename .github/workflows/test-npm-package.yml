@@ -3,6 +3,9 @@
 name: Test NPM Package Installation
 
 on:
+  push:
+    branches:
+      - master
   workflow_dispatch:
     inputs:
       timestamp:
@@ -119,6 +122,12 @@ jobs:
 
       - name: Test - fish-lsp complete
         run: fish-lsp complete
+
+      - name: Test - fish-lsp complete | fish --no-execute
+        run: fish-lsp complete | fish --no-execute
+
+      - name: Test - fish-lsp env --show-default | fish --no-execute
+        run: fish-lsp env --show-default | fish --no-execute
 
       - name: Test - fish-lsp start --dump
         run: fish-lsp start --dump
