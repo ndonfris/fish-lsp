@@ -205,16 +205,6 @@ export function createArgparseCompletionsCodeAction(
   const autoloadType = doc.getAutoloadType();
   const { argparseNode, functionNode, functionNameNode } = getNodesForArgparse(node);
 
-  logger.log('createArgparseCompletionsCodeAction', {
-    nodeType: node.type,
-    nodeText: node.text.substring(0, 50),
-    autoloadType,
-    hasArgparseNode: !!argparseNode,
-    hasFunctionNode: !!functionNode,
-    hasFunctionNameNode: !!functionNameNode,
-    functionName: functionNameNode?.text,
-  });
-
   if (!argparseNode || !functionNode || !functionNameNode) return undefined;
 
   if (autoloadType === 'functions') {
