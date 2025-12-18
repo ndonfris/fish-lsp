@@ -87,6 +87,10 @@ pnpm install -g fish-lsp
 nix-shell -p fish-lsp
 
 brew install fish-lsp
+
+conda install fish-lsp
+
+mamba install fish-lsp
 ```
 
 You can install the completions by running the following command:
