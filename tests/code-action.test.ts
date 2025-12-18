@@ -414,13 +414,6 @@ complete -c util -a '(util_cmp; or other_cmps)'`,
                   .some(t => t === localFunction.text);
             });
           });
-          // console.log({
-          //   name,
-          //   autoloadType: doc.getAutoloadType(),
-          //   unusedLocalFunction: unusedLocalFunction.map(n => n.text),
-          //   localFunctionCalls: localFunctionCalls.map(n => n.text),
-          //   localFunctions: localFunctions.map(n => n.text),
-          // });
 
           expect({
             autoloadType: doc.getAutoloadType(),
@@ -477,26 +470,20 @@ complete -c util -l other`,
             }
           }
           const builtCompletions = buildCompleteString(doc.getAutoLoadName(), completions);
-          // console.log(completions);
-          // console.log(builtCompletions);
+
           expect(completions).toEqual(expected.completionFlags);
           expect(builtCompletions).toBe(expected.completionText);
         });
       });
     });
   });
-  describe.only('code-actions-handlers', () => {
+  describe('code-actions-handlers', () => {
     beforeEach(async () => {
-      await setLogger();
+      setLogger();
       logger.setConsole(global.console);
       logger.allowDefaultConsole();
       logger.setSilent(false);
-      // createMockConnection();
       setupStartupMock();
-      // logger.allowDefaultConsole();
-      // await setupProcessEnvExecFile()
-      // await Analyzer.initialize();
-      // await FishServer.setupForTestUtilities();
     });
 
     const workspace = TestWorkspace.create().addFiles(
@@ -540,7 +527,15 @@ end`),
       logger.setConnectionConsole(connection.console);
     });
 
-    it.only('can build completions for function', async () => {
+    it('ensure docs', () => {
+      expect(ws).toBeDefined();
+      expect(myFuncFDoc).toBeDefined();
+      expect(myFuncCDoc).toBeDefined();
+      expect(confgDoc).toBeDefined();
+      expect(cmdLineDoc).toBeDefined();
+    });
+
+    it('can build completions for function', async () => {
       const doc = myFuncFDoc;
       const { root } = analyzer.analyze(doc).ensureParsed();
       const diagnostics = await getDiagnosticsAsync(root, doc);
@@ -551,21 +546,13 @@ end`),
         context: { diagnostics: [...analyzer.diagnostics.get(doc.uri) ?? []] },
       };
       const actions = await onCodeActionCallback(req);
-      // actions.forEach(action => {
-      //   console.log({
-      //     title: action.title,
-      //     edit: action.edit,
-      //     kind: action.kind,
-      //   });
-      // });
       const completionActions = actions.filter(action => {
         return action.title.startsWith('Create completions for');
       });
       expect(completionActions.length).toBeGreaterThanOrEqual(1);
     });
 
-    it.only('can generate argparse completions for command-line buffer', async () => {
-      // Create a command-line buffer document
+    it('can generate argparse completions for command-line buffer', async () => {
       const commandLineBufferContent = `function test_cmd
     argparse h/help v/verbose d/debug o/output= -- $argv
     or return 1
@@ -582,36 +569,24 @@ end`;
         ),
       );
 
-      // Verify it's recognized as a command-line buffer
       expect(commandLineDoc.isCommandlineBuffer()).toBe(true);
       expect(commandLineDoc.getAutoloadType()).toBe('conf.d');
 
-      // Open the document
       testOpenDocument(commandLineDoc);
       analyzer.analyze(commandLineDoc).ensureParsed();
 
-      // documents.open(commandLineDoc);
       const codeActions = await onCodeActionCallback({
         textDocument: { uri: commandLineDoc.uri },
-        range: { start: { line: 1, character: 4 }, end: { line: 1, character: 12 } }, // On 'argparse' line
+        range: { start: { line: 1, character: 4 }, end: { line: 1, character: 12 } },
         context: { diagnostics: [], only: ['quickfix'] },
       });
 
-      console.log('Available code actions:', codeActions.map(a => a.title));
-
-      // Find the argparse completion action
       const argparseAction = codeActions.find(action =>
         action.title.includes('Create completions for'),
       );
 
-      console.log('Found argparse action:', argparseAction);
       expect(argparseAction).toBeDefined();
       expect(argparseAction?.title).toContain('test_cmd');
-
-      // Verify the action generates the expected completions
-      console.log({
-        edits: argparseAction?.title,
-      });
 
       const edits = argparseAction?.edit?.documentChanges?.[0];
       if (edits && 'edits' in edits) {
@@ -624,6 +599,41 @@ end`;
         fail();
       }
     });
+
+    it('should fix all argparse unused diagnostic issues in one code action', async () => {
+      const doc = myFuncFDoc;
+      const { root } = analyzer.analyze(doc).ensureParsed();
+      const diagnostics = await getDiagnosticsAsync(root, doc);
+      analyzer.diagnostics.setForTesting(doc.uri, diagnostics);
+
+      const req = {
+        textDocument: { uri: doc.uri },
+        range: { start: { line: 0, character: 0 }, end: { line: 5, character: 0 } },
+        context: { diagnostics: [...analyzer.diagnostics.get(doc.uri) ?? []] },
+      };
+
+      const actions = await onCodeActionCallback(req);
+      const fixAllAction = actions.find(action => action.kind === 'quickfix.fixAll');
+
+      expect(fixAllAction).toBeDefined();
+      expect(fixAllAction?.title).toContain('Fix all auto-fixable quickfixes');
+      expect(fixAllAction?.edit?.changes).toBeDefined();
+
+      const changes = fixAllAction!.edit!.changes!;
+      const edits = changes[doc.uri];
+
+      expect(edits).toHaveLength(3);
+
+      const editTexts = edits?.map(e => e.newText) || [];
+      expect(editTexts.some(text => text.includes('if set -ql _flag_help'))).toBe(true);
+      expect(editTexts.some(text => text.includes('if set -ql _flag_command'))).toBe(true);
+      expect(editTexts.some(text => text.includes('if set -ql _flag_arguments'))).toBe(true);
+
+      editTexts.forEach(text => {
+        expect(text).toContain('if set -ql');
+        expect(text).toContain('end');
+      });
+    });
   });
 });
 export type LocalFunctionCallType = {
@@ -632,9 +642,6 @@ export type LocalFunctionCallType = {
 };
 
 function isMatchingCompletionOption(node: SyntaxNode) {
-  // return isMatchingOption(node, { shortOption: '-n', longOption: '--condition' })
-  //   || isMatchingOption(node, { shortOption: '-a', longOption: '--arguments' })
-  //   || isMatchingOption(node, { shortOption: '-c', longOption: '--command' });
   return isMatchingOption(node, Option.create('-c', '--command').withValue())
     || isMatchingOption(node, Option.create('-a', '--arguments').withMultipleValues())
     || isMatchingOption(node, Option.create('-n', '--condition').withValue());
