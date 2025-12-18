@@ -65,12 +65,18 @@ export function createFixAllAction(
       }
       const oldEdits = resultEdits[uri];
       if (edits && edits?.length > 0) {
-        if (!oldEdits.some(e => edits.find(newEdit => equalRanges(e.range, newEdit.range)))) {
-          oldEdits.push(...edits);
-          resultEdits[uri] = oldEdits;
-          diagnostics.push(...action.diagnostics || []);
+        // Check each edit individually for duplicates
+        // Only skip if both range AND content are identical
+        for (const newEdit of edits) {
+          const isDuplicate = oldEdits.some(e =>
+            equalRanges(e.range, newEdit.range) && e.newText === newEdit.newText,
+          );
+          if (!isDuplicate) {
+            oldEdits.push(newEdit);
+          }
         }
-        // resultEdits[uri].push(...edits);
+        resultEdits[uri] = oldEdits;
+        diagnostics.push(...action.diagnostics || []);
       }
     }
   }
