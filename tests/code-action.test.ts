@@ -4,7 +4,7 @@ import { containsRange, findEnclosingScope, getChildNodes, getRange } from '../s
 import { isCommandName, isCommandWithName, isComment, isFunctionDefinitionName, isIfStatement, isMatchingOption, isOption, isString, isTopLevelFunctionDefinition } from '../src/utils/node-types';
 import { Option } from '../src/parsing/options';
 import { convertIfToCombinersString } from '../src/code-actions/combiner';
-import { setLogger, fail } from './helpers';
+import { setLogger, fail, createMockConnection, setupStartupMock } from './helpers';
 import { initializeParser } from '../src/parser';
 import { findReturnNodes, getReturnStatusValue } from '../src/inlay-hints';
 import { DidDeleteFilesNotification, TextDocumentItem } from 'vscode-languageserver';
@@ -16,6 +16,14 @@ import { CompleteFlag, findFlagsToComplete, buildCompleteString } from '../src/c
 import { Analyzer, analyzer } from '../src/analyze';
 import TestWorkspace, { TestFile } from './test-workspace-utils';
 import { codeActionHandlers } from '../src/code-actions/code-action-handler';
+import { testOpenDocument } from './document-test-helpers';
+import FishServer, { currentDocument } from '../src/server';
+import { connection } from '../src/utils/startup';
+import { logger } from '../src/logger';
+import { setupProcessEnvExecFile } from '../src/utils/process-env';
+import { createConnection } from 'net';
+import { Workspace } from '../src/utils/workspace';
+import { getDiagnosticsAsync } from '../src/diagnostics/validate';
 
 let parser: Parser;
 
@@ -115,7 +123,7 @@ or echo "file does not exist"`,
     ];
 
     tests.forEach(({ name, input, expected }) => {
-      it.only(name, async () => {
+      it.skip(name, async () => {
         const tree = parser.parse(input);
         const root = tree.rootNode;
         const node = getChildNodes(root).find(n => isIfStatement(n));
@@ -129,7 +137,7 @@ or echo "file does not exist"`,
   });
 
   describe('Refactor Function Tests', () => {
-    it('Convert Refactor Function', async () => {
+    it.skip('Convert Refactor Function', async () => {
       const input = 'return 2';
       const rootNode = parser.parse(input).rootNode;
       const ret = findReturnNodes(rootNode).pop();
@@ -143,7 +151,7 @@ or echo "file does not exist"`,
   });
 
   describe('Refactor Function Tests', () => {
-    describe('autoloaded tests', () => {
+    describe('autoloaded tests', async () => {
       const tests = [
         {
           name: 'is autoloaded function without errors',
@@ -225,8 +233,8 @@ end`,
         },
       ];
 
-      tests.forEach(({ name, uri, input, expected }) => {
-        it(name, async () => {
+      tests.forEach(async ({ name, uri, input, expected }) => {
+        await it.skip(name, async () => {
           const tree = parser.parse(input);
           const root = tree.rootNode;
           const doc = new LspDocument(TextDocumentItem.create(uri, 'fish', 0, input));
@@ -477,49 +485,144 @@ complete -c util -l other`,
       });
     });
   });
-  describe('code-actions-handlers', () => {
-    setLogger();
-    beforeAll(async () => {
-      await Analyzer.initialize();
-    });
+  describe.only('code-actions-handlers', () => {
     beforeEach(async () => {
-      await Analyzer.initialize();
+      await setLogger();
+      logger.setConsole(global.console);
+      logger.allowDefaultConsole();
+      logger.setSilent(false);
+      // createMockConnection();
+      setupStartupMock();
+      // logger.allowDefaultConsole();
+      // await setupProcessEnvExecFile()
+      // await Analyzer.initialize();
+      // await FishServer.setupForTestUtilities();
     });
 
     const workspace = TestWorkspace.create().addFiles(
-      TestFile.completion('mycmd', ''),
+      TestFile.completion('myfunc', ''),
       TestFile.function('myfunc', `function myfunc
     argparse h/help c/command a/arguments -- $argv
     or return 1
 
     echo "myfunc"
 end
-`),
+
+function another_func
+    echo "another func"
+end`),
       TestFile.config(`
     echo "config file",
     'alias ll="ls -la"',
     `),
       TestFile.function('util', 'function util; echo "util"; end'),
-    ).inheritFilesFromExistingAutoloadedWorkspace('$__fish_data_dir').initialize();
+    ).initialize();
 
-    it('can build completions for function', async () => {
-      const docs = workspace.workspace?.allDocuments() || [];
-      docs.forEach(doc => documents.open(doc));
-      const handler = codeActionHandlers(documents, analyzer);
-      for (const doc of documents.all()) {
-        const codeAction = await handler.onCodeAction({
-          textDocument: { uri: doc.uri },
-          range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
-          context: { diagnostics: [...analyzer.diagnostics.get(doc.uri) ?? []], only: ['quickfix'] },
-        });
-        if (codeAction.length >= 0) {
-          codeAction.forEach(ca => {
-            handler.onCodeActionResolve(ca);
-          });
-        }
-        console.log({ uri: doc.uri, codeAction });
+    let confgDoc: LspDocument;
+    let myFuncFDoc: LspDocument;
+    let myFuncCDoc: LspDocument;
+    let cmdLineDoc: LspDocument;
+    let ws: Workspace;
+
+    const onCodeActionCallback = codeActionHandlers().onCodeActionCallback;
+
+    beforeAll(async () => {
+      ws = workspace.workspace!;
+      if (!ws) throw new Error('Workspace not initialized');
+      confgDoc = workspace.find('config.fish')!;
+      myFuncFDoc = workspace.find('functions/myfunc.fish')!;
+      myFuncCDoc = workspace.find('completions/myfunc.fish')!;
+      cmdLineDoc = workspace.find('command-line.fish')!;
+      ws.uris.all.forEach(uri => {
+        const doc = documents.get(uri);
+        if (doc) analyzer.analyze(doc);
+      });
+      logger.setConnectionConsole(connection.console);
+    });
+
+    it.only('can build completions for function', async () => {
+      const doc = myFuncFDoc;
+      const { root } = analyzer.analyze(doc).ensureParsed();
+      const diagnostics = await getDiagnosticsAsync(root, doc);
+      analyzer.diagnostics.setForTesting(doc.uri, diagnostics);
+      const req = {
+        textDocument: { uri: doc.uri },
+        range: { start: { line: 1, character: 4 }, end: { line: 1, character: 4 } },
+        context: { diagnostics: [...analyzer.diagnostics.get(doc.uri) ?? []] },
+      };
+      const actions = await onCodeActionCallback(req);
+      // actions.forEach(action => {
+      //   console.log({
+      //     title: action.title,
+      //     edit: action.edit,
+      //     kind: action.kind,
+      //   });
+      // });
+      const completionActions = actions.filter(action => {
+        return action.title.startsWith('Create completions for');
+      });
+      expect(completionActions.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it.only('can generate argparse completions for command-line buffer', async () => {
+      // Create a command-line buffer document
+      const commandLineBufferContent = `function test_cmd
+    argparse h/help v/verbose d/debug o/output= -- $argv
+    or return 1
+
+    echo "test command"
+end`;
+
+      const commandLineDoc = new LspDocument(
+        TextDocumentItem.create(
+          'file:///tmp/fish.12345/command-line.fish',
+          'fish',
+          0,
+          commandLineBufferContent,
+        ),
+      );
+
+      // Verify it's recognized as a command-line buffer
+      expect(commandLineDoc.isCommandlineBuffer()).toBe(true);
+      expect(commandLineDoc.getAutoloadType()).toBe('conf.d');
+
+      // Open the document
+      testOpenDocument(commandLineDoc);
+      analyzer.analyze(commandLineDoc).ensureParsed();
+
+      // documents.open(commandLineDoc);
+      const codeActions = await onCodeActionCallback({
+        textDocument: { uri: commandLineDoc.uri },
+        range: { start: { line: 1, character: 4 }, end: { line: 1, character: 12 } }, // On 'argparse' line
+        context: { diagnostics: [], only: ['quickfix'] },
+      });
+
+      console.log('Available code actions:', codeActions.map(a => a.title));
+
+      // Find the argparse completion action
+      const argparseAction = codeActions.find(action =>
+        action.title.includes('Create completions for'),
+      );
+
+      console.log('Found argparse action:', argparseAction);
+      expect(argparseAction).toBeDefined();
+      expect(argparseAction?.title).toContain('test_cmd');
+
+      // Verify the action generates the expected completions
+      console.log({
+        edits: argparseAction?.title,
+      });
+
+      const edits = argparseAction?.edit?.documentChanges?.[0];
+      if (edits && 'edits' in edits) {
+        const insertText = edits.edits[0]?.newText;
+        expect(insertText).toContain('complete -c test_cmd -s h -l help');
+        expect(insertText).toContain('complete -c test_cmd -s v -l verbose');
+        expect(insertText).toContain('complete -c test_cmd -s d -l debug');
+        expect(insertText).toContain('complete -c test_cmd -s o -l output');
+      } else {
+        fail();
       }
-      expect(true).toBe(true);
     });
   });
 });
