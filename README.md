@@ -343,13 +343,13 @@ Theoretically, the language-server should generally be compatible with almost an
   Full example configuration using [doom-emacs](https://github.com/doomemacs/doomemacs/tree/master) can be found in the [fish-lsp language clients repo](https://github.com/ndonfris/fish-lsp-language-clients/).
 
 </details>
-
 <details>
-  <summary><span><a id="vscode"></a><b>VSCode</b> <emph><a href='https://github.com/ndonfris/vscode-fish-lsp'>(Source Code Repo)</a></emph></span></summary>
+  <summary><span><a id="vscode"></a><b>VSCode/VSCodium</b> <emph><a href='https://github.com/ndonfris/vscode-fish-lsp'>(Source Code Repo)</a></emph></span></summary>
 
-  > To download the extension, visit the [fish-lsp extension on the VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=ndonfris.fish-lsp).
+  > For VSCode, visit the extension on the [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=ndonfris.fish-lsp).
+  > For VSCodium, visit the extension on the [OpenVSX Marketplace](https://open-vsx.org/extension/ndonfris/fish-lsp).
   >
-  > VSCode configuration does not require a client configuration. The server will automatically start when a `.fish` file is opened.
+  > Using either of these editors/extensions, should allow the `fish-lsp` to work out-of-the-box with minimal configuration (no client configuration is required).
   >
   > A server configuration can still be specified to control the server's behavior. ([see below](#server-configuration-optional))
 
