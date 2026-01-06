@@ -71,6 +71,7 @@
     "build:all": "tsx scripts/esbuild/index.ts --all",
     "dev": "tsx scripts/esbuild/index.ts",
     "watch": "tsx scripts/esbuild/index.ts --watch-all",
+    "timestamp": "node ./scripts/timestamp.js",
     "sh:build-completions": "fish ./scripts/build-completions.fish",
     "sh:build-time": "node ./scripts/build-time",
     "sh:relink": "fish ./scripts/relink-locally.fish",
