@@ -216,7 +216,7 @@ const nodeToTokenHandler: NodeToToken[] = [
     const cmd = n.firstNamedChild;
     if (!cmd) return;
     ctx.tokens.push(
-      SemanticToken.fromNode(cmd, FishSemanticTokens.types.function, calculateModifiersMask('builtin')),
+      SemanticToken.fromNode(cmd, FishSemanticTokens.types.function, calculateModifiersMask('defaultLibrary')),
     );
   }],
 

@@ -390,13 +390,15 @@ complete -c deployctl -l retries -d 'Retry count'
       // Should have 'end' keyword
       expectTokenExists(tokens, { text: 'end', tokenType: 'keyword' });
 
-      // Should have 'true' and 'false' as keywords (builtins)
+      // Should have 'true' and 'false' as functions (builtins are highlighted as functions with defaultLibrary modifier)
       const trueTokens = findTokensByText(tokens, 'true');
       const falseTokens = findTokensByText(tokens, 'false');
       expect(trueTokens.length).toBeGreaterThan(0);
       expect(falseTokens.length).toBeGreaterThan(0);
       expect(trueTokens.every(t => t.tokenType === 'function')).toBe(true);
       expect(falseTokens.every(t => t.tokenType === 'function')).toBe(true);
+      expect(trueTokens.every(t => t.modifiers.includes('defaultLibrary'))).toBe(true);
+      expect(falseTokens.every(t => t.modifiers.includes('defaultLibrary'))).toBe(true);
 
       // Should have 'or' keyword (||)
       const orTokens = findTokensByText(tokens, 'or');
@@ -404,10 +406,11 @@ complete -c deployctl -l retries -d 'Retry count'
         expect(orTokens.every(t => t.tokenType === 'keyword')).toBe(true);
       }
 
-      // Should have 'echo' as keyword
+      // Should have 'echo' as function (builtins are highlighted as functions with defaultLibrary modifier)
       const echoTokens = findTokensByText(tokens, 'echo');
       expect(echoTokens.length).toBeGreaterThan(0);
       expect(echoTokens.every(t => t.tokenType === 'function')).toBe(true);
+      expect(echoTokens.every(t => t.modifiers.includes('defaultLibrary'))).toBe(true);
     });
 
     it('should highlight alias as keyword', () => {
@@ -474,10 +477,11 @@ complete -c deployctl -l retries -d 'Retry count'
       expect(notTokens.length).toBeGreaterThan(0);
       expect(notTokens.every(t => t.tokenType === 'keyword')).toBe(true);
 
-      // Should also have 'test' as keyword
+      // Should also have 'test' as function (builtins are highlighted as functions with defaultLibrary modifier)
       const testTokens = findTokensByText(tokens, 'test');
       expect(testTokens.length).toBeGreaterThan(0);
       expect(testTokens.some(t => t.tokenType === 'function')).toBe(true);
+      expect(testTokens.some(t => t.modifiers.includes('defaultLibrary'))).toBe(true);
     });
   });
 
@@ -838,8 +842,8 @@ export LANG=en_US.UTF-8`;
       expect(listTokens.length).toBeGreaterThan(0);
       expect(listTokens.some(t => t.tokenType === 'variable')).toBe(true);
 
-      // Should have 'echo' as keyword
-      expectTokenExists(tokens, { text: 'echo', tokenType: 'function' });
+      // Should have 'echo' as function (builtins are highlighted as functions with defaultLibrary modifier)
+      expectTokenExists(tokens, { text: 'echo', tokenType: 'function', modifiers: ['defaultLibrary'] });
     });
 
     it('should handle for loop with multiple iteration variables', () => {
@@ -911,10 +915,11 @@ export LANG=en_US.UTF-8`;
         expect(argTokens.some(t => t.tokenType === 'variable')).toBe(true);
       });
 
-      // Should have 'echo' as keyword
+      // Should have 'echo' as function (builtins are highlighted as functions with defaultLibrary modifier)
       const echoTokens = findTokensByText(tokens, 'echo');
       expect(echoTokens.length).toBeGreaterThan(0);
       expect(echoTokens.some(t => t.tokenType === 'function')).toBe(true);
+      expect(echoTokens.some(t => t.modifiers.includes('defaultLibrary'))).toBe(true);
     });
 
     it('should highlight function calls', () => {
@@ -1025,10 +1030,11 @@ export LANG=en_US.UTF-8`;
       const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
       const tokens = decodeSemanticTokens(result, content);
 
-      // Should have 'echo' as keyword
+      // Should have 'echo' as function (builtins are highlighted as functions with defaultLibrary modifier)
       const echoTokens = findTokensByText(tokens, 'echo');
       expect(echoTokens.length).toBeGreaterThan(0);
       expect(echoTokens.some(t => t.tokenType === 'function')).toBe(true);
+      expect(echoTokens.some(t => t.modifiers.includes('defaultLibrary'))).toBe(true);
 
       // Should have variable tokens (the simplified handler handles array indexing)
       const varTokens = findTokensByType(tokens, 'variable');
@@ -1083,7 +1089,7 @@ export LANG=en_US.UTF-8`;
 
       // Should also have if, echo, end keywords
       expectTokenExists(tokens, { text: 'if', tokenType: 'keyword' });
-      expectTokenExists(tokens, { text: 'echo', tokenType: 'function' });
+      expectTokenExists(tokens, { text: 'echo', tokenType: 'function', modifiers: ['defaultLibrary'] });
       expectTokenExists(tokens, { text: 'end', tokenType: 'keyword' });
     });
   });
@@ -1103,15 +1109,17 @@ export LANG=en_US.UTF-8`;
       const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
       const tokens = decodeSemanticTokens(result, content);
 
-      // Should have 'set' as keyword
+      // Should have 'set' as function (builtins are highlighted as functions with defaultLibrary modifier)
       const setTokens = findTokensByText(tokens, 'set');
       expect(setTokens.length).toBeGreaterThan(0);
       expect(setTokens.some(t => t.tokenType === 'function')).toBe(true);
+      expect(setTokens.some(t => t.modifiers.includes('defaultLibrary'))).toBe(true);
 
-      // Should have 'echo' as keyword (inside command substitution)
+      // Should have 'echo' as function (inside command substitution)
       const echoTokens = findTokensByText(tokens, 'echo');
       expect(echoTokens.length).toBeGreaterThan(0);
       expect(echoTokens.some(t => t.tokenType === 'function')).toBe(true);
+      expect(echoTokens.some(t => t.modifiers.includes('defaultLibrary'))).toBe(true);
 
       // Should have 'output' as variable
       const outputTokens = findTokensByText(tokens, 'output');
@@ -1133,10 +1141,11 @@ export LANG=en_US.UTF-8`;
       const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
       const tokens = decodeSemanticTokens(result, content);
 
-      // Should have 'echo' as keyword
+      // Should have 'echo' as function (builtins are highlighted as functions with defaultLibrary modifier)
       const echoTokens = findTokensByText(tokens, 'echo');
       expect(echoTokens.length).toBeGreaterThan(0);
       expect(echoTokens.some(t => t.tokenType === 'function')).toBe(true);
+      expect(echoTokens.some(t => t.modifiers.includes('defaultLibrary'))).toBe(true);
 
       // Should have 'date' as keyword/command (inside command substitution)
       const dateTokens = findTokensByText(tokens, 'date');
@@ -1159,14 +1168,16 @@ export LANG=en_US.UTF-8`;
       const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
       const tokens = decodeSemanticTokens(result, content);
 
-      // Should have 'set', 'count', 'echo' as keywords
-      expectTokenExists(tokens, { text: 'set', tokenType: 'function' });
+      // Should have 'set', 'count', 'echo' as functions (builtins are highlighted as functions with defaultLibrary modifier)
+      expectTokenExists(tokens, { text: 'set', tokenType: 'function', modifiers: ['defaultLibrary'] });
 
       const countTokens = findTokensByText(tokens, 'count');
       expect(countTokens.length).toBeGreaterThan(0);
+      expect(countTokens.some(t => t.modifiers.includes('defaultLibrary'))).toBe(true);
 
       const echoTokens = findTokensByText(tokens, 'echo');
       expect(echoTokens.length).toBeGreaterThan(0);
+      expect(echoTokens.some(t => t.modifiers.includes('defaultLibrary'))).toBe(true);
 
       // Should have 'result' and 'argv' as variables
       const resultTokens = findTokensByText(tokens, 'result');
@@ -1584,6 +1595,174 @@ set incomplete`;
           ),
         ),
       );
+    });
+  });
+
+  describe('Builtin Modifiers', () => {
+    it('should highlight echo with defaultLibrary modifier', () => {
+      const content = 'echo "hello"';
+      const doc = new FakeLspDocument({
+        uri: 'test://echo-modifier.fish',
+        languageId: 'fish',
+        version: 1,
+        text: content,
+      });
+      analyzer.analyze(doc);
+      const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
+
+      const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
+      const tokens = decodeSemanticTokens(result, content);
+
+      const echoToken = expectTokenExists(tokens, {
+        text: 'echo',
+        tokenType: 'function',
+        modifiers: ['defaultLibrary'],
+      });
+      expect(echoToken).toBeDefined();
+    });
+
+    it('should highlight set with defaultLibrary modifier', () => {
+      const content = 'set -l foo bar';
+      const doc = new FakeLspDocument({
+        uri: 'test://set-modifier.fish',
+        languageId: 'fish',
+        version: 1,
+        text: content,
+      });
+      analyzer.analyze(doc);
+      const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
+
+      const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
+      const tokens = decodeSemanticTokens(result, content);
+
+      const setToken = expectTokenExists(tokens, {
+        text: 'set',
+        tokenType: 'function',
+        modifiers: ['defaultLibrary'],
+      });
+      expect(setToken).toBeDefined();
+    });
+
+    it('should highlight test with defaultLibrary modifier', () => {
+      const content = 'test -f /tmp/file';
+      const doc = new FakeLspDocument({
+        uri: 'test://test-modifier.fish',
+        languageId: 'fish',
+        version: 1,
+        text: content,
+      });
+      analyzer.analyze(doc);
+      const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
+
+      const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
+      const tokens = decodeSemanticTokens(result, content);
+
+      const testToken = expectTokenExists(tokens, {
+        text: 'test',
+        tokenType: 'function',
+        modifiers: ['defaultLibrary'],
+      });
+      expect(testToken).toBeDefined();
+    });
+
+    it('should highlight true and false with defaultLibrary modifier', () => {
+      const content = 'true && false';
+      const doc = new FakeLspDocument({
+        uri: 'test://bool-modifier.fish',
+        languageId: 'fish',
+        version: 1,
+        text: content,
+      });
+      analyzer.analyze(doc);
+      const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
+
+      const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
+      const tokens = decodeSemanticTokens(result, content);
+
+      const trueToken = expectTokenExists(tokens, {
+        text: 'true',
+        tokenType: 'function',
+        modifiers: ['defaultLibrary'],
+      });
+      expect(trueToken).toBeDefined();
+
+      const falseToken = expectTokenExists(tokens, {
+        text: 'false',
+        tokenType: 'function',
+        modifiers: ['defaultLibrary'],
+      });
+      expect(falseToken).toBeDefined();
+    });
+
+    it('should highlight count with defaultLibrary modifier', () => {
+      const content = 'count $argv';
+      const doc = new FakeLspDocument({
+        uri: 'test://count-modifier.fish',
+        languageId: 'fish',
+        version: 1,
+        text: content,
+      });
+      analyzer.analyze(doc);
+      const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
+
+      const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
+      const tokens = decodeSemanticTokens(result, content);
+
+      const countToken = expectTokenExists(tokens, {
+        text: 'count',
+        tokenType: 'function',
+        modifiers: ['defaultLibrary'],
+      });
+      expect(countToken).toBeDefined();
+    });
+
+    it('should highlight string with defaultLibrary modifier', () => {
+      const content = 'string match -r "foo" bar';
+      const doc = new FakeLspDocument({
+        uri: 'test://string-modifier.fish',
+        languageId: 'fish',
+        version: 1,
+        text: content,
+      });
+      analyzer.analyze(doc);
+      const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
+
+      const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
+      const tokens = decodeSemanticTokens(result, content);
+
+      const stringToken = expectTokenExists(tokens, {
+        text: 'string',
+        tokenType: 'function',
+        modifiers: ['defaultLibrary'],
+      });
+      expect(stringToken).toBeDefined();
+    });
+
+    it('should NOT have defaultLibrary modifier on user-defined functions', () => {
+      const content = `function my_func
+    echo "test"
+end
+my_func`;
+      const doc = new FakeLspDocument({
+        uri: 'test://user-func-modifier.fish',
+        languageId: 'fish',
+        version: 1,
+        text: content,
+      });
+      analyzer.analyze(doc);
+      const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
+
+      const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
+      const tokens = decodeSemanticTokens(result, content);
+
+      // Find all my_func tokens
+      const myFuncTokens = findTokensByText(tokens, 'my_func');
+      expect(myFuncTokens.length).toBeGreaterThan(0);
+
+      // None should have defaultLibrary modifier
+      myFuncTokens.forEach(token => {
+        expect(token.modifiers).not.toContain('defaultLibrary');
+      });
     });
   });
 
