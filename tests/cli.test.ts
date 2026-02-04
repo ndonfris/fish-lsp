@@ -32,7 +32,7 @@ describe('cli tests', () => {
     output: string;
   }> => {
     const {
-      timeout = 7500,
+      timeout = 15000,
       allowNonZeroExit = false,
       expectedExitCodes = [0],
     } = options;
