@@ -106,7 +106,7 @@ export function getSymbolModifiers(symbol: FishSymbol): SemanticTokenModifier[] 
     case 'EVENT':
     case 'FUNCTION_EVENT':
       if (symbol.scope.scopeTag) {
-        mods.push(scopeTagToModifierMap[symbol.scope.scopeTag] ?? 'local'), mods;
+        mods.push(scopeTagToModifierMap[symbol.scope.scopeTag] ?? 'local');
         return mods;
       }
       return [];

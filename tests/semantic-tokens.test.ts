@@ -1,11 +1,6 @@
 // import { SyntaxNode } from 'web-tree-sitter';
 import { analyzer, Analyzer } from '../src/analyze';
 import { LspDocument } from '../src/document';
-// import {
-//   FISH_SEMANTIC_TOKENS_LEGEND,
-//   getModifiersFromMask,
-//   getTokenTypeIndex,
-// } from '../src/utils/semantics';
 import { config, Config } from '../src/config';
 import { TestWorkspace, TestFile } from './test-workspace-utils';
 import { Range } from 'vscode-languageserver';
@@ -18,8 +13,6 @@ import {
   printTokens,
   type DecodedToken,
 } from './semantic-tokens-helpers';
-import FishServer from '../src/server';
-import { connection, startServer } from '../src/utils/startup';
 import { getSemanticTokensSimplest, semanticTokenHandler } from '../src/semantic-tokens';
 import { getRange } from '../src/utils/tree-sitter';
 import { PrebuiltDocumentationMap } from '../src/utils/snippets';
@@ -1542,7 +1535,7 @@ set incomplete`;
       prebuiltCommandNames = new Set(
         PrebuiltDocumentationMap.getByType('command').map(entry => entry.name),
       );
-      PrebuiltDocumentationMap.getByType('command').map(entry => console.log(entry.name)),
+      // PrebuiltDocumentationMap.getByType('command').forEach(entry => console.log(entry.name));
 
       functionNamesToCheck.forEach(name => {
         const fsPath = join(fishFunctionsDir, `${name}.fish`);

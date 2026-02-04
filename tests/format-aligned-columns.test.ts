@@ -388,7 +388,7 @@ describe('formatAlignedColumns tests', () => {
       });
 
       it('should maintain backward compatibility with alignment-based truncation', () => {
-        const input: (AlignedItem & { align: 'left' | 'right' | 'center';})[] = [
+        const input: (AlignedItem & { align: 'left' | 'right' | 'center'; })[] = [
           { text: 'VeryLongTextForTesting', align: 'left', maxWidth: 15, truncate: true },
           { text: 'VeryLongTextForTesting', align: 'right', maxWidth: 15, truncate: true },
           { text: 'VeryLongTextForTesting', align: 'center', maxWidth: 15, truncate: true },

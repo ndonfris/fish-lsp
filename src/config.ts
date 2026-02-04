@@ -158,7 +158,7 @@ export type Config = z.infer<typeof ConfigSchema>;
 export function getConfigFromEnvironmentVariables(): {
   config: Config;
   environmentVariablesUsed: string[];
-  } {
+} {
   const rawConfig = {
     fish_lsp_enabled_handlers: process.env.fish_lsp_enabled_handlers?.split(' '),
     fish_lsp_disabled_handlers: process.env.fish_lsp_disabled_handlers?.split(' '),
@@ -261,7 +261,7 @@ export namespace EnvVariableTransformers {
   }
 
   export function getEnvVariableJsonObject(
-    result: {[k in Config.ConfigKeyType]: Config.ConfigValueType},
+    result: { [k in Config.ConfigKeyType]: Config.ConfigValueType },
     key: Config.ConfigKeyType,
     value?: Config.ConfigValueType,
   ) {

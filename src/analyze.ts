@@ -633,9 +633,9 @@ export class Analyzer {
     callbackfn: (node: SyntaxNode, document: LspDocument) => boolean,
     // useCurrentWorkspace: boolean = true,
   ): {
-    uri: string;
-    nodes: SyntaxNode[];
-  }[] {
+      uri: string;
+      nodes: SyntaxNode[];
+    }[] {
     const result: { uri: string; nodes: SyntaxNode[]; }[] = [];
     for (const uri of this.getIterableUris()) {
       const root = this.cache.getRootNode(uri);
@@ -1249,11 +1249,11 @@ export class Analyzer {
     document: LspDocument,
     position: Position,
   ): {
-    line: string;
-    word: string;
-    lineRootNode: SyntaxNode;
-    lineLastNode: SyntaxNode;
-  } {
+      line: string;
+      word: string;
+      lineRootNode: SyntaxNode;
+      lineLastNode: SyntaxNode;
+    } {
     const line = document
       .getLineBeforeCursor(position)
       .replace(/^(.*)\n$/, '$1') || '';

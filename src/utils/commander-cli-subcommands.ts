@@ -911,7 +911,7 @@ export namespace CommanderSubcommand {
     | typeof env.schema
     | typeof complete.schema;
 
-  const allSchemas = z.object({
+  export const allSchemas = z.object({
     start: start.schema,
     info: info.schema,
     url: url.schema,
