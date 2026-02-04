@@ -1,12 +1,6 @@
-// import { SyntaxNode } from 'web-tree-sitter';
 import { analyzer, Analyzer } from '../src/analyze';
 import { LspDocument } from '../src/document';
-// import {
-//   FISH_SEMANTIC_TOKENS_LEGEND,
-//   getModifiersFromMask,
-//   getTokenTypeIndex,
-// } from '../src/utils/semantics';
-import { config, Config } from '../src/config';
+import { config } from '../src/config';
 import { TestWorkspace, TestFile } from './test-workspace-utils';
 import { Range } from 'vscode-languageserver';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
@@ -18,8 +12,6 @@ import {
   printTokens,
   type DecodedToken,
 } from './semantic-tokens-helpers';
-import FishServer from '../src/server';
-import { connection, startServer } from '../src/utils/startup';
 import { getSemanticTokensSimplest, semanticTokenHandler } from '../src/semantic-tokens';
 import { getRange } from '../src/utils/tree-sitter';
 import { PrebuiltDocumentationMap } from '../src/utils/snippets';
@@ -28,9 +20,9 @@ import { FishCompletionItemKind } from '../src/utils/completion/types';
 import { logger } from '../src/logger';
 import { pathToUri } from '../src/utils/translation';
 import { existsSync } from 'fs';
-import { createFakeLspDocument, FakeLspDocument, setLogger } from './helpers';
+import { createFakeLspDocument, FakeLspDocument } from './helpers';
 import { join } from 'path';
-// setLogger();
+
 logger.setSilent(true);
 
 /**
@@ -203,9 +195,6 @@ complete -c deployctl -l retries -d 'Retry count'
     await Analyzer.initialize();
     await setupProcessEnvExecFile();
     config.fish_lsp_disabled_handlers = ['diagnostic'];
-    // startServer();
-    // const opts = Config.getResultCapabilities();
-    // await FishServer.create(connection, opts as any);
 
     basic_doc = testWorkspace.getDocument('basic.fish')!;
     variables_doc = testWorkspace.getDocument('variables.fish')!;
@@ -932,7 +921,8 @@ export LANG=en_US.UTF-8`;
       expect(funcTokens.length).toBeGreaterThan(0);
     });
 
-    it('should differentiate between builtin commands and user functions', () => {
+    // now just defaultLibrary modifier for builtins
+    it('should differentiate between builtin commands (defaultModifier) and user functions', () => {
       const analyzed = analyzer.cache.getDocument(commands_doc.uri)?.ensureParsed();
       const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
       const tokens = decodeSemanticTokens(result, commands_doc.getText());

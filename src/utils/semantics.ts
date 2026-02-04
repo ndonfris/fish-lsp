@@ -114,8 +114,7 @@ export const SemanticTokenModifiers = {
   ['global']: 'global',                  // Global scope variables/functions
   ['universal']: 'universal',            // Universal scope variables
   ['export']: 'export',                  // Exported variables
-  ['defaultLibrary']: 'defaultLibrary',  // Fish-shipped functions
-  ['builtin']: 'builtin',                // Built-in commands
+  ['defaultLibrary']: 'defaultLibrary',  // Fish-shipped functions (now builtins and other shipped functions are both 'defaultLibrary')
 } as const;
 export type SemanticTokenModifier = (typeof SemanticTokenModifiers)[keyof typeof SemanticTokenModifiers];
 
@@ -148,11 +147,6 @@ export namespace FishSemanticTokens {
 
 }
 
-// export const FISH_SEMANTIC_TOKENS_LEGEND: SemanticTokensLegend = {
-//   tokenTypes: SemanticTokenTypes ? Object.values(SemanticTokenTypes) : [],
-//   tokenModifiers: SemanticTokenModifiers ? Object.values(SemanticTokenModifiers) : [],
-// } as SemanticTokensLegend;
-
 export function getTokenTypeIndex(tokenType: string): number {
   return FishSemanticTokens.types[tokenType as SemanticTokenType] || 0;
 }
@@ -171,13 +165,7 @@ export function calculateModifiersMask(...modifiers: string[]): number {
   }
   return mask;
 }
-//
-// export function hasModifier(mask: number, modifier: string): boolean {
-//   const index = getModifierIndex(modifier);
-//   if (index === -1) return false;
-//   return (mask & 1 << index) !== 0;
-// }
-//
+
 export function getModifiersFromMask(mask: number): string[] {
   const modifiers: string[] = [];
   for (let i = 0; i < Object.values(FishSemanticTokens.mods).length; i++) {
@@ -188,23 +176,6 @@ export function getModifiersFromMask(mask: number): string[] {
   }
   return modifiers;
 }
-
-// export function getCaptureToTokenMapping(): Record<string, { tokenType: string; index: number; }> {
-//   const captureNames = extractCaptureNames(highlights);
-//   const mapping: Record<string, { tokenType: string; index: number; }> = {};
-//
-//   for (const captureName of captureNames) {
-//     const tokenType = mapCaptureToTokenType(captureName);
-//     const index = getTokenTypeIndex(tokenType);
-//
-//     mapping[captureName] = {
-//       tokenType,
-//       index,
-//     };
-//   }
-//
-//   return mapping;
-// }
 
 export function nodeIntersectsRange(node: SyntaxNode, range: Range): boolean {
   const nodeStart = Position.create(node.startPosition.row, node.startPosition.column);
@@ -403,7 +374,7 @@ export function getCommandModifierInfo(commandNode: SyntaxNode, documentUri?: st
 
   // Check if it's a builtin command
   if (isBuiltin(commandName)) {
-    return { modifiers: calculateModifiersMask('builtin'), isDefinedInDocument: false };
+    return { modifiers: calculateModifiersMask('defaultLibrary'), isDefinedInDocument: false };
   }
 
   const allCommands = PrebuiltDocumentationMap.getByType('command');
