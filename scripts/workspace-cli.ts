@@ -4,7 +4,7 @@ import { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as child_process from 'child_process';
-import * as fastGlob from 'fast-glob';
+import fastGlob from 'fast-glob';
 import chalk from 'chalk';
 
 // Minimal types for CLI usage (no LSP dependencies)
@@ -321,17 +321,22 @@ program
     }
   });
 
-if (require.main === module) {
-  // Handle help and completions like the build script
-  if (process.argv.includes('--help') || process.argv.includes('-h')) {
-    program.outputHelp();
-    process.exit(0);
-  }
-  
-  if (process.argv.includes('--completions') || process.argv.includes('-c')) {
-    generateFishCompletions();
-    process.exit(0);
-  }
-  
-  program.parse();
+// Handle help and completions like the build script
+if (process.argv.includes('--help') || process.argv.includes('-h')) {
+  program.outputHelp();
+  process.stdout.write(`\nExamples:\n`);
+  process.stdout.write(`  $ yarn sh:workspace-cli show tests/workspaces/workspace_1 --show-tree-sitter-ast\n`);
+  process.stdout.write(`  shows each tree-sitter tree for file in workspaces/workspace_1\n\n`);
+  process.stdout.write(`  $ yarn sh:workspace-cli snapshot-to-workspace tests/workspaces/snapshot_comprehensive_test.snapshot \n`);
+  process.stdout.write(`  convert snapshot workspace to actual file workspace\n\n`);
+  process.stdout.write(`  $ yarn sh:workspace-cli show tests/workspaces/workspace_1 --show-tree \n`);
+  process.stdout.write(`  shows file tree for workspace\n\n`);
+  process.exit(0);
 }
+
+if (process.argv.includes('--completions') || process.argv.includes('-c')) {
+  generateFishCompletions();
+  process.exit(0);
+}
+
+program.parse();

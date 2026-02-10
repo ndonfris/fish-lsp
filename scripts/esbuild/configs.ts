@@ -1,5 +1,5 @@
 // Centrfalized build configurations
-import * as esbuild from 'esbuild';
+import esbuild from 'esbuild';
 import { resolve } from 'path';
 import { createPlugins, createDefines, PluginOptions, createSourceMapOptimizationPlugin, createSpecialSourceMapPlugin } from './plugins';
 import { BuildConfigTarget } from "./types";

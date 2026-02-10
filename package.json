@@ -64,7 +64,7 @@
     "prepare": "husky",
     "prepack:pack": "run-s --continue-on-error clean:build lint:check update-changelog generate:man generate:commands build:npm build:types sh:build-completions",
     "package": "yarn pack --filename fish-lsp.tgz",
-    "build": "run-s -sn sh:build-time build:all sh:relink sh:build-completions",
+    "build": "run-s -sn build:all sh:relink sh:build-completions",
     "build:watch": "run-s watch",
     "build:npm": "tsx scripts/esbuild/index.ts --npm",
     "build:types": "tsx scripts/esbuild/index.ts --types",

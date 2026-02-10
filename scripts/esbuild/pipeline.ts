@@ -1,5 +1,5 @@
 import { execSync } from 'child_process';
-import * as esbuild from 'esbuild';
+import esbuild from 'esbuild';
 import { BuildArgs } from './cli';
 import { logger } from './colors';
 import { buildConfigs, createBuildOptions } from './configs';
@@ -47,6 +47,7 @@ class BuildPipeline {
         }
       } catch (error) {
         console.log(logger.failed(step.name));
+        console.error('Error details:', error);
         throw error;
       }
 

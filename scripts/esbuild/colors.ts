@@ -1,6 +1,6 @@
 // ANSI color utilities for terminal output
-import * as path from 'path';
-import * as process from 'process';
+import path from 'path';
+import process from 'process';
 
 // Helper to convert absolute paths to relative paths from project root
 export function toRelativePath(filePath: string): string {
