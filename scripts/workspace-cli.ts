@@ -4,7 +4,7 @@ import { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as child_process from 'child_process';
-import fastGlob from 'fast-glob';
+import * as fastGlob from 'fast-glob';
 import chalk from 'chalk';
 
 // Minimal types for CLI usage (no LSP dependencies)

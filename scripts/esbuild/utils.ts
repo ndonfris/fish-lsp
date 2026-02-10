@@ -1,5 +1,5 @@
 // Build utility functions
-import fs from 'fs-extra';
+import * as fs from 'fs-extra';
 import { existsSync, statSync, unlinkSync } from 'fs';
 import { execSync } from 'child_process';
 import { logger, toRelativePath } from './colors';
@@ -9,6 +9,11 @@ export function copyDevelopmentAssets(): void {
     fs.copySync('src/snippets', 'out/snippets');
     console.log(logger.copied('src/snippets', 'out/snippets'));
   }
+}
+
+export function ensureDirectoryExists(dirPath: string): void {
+  if (fs.existsSync(dirPath)) return;
+  fs.mkdirSync(dirPath, { recursive: true });
 }
 
 export function formatBytes(bytes: number): string {

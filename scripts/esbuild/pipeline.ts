@@ -1,10 +1,9 @@
 import { execSync } from 'child_process';
 import * as esbuild from 'esbuild';
-import fs from 'fs';
 import { BuildArgs } from './cli';
 import { logger } from './colors';
 import { buildConfigs, createBuildOptions } from './configs';
-import { copyDevelopmentAssets, generateTypeDeclarations, makeExecutable, showBuildStats, showDirectorySize } from './utils';
+import { copyDevelopmentAssets, ensureDirectoryExists, generateTypeDeclarations, makeExecutable, showBuildStats, showDirectorySize } from './utils';
 
 interface BuildStep {
   name: string;
@@ -128,7 +127,7 @@ const pipeline = new BuildPipeline()
     timing: true,
     runner: async (args) => {
       const config = buildConfigs.npm;
-      // fs.mkdirSync('dist', { recursive: true });
+      ensureDirectoryExists('dist');
       const buildOptions = createBuildOptions(config, args.production || args.minify);
       await esbuild.build(buildOptions);
     },
@@ -148,6 +147,7 @@ const pipeline = new BuildPipeline()
     timing: true,
     runner: async (args) => {
       const config = buildConfigs.binary;
+      ensureDirectoryExists('bin');
       const buildOptions = createBuildOptions(config, args.production || args.minify);
       await esbuild.build(buildOptions);
     },

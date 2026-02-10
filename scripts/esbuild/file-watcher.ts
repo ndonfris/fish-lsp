@@ -1,7 +1,7 @@
 import { spawn, ChildProcess } from 'child_process';
 import { colorize, colors, logger } from './colors';
 import chokidar from 'chokidar';
-import fastGlob from 'fast-glob';
+import * as fastGlob from 'fast-glob';
 
 // Utility to kill process tree (handles child processes)
 function killProcessTree(pid: number, signal: string = 'SIGTERM'): void {

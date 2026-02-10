@@ -91,18 +91,14 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
       '@esdmr/tree-sitter-fish',
       'chalk',
       'commander',
-      'deepmerge',
       'fast-glob',
       'fs-extra',
-      'unionfs',
       'vscode-languageserver',
       'vscode-languageserver-protocol',
       'vscode-languageserver-textdocument',
       'vscode-uri',
       'web-tree-sitter',
       'zod'
-      // Note: keeping 'esbuild-wasm', 'memfs' bundled
-      // as they may be needed for embedded functionality
     ],
     internalPlugins: {
       target: 'node',
