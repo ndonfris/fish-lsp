@@ -1,3 +1,5 @@
+// @ts-check
+
 import eslint from '@eslint/js';
 import tseslint, { type ConfigArray } from 'typescript-eslint';
 import stylistic from '@stylistic/eslint-plugin';
@@ -39,6 +41,7 @@ export default tseslint.config(
     rules: {
       // --- Core rules ---
       'no-control-regex': 'off',
+      'no-useless-assignment': 'off',
       curly: ['error', 'multi-line'],
       'dot-notation': 'error',
       eqeqeq: 'error',
