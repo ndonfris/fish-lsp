@@ -215,7 +215,7 @@
     "esbuild-plugin-polyfill-node": "^0.3.0",
     "esbuild-plugin-tsc": "^0.5.0",
     "esbuild-plugins-node-modules-polyfill": "^1.7.1",
-    "eslint": "^9.26.0",
+    "eslint": "^9.39.2",
     "fast-check": "^4.3.0",
     "globals": "^16.1.0",
     "hono": "^4.11.9",
