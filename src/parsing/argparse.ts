@@ -1,12 +1,12 @@
+import path, { dirname } from 'path';
 import { SyntaxNode } from 'web-tree-sitter';
-import { isCommandWithName, isEndStdinCharacter, isString, isEscapeSequence, isVariableExpansion, isCommand, isInvalidVariableName, findParentWithFallback, isFunctionDefinition } from '../utils/node-types';
-import { findOptions, isMatchingOption, Option } from './options';
 import { FishSymbol } from './symbol';
 import { LspDocument } from '../document';
-import { DefinitionScope, ScopeTag } from '../utils/definition-scope';
-import { getRange } from '../utils/tree-sitter';
 import { analyzer } from '../analyze';
-import path, { dirname } from 'path';
+import { getRange } from '../utils/tree-sitter';
+import { DefinitionScope, ScopeTag } from '../utils/definition-scope';
+import { findOptions, isMatchingOption, Option } from './options';
+import { isCommandWithName, isEndStdinCharacter, isString, isEscapeSequence, isVariableExpansion, isCommand, isInvalidVariableName, findParentWithFallback, isFunctionDefinition, isOption } from '../utils/node-types';
 import { SyncFileHelper } from '../utils/file-operations';
 import { pathToUri, uriToPath } from '../utils/translation';
 import { workspaceManager } from '../utils/workspace-manager';
@@ -17,10 +17,21 @@ export const ArgparseOptions = [
   Option.create('-x', '--exclusive').withValue(),
   Option.create('-N', '--min-args').withValue(),
   Option.create('-X', '--max-args').withValue(),
+  Option.create('-U', '--move-unknown'),
+  Option.create('-S', '--strict-longopts'),
+  Option.long('--unknown-arguments').withValue(),
   Option.create('-i', '--ignore-unknown'),
   Option.create('-s', '--stop-nonopt'),
   Option.create('-h', '--help'),
 ];
+
+const ArgparseOptsWithValues = ArgparseOptions.filter(opt =>
+  opt.equalsRawOption('-n', '--name') ||
+  opt.equalsRawOption('-x', '--exclusive') ||
+  opt.equalsRawOption('-N', '--min-args') ||
+  opt.equalsRawOption('-X', '--max-args') ||
+  opt.equalsRawOption('--unknown-arguments'),
+);
 
 const isBefore = (a: SyntaxNode, b: SyntaxNode) => a.startIndex < b.startIndex;
 
@@ -34,15 +45,67 @@ export function findArgparseOptions(node: SyntaxNode) {
   return findOptions(nodes, ArgparseOptions);
 }
 
+/**
+ * Utility to ensure that args for `argparse` option variable definitions exclude
+ * argparse's optspec nodes, which can be in the form of:
+ *   • `-n foo`, `--name foo`
+ *   • `-x g,U`, `--exclusive=g,U`
+ *   • `--ignore-unknown`, `--stop-nonopt`
+ *   • `--unknown-arguments=KIND`
+ *   • `-N 1`, `--min-args=1` , `--max-args=2` , '-X 2'
+ *
+ * Backtrack using the current node, to check if the previous node is an `argparse` switch
+ * that would inidicate the current node is a value for that switch, and
+ * should not be included as an `argparse` definition name.
+ *
+ * @example
+ * ```fish
+ * argparse -n=foo -x g,U --ignore-unknown --stop-nonopt h/help 'n/name=?' 'x/exclusive' -- $argv
+ * #        ^^^^^^ ^^     ^^^^^^^^^^^^^^^^ ^^^^^^^^^^^^ skipped via (check 1)
+ * #                  ^^^                               skipped via (check 2)
+ * ```
+ */
+function isArgparseOptionSpecifier(node: SyntaxNode) {
+  // Check 1
+  if (isOption(node)) return true;
+
+  // Check 2
+  const previousNode = node.previousSibling;
+  if (!previousNode) return false;
+
+  // we return false here to indicate that we should not skip this node
+  // because the value for the previous node was provided using `--flag=value` syntax
+  if (previousNode.text.includes('=')) return false;
+
+  // don't skip previous nodes when the previous node is of the form:
+  // ```fish
+  // argparse -N 1 --max-args 2
+  // #           ^            ^
+  // #           Both of these nodes are excluded
+  // ```
+  return ArgparseOptsWithValues.some((option) => isMatchingOption(previousNode, option));
+  // return isMatchingOption(previousNode, Option.create('-n', '--name')) ||
+  //   isMatchingOption(previousNode, Option.create('-x', '--exclusive')) ||
+  //   isMatchingOption(previousNode, Option.create('-N', '--min-args')) ||
+  //   isMatchingOption(previousNode, Option.create('-X', '--max-args')) ||
+  //   isMatchingOption(previousNode, Option.long('--unknown-arguments'))
+}
+
 function isInvalidArgparseName(node: SyntaxNode) {
   if (isEscapeSequence(node) || isCommand(node) || isInvalidVariableName(node)) return true;
-  if (isVariableExpansion(node) && node.type === 'variable_name') return true;
+  if (isArgparseOptionSpecifier(node)) return true;
+  if (isVariableExpansion(node) || node.type === 'variable_name') return true;
+  // fixup the text, so we ignore '/" characters surrounding the flag names,
   let text = node.text.trim();
   if (isString(node)) {
     text = text.slice(1, -1);
-    text = text.slice(0, text.indexOf('=') || -1);
   }
-  if (text.includes('(')) return true; // skip function calls
+  // ignore anything after an `=` character since that would not be part of the variable name
+  text = text.slice(0, text.indexOf('=') || -1);
+  // incase parser missed one of these cases, we do a final check to see if the text includes
+  // any characters that would be invalid for an argparse variable definition
+  // (e.g., command substitutions, variable expansions)
+  if (text.includes('(') || text.includes('$')) return true;
   return false;
 }
 
