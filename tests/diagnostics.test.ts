@@ -1104,6 +1104,35 @@ function foo
       expect(result.length).toBe(0);
     });
   });
+
+  describe('EXTRA: unused variables tests', () => {
+    const tw = TestWorkspace
+      .create({ name: 'diagnostic-for-loop-workspace' })
+      .addFiles(
+        {
+          relativePath: 'conf.d/for-loop-test.fish',
+          content: [
+            'for i in (seq 1 10);',
+            '    # `i` is not used;',
+            'end',
+          ].join('\n'),
+        },
+      ).initialize();
+
+    let forFile: LspDocument;
+    beforeAll(async () => {
+      await Analyzer.initialize();
+      forFile = tw.find('conf.d/for-loop-test.fish')!;
+    });
+
+    it('VALIDATE: for i in (seq 1 10); echo $i; end', async () => {
+      const doc = forFile;
+      const { root } = analyzer.analyze(doc).ensureParsed();
+      const diagnostics = await getDiagnosticsAsync(root, doc);
+      diagnostics.forEach(d => logDiagnostics(d, root));
+      expect(diagnostics).toHaveLength(0);
+    });
+  });
 });
 
 // expect(definitions.map(d => d.text)).toEqual([
