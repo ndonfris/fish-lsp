@@ -1,8 +1,10 @@
 import { TestWorkspace, TestFile } from './test-workspace-utils';
-import { Analyzer } from '../src/analyze';
+import { analyzer, Analyzer } from '../src/analyze';
 import { LspDocument } from '../src/document';
 import { setLogger } from './helpers';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
+import { FishSymbol } from '../src/parsing/symbol';
+import { getRenames } from '../src/renames';
 
 // test suite for `funced`, `edit_commandline_buffer`, and any other interactive
 // command buffers that may be added in the future.
@@ -31,6 +33,7 @@ describe('Interactive Command Buffers (funced, edit_commandline_buffer, ...)', (
       TestFile.custom('/tmp/fish.HBob9J/funced.fish',
         ['function foo',
           '   echo "foo"',
+          'end',
         ].join('\n'),
       ),
       TestFile.custom('/home/user/.config/fish/config.fish',
@@ -81,17 +84,26 @@ describe('Interactive Command Buffers (funced, edit_commandline_buffer, ...)', (
     fooFooDocument = tw.find('/home/user/.config/fish/functions/foo_foo.fish')!;
   });
 
-  it('confirm docs', async () => {
+  it('confirm docs', () => {
     expect(cliDocument).toBeDefined();
     expect(funcedDocument).toBeDefined();
     expect(configDocument).toBeDefined();
     expect(fooFooDocument).toBeDefined();
   });
 
-  it('should not allow renames in command-line buffers', async () => {
-    const doc = cliDocument;
-    console.log({
-      text: doc.getText(),
-    });
+  it('should not allow renames in command-line buffers', () => {
+    const { document, flatSymbols } = analyzer.analyze(cliDocument);
+    const forSym: FishSymbol = flatSymbols.find(sym => sym.name === 'i')!;
+    const renames = getRenames(document, forSym.toLocation().range.start, 'ii');
+    expect(renames).toHaveLength(1);
+    expect(renames[0]?.range).toBe(forSym.toLocation().range);
+  });
+
+  it('should allow renames in funced buffers', () => {
+    const { document, flatSymbols } = analyzer.analyze(funcedDocument);
+    const funcSym: FishSymbol = flatSymbols.find(sym => sym.name === 'foo')!;
+    const renames = getRenames(document, funcSym.toLocation().range.start, 'foo_renamed');
+    expect(renames).toHaveLength(1);
+    expect(renames[0]?.range).toBe(funcSym.toLocation().range);
   });
 });
