@@ -273,6 +273,7 @@ export class FishSymbol {
    *   - Variables which are autoloaded based on their path.
    *   - Variables which are exported or global do not need local references.
    *   - Variables like `argv` and `fish_trace` do not need local references.
+   *   - Variables like `for i in (seq 1 10); ;end;` do not need local references (iterate 10 times)
    *
    * @return {boolean} True if the symbol needs local references, false otherwise
    */
@@ -299,6 +300,7 @@ export class FishSymbol {
       if (SKIPPABLE_VARIABLE_REFERENCE_NAMES.includes(this.name)) return false;
       if (this.isExported()) return false;
       if (this.isGlobal()) return false;
+      if (this.fishKind === 'FOR') return false;
       return true;
     }
     return false;
