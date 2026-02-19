@@ -8,6 +8,9 @@ import { flattenNested } from '../src/utils/flatten';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
 import { config } from '../src/config';
+import { createArgparseCompletionsCodeAction, findFlagsToComplete } from '../src/code-actions/argparse-completions';
+import { isCommand } from '../src/utils/node-types';
+import { TextDocumentEdit } from 'vscode-languageserver';
 
 let parser: Parser;
 let testBuilder: ReturnType<typeof setupTestCallback>;
@@ -986,12 +989,12 @@ describe('`./src/parsing/**.ts` tests', () => {
           'set -l FOO foo',
           '__foo $FOO',
         );
-        const { flatSymbols, symbols } = getAllTypesOfNestedArrays(doc, root);
+        const { flatSymbols } = getAllTypesOfNestedArrays(doc, root);
         const lastSymbols = filterLastPerScopeSymbol(flatSymbols);
-        console.log({
-          all: flatSymbols.map(s => s.name),
-          last: lastSymbols.map(s => s.name),
-        });
+        // console.log({
+        //   all: flatSymbols.map(s => s.name),
+        //   last: lastSymbols.map(s => s.name),
+        // });
         expect(lastSymbols).toHaveLength(5);
         expect(lastSymbols.map(s => s.name)).toEqual(['argv', '__foo', 'FOO', 'argv', 'FOO']);
       });
@@ -1094,6 +1097,152 @@ describe('`./src/parsing/**.ts` tests', () => {
       // console.log(JSON.stringify(completions, null, 2));
       expect(firstCompletions).toHaveLength(1);
       expect(secondCompletions).toHaveLength(1);
+    });
+
+    // test for [#136](https://github.com/ndonfris/fish-lsp/issues/136)
+    //
+    it('`argparse variable expansion in opt` (`argparse $opts -- $argv` prevent `_flag_$opts`)', () => {
+      const { doc, root } = testBuilder('functions/foo.fish',
+        'function foo',
+        '  set -l options \'v/verbose\' ',
+        '  argparse --stop-nonopt $options f/first s/second \'t/third=!_validate_int\' -- $argv',
+        '  or return',
+        '  echo $_flag_first',
+        '  echo $_flag_second',
+        '  echo $_flag_third',
+        'end',
+      );
+      const { flatSymbols /** nodes */ } = getAllTypesOfNestedArrays(doc, root);
+      const optionsVariable = flatSymbols.find(s => s.name === 'options' && s.fishKind === 'ARGPARSE');
+
+      /**
+       * optionsVariable is expected to be undefined since we don't treat variable
+       * expansion in `argparse` as defining the variable.
+       */
+      expect(optionsVariable).toBeUndefined();
+      const mappedFlags = flatSymbols.map(s => [s.name, s.fishKind]);
+      // mappedFlags.forEach((item) => { console.log(item); });
+
+      /**
+       * make sure that the flags defined by `argparse` are still correctly identified
+       * as `ARGPARSE` kind even if variable expansion is used in the `argparse` command.
+       */
+      expect(mappedFlags).toEqual([
+        ['foo', 'FUNCTION'],
+        ['argv', 'FUNCTION_VARIABLE'],
+        ['options', 'SET'],
+        // ['options', 'ARGPARSE'], /** Doesn't exist which is expected since we don't treat variable expansion in `argparse` as defining the variable. */
+        ['_flag_f', 'ARGPARSE'],
+        ['_flag_first', 'ARGPARSE'],
+        ['_flag_s', 'ARGPARSE'],
+        ['_flag_second', 'ARGPARSE'],
+        ['_flag_t', 'ARGPARSE'],
+        ['_flag_third', 'ARGPARSE'],
+      ]);
+    });
+  });
+  describe('extra argparse tests', () => {
+    it('`argparse` with variable expansion in options and flags', () => {
+      const { doc, root } = testBuilder('functions/foo.fish',
+        'function foo',
+        '  set -l options \'v/verbose\' ',
+        '  argparse --stop-nonopt $options f/first s/second \'t/third=!_validate_int\' -- $argv',
+        '  or return',
+        'end',
+      );
+      const { flatSymbols } = getAllTypesOfNestedArrays(doc, root);
+      const optionsVariable = flatSymbols.find(s => s.name === 'options' && s.fishKind === 'ARGPARSE');
+      const argparseFlags = flatSymbols.filter(s => s.fishKind === 'ARGPARSE');
+      expect(optionsVariable).toBeUndefined();
+      expect(argparseFlags).toHaveLength(6);
+      const flagNames = argparseFlags.map(s => s.name);
+      expect(flagNames).toEqual(['_flag_f', '_flag_first', '_flag_s', '_flag_second', '_flag_t', '_flag_third']);
+      const allArgparseFlags = argparseFlags.map(s => ({ name: s.name, kind: s.fishKind }));
+      expect(allArgparseFlags).toEqual([
+        { name: '_flag_f', kind: 'ARGPARSE' },
+        { name: '_flag_first', kind: 'ARGPARSE' },
+        { name: '_flag_s', kind: 'ARGPARSE' },
+        { name: '_flag_second', kind: 'ARGPARSE' },
+        { name: '_flag_t', kind: 'ARGPARSE' },
+        { name: '_flag_third', kind: 'ARGPARSE' },
+      ]);
+    });
+
+    it('`argparse` with variable expansion inside string', () => {
+      const { doc, root } = testBuilder('conf.d/foo.fish',
+        'function foo',
+        '  set -l options \'v/verbose\' ',
+        '  set -l normal_opts \'h/help\' \'d/debug\'',
+        '  set -l validate_opts --min 1 --max 10',
+        '  argparse --stop-nonopt "$options" \'$normal_opts\' f/first s/second \'t/third=!_validate_int $validate_opts\' -- $argv',
+        '  or return',
+        'end',
+      );
+      const { flatSymbols, nodes } = getAllTypesOfNestedArrays(doc, root);
+      const argparseNode = nodes.find(n => isCommand(n) && n.firstNamedChild!.text === 'argparse')!;
+      const argparseFlags = flatSymbols.filter(s => s.fishKind === 'ARGPARSE');
+      const allArgparseFlags = argparseFlags.map(s => ({ name: s.name, kind: s.fishKind }));
+      // console.log({ allArgparseFlags });
+      expect(allArgparseFlags).toEqual([
+        { name: '_flag_f', kind: 'ARGPARSE' },
+        { name: '_flag_first', kind: 'ARGPARSE' },
+        { name: '_flag_s', kind: 'ARGPARSE' },
+        { name: '_flag_second', kind: 'ARGPARSE' },
+        { name: '_flag_t', kind: 'ARGPARSE' },
+        { name: '_flag_third', kind: 'ARGPARSE' },
+      ]);
+
+      const ca = createArgparseCompletionsCodeAction(argparseNode, doc);
+      expect(ca).toBeDefined();
+      // console.log(JSON.stringify({ ca }, null, 2));
+      const edit = ca!.edit!.documentChanges![0]! as TextDocumentEdit;
+      const newText = edit.edits.map(e => e.newText).join('');
+      expect(newText).toBeDefined();
+      expect(newText).toContain('complete -c foo -s f -l first');
+      expect(newText).toContain('complete -c foo -s s -l second');
+      expect(newText).toContain('complete -c foo -s t -l third');
+    });
+
+    it('`argparse` with variable expansion in options and flags in conf.d file', () => {
+      const { doc, root } = testBuilder('conf.d/foo.fish',
+        'function __foo_parse',
+        '  set -l options \'v/verbose\' ',
+        '  set -l validate_opts --min 1 --max 10',
+        '  argparse --name=__foo_parse --stop-nonopt --min-args 1 --max-args=2 $options f/first s/second \'t/third=!_validate_int $validate_opts\' \'fourth=\' -- $argv',
+        '  or return',
+        'end',
+      );
+      const { flatSymbols, nodes } = getAllTypesOfNestedArrays(doc, root);
+      const argparseNode = nodes.find(n => isCommand(n) && n.firstNamedChild!.text === 'argparse')!;
+      const expectedFlags = findFlagsToComplete(argparseNode);
+      expect(expectedFlags).toEqual([
+        { shortOption: 'f', longOption: 'first' },
+        { shortOption: 's', longOption: 'second' },
+        { shortOption: 't', longOption: 'third' },
+        { longOption: 'fourth' },
+      ]);
+      const optionsVariable = flatSymbols.find(s => s.name === 'options' && s.fishKind === 'ARGPARSE');
+      const argparseFlags = flatSymbols.filter(s => s.fishKind === 'ARGPARSE');
+      expect(optionsVariable).toBeUndefined();
+      expect(argparseFlags).toHaveLength(7);
+      expect(argparseFlags.map(s => s.name)).toEqual([
+        '_flag_f',
+        '_flag_first',
+        '_flag_s',
+        '_flag_second',
+        '_flag_t',
+        '_flag_third',
+        '_flag_fourth',
+      ]);
+      const codeAction = createArgparseCompletionsCodeAction(argparseNode, doc)!;
+      expect(codeAction).toBeDefined();
+      const docEdits = codeAction.edit!.documentChanges! as TextDocumentEdit[];
+      const textEdits = docEdits.map(e => e.edits).flat().map(e => e.newText).join('');
+      expect(textEdits).toBeDefined();
+      expect(textEdits).toContain('complete -c __foo_parse -s f -l first');
+      expect(textEdits).toContain('complete -c __foo_parse -s s -l second');
+      expect(textEdits).toContain('complete -c __foo_parse -s t -l third');
+      expect(textEdits).toContain('complete -c __foo_parse -l fourth');
     });
   });
 });
