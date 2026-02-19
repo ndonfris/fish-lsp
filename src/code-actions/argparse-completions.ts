@@ -1,19 +1,23 @@
 import { SyntaxNode } from 'web-tree-sitter';
-import { findParentFunction, isCommandName, isCommandWithName, isEndStdinCharacter, isFunctionDefinition, isMatchingOption, isOption, isString } from '../utils/node-types';
+import { findParentFunction, isCommandWithName, isFunctionDefinition, isString } from '../utils/node-types';
 import { getChildNodes, getRange } from '../utils/tree-sitter';
 import { LspDocument } from '../document';
 import { ChangeAnnotation, CodeAction, CodeActionKind, TextDocumentEdit, TextEdit, VersionedTextDocumentIdentifier, WorkspaceEdit } from 'vscode-languageserver';
 import { extractFunctionWithArgparseToCompletionsFile } from './refactors';
 import { uriToReadablePath } from '../utils/translation';
 import { logger } from '../logger';
-import { Option } from '../parsing/options';
+import { findArgparseDefinitionNames } from '../parsing/argparse';
 
 export type CompleteFlag = {
   shortOption?: string;
   longOption: string;
 };
 
-function parseArgparseFlag(text: string): CompleteFlag {
+// export function parseArgparseFlag(text: string): CompleteFlag {
+function parseArgparseFlag(node: SyntaxNode): CompleteFlag {
+  let text = node.text;
+  if (isString(node)) text = text.slice(1, -1);
+
   // Remove any equals and following text
   const beforeEquals = text.split('=')[0] as string;
 
@@ -32,51 +36,12 @@ function parseArgparseFlag(text: string): CompleteFlag {
   };
 }
 
-function isSkipablePreviousOption(node: SyntaxNode): boolean {
-  // don't skip previous nodes when the previous node is of the form:
-  // ```fish
-  // argparse -N=1 --max-args=2
-  // ```
-  if (node.text.includes('=')) return false;
-  return isMatchingOption(node, Option.create('-N', '--min-args')) ||
-    isMatchingOption(node, Option.create('-n', '--name')) ||
-    isMatchingOption(node, Option.create('-x', '--exclusive')) ||
-    isMatchingOption(node, Option.create('-X', '--max-args'));
-}
-
 export function findFlagsToComplete(node: SyntaxNode): CompleteFlag[] {
   if (!isCommandWithName(node, 'argparse')) return [];
-
   const flags: CompleteFlag[] = [];
-
-  for (const child of getChildNodes(node)) {
-    // Stop at -- argument separator
-    if (isEndStdinCharacter(child)) break;
-
-    // skip `argparse` command name
-    if (isCommandName(child)) continue;
-
-    // Skip command name and actual options (like --ignore-unknown)
-    if (isOption(child)) continue;
-
-    // skip previous options that are not flags
-    const prev = child.previousSibling;
-    if (prev && isOption(prev) && isSkipablePreviousOption(prev)) continue;
-
-    // Handle quoted strings
-    if (isString(child)) {
-      // Remove surrounding quotes
-      const text = child.text.slice(1, -1);
-      flags.push(parseArgparseFlag(text));
-      continue;
-    }
-
-    // Handle unquoted option strings
-    if (child.type === 'word' && !child.text.startsWith('-')) {
-      flags.push(parseArgparseFlag(child.text));
-    }
+  for (const n of findArgparseDefinitionNames(node)) {
+    flags.push(parseArgparseFlag(n));
   }
-
   return flags;
 }
 

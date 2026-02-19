@@ -183,7 +183,7 @@ const nodeToTokenHandler: NodeToToken[] = [
       const openBracket = firstChild.firstChild;
       if (openBracket && openBracket.type === '[') {
         ctx.tokens.push(
-          SemanticToken.fromNode(openBracket, FishSemanticTokens.types.function, calculateModifiersMask('builtin')),
+          SemanticToken.fromNode(openBracket, FishSemanticTokens.types.function, calculateModifiersMask('defaultLibrary')),
         );
       }
     }
@@ -194,7 +194,7 @@ const nodeToTokenHandler: NodeToToken[] = [
       const closeBracket = lastChild.firstChild;
       if (closeBracket && closeBracket.type === ']') {
         ctx.tokens.push(
-          SemanticToken.fromNode(closeBracket, FishSemanticTokens.types.function, calculateModifiersMask('builtin')),
+          SemanticToken.fromNode(closeBracket, FishSemanticTokens.types.function, calculateModifiersMask('defaultLibrary')),
         );
       }
     }
@@ -212,11 +212,15 @@ const nodeToTokenHandler: NodeToToken[] = [
 
   // Builtin functions: `echo`, `set`, `path`, `source`, etc.
   // These are commands from `builtin -n` but not structural keywords
+  //
+  // As of PR #133, builtin functions are now treated exactly the same
+  // as defaultLibrary functions which include shared function definitions
+  // like: `__fish_use_subcommand` or other `$__fish_data_dir/functions/*.fish` files
   [isBuiltinFunction, (n, ctx) => {
     const cmd = n.firstNamedChild;
     if (!cmd) return;
     ctx.tokens.push(
-      SemanticToken.fromNode(cmd, FishSemanticTokens.types.function, calculateModifiersMask('builtin')),
+      SemanticToken.fromNode(cmd, FishSemanticTokens.types.function, calculateModifiersMask('defaultLibrary')),
     );
   }],
 
