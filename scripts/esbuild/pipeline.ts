@@ -3,7 +3,8 @@ import esbuild from 'esbuild';
 import { BuildArgs } from './cli';
 import { logger } from './colors';
 import { buildConfigs, createBuildOptions } from './configs';
-import { copyDevelopmentAssets, ensureDirectoryExists, generateTypeDeclarations, makeExecutable, showBuildStats, showDirectorySize } from './utils';
+import { copyDevelopmentAssets, ensureDirectoryExists, generateTypeDeclarations, isFileEmpty, makeExecutable, showBuildStats, showDirectorySize } from './utils';
+import { fs } from 'memfs';
 
 interface BuildStep {
   name: string;
@@ -94,6 +95,21 @@ const pipeline = new BuildPipeline()
     runner: async () => {
       execSync('node ./scripts/build-time', { stdio: 'inherit' });
     },
+  })
+  .register({
+    name: 'Required Files',
+    priority: 10,
+    tags: ['all', 'dev', 'binary', 'npm'],
+    runner: async () => {
+      ensureDirectoryExists('man');
+      ensureDirectoryExists('src/snippets');
+      if (isFileEmpty(`man/fish-lsp.1`) || isFileEmpty('src/snippets/helperCommands.json')) {
+        execSync('yarn generate:man && yarn generate:snippets --write', { stdio: 'inherit' });
+        showBuildStats('man/fish-lsp.1', 'Man file')
+        showBuildStats('src/snippets/helperCommands.json', 'Helper Commands Snippets');
+      }
+      console.log(logger.success('  Required files are up to date'));
+    }
   })
   .register({
     name: 'Development',

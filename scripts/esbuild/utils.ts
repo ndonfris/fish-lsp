@@ -59,6 +59,15 @@ export function showDirectorySize(dirPath: string, label?: string): void {
   console.log(logger.size(`${displayLabel} total`, formatBytes(totalSize)));
 }
 
+export function isFileEmpty(filePath: string): boolean {
+  if (!existsSync(filePath)) {
+    return true;
+  }
+  
+  const stats = statSync(filePath);
+  return stats.size === 0;
+}
+
 export function generateTypeDeclarations(): void {
   console.log(logger.info('  Generating TypeScript declarations...'));
 
