@@ -1181,10 +1181,10 @@ export default class FishServer {
   private getDefaultsForPartialParams(params: {
     textDocument: TextDocumentIdentifier;
   }): {
-    doc?: LspDocument;
-    path: string;
-    root?: SyntaxNode | null;
-  } {
+      doc?: LspDocument;
+      path: string;
+      root?: SyntaxNode | null;
+    } {
     const doc = documents.get(params.textDocument.uri);
     const path = doc?.path ?? uriToPath(params.textDocument.uri);
     const root = doc ? analyzer.getRootNode(doc.uri) : undefined;

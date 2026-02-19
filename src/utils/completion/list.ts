@@ -119,8 +119,7 @@ function itemLoggingInfo(item: FishCompletionItem, index: number) {
   };
 }
 
-export interface FishCompletionList extends CompletionList {
-}
+export type FishCompletionList = CompletionList;
 
 export namespace FishCompletionList {
   export function empty() {

@@ -5,10 +5,15 @@ import { execSync } from 'child_process';
 import { logger, toRelativePath } from './colors';
 
 export function copyDevelopmentAssets(): void {
-  if (fs.existsSync('src/snippets')) {
+  if (existsSync('src/snippets')) {
     fs.copySync('src/snippets', 'out/snippets');
     console.log(logger.copied('src/snippets', 'out/snippets'));
   }
+}
+
+export function ensureDirectoryExists(dirPath: string): void {
+  if (existsSync(dirPath)) return;
+  fs.mkdirSync(dirPath, { recursive: true });
 }
 
 export function formatBytes(bytes: number): string {

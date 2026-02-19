@@ -1,5 +1,6 @@
 import { analyzer, Analyzer } from '../src/analyze';
 import { LspDocument } from '../src/document';
+
 import { config } from '../src/config';
 import { TestWorkspace, TestFile } from './test-workspace-utils';
 import { Range } from 'vscode-languageserver';
@@ -1543,7 +1544,7 @@ set incomplete`;
       prebuiltCommandNames = new Set(
         PrebuiltDocumentationMap.getByType('command').map(entry => entry.name),
       );
-      PrebuiltDocumentationMap.getByType('command').map(entry => console.log(entry.name)),
+      // PrebuiltDocumentationMap.getByType('command').forEach(entry => console.log(entry.name));
 
       functionNamesToCheck.forEach(name => {
         const fsPath = join(fishFunctionsDir, `${name}.fish`);

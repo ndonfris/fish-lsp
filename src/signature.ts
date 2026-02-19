@@ -296,9 +296,9 @@ export function findActiveParameterStringRegex(
   line: string,
   cursorPosition: number,
 ): {
-  isRegex: boolean;
-  activeParameter: number;
-} {
+    isRegex: boolean;
+    activeParameter: number;
+  } {
   const tokens = line.split(' ');
   const hasStringCommand = tokens.some(token => token === 'string');
 

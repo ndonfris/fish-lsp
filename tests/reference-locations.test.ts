@@ -91,7 +91,7 @@ const setupWorkspace = (workspacePath: string, ...docs: TestLspDocument[]) => {
       beforeAll(async () => {
         await setupObject.beforeAll();
         await beforeAllCallback();
-      }),
+      });
       beforeEach(async () => {
         await setupObject.beforeEach();
         setupObject.documents().all().forEach(doc => {

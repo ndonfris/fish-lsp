@@ -20,7 +20,6 @@ const createFishLspBin = (): Command => {
     'Description:',
     FishLspHelp().description || 'An LSP for the fish shell language',
   ].join('\n');
-  FishLspHelp;
   const bin = new Command('fish-lsp')
     .description(description)
     .helpOption('-h, --help', 'show the relevant help info. Other `--help-*` flags are also available.')

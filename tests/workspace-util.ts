@@ -801,7 +801,7 @@ export default class TestWorkspace {
     setup: () => Promise<void>;
     teardown: () => Promise<void>;
     beforeEach: () => Promise<void>;
-    } {
+  } {
     logger.setSilent();
     if (!this.initialized) {
       if (!fs.existsSync(this.workspacePath)) {

@@ -1,16 +1,14 @@
 // Build plugin factory for consistent configuration
-import * as esbuild from 'esbuild';
-import { writeFileSync, readFileSync } from 'fs';
-import { resolve } from 'path';
 
 // ESBuild plugins - these packages don't provide TypeScript definitions
 
+import esbuild from 'esbuild';
 import { polyfillNode } from 'esbuild-plugin-polyfill-node';
 import { nodeModulesPolyfillPlugin } from 'esbuild-plugins-node-modules-polyfill';
 import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill';
 import { colorize, colors, toRelativePath } from './colors';
 import { createWasmPlugin } from './wasm-plugin';
-import { existsSync, readFileSync } from 'fs';
+import { writeFileSync, existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 
 export interface PluginOptions {

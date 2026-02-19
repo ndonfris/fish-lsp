@@ -1,5 +1,5 @@
 import * as os from 'os';
-/* eslint-disable @typescript-eslint/quotes */
+/* eslint-disable @stylistic/quotes */
 
 import { initializeParser } from '../src/parser';
 import { createFakeLspDocument, setLogger } from './helpers';
