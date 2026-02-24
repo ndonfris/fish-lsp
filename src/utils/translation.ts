@@ -351,6 +351,92 @@ export function shouldHaveAutoloadedFunction(document: LspDocument): boolean {
   return 'functions' === document.getAutoloadType();
 }
 
+/**
+ * Resolves a fish shell escape sequence to its character value.
+ *
+ * In unquoted fish strings, `\X` where X is not a recognised special character
+ * resolves to just `X`.  Recognised specials follow the standard C/fish
+ * convention (`\n`, `\t`, `\e`, `\u`, …).
+ *
+ * @param seq - raw escape-sequence text, e.g. `\n`, `\m`, `\uXXXX`
+ * @returns the resolved character(s)
+ */
+function unescapeFishEscapeSequence(seq: string): string {
+  if (!seq.startsWith('\\') || seq.length < 2) return seq;
+  const char = seq[1]!;
+  switch (char) {
+    case 'a': return '\x07';   // bell
+    case 'b': return '\x08';   // backspace
+    case 'e': return '\x1B';   // escape
+    case 'f': return '\x0C';   // form feed
+    case 'n': return '\n';     // newline
+    case 'r': return '\r';     // carriage return
+    case 't': return '\t';     // tab
+    case 'v': return '\x0B';   // vertical tab
+    case '\\': return '\\';
+    case ' ': return ' ';
+    case 'u': {
+      const cp = parseInt(seq.slice(2), 16);
+      return isNaN(cp) ? seq : String.fromCodePoint(cp);
+    }
+    case 'U': {
+      const cp = parseInt(seq.slice(2), 16);
+      return isNaN(cp) ? seq : String.fromCodePoint(cp);
+    }
+    case 'x': {
+      const cp = parseInt(seq.slice(2), 16);
+      return isNaN(cp) ? seq : String.fromCodePoint(cp);
+    }
+    case 'o': {
+      const cp = parseInt(seq.slice(2), 8);
+      return isNaN(cp) ? seq : String.fromCodePoint(cp);
+    }
+    case 'c': {
+      const ctrl = seq[2];
+      return ctrl ? String.fromCharCode(ctrl.toUpperCase().charCodeAt(0) - 64) : seq;
+    }
+    default:
+      // Any other \X → X  (backslash is simply dropped)
+      return char;
+  }
+}
+
+/**
+ * Extracts the unescaped string value from a fish shell syntax node.
+ *
+ * Fish strings can appear in multiple forms that all denote the same value:
+ *
+ *   `mas`       → `word` node                → `"mas"`
+ *   `'mas'`     → `single_quote_string` node → `"mas"`
+ *   `"mas"`     → `double_quote_string` node → `"mas"`
+ *   `\mas`      → `concatenation` node       → `"mas"`
+ *   `\ma\s`     → `concatenation` node       → `"mas"`
+ *   `ma\s`      → `concatenation` node       → `"mas"`
+ *
+ * Surrounding quotes are stripped and fish escape sequences within
+ * concatenation nodes are resolved so that all equivalent representations
+ * return the same bare string value.
+ *
+ * @see https://github.com/ndonfris/fish-lsp/issues/140
+ */
+export function getFishStringValue(node: SyntaxNode): string {
+  switch (node.type) {
+    case 'single_quote_string':
+    case 'double_quote_string':
+      return node.text.slice(1, -1);
+    case 'concatenation':
+      return node.children
+        .map(child =>
+          child.type === 'escape_sequence'
+            ? unescapeFishEscapeSequence(child.text)
+            : child.text)
+        .join('');
+    default:
+      // Covers plain `word` nodes and any future node types.
+      return node.text;
+  }
+}
+
 export function formatTextWithIndents(doc: LspDocument, line: number, text: string) {
   const indent = doc.getIndentAtLine(line);
   return text
