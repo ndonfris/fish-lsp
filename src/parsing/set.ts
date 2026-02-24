@@ -77,7 +77,10 @@ export function findSetChildren(node: SyntaxNode) {
 }
 
 export function setModifierDetailDescriptor(node: SyntaxNode) {
-  const options = findOptions(node.childrenForFieldName('argument'), SetModifiers);
+  let children = node.childrenForFieldName('argument');
+  if (isSetDefinition(node)) children = findSetChildren(node);
+
+  const options = findOptions(children, SetModifiers);
   const exportedOption = options.found.find(o => o.option.equalsRawOption('-x', '--export') || o.option.equalsRawOption('-u', '--unexport'));
   const exportedStr = exportedOption ? exportedOption.option.isOption('-x', '--export') ? 'exported' : 'unexported' : '';
   const modifier = options.found.find(o => o.option.equalsRawOption('-U', '-g', '-f', '-l'));
