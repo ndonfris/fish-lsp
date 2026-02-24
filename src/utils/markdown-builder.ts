@@ -76,7 +76,6 @@ export namespace md {
 }
 
 //  https://github.com/typescript-language-server/typescript-language-server/blob/master/src/utils/MarkdownString.ts
-
 export const enum MarkdownStringTextNewlineStyle {
   Paragraph = 0,
   Break = 1,
@@ -86,9 +85,10 @@ export class MarkdownBuilder {
   constructor(public value = '') { }
 
   appendText(value: string, newlineStyle: MarkdownStringTextNewlineStyle = MarkdownStringTextNewlineStyle.Paragraph): MarkdownBuilder {
-    this.value += escapeMarkdownSyntaxTokens(value)
-      .replace(/([ \t]+)/g, (_match, g1) => '&nbsp;'.repeat(g1.length))
-      .replace(/\n/g, newlineStyle === MarkdownStringTextNewlineStyle.Break ? '\\\n' : '\n\n');
+    const escaped = escapeMarkdownSyntaxTokens(value);
+    const spacesNormalized = escaped.replace(/([ \t]+)/g, (_match, g1) => '&nbsp;'.repeat(g1.length));
+    const newlineSep = newlineStyle === MarkdownStringTextNewlineStyle.Break ? '\\\n' : '\n\n';
+    this.value += spacesNormalized.split('\n').join(newlineSep);
 
     return this;
   }
@@ -137,6 +137,8 @@ export class MarkdownBuilder {
 }
 
 export function escapeMarkdownSyntaxTokens(text: string): string {
+  // escape backslashes first to avoid double-escaping
+  const str = text.replace(/\\/g, '\\\\');
   // escape markdown syntax tokens: http://daringfireball.net/projects/markdown/syntax#backslash
-  return text.replace(/[\\`*_{}[\]()#+\-!>]/g, '\\$&');
+  return str.replace(/[`*_{}[\]()#+\-!>]/g, '\\$&');
 }
