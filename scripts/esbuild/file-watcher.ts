@@ -1,5 +1,6 @@
 import { spawn, ChildProcess } from 'child_process';
 import { colorize, colors, logger } from './colors';
+import { WatchMode, TargetInfo, getTarget, findTarget, keyboardTargets } from './types';
 import chokidar from 'chokidar';
 import fastGlob from 'fast-glob';
 
@@ -39,24 +40,23 @@ const separator = () => {
   console.log(colorize('━'.repeat(Math.max(90, Number.parseInt(process.env['COLUMNS'] || '89', 10))), colors.blue));
 };
 
-const showHelp = (currentMode?: BuildType) => {
+const showHelp = (currentMode?: WatchMode) => {
   separator();
   console.log(logger.info(' Available Commands:'));
   console.log(` * ${'[H]'.green}          - Show this help`);
   console.log(` * ${'[M]'.blue}          - Switch watch mode`);
   console.log(` * ${'[W]'.magenta}          - Show watched file paths`);
   console.log(` * ${'[Enter|A|R]'.white}  - Run current mode build`);
-  console.log(` * ${'[D]'.cyan}          - Normal rebuild (yarn build)`);
-  console.log(` * ${'[N]'.yellow}          - Node rebuild (yarn dev --npm)`);
-  console.log(` * ${'[B]'.blue}          - Binary-only rebuild (yarn dev --binary)`);
-  console.log(` * ${'[L]'.yellow}          - Lint on change rebuild (yarn dev --lint)`);
-  console.log(` * ${'[T]'.green}          - Test only rebuild (yarn test)`);
-  console.log(` * ${'[Y]'.white}          - Types-only rebuild (yarn dev --types)`);
-  console.log(` * ${'[1-6]'.dim}        - Quick mode switch (1:build, 2:npm, 3:lint, 4:binary, 5:test, 6:types)`);
+  for (const t of keyboardTargets) {
+    const entry = TargetInfo.helpEntry(t);
+    if (entry) {
+      console.log(` * ${entry.key.padEnd(13)[entry.color]}- ${entry.text}`);
+    }
+  }
   console.log(` * ${'[Q|Ctrl+C]'.red}   - Quit watch mode`);
   console.log('');
   if (currentMode) {
-    console.log(` Current Mode: ${getModeDisplayName(currentMode).bgBlue.black.underline.dim}`);
+    console.log(` Current Mode: ${getTarget(currentMode).description.bgBlue.black.underline.dim}`);
   }
   separator();
 };
@@ -65,30 +65,8 @@ const log = (...args: string[]) => {
   console.log(args.join(' '));
 }
 
-const getModeDisplayName = (mode: BuildType): string => {
-
-  switch (mode) {
-    case 'dev':
-      return 'Full Project (yarn build)';
-    case 'binary':
-      return 'Binary Build (yarn dev --binary)';
-    case 'npm':
-      return 'NPM Build (yarn dev --npm)';
-    case 'test':
-      return 'Test Run (yarn test)';
-    case 'types':
-      return 'Types Build (yarn dev --types)';
-    case 'all':
-      return 'All Targets (yarn dev --all)';
-    case 'lint':
-      return 'Lint Fix (yarn lint:fix)';
-    default:
-      return 'Full Project (yarn build)';
-  }
-};
-
-const showKeysReminder = (currentMode?: BuildType) => {
-  const modeText = currentMode ? `[${getModeDisplayName(currentMode)}]` : '';
+const showKeysReminder = (currentMode?: WatchMode) => {
+  const modeText = currentMode ? `[${getTarget(currentMode).description}]` : '';
   console.log(`Press ${"[H]".bgGreen.black.dim} for help, ${"[M]".bgCyan.black.dim} for mode switch, ${"[Enter]".bgBlue.black.dim} to rebuild ${modeText.bgBlue.black.dim}`);
 };
 
@@ -96,16 +74,15 @@ const showKeysReminder = (currentMode?: BuildType) => {
 // Build Manager - Handles all build operations consistently
 // ============================================================================
 
-type BuildType = 'dev' | 'binary' | 'npm' | 'types' | 'all' | 'lint' | 'test';
 type BuildTrigger = 'file-change' | 'manual' | 'mode-switch';
 
 class BuildManager {
   private currentProcess: ChildProcess | null = null;
   private isBuilding = false;
   private buildCount = 0;
-  private currentMode: BuildType = 'dev';
+  private currentMode: WatchMode = 'dev';
 
-  async runBuild(type: BuildType, trigger: BuildTrigger): Promise<void> {
+  async runBuild(type: WatchMode, trigger: BuildTrigger): Promise<void> {
     if (this.isBuilding) {
       console.log(logger.dim('⏳ Build already in progress, please wait...'));
       return;
@@ -114,8 +91,9 @@ class BuildManager {
     this.isBuilding = true;
     this.buildCount++;
 
-    const command = this.getCommandForType(type);
-    const buildName = this.getBuildNameForType(type);
+    const info = getTarget(type);
+    const command = [...info.command];
+    const buildName = info.label;
 
     this.currentMode = type;
 
@@ -172,9 +150,9 @@ class BuildManager {
     });
   }
 
-  private showCompletionMessage(type: BuildType, trigger: BuildTrigger, success: boolean, error?: Error): void {
+  private showCompletionMessage(type: WatchMode, trigger: BuildTrigger, success: boolean, error?: Error): void {
     separator();
-    const buildName = this.getBuildNameForType(type);
+    const buildName = getTarget(type).label;
     this.currentMode = type;
 
     if (success) {
@@ -194,7 +172,7 @@ class BuildManager {
     console.log(`  Build timestamp:`.white, new Date().toLocaleTimeString().yellow);
     console.log(`  Total rebuilds:`.white, `${this.buildCount}`.blue);
     console.log(`  Trigger:`.white, trigger.magenta);
-    console.log(`  Current mode:`.white, getModeDisplayName(this.currentMode).cyan);
+    console.log(`  Current mode:`.white, getTarget(this.currentMode).description.cyan);
 
     separator();
     showKeysReminder(this.currentMode);
@@ -233,55 +211,14 @@ class BuildManager {
     return this.isBuilding;
   }
 
-  get mode(): BuildType {
+  get mode(): WatchMode {
     return this.currentMode;
   }
 
-  setMode(mode: BuildType): void {
+  setMode(mode: WatchMode): void {
     this.currentMode = mode;
   }
 
-  private getCommandForType(type: BuildType): string[] {
-    switch (type) {
-      case 'dev':
-        return ['dev'];
-      case 'binary':
-        return ['dev', '--binary'];
-      case 'npm':
-        return ['dev', '--npm'];
-      case 'types':
-        return ['dev', '--types'];
-      case 'test':
-        return ['test:run'];
-      case 'all':
-        return ['dev', '--all'];
-      case 'lint':
-        return ['lint:fix'];
-      default:
-        return ['build'];
-    }
-  }
-
-  private getBuildNameForType(type: BuildType): string {
-    switch (type) {
-      case 'dev':
-        return 'Full';
-      case 'binary':
-        return 'Binary';
-      case 'npm':
-        return 'NPM';
-      case 'lint':
-        return 'Lint';
-      case 'types':
-        return 'Types';
-      case 'test':
-        return 'Test';
-      case 'all':
-        return 'All Targets';
-      default:
-        return 'Full';
-    }
-  }
 }
 
 // ============================================================================
@@ -465,6 +402,7 @@ class FileWatcher {
 class KeyboardHandler {
   private readonly buildManager: BuildManager;
   private readonly fileWatcher: FileWatcher;
+  private _activePanel: 'help' | 'mode' | null = null;
 
   constructor(buildManager: BuildManager, fileWatcher: FileWatcher) {
     this.buildManager = buildManager;
@@ -485,6 +423,14 @@ class KeyboardHandler {
   private async handleKeyPress(key: string): Promise<void> {
     const keyCode = key.toLowerCase();
 
+    // Mode selection has its own once() handler — ignore main handler input
+    if (this._activePanel === 'mode') return;
+
+    // Any non-help key clears the help panel state
+    if (this._activePanel === 'help' && keyCode !== 'h') {
+      this._activePanel = null;
+    }
+
     switch (keyCode) {
       case '\u0003': // Ctrl+C
       case 'q':
@@ -492,10 +438,17 @@ class KeyboardHandler {
         break;
 
       case 'h':
-        showHelp(this.buildManager.mode);
+        if (this._activePanel === 'help') {
+          this._activePanel = null;
+          showKeysReminder(this.buildManager.mode);
+        } else {
+          this._activePanel = 'help';
+          showHelp(this.buildManager.mode);
+        }
         break;
 
       case 'm':
+        this._activePanel = 'mode';
         await this.showModeSelection();
         break;
 
@@ -510,95 +463,54 @@ class KeyboardHandler {
         await this.buildManager.runBuild(this.buildManager.mode, 'manual');
         break;
 
-      case '1':
-      case 'd':
-        await this.buildManager.runBuild('dev', 'mode-switch');
+      default: {
+        const target = findTarget(keyCode);
+        if (target) {
+          await this.buildManager.runBuild(target.name as WatchMode, 'mode-switch');
+        }
         break;
-
-      case '2':
-      case 'n':
-        await this.buildManager.runBuild('npm', 'mode-switch');
-        break;
-
-      case '3':
-      case 'l':
-        await this.buildManager.runBuild('lint', 'mode-switch');
-        break;
-
-      case '4':
-      case 'b':
-        await this.buildManager.runBuild('binary', 'manual');
-        break;
-
-      case '5':
-      case 't':
-        await this.buildManager.runBuild('test', 'mode-switch');
-        break;
-
-      case '6':
-      case 'y':
-        await this.buildManager.runBuild('types', 'mode-switch');
-        break;
-
-      default:
-        break;
+      }
     }
   }
 
   private async showModeSelection(): Promise<void> {
     console.log('\n' + 'Select Watch Mode:'.bright.underline.magenta + '\n');
-    console.log('\t' + logger.dim('1. Full Project (yarn build)'));
-    console.log('\t' + logger.dim('2. NPM Build (yarn dev --npm)'));
-    console.log('\t' + logger.dim('3. Lint Fix (yarn lint:fix)'));
-    console.log('\t' + logger.dim('4. Binary Build (yarn dev --binary)'));
-    console.log('\t' + logger.dim('5. Tests Build (yarn test:run)'));
-    console.log('\t' + logger.dim('6. Types Build (yarn dev --types)'));
-    console.log('\n\t' + logger.dim('Current: ') + getModeDisplayName(this.buildManager.mode).bgBlue.black.b + '\n');
-    console.log(logger.highlight('Enter number (1-7) or press any other key to cancel:'));
+    for (const t of keyboardTargets) {
+      const entry = TargetInfo.helpEntry(t);
+      if (entry) {
+        console.log(`\t${entry.key.padEnd(10)[entry.color]} ${t.description}`);
+      }
+    }
+    console.log('\n\t' + logger.dim('Current: ') + getTarget(this.buildManager.mode).description.bgBlue.black.b + '\n');
+    console.log(logger.highlight(`Enter number (1-${keyboardTargets.length}) or key to switch, any other key to cancel:`));
 
     // Set up temporary key listener for mode selection
     const modeSelectionHandler = (key: string) => {
       process.stdin.removeListener('data', modeSelectionHandler);
+      this._activePanel = null;
 
-      const choice = key.trim();
-      let newMode: BuildType | null = null;
+      const choice = key.trim().toLowerCase();
 
-      switch (choice) {
-        case '1':
-          newMode = 'dev';
-          break;
-
-        case '2':
-          newMode = 'npm';
-          break;
-
-        case '3':
-          newMode = 'lint';
-          break;
-
-        case '4':
-          newMode = 'binary';
-          break;
-
-        case '5':
-          newMode = 'test';
-          break;
-
-        case '6':
-          newMode = 'types';
-          break;
-
-        default:
-          console.log(logger.dim('Mode selection cancelled.'));
-          showKeysReminder(this.buildManager.mode);
-          return;
+      // 'm' toggles the menu closed
+      if (choice === 'm') {
+        showKeysReminder(this.buildManager.mode);
+        return;
       }
 
-      if (newMode && newMode !== this.buildManager.mode) {
+      const target = findTarget(choice);
+
+      if (!target) {
+        console.log(logger.dim('Mode selection cancelled.'));
+        showKeysReminder(this.buildManager.mode);
+        return;
+      }
+
+      const newMode = target.name as WatchMode;
+      if (newMode !== this.buildManager.mode) {
         this.buildManager.setMode(newMode);
-        console.log(logger.success(`Switched to: ${getModeDisplayName(newMode)}`));
-        console.log(logger.info('File changes will now trigger: ' + getModeDisplayName(newMode)));
-      } else if (newMode === this.buildManager.mode) {
+        console.log(logger.success(`Switched to: ${getTarget(newMode).description}`));
+        console.log(logger.info('File changes will now trigger: ' + getTarget(newMode).description));
+      } else {
         console.log(logger.dim('Already in that mode.'));
       }
 
@@ -629,7 +541,7 @@ class KeyboardHandler {
 // Main Export - Simple interface
 // ============================================================================
 
-export async function startFileWatcher(initialMode: BuildType = 'dev'): Promise<void> {
+export async function startFileWatcher(initialMode: WatchMode = 'dev'): Promise<void> {
   // Create managers
   const buildManager = new BuildManager();
   buildManager.setMode(initialMode);
@@ -712,7 +624,7 @@ export async function startFileWatcher(initialMode: BuildType = 'dev'): Promise<
   keyboardHandler.setup();
 
   console.log(logger.success('File watcher started!'));
-  console.log([`Current mode:`.underline.green, `${getModeDisplayName(buildManager.mode).bgBlue.black.underline.b}`].join(' '));
+  console.log([`Current mode:`.underline.green, `${getTarget(buildManager.mode).description.bgBlue.black.underline.b}`].join(' '));
   separator();
   showKeysReminder(buildManager.mode);
   separator();

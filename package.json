@@ -67,6 +67,7 @@
     "build": "run-s -sn build:all sh:relink sh:build-completions",
     "build:watch": "run-s watch",
     "build:npm": "tsx scripts/esbuild/index.ts --npm",
+    "build:npm:nosourcemaps": "tsx scripts/esbuild/index.ts --npm --sourcemaps=none",
     "build:types": "tsx scripts/esbuild/index.ts --types",
     "build:all": "tsx scripts/esbuild/index.ts --all",
     "dev": "tsx scripts/esbuild/index.ts",

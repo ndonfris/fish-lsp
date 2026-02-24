@@ -1,8 +1,11 @@
 // Build utility functions
 import fs from 'fs-extra';
 import { existsSync, statSync, unlinkSync } from 'fs';
-import { execSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 import { logger, toRelativePath } from './colors';
+
+
+
 
 export function copyDevelopmentAssets(): void {
   if (existsSync('src/snippets')) {

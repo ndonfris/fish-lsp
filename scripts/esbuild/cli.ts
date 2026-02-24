@@ -1,18 +1,18 @@
 // Improved CLI argument parsing
 import { Command } from 'commander';
-import { BuildTarget } from './types';
+import { BuildTarget, WatchMode, SourcemapMode, VALID_WATCH_MODES, VALID_SOURCEMAP_MODES } from './types';
 
 export interface BuildArgs {
   target: BuildTarget;
   watch: boolean;
   watchAll: boolean;
-  watchMode: 'dev' | 'lint' | 'npm' | 'types' | 'binary' | 'all' | 'test';
+  watchMode: WatchMode;
   production: boolean;
   minify: boolean;
   enhanced: boolean;
   fishWasm: boolean;
   typesOnly: boolean;
-  sourcemaps: 'optimized' | 'extended' | 'none' | 'special';
+  sourcemaps: SourcemapMode;
   specialSourceMaps: boolean;
 }
 
@@ -37,6 +37,9 @@ export function parseArgs(): BuildArgs {
     .option('--fish-wasm', 'Create web bundle with full Fish shell via WASM', false)
     .option('--enhanced', 'Use enhanced web build with Fish WASM', false)
     .option('--types', 'Generate TypeScript declaration files only', false)
+    .option('--ci', 'Run CI/CD test on fresh install', false)
+    .option('--fresh', 'fresh install', false)
+    .option('--setup', 'setup & install dependencies without building', false)
     .option('-h, --help', 'Show help message');
 
   program.parse();
@@ -56,12 +59,14 @@ export function parseArgs(): BuildArgs {
   else if (options.npm) target = 'npm';
   else if (options.library) target = 'library';
   else if (options.test) target = 'test';
+  else if (options.ci) target = 'ci';
+  else if (options.fresh) target = 'fresh';
+  else if (options.setup) target = 'setup';
   // else if (options.web || options.fishWasm) target = 'web';
 
   // Validate sourcemaps option
-  const validSourcemaps = ['optimized', 'extended', 'none', 'special'];
-  let sourcemaps = validSourcemaps.includes(options.sourcemaps) 
-    ? options.sourcemaps 
+  let sourcemaps: SourcemapMode = (VALID_SOURCEMAP_MODES as readonly string[]).includes(options.sourcemaps)
+    ? options.sourcemaps
     : 'optimized';
   
   // Override sourcemaps if special flag is used
@@ -70,16 +75,15 @@ export function parseArgs(): BuildArgs {
   }
 
   // Validate watchMode
-  const validWatchModes = ['dev', 'lint', 'npm', 'types', 'binary', 'all', 'test'];
-  if (!validWatchModes.includes(options.mode)) {
-    throw new Error(`Invalid watch mode: ${options.mode}. Must be one of: ${validWatchModes.join(', ')}`);
+  if (!(VALID_WATCH_MODES as readonly string[]).includes(options.mode)) {
+    throw new Error(`Invalid watch mode: ${options.mode}. Must be one of: ${VALID_WATCH_MODES.join(', ')}`);
   }
 
   return {
     target,
     watch: options.watch,
     watchAll: options.watchAll,
-    watchMode: options.mode as 'dev' | 'lint' | 'npm' | 'types' | 'binary' | 'all' | 'test',
+    watchMode: options.mode as WatchMode,
     production: options.production,
     minify: options.minify,
     enhanced: options.enhanced,
@@ -104,6 +108,9 @@ Options:
   --fish-wasm         Create web bundle with full Fish shell via WASM (large bundle, not yet supported)
   --enhanced          Use enhanced web build with Fish WASM
   --types             Generate TypeScript declaration files only
+  --ci                Run CI/CD test on fresh install (installs from npm and runs test build)
+  --fresh             Fresh install (installs from npm and runs test build, same as --ci)
+  --setup             Setup & install dependencies without building (installs from npm and exits)
   --all               Build all targets: development, binary, npm
   --production, -p    Production build (minified, optimized sourcemaps)
   --minify, -m        Minify output
@@ -151,6 +158,9 @@ export function showCompletions(): void {
   console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l fish-wasm -d "Create web bundle with full Fish shell via WASM"`);
   console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l enhanced -d "Use enhanced web build with Fish WASM"`);
   console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l types -d "Generate TypeScript declaration files only"`);
+  console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l ci -d "Run CI/CD tests on fresh install"`);
+  console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l fresh -d "Reinstall with fresh dependencies"`);
+  console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l setup -d "Reinstall with fresh dependencies && build required dependencies (no build targets)"`);
   console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l production -d "Production build (minified, optimized sourcemaps)"`);
   console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l minify -d "Minify output"`);
   console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l special-source-maps -d "Enable special sourcemap processing (src files only with content)"`);
