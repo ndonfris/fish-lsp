@@ -109,7 +109,7 @@ export async function getDiagnosticsAsync(
       const parent = findParentCommand(node);
       if (parent && isCommandWithName(parent, 'set', 'test')) {
         const opt = isCommandWithName(parent, 'test') ? Option.short('-n') : Option.create('-q', '--query');
-        let text = isString(node) ? node.text.slice(1, -1) : node.text;
+        let text = getFishStringValue(node);
         if (text.startsWith('$')) text = text.slice(1);
         if (text && text.length !== 0) {
           const scope = findParent(node, n => isScope(n));

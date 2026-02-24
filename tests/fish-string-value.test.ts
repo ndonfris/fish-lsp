@@ -17,7 +17,7 @@
 
 import Parser from 'web-tree-sitter';
 import { initializeParser } from '../src/parser';
-import { getFishStringValue } from '../src/utils/translation';
+import { getFishStringValue, parseFishString } from '../src/utils/translation';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -68,4 +68,45 @@ describe('getFishStringValue – issue #140 input cases', () => {
       expect(getFishStringValue(node)).toBe('mas');
     });
   }
+});
+
+// ---------------------------------------------------------------------------
+// parseFishString – string-only variant (no SyntaxNode needed)
+// ---------------------------------------------------------------------------
+
+describe('parseFishString – issue #140 input cases (string-only variant)', () => {
+  const cases: { input: string; description: string; }[] = [
+    { input: 'mas', description: 'unquoted word' },
+    { input: "'mas'", description: 'single-quoted string' },
+    { input: '"mas"', description: 'double-quoted string' },
+    { input: '\\mas', description: 'backslash before first character' },
+    { input: '\\ma\\s', description: 'backslash before first and last chars' },
+    { input: 'ma\\s', description: 'backslash before last character' },
+  ];
+
+  for (const { input, description } of cases) {
+    it(`parseFishString("${input}") === "mas"  [${description}]`, () => {
+      expect(parseFishString(input)).toBe('mas');
+    });
+  }
+
+  it('resolves \\n to newline', () => {
+    expect(parseFishString('\\n')).toBe('\n');
+  });
+
+  it('resolves \\t to tab', () => {
+    expect(parseFishString('\\t')).toBe('\t');
+  });
+
+  it('resolves \\\\ to a single backslash', () => {
+    expect(parseFishString('\\\\')).toBe('\\');
+  });
+
+  it('strips single quotes from quoted string', () => {
+    expect(parseFishString("'hello world'")).toBe('hello world');
+  });
+
+  it('strips double quotes from quoted string', () => {
+    expect(parseFishString('"hello world"')).toBe('hello world');
+  });
 });

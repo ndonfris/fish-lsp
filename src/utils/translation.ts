@@ -402,6 +402,36 @@ function unescapeFishEscapeSequence(seq: string): string {
 }
 
 /**
+ * Extracts the unescaped string value from a plain fish shell text string,
+ * without needing access to the SyntaxNode.
+ *
+ * Useful when you only have a string (e.g. from diagnostic data, a document
+ * range, or command output) rather than a SyntaxNode.
+ * For SyntaxNode inputs prefer `getFishStringValue`.
+ *
+ * Handles the same surface forms:
+ *   `'mas'`   → `"mas"`   (strips single quotes)
+ *   `"mas"`   → `"mas"`   (strips double quotes)
+ *   `\mas`    → `"mas"`   (resolves escape sequences)
+ *   `\ma\s`   → `"mas"`   (resolves multiple escape sequences)
+ *   `ma\s`    → `"mas"`   (resolves trailing escape sequence)
+ *   `mas`     → `"mas"`   (plain string, returned as-is)
+ */
+export function parseFishString(text: string): string {
+  if (text.length >= 2) {
+    if (text.startsWith("'") && text.endsWith("'")) return text.slice(1, -1);
+    if (text.startsWith('"') && text.endsWith('"')) return text.slice(1, -1);
+  }
+  // Resolve escape sequences in unquoted / concatenation-style text.
+  // The alternation is ordered longest-first so greedy patterns like \uXXXX
+  // are matched before the catch-all single-character branch.
+  return text.replace(
+    /\\(u[0-9a-fA-F]{1,4}|U[0-9a-fA-F]{1,8}|x[0-9a-fA-F]{1,2}|o[0-7]{1,3}|c[a-zA-Z]|[\s\S])/g,
+    (seq) => unescapeFishEscapeSequence(seq),
+  );
+}
+
+/**
  * Extracts the unescaped string value from a fish shell syntax node.
  *
  * Fish strings can appear in multiple forms that all denote the same value:
