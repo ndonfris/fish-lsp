@@ -404,4 +404,3 @@ export function findUnreachableCode(root: SyntaxNode): SyntaxNode[] {
 
   return unreachable;
 }
-

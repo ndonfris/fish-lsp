@@ -626,4 +626,3 @@ export function isKnownCommand(commandName: string, doc: LspDocument): boolean {
 
   return false;
 }
-

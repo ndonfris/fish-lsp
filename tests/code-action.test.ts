@@ -646,4 +646,3 @@ function isMatchingCompletionOption(node: SyntaxNode) {
     || isMatchingOption(node, Option.create('-a', '--arguments').withMultipleValues())
     || isMatchingOption(node, Option.create('-n', '--condition').withValue());
 }
-

@@ -202,4 +202,3 @@ describe('FishSymbol parsing functions tests', () => {
     });
   });
 });
-

@@ -612,4 +612,3 @@ export function isNodeCoveredByTokens(node: SyntaxNode, tokens: SemanticToken[])
 
   return false;
 }
-

@@ -130,4 +130,3 @@ export type FishSymbolInput = Pick<FishSymbol,
   selectionRange?: Range;
   options?: Option[];
 };
-

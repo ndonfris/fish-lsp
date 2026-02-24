@@ -203,4 +203,3 @@ export function processExportCommand(document: LspDocument, node: SyntaxNode, ch
     }),
   ];
 }
-

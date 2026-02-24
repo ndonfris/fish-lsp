@@ -52,7 +52,8 @@
     "fish_files/*.fish",
     "src",
     "src/types/embedded-assets.d.ts",
-    "tests"
+    "tests",
+    "eslint.config.ts"
   ],
   "exclude": [
     "node_modules",

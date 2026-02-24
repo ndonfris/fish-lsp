@@ -17,6 +17,7 @@ export default tseslint.config(
       'lib/*.d.ts',
       'release-assets/',
       'vitest.config.ts',
+      'eslint.config.ts',
     ],
   },
   {
@@ -35,7 +36,7 @@ export default tseslint.config(
       },
       parserOptions: {
         projectService: true,
-        tsconfigRootDir: import.meta.dirname,
+        tsconfigRootDir: __dirname,
       },
     },
     rules: {
@@ -70,7 +71,7 @@ export default tseslint.config(
       '@stylistic/no-extra-parens': 'error',
       '@stylistic/no-extra-semi': 'error',
       '@stylistic/no-multi-spaces': ['error', { ignoreEOLComments: true }],
-      '@stylistic/no-multiple-empty-lines': ['error', { max: 1 }],
+      '@stylistic/no-multiple-empty-lines': ['error', { max: 1, maxEOF: 0 }],
       '@stylistic/no-tabs': 'error',
       '@stylistic/no-trailing-spaces': 'error',
       '@stylistic/nonblock-statement-body-position': ['warn', 'beside', { overrides: { while: 'below' } }],

@@ -8,7 +8,7 @@
   "include": [
     "package.json",
     "src",
-    "eslint.config.mts",
+    "eslint.config.ts",
     "commitlint.config.ts",
     "tests",
     "scripts/fish-commands-scrapper.ts"

@@ -233,4 +233,3 @@ function createArgparseDiagnostic(
   }
   return diagnostics;
 }
-
