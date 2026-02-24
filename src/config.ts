@@ -218,9 +218,17 @@ export const toNumber = (s?: string | number): number | undefined =>
       : typeof s === 'string' ? parseInt(s, 10) : parseInt(String(s), 10) || undefined;
 
 function buildOutput(confd: boolean, result: string[]) {
+  // there has to be a `env` index
+  const envIndex = process.argv.findIndex(s => s === 'env');
+
+  // get the cli command used to generate the env output,
+  // which will be included in the comments of the output if `confd` is true
+  const command = ['fish-lsp', ...process.argv.slice(envIndex)].join(' ').trimEnd();
+
+  // only show built by line if confd, otherwise show result only
   return confd
     ? [
-      '# built by `fish-lsp env --confd`',
+      `# built by \`${command}\``,
       'type -aq fish-lsp || exit',
       'if status is-interactive',
       result.map(line =>
