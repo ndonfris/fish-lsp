@@ -1,8 +1,13 @@
-import { vi } from 'vitest';
+import { vi, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { env } from 'process';
+
+// Define global fail function
+global.fail = (message?: string) => {
+  expect.fail(message || 'Test failed');
+};
 
 // Use actual WASM files for tree-sitter functionality in tests
 vi.mock('web-tree-sitter/tree-sitter.wasm', () => ({
