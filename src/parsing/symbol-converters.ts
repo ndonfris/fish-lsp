@@ -139,4 +139,3 @@ export namespace SymbolConverters {
   };
 
 }
-

@@ -1273,4 +1273,3 @@ describe('find definition locations of symbols', () => {
     });
   });
 });
-

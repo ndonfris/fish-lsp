@@ -495,4 +495,3 @@ export function processCompletion(document: LspDocument, node: SyntaxNode) {
   }
   return result;
 }
-

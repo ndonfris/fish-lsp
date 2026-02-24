@@ -145,4 +145,3 @@ describe('parsing $fish_lsp_* definitions & evaluating their values', () => {
   //   });
   // });
 });
-

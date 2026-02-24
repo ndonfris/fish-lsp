@@ -128,4 +128,3 @@ describe('diagnostics with missing completions', () => {
     });
   });
 });
-

@@ -116,4 +116,3 @@ function canRenameWithNewText(analyzer: Analyzer, doc: LspDocument, position: Po
   if (oldText && isFlag(oldText) && !isEqualFlags(oldText, newText)) return false;
   return true;
 }
-

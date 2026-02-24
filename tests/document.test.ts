@@ -312,4 +312,3 @@ complete -c complex_function -s h -l help    -d "show help message"`),
     });
   });
 });
-

@@ -54,4 +54,3 @@ if (isBrowserEnvironment()) {
     process.exit(1);
   });
 }
-

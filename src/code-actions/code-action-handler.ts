@@ -328,4 +328,3 @@ export function codeActionHandlers() {
     onCodeActionResolveCallback: createOnCodeActionResolveHandler(),
   };
 }
-

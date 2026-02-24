@@ -308,4 +308,3 @@ export function processAliasCommand(document: LspDocument, node: SyntaxNode, chi
     }),
   ];
 }
-
