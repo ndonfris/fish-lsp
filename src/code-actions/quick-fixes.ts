@@ -8,7 +8,8 @@ import { SupportedCodeActionKinds } from './action-kinds';
 import { logger } from '../logger';
 import { analyzer, Analyzer } from '../analyze';
 import { getRange } from '../utils/tree-sitter';
-import { getFishStringValue, pathToRelativeFunctionName, uriToPath, uriToReadablePath } from '../utils/translation';
+import { pathToRelativeFunctionName, uriToPath, uriToReadablePath } from '../utils/translation';
+import { FishString } from '../parsing/string';
 import { findParentCommand, isAliasDefinitionName, isArgparseVariableDefinitionName, isConditionalCommand, isFunctionDefinition, isFunctionDefinitionName, isVariableDefinitionName } from '../utils/node-types';
 
 /**
@@ -528,7 +529,7 @@ function handleFilenameMismatch(diagnostic: Diagnostic, node: SyntaxNode, docume
 }
 
 function handleCompletionFilenameMismatch(diagnostic: Diagnostic, node: SyntaxNode, document: LspDocument): CodeAction | undefined {
-  const functionName = getFishStringValue(node);
+  const functionName = FishString.fromNode(node);
   const newUri = document.uri.replace(/[^/]+\.fish$/, `${functionName}.fish`);
   if (document.getAutoloadType() !== 'completions') {
     return;

@@ -1,8 +1,8 @@
 /**
- * Unit tests for `getFishStringValue` (src/utils/translation.ts)
+ * Unit tests for `FishString` (src/parsing/string.ts)
  *
  * Verifies that every fish-shell surface representation of the string `mas`
- * is reduced to the bare value `"mas"` by the utility function.
+ * is reduced to the bare value `"mas"` by `FishString.fromNode` and `FishString.fromText`.
  *
  * Input forms tested (from issue #140):
  *   mas       – plain unquoted word            (node type: word)
@@ -17,7 +17,7 @@
 
 import Parser from 'web-tree-sitter';
 import { initializeParser } from '../src/parser';
-import { getFishStringValue, parseFishString } from '../src/utils/translation';
+import { FishString } from '../src/parsing/string';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -45,10 +45,10 @@ function getCommandArgNode(input: string): Parser.SyntaxNode {
 }
 
 // ---------------------------------------------------------------------------
-// Suite
+// FishString.fromNode
 // ---------------------------------------------------------------------------
 
-describe('getFishStringValue – issue #140 input cases', () => {
+describe('FishString.fromNode – issue #140 input cases', () => {
   beforeAll(async () => {
     parser = await initializeParser();
   });
@@ -63,18 +63,18 @@ describe('getFishStringValue – issue #140 input cases', () => {
   ];
 
   for (const { input, description } of cases) {
-    it(`getFishStringValue("${input}") === "mas"  [${description}]`, () => {
+    it(`FishString.fromNode("${input}") === "mas"  [${description}]`, () => {
       const node = getCommandArgNode(input);
-      expect(getFishStringValue(node)).toBe('mas');
+      expect(FishString.fromNode(node)).toBe('mas');
     });
   }
 });
 
 // ---------------------------------------------------------------------------
-// parseFishString – string-only variant (no SyntaxNode needed)
+// FishString.fromText – string-only variant (no SyntaxNode needed)
 // ---------------------------------------------------------------------------
 
-describe('parseFishString – issue #140 input cases (string-only variant)', () => {
+describe('FishString.fromText – issue #140 input cases (string-only variant)', () => {
   const cases: { input: string; description: string; }[] = [
     { input: 'mas', description: 'unquoted word' },
     { input: "'mas'", description: 'single-quoted string' },
@@ -85,28 +85,84 @@ describe('parseFishString – issue #140 input cases (string-only variant)', () 
   ];
 
   for (const { input, description } of cases) {
-    it(`parseFishString("${input}") === "mas"  [${description}]`, () => {
-      expect(parseFishString(input)).toBe('mas');
+    it(`FishString.fromText("${input}") === "mas"  [${description}]`, () => {
+      expect(FishString.fromText(input)).toBe('mas');
     });
   }
 
   it('resolves \\n to newline', () => {
-    expect(parseFishString('\\n')).toBe('\n');
+    expect(FishString.fromText('\\n')).toBe('\n');
   });
 
   it('resolves \\t to tab', () => {
-    expect(parseFishString('\\t')).toBe('\t');
+    expect(FishString.fromText('\\t')).toBe('\t');
   });
 
   it('resolves \\\\ to a single backslash', () => {
-    expect(parseFishString('\\\\')).toBe('\\');
+    expect(FishString.fromText('\\\\')).toBe('\\');
   });
 
   it('strips single quotes from quoted string', () => {
-    expect(parseFishString("'hello world'")).toBe('hello world');
+    expect(FishString.fromText("'hello world'")).toBe('hello world');
   });
 
   it('strips double quotes from quoted string', () => {
-    expect(parseFishString('"hello world"')).toBe('hello world');
+    expect(FishString.fromText('"hello world"')).toBe('hello world');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FishString.parse – convenience overload (SyntaxNode | string)
+// ---------------------------------------------------------------------------
+
+describe('FishString.parse – dispatches to fromNode or fromText based on input type', () => {
+  beforeAll(async () => {
+    parser = await initializeParser();
+  });
+
+  it('accepts a plain string and strips single quotes', () => {
+    expect(FishString.parse("'mas'")).toBe('mas');
+  });
+
+  it('accepts a plain string and strips double quotes', () => {
+    expect(FishString.parse('"mas"')).toBe('mas');
+  });
+
+  it('accepts a plain string and resolves escape sequences', () => {
+    expect(FishString.parse('\\mas')).toBe('mas');
+  });
+
+  it('accepts a plain string unquoted — returns as-is', () => {
+    expect(FishString.parse('mas')).toBe('mas');
+  });
+
+  it('accepts a SyntaxNode (word) and returns its text', () => {
+    const node = getCommandArgNode('mas');
+    expect(FishString.parse(node)).toBe('mas');
+  });
+
+  it('accepts a SyntaxNode (single_quote_string) and strips quotes', () => {
+    const node = getCommandArgNode("'mas'");
+    expect(FishString.parse(node)).toBe('mas');
+  });
+
+  it('accepts a SyntaxNode (concatenation) and resolves escapes', () => {
+    const node = getCommandArgNode('\\mas');
+    expect(FishString.parse(node)).toBe('mas');
+  });
+
+  it('produces the same result as fromText when given a string', () => {
+    const inputs = ['mas', "'mas'", '"mas"', '\\mas', '\\ma\\s', 'ma\\s'];
+    for (const input of inputs) {
+      expect(FishString.parse(input)).toBe(FishString.fromText(input));
+    }
+  });
+
+  it('produces the same result as fromNode when given a SyntaxNode', () => {
+    const inputs = ['mas', "'mas'", '"mas"', '\\mas', '\\ma\\s', 'ma\\s'];
+    for (const input of inputs) {
+      const node = getCommandArgNode(input);
+      expect(FishString.parse(node)).toBe(FishString.fromNode(node));
+    }
   });
 });

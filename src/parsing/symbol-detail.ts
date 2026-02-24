@@ -3,7 +3,8 @@ import { FishSymbol, fishSymbolKindToSymbolKind } from './symbol';
 import { md } from '../utils/markdown-builder';
 import { findOptions } from './options';
 import { findFunctionDefinitionChildren, FunctionOptions } from './function';
-import { getFishStringValue, uriToReadablePath, uriToPath } from '../utils/translation';
+import { uriToReadablePath, uriToPath } from '../utils/translation';
+import { FishString } from './string';
 import { PrebuiltDocumentationMap } from '../utils/snippets';
 import { setModifierDetailDescriptor, SetModifiers } from './set';
 import { SyntaxNode } from 'web-tree-sitter';
@@ -125,7 +126,7 @@ function buildFunctionDetail(symbol: FishSymbol) {
   const description = [`(${md.bold('function')}) ${md.inlineCode(name)}`];
   if (descriptionOption && descriptionOption.value) {
     description.push(
-      getFishStringValue(descriptionOption.value),
+      FishString.fromNode(descriptionOption.value),
     );
   }
 

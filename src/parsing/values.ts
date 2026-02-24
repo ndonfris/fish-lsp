@@ -1,7 +1,7 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { FishSymbol } from './symbol';
 import { isMatchingOption, isString } from '../utils/node-types';
-import { getFishStringValue } from '../utils/translation';
+import { FishString } from './string';
 import { config } from '../config';
 import { findSetChildren } from './set';
 import { Option } from './options';
@@ -49,7 +49,7 @@ export namespace LocalFishLspDocumentVariable {
   }
 
   export function nodeToShellValue(node: SyntaxNode): string {
-    return SyncFileHelper.expandEnvVars(getFishStringValue(node));
+    return SyncFileHelper.expandEnvVars(FishString.fromNode(node));
   }
 
   export const eraseOption = Option.create('-e', '--erase');

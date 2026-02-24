@@ -13,7 +13,8 @@ import { processAliasCommand } from './alias';
 import { createDetail } from './symbol-detail';
 import { config } from '../config';
 import { flattenNested } from '../utils/flatten';
-import { getFishStringValue, uriToPath } from '../utils/translation';
+import { uriToPath } from '../utils/translation';
+import { FishString } from './string';
 import { isCommand, isCommandWithName, isEmptyString, isFunctionDefinitionName, isVariableDefinitionName } from '../utils/node-types';
 import { SyncFileHelper } from '../utils/file-operations';
 import { isExportVariableDefinitionName, processExportCommand } from './export';
@@ -480,7 +481,7 @@ export class FishSymbol {
    */
   valuesAsShellValues() {
     return this.findValueNodes().map(node => {
-      return SyncFileHelper.expandEnvVars(getFishStringValue(node));
+      return SyncFileHelper.expandEnvVars(FishString.fromNode(node));
     });
   }
 
