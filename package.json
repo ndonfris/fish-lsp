@@ -175,7 +175,7 @@
     ]
   },
   "dependencies": {
-    "@esdmr/tree-sitter-fish": "^3.6.0",
+    "@esdmr/tree-sitter-fish": "^3.7.0",
     "chalk": "^5.6.2",
     "commander": "^12.1.0",
     "fast-glob": "^3.3.3",
