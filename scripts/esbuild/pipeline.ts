@@ -3,7 +3,8 @@ import esbuild from 'esbuild';
 import { BuildArgs } from './cli';
 import { logger } from './colors';
 import { buildConfigs, createBuildOptions } from './configs';
-import { copyDevelopmentAssets, ensureDirectoryExists, generateTypeDeclarations, makeExecutable, showBuildStats, showDirectorySize } from './utils';
+import { copyDevelopmentAssets, ensureDirectoryExists, generateTypeDeclarations, isFileEmpty, makeExecutable, showBuildStats, showDirectorySize } from './utils';
+
 
 interface BuildStep {
   name: string;
@@ -87,18 +88,42 @@ class BuildPipeline {
 // Build step definitions
 const pipeline = new BuildPipeline()
   .register({
+    name: "Fresh Install",
+    priority: 3,
+    tags: ['fresh', 'ci', 'setup'],
+    runner: async () => {
+      console.log(logger.info('Performing fresh install...'));
+      execSync('yarn install --frozen-lockfile', { stdio: 'inherit' });
+    },
+  })
+  .register({
     name: 'Build Time',
     priority: 5,
-    tags: ['all', 'dev', 'binary', 'npm', 'types', 'lint'],
+    tags: ['all', 'dev', 'binary', 'npm', 'types', 'lint', "fresh", 'ci', 'setup'],
     timing: true,
     runner: async () => {
       execSync('node ./scripts/build-time', { stdio: 'inherit' });
     },
   })
   .register({
+    name: 'Required Files',
+    priority: 10,
+    tags: ['all', 'dev', 'binary', 'npm', "fresh", "ci", 'setup'],
+    runner: async () => {
+      ensureDirectoryExists('man');
+      ensureDirectoryExists('src/snippets');
+      if (isFileEmpty(`man/fish-lsp.1`) || isFileEmpty('src/snippets/helperCommands.json')) {
+        execSync('yarn generate:man && yarn generate:snippets --write', { stdio: 'inherit' });
+        showBuildStats('man/fish-lsp.1', 'Man file');
+        showBuildStats('src/snippets/helperCommands.json', 'Helper Commands Snippets');
+      }
+      console.log(logger.success('  Required files are up to date'));
+    }
+  })
+  .register({
     name: 'Development',
     priority: 20,
-    tags: ['all', 'dev', 'development', 'npm'],
+    tags: ['all', 'dev', 'development', 'npm', "ci"],
     timing: true,
     runner: async (args) => {
       const config = buildConfigs.development;
@@ -112,7 +137,7 @@ const pipeline = new BuildPipeline()
   .register({
     name: 'TypeScript Declarations',
     priority: 25,
-    tags: ['all', 'types', 'dev', 'npm'],
+    tags: ['all', 'types', 'dev', 'npm', 'fresh', "ci"],
     timing: true,
     runner: async () => {
       generateTypeDeclarations();
@@ -124,12 +149,14 @@ const pipeline = new BuildPipeline()
   .register({
     name: 'NPM Package',
     priority: 30,
-    tags: ['all', 'npm', 'dev'],
+    tags: ['all', 'npm', 'dev', 'fresh', "ci"],
     timing: true,
     runner: async (args) => {
       const config = buildConfigs.npm;
       ensureDirectoryExists('dist');
-      const buildOptions = createBuildOptions(config, args.production || args.minify);
+      // Only override sourcemaps when explicitly changed from the CLI default
+      const sourcemaps = args.sourcemaps !== 'optimized' ? args.sourcemaps : undefined;
+      const buildOptions = createBuildOptions(config, args.production || args.minify, sourcemaps);
       await esbuild.build(buildOptions);
     },
     postBuild: async () => {
@@ -149,7 +176,8 @@ const pipeline = new BuildPipeline()
     runner: async (args) => {
       const config = buildConfigs.binary;
       ensureDirectoryExists('bin');
-      const buildOptions = createBuildOptions(config, args.production || args.minify);
+      const sourcemaps = args.sourcemaps !== 'optimized' ? args.sourcemaps : undefined;
+      const buildOptions = createBuildOptions(config, args.production || args.minify, sourcemaps);
       await esbuild.build(buildOptions);
     },
     postBuild: async () => {
@@ -162,21 +190,26 @@ const pipeline = new BuildPipeline()
     },
   })
   .register({
-    name: 'Test Suite',
+    name: 'Lint Check',
     priority: 60,
-    tags: ['test'],
+    tags: ['lint', "ci"],
     timing: true,
     runner: async () => {
-      execSync('yarn test:run', { stdio: 'inherit' });
+      try {
+        execSync('yarn lint:fix', { stdio: 'inherit' });
+      } catch (error) {
+        console.log(logger.warning('Lint check failed. Attempting to fix issues...'));
+        execSync('yarn lint:check', { stdio: 'inherit' });
+      }
     },
   })
   .register({
-    name: 'Lint Check',
+    name: 'Test Suite',
     priority: 70,
-    tags: ['lint'],
+    tags: ['test', "ci"],
     timing: true,
     runner: async () => {
-      execSync('yarn lint:fix', { stdio: 'inherit' });
+      execSync('yarn test:run', { stdio: 'inherit' });
     },
   });
 

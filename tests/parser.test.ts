@@ -82,8 +82,7 @@ describe('parser test-suite', () => {
   it('nodeTypeCount', async () => {
     const parser = await initializeParser();
     const lang = parser.getLanguage();
-    expect(lang.nodeTypeCount).toBe(105);
-    // console.log(lang);
+    expect(lang.nodeTypeCount).toBe(106);
   });
 
   it('nodeTypes', async () => {

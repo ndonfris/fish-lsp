@@ -8,7 +8,8 @@
 #   - fish-lsp.standalone                                  (standalone binary -- bundled dependencies into a single executable, npm package will be smaller)
 #   - fish-lsp.standalone.extra-assets.tar                 (standalone w/ sourcemaps, manpage, completions, and TypeScript declarations)
 #   - fish-lsp.tgz                                         (npm packaged tarball)
-#   - fish-lsp.1                                           (man page) 
+#   - fish-lsp.no-sourcemaps.tgz                           (npm packaged tarball, no sourcemaps)
+#   - fish-lsp.1                                           (man page)
 #   - fish-lsp.fish                                        (shell completions)
 #
 # Usage:
@@ -78,6 +79,12 @@ log_info '' '[INFO]' 'Project built successfully!'
 log_info '' '[INFO]' 'Creating npm package tarball...'
 yarn pack --filename release-assets/fish-lsp.tgz --silent
 or fail 'Failed to create npm package tarball.'
+
+log_info '' '[INFO]' 'Creating npm package tarball (no sourcemaps)...'
+yarn build:npm:nosourcemaps &>/dev/null
+or fail 'Failed to build npm package without sourcemaps.'
+yarn pack --filename release-assets/fish-lsp.no-sourcemaps.tgz --silent
+or fail 'Failed to create npm package tarball (no sourcemaps).'
 
 log_info '' '[INFO]' 'Creating standalone binary...'
 yarn build:all &>/dev/null

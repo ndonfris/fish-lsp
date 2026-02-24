@@ -1,8 +1,11 @@
 // Build utility functions
 import fs from 'fs-extra';
 import { existsSync, statSync, unlinkSync } from 'fs';
-import { execSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 import { logger, toRelativePath } from './colors';
+
+
+
 
 export function copyDevelopmentAssets(): void {
   if (existsSync('src/snippets')) {
@@ -57,6 +60,15 @@ export function showDirectorySize(dirPath: string, label?: string): void {
 
   const displayLabel = label || dirPath;
   console.log(logger.size(`${displayLabel} total`, formatBytes(totalSize)));
+}
+
+export function isFileEmpty(filePath: string): boolean {
+  if (!existsSync(filePath)) {
+    return true;
+  }
+  
+  const stats = statSync(filePath);
+  return stats.size === 0;
 }
 
 export function generateTypeDeclarations(): void {

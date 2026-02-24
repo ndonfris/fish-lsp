@@ -2,7 +2,7 @@
 import esbuild from 'esbuild';
 import { resolve } from 'path';
 import { createPlugins, createDefines, PluginOptions, createSourceMapOptimizationPlugin, createSpecialSourceMapPlugin } from './plugins';
-import { BuildConfigTarget } from "./types";
+import { BuildConfigTarget, SourcemapMode } from "./types";
 
 export interface BuildConfig extends esbuild.BuildOptions {
   name: string;
@@ -109,7 +109,7 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
   },
 };
 
-export function createBuildOptions(config: BuildConfig, production = false, sourcemapsMode: 'optimized' | 'extended' | 'none' | 'special' | 'inline' | 'inline-optimized' = 'inline-optimized'): esbuild.BuildOptions {
+export function createBuildOptions(config: BuildConfig, production = false, sourcemapsMode: SourcemapMode | 'inline' | 'inline-optimized' = 'inline-optimized'): esbuild.BuildOptions {
   // Configure sourcemaps based on mode
   const shouldGenerateSourceMaps = config.sourcemap !== false && sourcemapsMode !== 'none';
   const isInlineMode = sourcemapsMode === 'inline' || sourcemapsMode === 'inline-optimized';
