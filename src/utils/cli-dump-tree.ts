@@ -562,9 +562,10 @@ export async function cliDumpSymbolTree(document: LspDocument, useColors: boolea
   const symbols = processNestedTree(document, ...rootNode.children);
 
   // Determine root label from document URI
+  // const uriPath = document.uri.replace(/^file:\/\//, '');
   let rootLabel = document.uri.includes('stdin')
     ? `/proc/${process.pid}/fd/0`
-    : path.resolve(document.getFileName());
+    : document.getFilePath();
 
   rootLabel = rootLabel.replace(os.homedir(), '~');
 
