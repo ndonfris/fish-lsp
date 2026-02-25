@@ -7,7 +7,7 @@ import { configHandlers, config, updateHandlers, validHandlers, Config, handleEn
 import { ConnectionOptions, ConnectionType, createConnectionType, maxWidthForOutput, startServer, timeServerStartup } from './utils/startup';
 import { performHealthCheck } from './utils/health-check';
 import { setupProcessEnvExecFile } from './utils/process-env';
-import { handleCLiDumpParseTree, handleCLiDumpSemanticTokens } from './utils/cli-dump-tree';
+import { handleCLiDumpParseTree, handleCLiDumpSemanticTokens, handleCLiDumpSymbolTree } from './utils/cli-dump-tree';
 import PackageJSON from '@package';
 import chalk from 'chalk';
 import vfs from './virtual-fs';
@@ -204,7 +204,9 @@ commandBin.command('info')
   .option('--status', 'show the status of all the source-maps available to the server (use with --source-maps)', false)
   .option('--dump-parse-tree [FILE]', 'dump the tree-sitter parse tree of a file (reads from stdin if no file provided)', undefined)
   .option('--dump-semantic-tokens [FILE]', 'dump the semantic tokens of a file (reads from stdin if no file provided)', undefined)
-  .option('--no-color', 'disable color output for --dump-parse-tree and --dump-semantic-tokens', false)
+  .option('--dump-symbol-tree [FILE]', 'dump the symbol tree of a file (reads from stdin if no file provided)', undefined)
+  .option('--no-color', 'disable color output for --dump-parse-tree, --dump-semantic-tokens, and --dump-symbol-tree', false)
+  .option('--no-icons', 'use plain text tags (f/v/e) instead of nerdfont icons for --dump-symbol-tree')
   .option('--virtual-fs', 'show the virtual filesystem structure (like tree command)', false)
   .allowUnknownOption(false)
   // .allowExcessArguments(false)
@@ -236,6 +238,11 @@ commandBin.command('info')
 
     if (args.dumpSemanticTokens) {
       const status = await handleCLiDumpSemanticTokens(args);
+      process.exit(status);
+    }
+
+    if (args.dumpSymbolTree) {
+      const status = await handleCLiDumpSymbolTree(args);
       process.exit(status);
     }
 
