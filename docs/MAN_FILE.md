@@ -17,11 +17,11 @@ Documentation below shows usage of the `fish-lsp` command, including its subcomm
 
 ## OPTIONS  
   
-`-v` or `--version`                 Show version information and exit.  
-`-h` or `--help`                    Show help message and exit.  
-`--help-all`                      Show all the help information  
-`--help-short`                    Show shortened help message  
-`--help-man`                      Show manpage output  
+`-v` or `--version`                Show version information and exit.  
+`-h` or `--help`                   Show help message and exit.  
+`--help-all`                     Show all the help information  
+`--help-short`                   Show shortened help message  
+`--help-man`                     Show manpage output  
 
 ## SUBCOMMANDS
 
@@ -89,28 +89,28 @@ show the build info of fish-lsp
 
 show a helpful url related to the fish-lsp  
   
-  `--repo` or `--git`                 show the github repo  
-  `--npm`                           show the npm package url  
-  `--homepage`                      show the homepage  
-  `--contributions`                 show the contributions url  
-  `--wiki`                          show the github wiki  
-  `--issues` or `--report`            show the issues page  
-  `--discussions`                   show the discussions page  
-  `--clients-repo`                  show the clients configuration repo  
-  `--sources`                       show a list of helpful sources  
+  `--repo` or `--git`                show the github repo  
+  `--npm`                          show the npm package url  
+  `--homepage`                     show the homepage  
+  `--contributions`                show the contributions url  
+  `--wiki`                         show the github wiki  
+  `--issues` or `--report`           show the issues page  
+  `--discussions`                  show the discussions page  
+  `--clients-repo`                 show the clients configuration repo  
+  `--sources`                      show a list of helpful sources  
 
 ### `complete`
 
 Provide completions for the `fish-lsp`  
   
-  `--names`                         show the feature names of the completions  
-  `--toggles`                       show the feature names of the completions  
-  `--fish`                          show fish script  
-  `--features`                      show features  
-  `--env-variables`                 show env variable completions  
-  `--env-variable-names`            show env variable names  
-  `--names-with-summary`            show the names with the summary for the completions  
-  `--abbreviations`                 show the 'fish-lsp' subcommand abbreviations  
+  `--names`                        show the feature names of the completions  
+  `--toggles`                      show the feature names of the completions  
+  `--fish`                         show fish script  
+  `--features`                     show features  
+  `--env-variables`                show env variable completions  
+  `--env-variable-names`           show env variable names  
+  `--names-with-summary`           show the names with the summary for the completions  
+  `--abbreviations`                show the 'fish-lsp' subcommand abbreviations  
 
 ## EXAMPLES
 
