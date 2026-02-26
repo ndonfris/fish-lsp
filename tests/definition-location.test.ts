@@ -1,17 +1,22 @@
 import * as os from 'os';
+import { mkdirSync, rmSync, writeFileSync } from 'fs';
+import { join } from 'path';
 import * as Parser from 'web-tree-sitter';
 import { analyzer, Analyzer } from '../src/analyze';
 import { initializeParser } from '../src/parser';
 import { execCommandLocations } from '../src/utils/exec';
+import { env } from '../src/utils/env-manager';
 // import { currentWorkspace, findCurrentWorkspace, workspaces } from '../src/utils/workspace';
 import { workspaceManager } from '../src/utils/workspace-manager';
-import { createFakeLspDocument, createTestWorkspace, setLogger } from './helpers';
+import { createFakeLspDocument, setLogger } from './helpers';
 import { getRange } from '../src/utils/tree-sitter';
+import { pathToUri } from '../src/utils/translation';
 import { isMatchingOption, Option } from '../src/parsing/options';
 import { isCompletionCommandDefinition, isCompletionDefinitionWithName, isCompletionSymbol } from '../src/parsing/complete';
 import { isCommandWithName, isOption } from '../src/utils/node-types';
 import { isArgparseVariableDefinitionName } from '../src/parsing/argparse';
 import { getReferences } from '../src/references';
+import TestWorkspace, { TestFile } from './test-workspace-utils';
 
 let parser: Parser;
 // let currentWorkspace: CurrentWorkspace = new CurrentWorkspace();
@@ -30,89 +35,68 @@ describe('find definition locations of symbols', () => {
   });
 
   describe('find analyzed symbol location', () => {
-    it('should find symbol location', async () => {
-      const documents = createTestWorkspace(
-        analyzer,
-        {
-          path: 'functions/test.fish',
-          text: [
+    describe('symbol location', () => {
+      const workspace = TestWorkspace.create()
+        .addFiles(
+          TestFile.function('test', [
             'function test',
             '  echo "hello"',
             'end',
-          ],
-        },
-        {
-          path: 'functions/test2.fish',
-          text: [
+          ].join('\n')),
+          TestFile.function('test2', [
             'function test2',
             '  echo "hello"',
             'end',
-          ],
-        },
-      );
-      const doc = documents.at(0)!;
-      const symbols = analyzer.getFlatDocumentSymbols(doc.uri);
-      expect(symbols).toHaveLength(2);
+          ].join('\n')),
+        ).initialize();
+
+      it('should find symbol location', async () => {
+        const doc = workspace.getDocument('functions/test.fish')!;
+        const symbols = analyzer.getFlatDocumentSymbols(doc.uri);
+        expect(symbols).toHaveLength(2);
+      });
     });
 
-    it('should find test location', () => {
-      const documents = createTestWorkspace(
-        analyzer,
-        {
-          path: 'functions/test.fish',
-          text: [
+    describe('function call location', () => {
+      const workspace = TestWorkspace.create()
+        .addFiles(
+          TestFile.function('test', [
             'function test',
             '  echo "hello"',
             'end',
-          ],
-        },
-        {
-          path: 'functions/test2.fish',
-          text: [
+          ].join('\n')),
+          TestFile.function('test2', [
             'function test2',
             '  echo "hello"',
             'end',
-          ],
-        },
-        {
-          path: 'functions/test3.fish',
-          text: [
+          ].join('\n')),
+          TestFile.function('test3', [
             'function test3',
             '  test',
             'end',
-          ],
-        },
-      );
-      expect(documents).toHaveLength(3);
-      const doc = documents.at(-1)!;
-      const nodes = analyzer.getNodes(doc.uri);
-      const node = nodes.find((n) => n.type === 'command' && n.text === 'test')!;
-      // console.log('node', {
-      //   text: node?.text,
-      //   type: node?.type,
-      //   start: getRange(node).start,
-      //   end: getRange(node).end,
-      // });
-      const defLocations = analyzer.getDefinitionLocation(doc, getRange(node).start);
-      expect(defLocations).toHaveLength(1);
-      const def = defLocations.at(0)!;
-      // console.log('def', {
-      //   uri: def?.uri,
-      //   range: def?.range,
-      // });
-      expect(def.uri).toBe(documents.at(0)!.uri);
-      expect(def.range.start.line).toBe(0);
-      expect(def.range.start.character).toBe(9);
-      expect(def.range.end.line).toBe(0);
-      expect(def.range.end.character).toBe(13);
+          ].join('\n')),
+        ).initialize();
+
+      it('should find test location', () => {
+        expect(workspace.documents).toHaveLength(3);
+        const doc = workspace.getDocument('functions/test3.fish')!;
+        const nodes = analyzer.getNodes(doc.uri);
+        const node = nodes.find((n) => n.type === 'command' && n.text === 'test')!;
+        const defLocations = analyzer.getDefinitionLocation(doc, getRange(node).start);
+        expect(defLocations).toHaveLength(1);
+        const def = defLocations.at(0)!;
+        expect(def.uri).toBe(workspace.getDocument('functions/test.fish')!.uri);
+        expect(def.range.start.line).toBe(0);
+        expect(def.range.start.character).toBe(9);
+        expect(def.range.end.line).toBe(0);
+        expect(def.range.end.character).toBe(13);
+      });
     });
 
-    it('should find completion location', () => {
-      const documents = createTestWorkspace(
-        analyzer,
-        {
-          path: 'functions/test.fish',
-          text: [
+    describe('completion location', () => {
+      const workspace = TestWorkspace.create()
+        .addFiles(
+          TestFile.function('test', [
             'function test',
             '  argparse --stop-nonopt h/help name= q/quiet v/version y/yes n/no -- $argv',
             '  or return',
@@ -136,50 +120,84 @@ describe('find definition locations of symbols', () => {
             '  end',
             '  echo $argv',
             'end',
-          ],
-        },
-        {
-          path: 'completions/test.fish',
-          text: [
+          ].join('\n')),
+          TestFile.completion('test', [
             'complete -c test -s h -l help',
             'complete -c test      -l name',
             'complete -c test -s q -l quiet',
             'complete -c test -s v -l version',
             'complete -c test -s y -l yes',
             'complete -c test -s n -l no',
-          ],
-        },
-      );
-      expect(documents).toHaveLength(2);
-      const functionDoc = documents.at(0)!;
-      const completionDoc = documents.at(1)!;
-      expect(functionDoc).toBeDefined();
-      expect(completionDoc).toBeDefined();
-      const functionSymbols = analyzer.getFlatDocumentSymbols(functionDoc.uri);
-      expect(functionSymbols).toHaveLength(13);
-      // expect(completionSymbols).toHaveLength(6);
-      const searchNode = analyzer.getNodes(completionDoc.uri).find(n => isCompletionSymbol(n) && n.text === 'help');
-      const result = analyzer.getDefinitionLocation(completionDoc, getRange(searchNode!).start);
-      const resultUri = result[0]?.uri;
-      // console.log({
-      //   uri: result[0]?.uri,
-      //   range: result[0]?.range,
-      // })
-      if (!resultUri) {
-        console.log('resultUri is undefined');
-        fail();
-        return;
-      }
-      expect(result).toHaveLength(1);
-      expect(resultUri).toBe(functionDoc.uri);
+          ].join('\n')),
+        ).initialize();
+
+      it('should find completion location', () => {
+        expect(workspace.documents).toHaveLength(2);
+        const functionDoc = workspace.getDocument('functions/test.fish')!;
+        const completionDoc = workspace.getDocument('completions/test.fish')!;
+        expect(functionDoc).toBeDefined();
+        expect(completionDoc).toBeDefined();
+        const functionSymbols = analyzer.getFlatDocumentSymbols(functionDoc.uri);
+        expect(functionSymbols).toHaveLength(13);
+        const searchNode = analyzer.getNodes(completionDoc.uri).find(n => isCompletionSymbol(n) && n.text === 'help');
+        const result = analyzer.getDefinitionLocation(completionDoc, getRange(searchNode!).start);
+        const resultUri = result[0]?.uri;
+        if (!resultUri) {
+          console.log('resultUri is undefined');
+          fail();
+          return;
+        }
+        expect(result).toHaveLength(1);
+        expect(resultUri).toBe(functionDoc.uri);
+      });
     });
 
-    it.skip('should find --flag-name location', () => {
-      const documents = createTestWorkspace(
-        analyzer,
-        {
-          path: 'functions/test.fish',
-          text: [
+    describe('command fallback location', () => {
+      const commandName = 'test_external_command_definition';
+      const workspace = TestWorkspace.create()
+        .addFiles(
+          TestFile.function('caller', [
+            'function caller',
+            `  ${commandName}`,
+            'end',
+          ].join('\n')),
+        ).initialize();
+
+      it('should resolve command via fish_function_path when no symbol definition exists', () => {
+        const originalFunctionPath = env.get('fish_function_path');
+        const tempFunctionsDir = join(os.tmpdir(), `fish-lsp-def-loc-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+        const commandPath = join(tempFunctionsDir, `${commandName}.fish`);
+
+        mkdirSync(tempFunctionsDir, { recursive: true });
+        writeFileSync(commandPath, [
+          `function ${commandName}`,
+          '  echo "external"',
+          'end',
+        ].join('\n'));
+
+        try {
+          env.set('fish_function_path', tempFunctionsDir);
+          const callerDoc = workspace.getDocument('functions/caller.fish')!;
+          const commandNode = analyzer.getNodes(callerDoc.uri)
+            .find(n => n.type === 'command' && n.text === commandName);
+          expect(commandNode).toBeDefined();
+
+          const result = analyzer.getDefinitionLocation(callerDoc, getRange(commandNode!).start);
+          expect(result).toHaveLength(1);
+          expect(result[0]?.uri).toBe(pathToUri(commandPath));
+          expect(result[0]?.range.start.line).toBe(0);
+          expect(result[0]?.range.start.character).toBe(0);
+        } finally {
+          env.set('fish_function_path', originalFunctionPath);
+          rmSync(tempFunctionsDir, { recursive: true, force: true });
+        }
+      });
+    });
+
+    describe.skip('--flag-name location', () => {
+      const workspace = TestWorkspace.create()
+        .addFiles(
+          TestFile.function('test', [
             'function test',
             '  argparse --stop-nonopt h/help name= q/quiet v/version y/yes n/no -- $argv',
             '  or return',
@@ -203,151 +221,122 @@ describe('find definition locations of symbols', () => {
             '  end',
             '  echo $argv',
             'end',
-          ],
-        },
-        {
-          path: 'completions/test.fish',
-          text: [
+          ].join('\n')),
+          TestFile.completion('test', [
             'complete -c test -s h -l help',
             'complete -c test      -l name',
             'complete -c test -s q -l quiet',
             'complete -c test -s v -l version',
             'complete -c test -s y -l yes',
             'complete -c test -s n -l no',
-          ],
-        },
-        {
-          path: 'conf.d/test.fish',
-          text: [
+          ].join('\n')),
+          TestFile.confd('test', [
             'function __test',
             '   test --yes',
             'end',
-          ],
+          ].join('\n')),
+        ).initialize();
+
+      it('should find --flag-name location', () => {
+        expect(workspace.documents).toHaveLength(3);
+        const functionDoc = workspace.getDocument('functions/test.fish')!;
+        const completionDoc = workspace.getDocument('completions/test.fish')!;
+        const confdDoc = workspace.getDocument('conf.d/test.fish')!;
+        expect(functionDoc).toBeDefined();
+        expect(completionDoc).toBeDefined();
+        expect(confdDoc).toBeDefined();
+        const nodeAtPoint = analyzer.nodeAtPoint(confdDoc.uri, 1, 10);
+        const completionNode = analyzer.findNode((n, doc) => {
+          if (doc?.uri === completionDoc.uri && n.parent && isCompletionCommandDefinition(n.parent)) {
+            return n.text === 'yes';
+          }
+          return false;
+        });
+        const funcNode = analyzer.findNode((n, doc) => {
+          if (doc?.uri === functionDoc.uri && isArgparseVariableDefinitionName(n) && n.text.includes('yes')) {
+            return true;
+          }
+          return false;
+        });
+
+        console.log('testNode', {
+          uri: confdDoc.uri,
+          line: 1,
+          character: 10,
+          node: nodeAtPoint?.type,
+          text: nodeAtPoint?.text,
         },
-      );
-      expect(documents).toHaveLength(3);
-      const functionDoc = documents.at(0)!;
-      const completionDoc = documents.at(1)!;
-      const confdDoc = documents.at(2)!;
-      expect(functionDoc).toBeDefined();
-      expect(completionDoc).toBeDefined();
-      expect(confdDoc).toBeDefined();
-      const nodeAtPoint = analyzer.nodeAtPoint(confdDoc.uri, 1, 10);
-      const completionNode = analyzer.findNode((n, doc) => {
-        if (doc?.uri === completionDoc.uri && n.parent && isCompletionCommandDefinition(n.parent)) {
-          return n.text === 'yes';
-        }
-        return false;
-      });
-      const funcNode = analyzer.findNode((n, doc) => {
-        if (doc?.uri === functionDoc.uri && isArgparseVariableDefinitionName(n) && n.text.includes('yes')) {
-          return true;
-        }
-        return false;
-      });
-
-      console.log('testNode', {
-        uri: confdDoc.uri,
-        line: 1,
-        character: 10,
-        node: nodeAtPoint?.type,
-        text: nodeAtPoint?.text,
-      },
-      'completionNode',
-      {
-        uri: completionDoc.uri,
-        line: completionNode!.startPosition.row,
-        character: completionNode!.startPosition.column,
-        node: completionNode!.type,
-        text: completionNode!.text,
-      },
-      'funcNode',
-      {
-        uri: functionDoc.uri,
-        line: funcNode!.startPosition.row,
-        character: funcNode!.startPosition.column,
-        node: funcNode!.type,
-        text: funcNode!.text,
-      },
-      );
-      if (nodeAtPoint && isOption(nodeAtPoint)) {
-        const result = getReferences(confdDoc, getRange(nodeAtPoint).start);
-        result.forEach(loc => {
-          console.log('location', {
-            uri: loc.uri,
-            range: loc.range.start,
+        'completionNode',
+        {
+          uri: completionDoc.uri,
+          line: completionNode!.startPosition.row,
+          character: completionNode!.startPosition.column,
+          node: completionNode!.type,
+          text: completionNode!.text,
+        },
+        'funcNode',
+        {
+          uri: functionDoc.uri,
+          line: funcNode!.startPosition.row,
+          character: funcNode!.startPosition.column,
+          node: funcNode!.type,
+          text: funcNode!.text,
+        },
+        );
+        if (nodeAtPoint && isOption(nodeAtPoint)) {
+          const result = getReferences(confdDoc, getRange(nodeAtPoint).start);
+          result.forEach(loc => {
+            console.log('location', {
+              uri: loc.uri,
+              range: loc.range.start,
+            });
           });
-        });
-        expect(result).toHaveLength(4);
-        const symbol = analyzer.findSymbol((s) => {
-          if (s.parent && s.fishKind === 'ARGPARSE') {
-            return nodeAtPoint.parent?.firstNamedChild?.text === s.parent?.name &&
-              s.parent?.isGlobal() &&
-              nodeAtPoint.text.startsWith(s.argparseFlag);
-          }
-          return false;
-        });
-        // console.log({
-        //   symbol: symbol?.name,
-        //   uri: symbol?.uri,
-        //   range: symbol?.selectionRange,
-        // });
+          expect(result).toHaveLength(4);
+          const symbol = analyzer.findSymbol((s) => {
+            if (s.parent && s.fishKind === 'ARGPARSE') {
+              return nodeAtPoint.parent?.firstNamedChild?.text === s.parent?.name &&
+                s.parent?.isGlobal() &&
+                nodeAtPoint.text.startsWith(s.argparseFlag);
+            }
+            return false;
+          });
 
-        if (!symbol) {
-          console.log('symbol not found');
-          return;
+          if (!symbol) {
+            console.log('symbol not found');
+            return;
+          }
+          const parentName = symbol.parent?.name || '';
+          const matchingNodes = analyzer.findNodes((n, document) => {
+            if (
+              isCompletionDefinitionWithName(n, parentName, document!)
+              && n.text === symbol.argparseFlagName
+            ) {
+              return true;
+            }
+            if (
+              n.parent
+              && isCommandWithName(n.parent, parentName)
+              && isOption(n)
+              && isMatchingOption(n, Option.fromRaw(symbol?.argparseFlag))
+            ) {
+              return true;
+            }
+            if (
+              document!.uri === symbol.uri
+              && symbol.scopeContainsNode(n)
+              && n.text === symbol.name
+            ) {
+              return true;
+            }
+            return false;
+          });
+          for (const { uri, nodes } of matchingNodes) {
+            console.log(`nodes ${uri}`);
+            console.log(nodes.map(n => n.text));
+          }
+          expect(true).toBeTruthy();
         }
-        const parentName = symbol.parent?.name || '';
-        const matchingNodes = analyzer.findNodes((n, document) => {
-          // complete -c parentName -s ... -l flag-name
-          if (
-            isCompletionDefinitionWithName(n, parentName, document!)
-            && n.text === symbol.argparseFlagName
-          ) {
-            return true;
-          }
-          // parentName --flag-name
-          if (
-            n.parent
-            && isCommandWithName(n.parent, parentName)
-            && isOption(n)
-            && isMatchingOption(n, Option.fromRaw(symbol?.argparseFlag))
-          ) {
-            return true;
-          }
-          // _flag_name in scope
-          if (
-            document!.uri === symbol.uri
-            && symbol.scopeContainsNode(n)
-            && n.text === symbol.name
-          ) {
-            return true;
-          }
-          return false;
-        });
-        for (const { uri, nodes } of matchingNodes) {
-          console.log(`nodes ${uri}`);
-          console.log(nodes.map(n => n.text));
-        }
-        // const completionNodes = getGlobalArgparseLocations(analyzer, functionDoc, symbol);
-        // for (const { uri, range } of completionNodes) {
-        //   console.log(`completion ${uri}`);
-        //   console.log(range);
-        // }
-        expect(true).toBeTruthy();
-      }
-      // const functionSymbols = analyzer.getFlatDocumentSymbols(functionDoc.uri);
-      // const completionSymbols = analyzer.getFlatCompletionSymbols(completionDoc.uri);
-      // const confdNodes = analyzer.findNodes((n) => {
-      //   if (n.parent && isCommandWithName(n.parent, 'test') && isOption(n) && isMatchingOption(n, Option.create('-y', '--yes'))) {
-      //     return true;
-      //   }
-      //   return false;
-      // });
-      // for (const { uri, nodes } of confdNodes) {
-      //   console.log(`confd ${uri}`);
-      //   console.log(nodes.map(n => n.text));
-      // }
+      });
     });
   });
 
