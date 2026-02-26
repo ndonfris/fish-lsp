@@ -2,6 +2,7 @@ import * as Locations from '../utils/locations';
 import { SyntaxNode } from 'web-tree-sitter';
 import { FishSymbol } from './symbol';
 import { LspDocument } from '../document';
+import { analyzer } from '../analyze';
 import { equalRanges, getChildNodes, getRange } from '../utils/tree-sitter';
 import { isEmittedEventDefinitionName } from './emit';
 import { findParentCommand, findParentFunction, isArgumentThatCanContainCommandCalls, isCommand, isCommandWithName, isEndStdinCharacter, isFunctionDefinition, isFunctionDefinitionName, isOption, isString, isVariable, isVariableDefinitionName } from '../utils/node-types';
@@ -56,7 +57,21 @@ const checkEventReference: ReferenceCheck = ({ symbol, node }) => {
 // Scope validation for local symbols
 const isInValidScope: ReferenceCheck = ({ symbol, document, node }) => {
   if (symbol.isLocal() && !symbol.isArgparse()) {
-    return symbol.scopeContainsNode(node) && symbol.uri === document.uri;
+    // Same-document: use existing scope containment check
+    if (symbol.uri === document.uri) {
+      return symbol.scopeContainsNode(node);
+    }
+    // Cross-document: only allow if symbol is in a --no-scope-shadowing function
+    // AND the node is also in a --no-scope-shadowing function (or at program scope)
+    if (symbol.parent?.isFunctionWithNoScopeShadowing()) {
+      const enclosingFunc = findParentFunction(node);
+      if (!enclosingFunc || !isFunctionDefinition(enclosingFunc)) {
+        return true; // node is at program/global scope
+      }
+      const funcName = enclosingFunc.childForFieldName('name')?.text;
+      return !!(funcName && analyzer.noScopeShadowing.has(funcName));
+    }
+    return false;
   }
   return true;
 };
@@ -231,12 +246,38 @@ const checkFunctionReference: ReferenceCheck = ({ symbol, node }) => {
   return symbol.name === node.text && symbol.scopeContainsNode(node);
 };
 
+/**
+ * Checks if a cross-file variable reference is valid by verifying that the
+ * candidate node is inside a --no-scope-shadowing function (transparent scope)
+ * or at program/global scope. The symbol must also be in a transparent-scope
+ * function or be global.
+ */
+function isValidCrossFileVariableReference(symbol: FishSymbol, node: SyntaxNode): boolean {
+  const enclosingFunc = findParentFunction(node);
+  // Node is at program/global scope (not inside any function)
+  if (!enclosingFunc || !isFunctionDefinition(enclosingFunc)) {
+    return symbol.isGlobal();
+  }
+  // Node is inside a function — it must be --no-scope-shadowing
+  const funcName = enclosingFunc.childForFieldName('name')?.text;
+  if (!funcName || !analyzer.noScopeShadowing.has(funcName)) {
+    return false;
+  }
+  // Accept if symbol is also in a --no-scope-shadowing function or is global
+  return symbol.parent?.isFunctionWithNoScopeShadowing() || symbol.isGlobal();
+}
+
 // Variable-specific reference checking
 const checkVariableReference: ReferenceCheck = ({ symbol, node }) => {
   if (!symbol.isVariable() || node.text !== symbol.name) return false;
 
-  // Check if the node is a variaable definition with the same name
-  if (isVariable(node) || isVariableDefinitionName(node)) return true;
+  // Check if the node is a variable definition or reference with the same name
+  if (isVariable(node) || isVariableDefinitionName(node)) {
+    // Same-file: scope was already validated by isInValidScope
+    if (symbol.scopeContainsNode(node)) return true;
+    // Cross-file: verify both sides have transparent scope
+    return isValidCrossFileVariableReference(symbol, node);
+  }
 
   const parentNode = node.parent ? findParentCommand(node) : null;
 
@@ -253,7 +294,9 @@ const checkVariableReference: ReferenceCheck = ({ symbol, node }) => {
     if (isVariableDefinitionName(node)) return symbol.name === node.text;
   }
 
-  return symbol.name === node.text && symbol.scopeContainsNode(node);
+  if (symbol.name !== node.text) return false;
+  if (symbol.scopeContainsNode(node)) return true;
+  return isValidCrossFileVariableReference(symbol, node);
 };
 
 // Main reference checker that composes all the checks

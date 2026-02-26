@@ -492,6 +492,11 @@ function isSymbolLocalToDocument(symbol: FishSymbol): boolean {
     }
   }
 
+  // variables inside --no-scope-shadowing functions can be referenced cross-file
+  if (symbol.isVariable() && symbol.parent?.isFunctionWithNoScopeShadowing()) {
+    return false;
+  }
+
   // symbols that are not explicitly defined as global, will reach this point
   // thus, we consider them local to the document
   return true;
@@ -817,7 +822,10 @@ export const getFilteredLocalSymbols = (definitionSymbol: FishSymbol, doc: LspDo
           && !definitionSymbol.equalScopes(s)
           // && !s.parent?.equals(definitionSymbol?.parent || definitionSymbol)
           && s.name === definitionSymbol.name
-          && s.kind === definitionSymbol.kind,
+          && s.kind === definitionSymbol.kind
+          // variables inside --no-scope-shadowing functions don't shadow
+          // the caller's variables — they share the same scope
+          && !s.parent?.isFunctionWithNoScopeShadowing(),
       );
   }
   if (doc.uri === definitionSymbol.uri) return [];

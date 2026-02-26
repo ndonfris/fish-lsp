@@ -141,6 +141,17 @@ export class FishSymbol {
   }
 
   /**
+   * Checks if the symbol is a function definition with the `--no-scope-shadowing` option, which means that
+   * the function does not create a new scope and can be shadowed by variables in the same scope. This is used
+   * to determine if a function symbol should be considered a match for a variable reference in the same scope.
+   */
+  public isFunctionWithNoScopeShadowing() {
+    if (!this.isFunction()) return false;
+    if (this.options.some(option => option.isOption('-S', '--no-scope-shadowing'))) return true;
+    return false;
+  }
+
+  /**
    * Returns the `argparse flag-name` for the symbol `_flag_flag_name`
    */
   public get argparseFlagName() {

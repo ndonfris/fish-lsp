@@ -294,6 +294,11 @@ export class Analyzer {
    */
   public globalSymbols: GlobalDefinitionCache = new GlobalDefinitionCache();
 
+  /**
+   * Cache of functions declared with `--no-scope-shadowing`, keyed by function name.
+   */
+  public noScopeShadowing: NoScopeShadowingCache = new NoScopeShadowingCache();
+
   public started = false;
 
   public diagnostics: BufferedAsyncDiagnosticCache = new BufferedAsyncDiagnosticCache();
@@ -363,12 +368,14 @@ export class Analyzer {
     const analyzedDocument = this.getAnalyzedDocument(document);
     this.cache.setDocument(document.uri, analyzedDocument);
 
-    // Remove old global symbols for this document before adding new ones
+    // Remove old symbols for this document before adding new ones
     this.globalSymbols.removeSymbolsByUri(document.uri);
+    this.noScopeShadowing.removeSymbolsByUri(document.uri);
 
-    // Add new global symbols
+    // Add new global symbols and no-scope-shadowing functions
     for (const symbol of iterateNested(...analyzedDocument.documentSymbols)) {
       if (symbol.isGlobal()) this.globalSymbols.add(symbol);
+      if (symbol.isFunctionWithNoScopeShadowing()) this.noScopeShadowing.add(symbol);
     }
     return analyzedDocument;
   }
@@ -378,6 +385,7 @@ export class Analyzer {
    */
   public removeDocumentSymbols(uri: string): void {
     this.globalSymbols.removeSymbolsByUri(uri);
+    this.noScopeShadowing.removeSymbolsByUri(uri);
     this.cache.clear(uri);
   }
 
@@ -840,7 +848,73 @@ export class Analyzer {
       });
       if (symbol) return symbol;
     }
-    return symbols.pop() || null;
+    const result = symbols.pop() || null;
+    // For variables inside --no-scope-shadowing functions, resolve to the root
+    // definition in the caller chain
+    if (result?.isVariable() && result.parent?.isFunctionWithNoScopeShadowing()) {
+      return this.resolveNoScopeShadowingDefinition(result);
+    }
+    return result;
+  }
+
+  /**
+   * For a variable inside a `--no-scope-shadowing` function, walk up the call
+   * chain to find the root definition. Since `--no-scope-shadowing` functions
+   * share their caller's scope, the "true" definition is in the topmost caller
+   * that also defines the same variable.
+   *
+   * @param varSymbol - a variable symbol whose parent is a --no-scope-shadowing function
+   * @returns the root definition symbol, or the input symbol if no caller chain exists
+   */
+  public resolveNoScopeShadowingDefinition(varSymbol: FishSymbol): FishSymbol {
+    if (!varSymbol.isVariable() || !varSymbol.parent?.isFunctionWithNoScopeShadowing()) {
+      return varSymbol;
+    }
+
+    let currentFunc = varSymbol.parent;
+    let rootVar = varSymbol;
+    const visited = new Set<string>();
+
+    while (currentFunc) {
+      visited.add(currentFunc.name);
+
+      // Find a --no-scope-shadowing function that calls currentFunc
+      const caller = this.findNoScopeShadowingCaller(currentFunc.name, visited);
+      if (!caller) break;
+
+      // Check if the caller also defines the same variable
+      const callerSymbols = this.getFlatDocumentSymbols(caller.uri);
+      const callerVar = callerSymbols.find(s =>
+        s.name === varSymbol.name
+        && s.isVariable()
+        && s.parent?.name === caller.name,
+      );
+      if (!callerVar) break;
+
+      // Move up the chain
+      rootVar = callerVar;
+      currentFunc = caller;
+    }
+
+    return rootVar;
+  }
+
+  /**
+   * Search all `--no-scope-shadowing` functions for one that calls the given
+   * function name (i.e., contains a command node with that name in its body).
+   */
+  private findNoScopeShadowingCaller(funcName: string, visited: Set<string>): FishSymbol | null {
+    for (const callerFunc of this.noScopeShadowing.allSymbols) {
+      if (visited.has(callerFunc.name)) continue;
+
+      // Scan the caller's scope node for command calls matching funcName
+      for (const node of nodesGen(callerFunc.scopeNode)) {
+        if (isCommand(node) && node.firstNamedChild?.text === funcName) {
+          return callerFunc;
+        }
+      }
+    }
+    return null;
   }
 
   /**
@@ -1426,6 +1500,66 @@ class GlobalDefinitionCache {
       }
     });
     return unique;
+  }
+  get allSymbols(): FishSymbol[] {
+    const all: FishSymbol[] = [];
+    for (const [_, symbols] of this._definitions.entries()) {
+      all.push(...symbols);
+    }
+    return all;
+  }
+  get allNames(): string[] {
+    return [...this._definitions.keys()];
+  }
+  get map(): Map<string, FishSymbol[]> {
+    return this._definitions;
+  }
+}
+
+/**
+ * @local
+ * @class NoScopeShadowingCache
+ *
+ * @summary Cache for functions declared with `--no-scope-shadowing`. These functions
+ * do not create a new variable scope, so variables inside them are accessible to the
+ * caller and vice versa.
+ *
+ * The internal map uses the function name as the key, and the value is an array
+ * of FishSymbol's (one per workspace/file where the function is defined).
+ *
+ * @see {@link analyzer.noScopeShadowing} the globally accessible location of this class
+ */
+class NoScopeShadowingCache {
+  constructor(private _definitions: Map<string, FishSymbol[]> = new Map()) { }
+  add(symbol: FishSymbol): void {
+    const current = this._definitions.get(symbol.name) || [];
+    if (!current.some(s => s.equals(symbol))) {
+      current.push(symbol);
+    }
+    this._definitions.set(symbol.name, current);
+  }
+  removeSymbolsByUri(uri: string): void {
+    for (const [name, symbols] of this._definitions.entries()) {
+      const filtered = symbols.filter(symbol => symbol.uri !== uri);
+      if (filtered.length === 0) {
+        this._definitions.delete(name);
+      } else {
+        this._definitions.set(name, filtered);
+      }
+    }
+  }
+  find(name: string): FishSymbol[] {
+    return this._definitions.get(name) || [];
+  }
+  findFirst(name: string): FishSymbol | undefined {
+    const symbols = this.find(name);
+    if (symbols.length === 0) {
+      return undefined;
+    }
+    return symbols[0];
+  }
+  has(name: string): boolean {
+    return this._definitions.has(name);
   }
   get allSymbols(): FishSymbol[] {
     const all: FishSymbol[] = [];
