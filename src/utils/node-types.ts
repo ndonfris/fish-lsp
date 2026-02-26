@@ -146,6 +146,38 @@ export function isDefinition(node: SyntaxNode): boolean {
 }
 
 /**
+ * Checks whether a node is in a position that can define a symbol name.
+ *
+ * This is intentionally broader than `isDefinitionName()` and includes:
+ * - variable/function/alias definition names
+ * - emitted event names (`emit EVENT_NAME`)
+ * - completion command targets and option symbols
+ *   (`complete -c CMD -s short -l long -o old`)
+ */
+export function isPossibleDefinitionName(node: SyntaxNode): boolean {
+  if (!node || !node.isNamed) return false;
+
+  if (isDefinitionName(node) || isEmittedEventDefinitionName(node)) {
+    return true;
+  }
+
+  if (isOption(node) || !node.parent || !isCommandWithName(node.parent, 'complete')) {
+    return false;
+  }
+
+  const previousSibling = node.previousNamedSibling;
+  if (!previousSibling) return false;
+
+  return isMatchingOption(
+    previousSibling,
+    Option.create('-c', '--command').withValue(),
+    Option.create('-s', '--short-option').withValue(),
+    Option.create('-l', '--long-option').withValue(),
+    Option.create('-o', '--old-option').withValue(),
+  );
+}
+
+/**
  * checks if a node is the firstNamedChild of a command
  */
 export function isCommandName(node: SyntaxNode): boolean {

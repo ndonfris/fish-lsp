@@ -613,21 +613,17 @@ export default class FishServer {
     const progress = await connection.window.createWorkDoneProgress();
 
     const defSymbol = analyzer.getDefinition(doc, params.position);
-    if (!defSymbol) {
-      logger.log('onReferences: no definition found at position', params.position);
-      return [];
-    }
 
-    const results = getReferences(defSymbol.document, defSymbol.toPosition(), {
-      reporter: progress,
-    });
+    const results = defSymbol
+      ? getReferences(defSymbol.document, defSymbol.toPosition(), { reporter: progress })
+      : getReferences(doc, params.position, { reporter: progress });
 
     logger.info({
       onReferences: 'found references',
-      uri: defSymbol.uri,
+      uri: defSymbol?.uri ?? doc.uri,
       count: results.length,
       position: params.position,
-      symbol: defSymbol.name,
+      symbol: defSymbol?.name ?? 'prebuilt',
     });
 
     if (results.length === 0) {

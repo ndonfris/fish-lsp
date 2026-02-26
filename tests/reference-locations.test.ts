@@ -235,6 +235,51 @@ describe('find definition locations of symbols', () => {
     });
   });
 
+  describe('variable reference edge cases', () => {
+    const workspace = TestWorkspace.create().addFiles(
+      {
+        relativePath: 'conf.d/variable-reference-edge-cases.fish',
+        content: [
+          'set bar baz',
+          'bar',
+          '$bar',
+          'set -q bar',
+          'set -e bar[1]',
+        ].join('\n'),
+      },
+    ).initialize();
+
+    it('does not treat bare command names as variable references', () => {
+      const doc = workspace.getDocument('conf.d/variable-reference-edge-cases.fish')!;
+      const definitionNode = analyzer.getNodes(doc.uri).find(n =>
+        n.text === 'bar' && isVariableDefinitionName(n),
+      )!;
+      expect(definitionNode).toBeDefined();
+
+      const refs = getReferences(doc, getRange(definitionNode).start);
+      const refLines = new Set(refs.map(loc => loc.range.start.line));
+
+      expect(refLines.has(1)).toBeFalsy();
+    });
+
+    it('includes $bar and set -q/-e targets as variable references', () => {
+      const doc = workspace.getDocument('conf.d/variable-reference-edge-cases.fish')!;
+      const definitionNode = analyzer.getNodes(doc.uri).find(n =>
+        n.text === 'bar' && isVariableDefinitionName(n),
+      )!;
+      expect(definitionNode).toBeDefined();
+
+      const refs = getReferences(doc, getRange(definitionNode).start);
+      const refLines = new Set(refs.map(loc => loc.range.start.line));
+
+      expect(refs).toHaveLength(4);
+      expect(refLines.has(0)).toBeTruthy();
+      expect(refLines.has(2)).toBeTruthy();
+      expect(refLines.has(3)).toBeTruthy();
+      expect(refLines.has(4)).toBeTruthy();
+    });
+  });
+
   describe('alias', () => {
     const workspace = TestWorkspace.create().addFiles(
       {
@@ -840,9 +885,11 @@ describe('find definition locations of symbols', () => {
         n => isVariable(n) && n.type === 'variable_name',
       );
       expect(variableNodes.length).toBe(4);
+      // Prebuilt variables (status, argv, pipestatus) now correctly return
+      // references via the prebuilt variable fallback, so they will have ≥1 ref
       variableNodes.forEach(node => {
         const refs = getReferences(configDoc, getRange(node).start);
-        expect(refs).toHaveLength(0);
+        expect(refs.length).toBeGreaterThanOrEqual(1);
       });
     });
 

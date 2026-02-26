@@ -1,12 +1,13 @@
 import { DocumentUri, Location, Position, Range, WorkDoneProgressReporter } from 'vscode-languageserver';
 import { analyzer } from './analyze';
 import { LspDocument } from './document';
-import { findParentCommand, findParentFunction, isCommandName, isCommandWithName, isMatchingOption, isOption, isProgram, isString } from './utils/node-types';
-import { containsNode, getRange, nodesGen } from './utils/tree-sitter';
+import { findParentCommand, findParentFunction, isArgparseVariableDefinitionName, isCommandName, isCommandWithName, isDefinition, isMatchingOption, isOption, isProgram, isString, isVariable, isVariableDefinitionName, isVariableExpansion, isVariableExpansionWithName } from './utils/node-types';
+import { getRange, nodesGen } from './utils/tree-sitter';
+import { isNodeExcluded } from './utils/skippable-scopes';
 import { filterFirstPerScopeSymbol, FishSymbol } from './parsing/symbol';
 import { isMatchingOptionOrOptionValue, Option } from './parsing/options';
 import { logger } from './logger';
-import { getGlobalArgparseLocations } from './parsing/argparse';
+import { getGlobalArgparseLocations, isCompletionArgparseFlagWithCommandName } from './parsing/argparse';
 import { SyntaxNode } from 'web-tree-sitter';
 import * as Locations from './utils/locations';
 import { Workspace } from './utils/workspace';
@@ -14,7 +15,8 @@ import { workspaceManager } from './utils/workspace-manager';
 import { uriToReadablePath } from './utils/translation';
 import { FishAlias, isAliasDefinitionValue } from './parsing/alias';
 import { extractCommandLocations, extractCommands, extractMatchingCommandLocations } from './parsing/nested-strings';
-import { isEmittedEventDefinitionName } from './parsing/emit';
+import { isEmittedEventDefinitionName, isGenericFunctionEventHandlerDefinitionName } from './parsing/emit';
+import { PrebuiltDocumentationMap } from './utils/snippets';
 
 // ┌──────────────────────────────────┐
 // │ file handles 3 main operations:  │
@@ -69,11 +71,19 @@ export function getReferences(
 ): Location[] {
   const results: Location[] = [];
   const logCallback = logWrapper(document, position, opts);
+  const containingWorkspace = workspaceManager.findContainingWorkspace(document.uri) || undefined;
+  const searchWorkspace = containingWorkspace || workspaceManager.current;
 
   // Get the Definition Symbol of the current position, if there isn't one
   // we can't find any references
   const definitionSymbol = analyzer.getDefinition(document, position);
   if (!definitionSymbol) {
+    // Fallback: prebuilt/environment variables (PATH, HOME, status, etc.)
+    // have no workspace definition but can be referenced across all files
+    const prebuiltRefs = getPrebuiltVariableReferences(document, position);
+    if (prebuiltRefs.length > 0) {
+      return prebuiltRefs;
+    }
     logCallback(
       `No definition symbol found for position ${JSON.stringify(position)} in document ${document.uri}`,
       'warning',
@@ -139,10 +149,6 @@ export function getReferences(
     }
     index += 1;
 
-    if (!workspaceManager.current?.contains(doc.uri)) {
-      continue;
-    }
-
     const filteredSymbols = getFilteredLocalSymbols(definitionSymbol, doc);
 
     const root = analyzer.getRootNode(doc.uri);
@@ -181,7 +187,7 @@ export function getReferences(
   }
 
   // log the results, if logging option is enabled
-  const docShorthand = `${workspaceManager.current?.name}`;
+  const docShorthand = `${searchWorkspace?.name}`;
   const count = results.length;
   const name = definitionSymbol.name;
   logCallback(
@@ -203,7 +209,7 @@ export function allUnusedLocalReferences(document: LspDocument): FishSymbol[] {
 
   const symbols = filterFirstPerScopeSymbol(document).filter(s =>
     s.isLocal()
-    && s.name !== 'argv'
+    && (s.needsLocalReferences() || s.isEmittedEvent())
     && !s.isEventHook()
     && !s.isExported(),
   );
@@ -217,12 +223,7 @@ export function allUnusedLocalReferences(document: LspDocument): FishSymbol[] {
     const localSymbols = getFilteredLocalSymbols(symbol, document);
 
     let found = false;
-    const root = analyzer.getRootNode(document.uri);
-    if (!root) {
-      logger.warning(`No root node found for document ${document.uri}`);
-      continue;
-    }
-    for (const node of nodesGen(root)) {
+    for (const node of getChildNodesOptimized(symbol, document)) {
       // skip nodes that are redefinitions of the symbol in the local scope
       if (localSymbols?.some(c => c.scopeContainsNode(node))) {
         continue;
@@ -245,6 +246,44 @@ export function allUnusedLocalReferences(document: LspDocument): FishSymbol[] {
   const finalUnusedSymbols = unusedSymbols.filter(symbol => {
     if (symbol.isArgparse() && usedSymbols.some(s => s.equalArgparse(symbol))) {
       return false;
+    }
+    // A local variable is "used" if a command in its scope calls a
+    // --no-scope-shadowing function that references the same variable name
+    if (symbol.isVariable() && analyzer.noScopeShadowing.allSymbols.length > 0) {
+      const scopeNode = symbol.scope.scopeNode;
+      if (scopeNode) {
+        // Find --no-scope-shadowing functions that use this variable name
+        // (either as a child symbol or as a $var expansion in their body)
+        const noScopeFuncs = analyzer.noScopeShadowing.allSymbols.filter(f => {
+          // Check child symbols (set var ...)
+          if (f.children.some(c => c.isVariable() && c.name === symbol.name)) return true;
+          // Check for $var expansions in the function body
+          for (const n of nodesGen(f.scopeNode)) {
+            if (isVariableExpansionWithName(n, symbol.name)) return true;
+          }
+          return false;
+        });
+        if (noScopeFuncs.length > 0) {
+          for (const n of nodesGen(scopeNode)) {
+            if (isCommandWithName(n, ...noScopeFuncs.map(f => f.name))) {
+              return false;
+            }
+          }
+        }
+      }
+    }
+    // A local variable is "used" if a command in its scope calls a function
+    // that inherits this variable via --inherit-variable
+    if (symbol.isVariable() && analyzer.inheritedVariables.has(symbol.name)) {
+      const inheritingFuncs = analyzer.inheritedVariables.find(symbol.name);
+      const scopeNode = symbol.scope.scopeNode;
+      if (scopeNode) {
+        for (const n of nodesGen(scopeNode)) {
+          if (isCommandWithName(n, ...inheritingFuncs.map(f => f.name))) {
+            return false;
+          }
+        }
+      }
     }
     if (symbol.hasEventHook()) {
       if (symbol.isGlobal()) return false;
@@ -306,6 +345,52 @@ export function getImplementation(
     if (result) {
       locations.push(result);
       return locations;
+    }
+  }
+
+  // --no-scope-shadowing function: jump to the caller site
+  if (symbol.isFunction() && symbol.isFunctionWithNoScopeShadowing()) {
+    const allRefs = getReferences(document, position, { localOnly: true });
+    // Find the call site (a reference that is not the definition itself)
+    const callSites = allRefs.filter(loc =>
+      loc.range.start.line !== symbol.selectionRange.start.line
+      || loc.range.start.character !== symbol.selectionRange.start.character,
+    );
+    if (callSites.length > 0) {
+      locations.push(...callSites);
+      return locations;
+    }
+  }
+
+  // --no-scope-shadowing: bidirectional jump between caller's variable and callee's usage
+  if (symbol.isVariable()) {
+    const enclosingFunc = findParentFunction(node);
+    const enclosingFuncName = enclosingFunc?.childForFieldName('name')?.text;
+
+    // From $var in a --no-scope-shadowing function → jump to caller's definition
+    if (enclosingFuncName && analyzer.noScopeShadowing.has(enclosingFuncName)) {
+      const callerDef = analyzer.getDefinition(document, position);
+      if (callerDef && callerDef.parent?.name !== enclosingFuncName) {
+        locations.push(callerDef.toLocation());
+        return locations;
+      }
+    }
+
+    // From var in a regular function → jump to usage in --no-scope-shadowing callee
+    if (symbol.parent?.isFunction() && !symbol.parent.isFunctionWithNoScopeShadowing()) {
+      const allRefs = getReferences(document, position);
+      const calleeRefs = allRefs.filter(loc => {
+        if (loc.uri !== document.uri) return false;
+        const refNode = analyzer.nodeAtPoint(loc.uri, loc.range.start.line, loc.range.start.character);
+        if (!refNode) return false;
+        const refFunc = findParentFunction(refNode);
+        const refFuncName = refFunc?.childForFieldName('name')?.text;
+        return refFuncName && refFuncName !== symbol.parent?.name && analyzer.noScopeShadowing.has(refFuncName);
+      });
+      if (calleeRefs.length > 0) {
+        locations.push(...calleeRefs);
+        return locations;
+      }
     }
   }
 
@@ -497,6 +582,26 @@ function isSymbolLocalToDocument(symbol: FishSymbol): boolean {
     return false;
   }
 
+  // --inherit-variable symbols reference the caller's variable, so they're cross-file
+  if (symbol.isInheritVariable()) {
+    return false;
+  }
+
+  // variables that are inherited by another function via --inherit-variable
+  // can be referenced cross-file (the caller's variable is shared with the callee)
+  // Only escape if the symbol's parent function actually calls a function that
+  // inherits this variable — avoids false-positive cross-file search for common names
+  if (symbol.isVariable() && analyzer.inheritedVariables.has(symbol.name)) {
+    const inheritingFuncs = analyzer.inheritedVariables.find(symbol.name);
+    const parentFunc = symbol.parent;
+    if (parentFunc?.isFunction() && parentFunc.scopeNode) {
+      const callsInheritor = inheritingFuncs.some(f =>
+        [...nodesGen(parentFunc.scopeNode)].some(n => isCommandWithName(n, f.name)),
+      );
+      if (callsInheritor) return false;
+    }
+  }
+
   // symbols that are not explicitly defined as global, will reach this point
   // thus, we consider them local to the document
   return true;
@@ -592,42 +697,118 @@ function findCommandPositions(shellCode: string, commandName: string): Array<{ s
  * Optimized version of getChildNodes that pre-filters by text content
  * This significantly reduces the number of nodes we need to check
  */
+function isCompleteDefinitionNode(node: SyntaxNode): boolean {
+  if (isOption(node) || !node.parent || !isCommandWithName(node.parent, 'complete')) {
+    return false;
+  }
+  const prev = node.previousNamedSibling;
+  if (!prev) return false;
+  return isMatchingOption(
+    prev,
+    Option.create('-c', '--command'),
+    Option.create('-s', '--short-option'),
+    Option.create('-l', '--long-option'),
+    Option.create('-o', '--old-option'),
+  );
+}
+
+function isArgparseVariableReferenceNode(symbol: FishSymbol, node: SyntaxNode): boolean {
+  if (node.type === 'variable_name' && node.text === symbol.name) {
+    return true;
+  }
+  if (isVariableExpansion(node) && node.text === `$${symbol.name}`) {
+    return true;
+  }
+  if (isVariableDefinitionName(node) && node.text === symbol.name) {
+    return true;
+  }
+  if (isSetReferenceTargetNode(node) && node.text === symbol.name) {
+    return true;
+  }
+  return false;
+}
+
+function isArgparseOptionReferenceNode(symbol: FishSymbol, node: SyntaxNode): boolean {
+  if (!isOption(node)) return false;
+  const parentCommand = findParentCommand(node);
+  const parentName = symbol.parent?.name
+    || symbol.scopeNode.firstNamedChild?.text
+    || symbol.scopeNode.text;
+  if (!parentCommand || !parentName || !isCommandWithName(parentCommand, parentName)) {
+    return false;
+  }
+  return isMatchingOptionOrOptionValue(node, Option.fromRaw(symbol.argparseFlag));
+}
+
+function isArgparseCompleteFlagReferenceNode(symbol: FishSymbol, node: SyntaxNode): boolean {
+  const parentName = symbol.parent?.name
+    || symbol.scopeNode.firstNamedChild?.text
+    || symbol.scopeNode.text;
+  if (!parentName) return false;
+  return isCompletionArgparseFlagWithCommandName(node, parentName, symbol.argparseFlagName);
+}
+
+function isSetReferenceTargetNode(node: SyntaxNode): boolean {
+  const parentCommand = findParentCommand(node);
+  if (!parentCommand || !isCommandWithName(parentCommand, 'set')) return false;
+  const isRefSetCommand = parentCommand.children.some(child => isMatchingOption(
+    child,
+    Option.create('-q', '--query'),
+    Option.create('-e', '--erase'),
+    Option.create('-S', '--show'),
+  ));
+  if (!isRefSetCommand) return false;
+
+  const args = parentCommand.childrenForFieldName('argument').filter(arg => !isOption(arg));
+  for (const arg of args) {
+    if (arg.equals(node)) return true;
+    // `set -e NAME[1]` -> `NAME` is first child of concatenation and is a reference target
+    if (arg.type === 'concatenation' && arg.firstNamedChild?.equals(node)) return true;
+  }
+  return false;
+}
+
+function isPotentialReferenceNode(symbol: FishSymbol, node: SyntaxNode): boolean {
+  if (!node || !node.isNamed) return false;
+
+  if (symbol.isArgparse()) {
+    return isArgparseVariableReferenceNode(symbol, node)
+      || isArgparseOptionReferenceNode(symbol, node)
+      || isArgparseCompleteFlagReferenceNode(symbol, node)
+      // Keep argparse definition nodes as possible candidates so symbol-level
+      // matching can decide whether they are valid for the current flag symbol.
+      || isArgparseVariableDefinitionName(node);
+  }
+
+  if (symbol.isEventHook()) {
+    return isEmittedEventDefinitionName(node) && node.text === symbol.name;
+  }
+
+  if (symbol.isEmittedEvent()) {
+    return isGenericFunctionEventHandlerDefinitionName(node) && node.text === symbol.name;
+  }
+
+  if (symbol.isVariable()) {
+    return isVariable(node)
+      || isSetReferenceTargetNode(node)
+      || isCompleteDefinitionNode(node);
+  }
+
+  if (symbol.isFunction()) {
+    if (isDefinition(node)) return false;
+    return node.text === symbol.name
+      || isCommandName(node)
+      || isString(node)
+      || isOption(node)
+      || isCompleteDefinitionNode(node);
+  }
+
+  return node.text === symbol.name || isString(node);
+}
+
 function* getChildNodesOptimized(symbol: FishSymbol, doc: LspDocument): Generator<SyntaxNode> {
   const root = analyzer.getRootNode(doc.uri);
   if (!root) return;
-
-  const localSymbols = analyzer.getFlatDocumentSymbols(doc.uri)
-    .filter(s => {
-      if (s.uri === doc.uri) return false;
-      if (s.isFunction() && s.isLocal() && s.name === symbol.name && symbol.isFunction()) {
-        return !s.equals(symbol);
-      }
-      return s.name === symbol.name
-        && s.kind === symbol.kind
-        && s.isLocal()
-        && !symbol.equalDefinition(s);
-    });
-
-  const skipNodes = localSymbols.map(s => s.parent?.node).filter(n => n !== undefined) as SyntaxNode[];
-
-  const isPotentialMatch = (current: SyntaxNode) => {
-    if (symbol.isArgparse()
-      && (isOption(current) || current.text === symbol.name || current.text === symbol.argparseFlagName)
-    ) {
-      return true;
-    } else if (symbol.name === current.text) {
-      return true;
-    } else if (isString(current)) {
-      return true;
-    }
-    if (symbol.isFunction()) {
-      return symbol.name === current.text
-        || isCommandName(current)
-        || current.type === 'word'
-        || current.isNamed;
-    }
-    return false;
-  };
 
   const queue: SyntaxNode[] = [root];
 
@@ -635,14 +816,7 @@ function* getChildNodesOptimized(symbol: FishSymbol, doc: LspDocument): Generato
     const current = queue.shift();
     if (!current) continue;
 
-    if (
-      skipNodes && skipNodes.some(s =>
-        containsNode(s, current) || s.equals(current) && !isProgram(current),
-      )) {
-      continue;
-    }
-
-    if (isPotentialMatch(current)) {
+    if (isPotentialReferenceNode(symbol, current)) {
       yield current;
     }
     // Add children to queue for processing
@@ -672,14 +846,14 @@ function getDocumentsToSearch(
       documentsToSearch.push(...ws.allDocuments());
     });
   } else {
-    // default to using the current workspace
-    let currentWorkspace = workspaceManager.current;
+    // Default to the document's containing workspace, then fallback to current workspace
+    let currentWorkspace = workspaceManager.findContainingWorkspace(document.uri) || undefined;
     if (!currentWorkspace) {
-      currentWorkspace = workspaceManager.findContainingWorkspace(document.uri) || undefined;
-      if (!currentWorkspace) {
-        logCallback(`No current workspace found for document ${document.uri}`, 'warning');
-        return [document];
-      }
+      currentWorkspace = workspaceManager.current;
+    }
+    if (!currentWorkspace) {
+      logCallback(`No workspace found for document ${document.uri}`, 'warning');
+      return [document];
     }
     currentWorkspace?.allDocuments().forEach((doc: LspDocument) => {
       documentsToSearch.push(doc);
@@ -812,6 +986,69 @@ const locationSorter = (defSymbol: FishSymbol) => {
   };
 };
 
+/**
+ * Finds all references to a prebuilt/environment variable (PATH, HOME, status, etc.)
+ * across all workspace documents. These variables have no workspace definition but
+ * are documented in PrebuiltDocumentationMap.
+ */
+function getPrebuiltVariableReferences(document: LspDocument, position: Position): Location[] {
+  const node = analyzer.nodeAtPoint(document.uri, position.line, position.character);
+  if (!node) return [];
+
+  // Determine the variable name from the node at the cursor
+  let varName: string | undefined;
+  if (isVariableExpansion(node)) {
+    // e.g. $PATH -> varName = 'PATH'
+    varName = node.text.slice(1);
+  } else if (isVariableDefinitionName(node)) {
+    // e.g. `set PATH ...` -> varName = 'PATH'
+    varName = node.text;
+  } else if (isVariable(node) && node.type === 'variable_name') {
+    varName = node.text;
+  }
+
+  if (!varName) return [];
+
+  // Check if this variable is a known prebuilt variable
+  const prebuilt = PrebuiltDocumentationMap.getByName('$' + varName) || PrebuiltDocumentationMap.getByName(varName);
+  if (!prebuilt) return [];
+
+  const results: Location[] = [];
+
+  // Search all documents in the current workspace
+  const currentWorkspace = workspaceManager.findContainingWorkspace(document.uri) || workspaceManager.current;
+  if (!currentWorkspace) return [];
+
+  const documentsToSearch = currentWorkspace.allDocuments();
+
+  for (const doc of documentsToSearch) {
+    const root = analyzer.getRootNode(doc.uri);
+    if (!root) continue;
+
+    const scopeSpans = analyzer.getScopeSpans(doc, varName!);
+
+    for (const n of nodesGen(root)) {
+      // skip nodes inside local redefinitions, but allow self-referencing
+      // expansions (e.g. $PATH in `set -lx PATH $PATH:/opt/bin`) since those
+      // read the pre-existing global value before the local is created
+      if (scopeSpans.length > 0 && isNodeExcluded(n, scopeSpans)) {
+        continue;
+      }
+      if (isVariableExpansionWithName(n, varName!)) {
+        const focusedNode = n.firstNamedChild;
+        if (!focusedNode || focusedNode.text !== varName) {
+          continue;
+        }
+        results.push(Location.create(doc.uri, getRange(focusedNode)));
+      } else if (isVariableDefinitionName(n) && n.text === varName) {
+        results.push(Location.create(doc.uri, getRange(n)));
+      }
+    }
+  }
+
+  return results;
+}
+
 export const getFilteredLocalSymbols = (definitionSymbol: FishSymbol, doc: LspDocument) => {
   if (definitionSymbol.isVariable() && !definitionSymbol.isArgparse()) {
     // if the symbol is a variable, we only want to find references in the current document
@@ -825,7 +1062,9 @@ export const getFilteredLocalSymbols = (definitionSymbol: FishSymbol, doc: LspDo
           && s.kind === definitionSymbol.kind
           // variables inside --no-scope-shadowing functions don't shadow
           // the caller's variables — they share the same scope
-          && !s.parent?.isFunctionWithNoScopeShadowing(),
+          && !s.parent?.isFunctionWithNoScopeShadowing()
+          // --inherit-variable declarations don't shadow — they inherit
+          && !s.isInheritVariable(),
       );
   }
   if (doc.uri === definitionSymbol.uri) return [];

@@ -2,7 +2,7 @@ import { DocumentSymbol, SymbolKind, WorkspaceSymbol, Location, FoldingRange, Ma
 import { SyntaxNode } from 'web-tree-sitter';
 import { DefinitionScope } from '../utils/definition-scope';
 import { LspDocument } from '../document';
-import { containsNode, getChildNodes, getRange } from '../utils/tree-sitter';
+import { containsNode, getChildNodes, getRange, nodesGen } from '../utils/tree-sitter';
 import { findSetChildren, processSetCommand } from './set';
 import { processReadCommand } from './read';
 import { isFunctionVariableDefinitionName, processArgvDefinition, processFunctionDefinition } from './function';
@@ -149,6 +149,36 @@ export class FishSymbol {
     if (!this.isFunction()) return false;
     if (this.options.some(option => option.isOption('-S', '--no-scope-shadowing'))) return true;
     return false;
+  }
+
+  /**
+   * Checks if this symbol is a FUNCTION_VARIABLE created via `--inherit-variable`.
+   * These variables are inherited from the caller's scope rather than being
+   * new local definitions.
+   */
+  public isInheritVariable(): boolean {
+    return this.fishKind === 'FUNCTION_VARIABLE'
+      && this.options.some(option => option.isOption('-V', '--inherit-variable'));
+  }
+
+  /**
+   * For function symbols, returns the list of variable names declared with
+   * `--inherit-variable`. Returns empty array for non-function symbols or
+   * functions without `--inherit-variable`.
+   */
+  public getInheritedVariableNames(): string[] {
+    if (!this.isFunction()) return [];
+    return this.children
+      .filter((child: FishSymbol) => child.isInheritVariable())
+      .map((child: FishSymbol) => child.name);
+  }
+
+  /**
+   * For function symbols, checks if the function inherits a specific variable
+   * name via `--inherit-variable`.
+   */
+  public hasInheritedVariable(varName: string): boolean {
+    return this.getInheritedVariableNames().includes(varName);
   }
 
   /**
@@ -643,6 +673,26 @@ export class FishSymbol {
    */
   scopeContainsNode(node: SyntaxNode): boolean {
     return symbolScopeContainsNode(this, node);
+  }
+
+  /**
+   * Finds all self-referencing variable expansion nodes within this symbol's
+   * definition command. In fish, `set -lx PATH $PATH:/opt/bin` evaluates the RHS
+   * `$PATH` before creating the local variable, so it reads the pre-existing (global)
+   * value. Such expansions should not be treated as local references.
+   *
+   * @returns An array of self-referencing SyntaxNodes, or null if none exist
+   */
+  isSelfReferencingVariable(): SyntaxNode[] | null {
+    if (!this.isVariable() || this.fishKind !== 'SET') return null;
+    const results: SyntaxNode[] = [];
+    for (const node of nodesGen(this.node)) {
+      if (this.focusedNode.endIndex > node.startIndex || this.focusedNode.startIndex === node.startIndex) continue;
+      if (node.text === this.name) {
+        results.push(node);
+      }
+    }
+    return results.length > 0 ? results : null;
   }
 
   /**

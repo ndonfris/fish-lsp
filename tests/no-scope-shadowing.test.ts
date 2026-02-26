@@ -662,4 +662,140 @@ describe('--no-scope-shadowing', () => {
       expect(locFromL[0]!.uri).toBe(docL.uri);
     });
   });
+
+  describe('regular function calling --no-scope-shadowing function (single file)', () => {
+    const workspace = TestWorkspace.create().addFiles(
+      {
+        relativePath: 'functions/foo.fish',
+        content: [
+          'function bar',
+          '    echo "This is a theme function"',
+          '    set var 1 2 3',
+          '    baz',
+          'end',
+          '',
+          'function baz --no-scope-shadowing',
+          '    echo "This is another theme function"',
+          '    echo "$var"',
+          'end',
+          '',
+          'bar',
+        ].join('\n'),
+      },
+      {
+        path: `${process.cwd()}/.config/fish/functions/bar.fish`,
+        text: 'set -gx var "global var outside of in bar"',
+      },
+    ).initialize();
+
+    it('should have the document', () => {
+      expect(workspace.getDocument('functions/foo.fish')).toBeDefined();
+    });
+
+    it('should detect baz as --no-scope-shadowing', () => {
+      const doc = workspace.getDocument('functions/foo.fish')!;
+      const symbols = analyzer.getFlatDocumentSymbols(doc.uri);
+      const baz = symbols.find(s => s.name === 'baz' && s.isFunction());
+      expect(baz).toBeDefined();
+      expect(baz!.isFunctionWithNoScopeShadowing()).toBe(true);
+    });
+
+    it('goto-definition of $var in baz should resolve to set var in bar', () => {
+      const doc = workspace.getDocument('functions/foo.fish')!;
+      const symbols = analyzer.getFlatDocumentSymbols(doc.uri);
+
+      // Find the `var` definition in bar
+      const varInBar = symbols.find(s =>
+        s.name === 'var' && s.isVariable() && s.parent?.name === 'bar',
+      )!;
+      expect(varInBar).toBeDefined();
+
+      // `$var` in baz is at line 8: `    echo "$var"`
+      //                                       ^^^
+      // line 6: `function baz --no-scope-shadowing`
+      // line 7: `    echo "This is another theme function"`
+      // line 8: `    echo "$var"`
+      const varUsagePos = { line: 8, character: 11 };
+      const loc = analyzer.getDefinitionLocation(doc, varUsagePos);
+
+      expect(loc).toHaveLength(1);
+      expect(loc[0]!.uri).toBe(doc.uri);
+      // Should resolve to bar's `set var` (line 2), not a global
+      expect(loc[0]!.range.start.line).toBe(varInBar.selectionRange.start.line);
+    });
+
+    it('references from var in bar should include $var in baz', () => {
+      const doc = workspace.getDocument('functions/foo.fish')!;
+      const symbols = analyzer.getFlatDocumentSymbols(doc.uri);
+
+      const varInBar = symbols.find(s =>
+        s.name === 'var' && s.isVariable() && s.parent?.name === 'bar',
+      )!;
+      expect(varInBar).toBeDefined();
+
+      const refs = getReferences(doc, varInBar.selectionRange.start);
+
+      // Should find at least:
+      // 1. `set var 1 2 3` definition in bar (line 2)
+      // 2. `$var` usage in baz (line 8)
+      expect(refs.length).toBeGreaterThanOrEqual(2);
+
+      // Verify the $var in baz is included
+      const bazVarRef = refs.find(loc => loc.range.start.line === 8);
+      expect(bazVarRef).toBeDefined();
+    });
+
+    it('var in bar should NOT be flagged as unused (4004)', () => {
+      const doc = workspace.getDocument('functions/foo.fish')!;
+      const unused = allUnusedLocalReferences(doc);
+      expect(unused.find(s => s.name === 'var')).toBeUndefined();
+    });
+
+    it('go-to-implementation from var in bar should jump to $var in baz', () => {
+      const doc = workspace.getDocument('functions/foo.fish')!;
+      const symbols = analyzer.getFlatDocumentSymbols(doc.uri);
+
+      const varInBar = symbols.find(s =>
+        s.name === 'var' && s.isVariable() && s.parent?.name === 'bar',
+      )!;
+      expect(varInBar).toBeDefined();
+
+      const impl = getImplementation(doc, varInBar.selectionRange.start);
+      // Should jump to $var usage in baz (line 8)
+      expect(impl.length).toBeGreaterThanOrEqual(1);
+      expect(impl.some(loc => loc.range.start.line === 8)).toBe(true);
+    });
+
+    it('go-to-implementation from $var in baz should jump to set var in bar', () => {
+      const doc = workspace.getDocument('functions/foo.fish')!;
+      const symbols = analyzer.getFlatDocumentSymbols(doc.uri);
+
+      const varInBar = symbols.find(s =>
+        s.name === 'var' && s.isVariable() && s.parent?.name === 'bar',
+      )!;
+
+      // $var in baz: line 8, col 11
+      const varUsagePos = { line: 8, character: 11 };
+      const impl = getImplementation(doc, varUsagePos);
+
+      // Should jump to bar's `set var` definition
+      expect(impl).toHaveLength(1);
+      expect(impl[0]!.uri).toBe(doc.uri);
+      expect(impl[0]!.range.start.line).toBe(varInBar.selectionRange.start.line);
+    });
+
+    it('go-to-implementation from baz function should jump to call site in bar', () => {
+      const doc = workspace.getDocument('functions/foo.fish')!;
+      const symbols = analyzer.getFlatDocumentSymbols(doc.uri);
+
+      const bazFunc = symbols.find(s => s.name === 'baz' && s.isFunction())!;
+      expect(bazFunc).toBeDefined();
+
+      const impl = getImplementation(doc, bazFunc.selectionRange.start);
+
+      // Should jump to the `baz` call in bar (line 3)
+      expect(impl.length).toBeGreaterThanOrEqual(1);
+      expect(impl.some(loc => loc.range.start.line === 3)).toBe(true);
+    });
+  });
 });
