@@ -27,6 +27,19 @@ export type AnalyzeWorkspacePromise = Promise<{
   result: AnalyzedDocument;
 }>[];
 
+type LegacyInitializeRoots = {
+  rootUri?: string | null;
+  rootPath?: string | null;
+};
+
+/**
+ * rootUri/rootPath are deprecated in LSP, but we still support them for older clients.
+ * Casting through this local type avoids editor deprecation noise at call sites.
+ */
+function getLegacyInitializeRoots(params: LSP.InitializeParams): LegacyInitializeRoots {
+  return params as unknown as LegacyInitializeRoots;
+}
+
 /**
  * Extracts the unique workspace paths from the initialization parameters.
  * @param params - The initialization parameters
@@ -35,19 +48,19 @@ export type AnalyzeWorkspacePromise = Promise<{
 export function getWorkspacePathsFromInitializationParams(params: LSP.InitializeParams): string[] {
   const result: string[] = [];
 
-  const { rootUri, rootPath, workspaceFolders } = params;
+  const { workspaceFolders } = params;
+  const { rootUri, rootPath } = getLegacyInitializeRoots(params);
   logger.log('getWorkspacePathsFromInitializationParams(params)', { rootUri, rootPath, workspaceFolders });
 
-  // consider removing rootUri and rootPath since they are deprecated
-
-  if (rootUri) {
-    result.push(uriToPath(rootUri));
-  }
-  if (rootPath) {
-    result.push(rootPath);
-  }
-  if (workspaceFolders) {
+  // Prioritize workspaceFolders when provided; fall back to legacy roots for older clients.
+  if (workspaceFolders && workspaceFolders.length > 0) {
     result.push(...workspaceFolders.map(folder => uriToPath(folder.uri)));
+  } else {
+    if (rootUri) {
+      result.push(uriToPath(rootUri));
+    } else if (rootPath) {
+      result.push(rootPath);
+    }
   }
 
   return Array.from(new Set(result));
@@ -114,7 +127,7 @@ export function syncGetFileUriSet(path: string) {
  * @returns The workspaces that were initialized, or an empty array if none were found (unlikely)
  */
 export async function initializeDefaultFishWorkspaces(...uris: string[]): Promise<Workspace[]> {
-  /** Compute the newWorkaces from the uris, before building if the configWorkspaces */
+  /** Compute the newWorkspaces from the uris, before building if the configWorkspaces */
   const newWorkspaces = uris.map(uri => {
     return FishUriWorkspace.create(uri);
   }).filter((ws): ws is FishUriWorkspace => ws !== null);

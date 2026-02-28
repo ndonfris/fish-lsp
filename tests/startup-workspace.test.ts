@@ -1,7 +1,7 @@
 // import * as fs from 'fs';
 import * as os from 'os';
 import { fail, setLogger } from './helpers';
-import { FishUriWorkspace, initializeDefaultFishWorkspaces } from '../src/utils/workspace';
+import { FishUriWorkspace, getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspaces } from '../src/utils/workspace';
 import { workspaceManager } from '../src/utils/workspace-manager';
 import { Config, config, ConfigSchema } from '../src/config';
 import { uriToPath } from '../src/utils/translation';
@@ -37,6 +37,51 @@ describe('setup workspace', () => {
   afterEach(() => {
     config.fish_lsp_all_indexed_paths = [];
     workspaceManager.clear();
+  });
+
+  describe('getWorkspacePathsFromInitializationParams', () => {
+    it('prioritizes workspaceFolders over deprecated root fields', () => {
+      const params = {
+        workspaceFolders: [{ uri: 'file:///tmp/workspace-folder', name: 'workspace-folder' }],
+        rootUri: 'file:///tmp/root-uri',
+        rootPath: '/tmp/root-path',
+      } as unknown as LSP.InitializeParams;
+
+      const uris = getWorkspacePathsFromInitializationParams(params);
+      expect(uris).toEqual(['/tmp/workspace-folder']);
+    });
+
+    it('falls back to rootUri when workspaceFolders is missing', () => {
+      const params = {
+        rootUri: 'file:///tmp/root-uri',
+        rootPath: '/tmp/root-path',
+      } as unknown as LSP.InitializeParams;
+
+      const uris = getWorkspacePathsFromInitializationParams(params);
+      expect(uris).toEqual(['/tmp/root-uri']);
+    });
+
+    it('falls back to rootUri when workspaceFolders is empty', () => {
+      const params = {
+        workspaceFolders: [],
+        rootUri: 'file:///tmp/root-uri',
+        rootPath: '/tmp/root-path',
+      } as unknown as LSP.InitializeParams;
+
+      const uris = getWorkspacePathsFromInitializationParams(params);
+      expect(uris).toEqual(['/tmp/root-uri']);
+    });
+
+    it('falls back to rootPath when rootUri is unavailable', () => {
+      const params = {
+        workspaceFolders: [],
+        rootUri: null,
+        rootPath: '/tmp/root-path',
+      } as unknown as LSP.InitializeParams;
+
+      const uris = getWorkspacePathsFromInitializationParams(params);
+      expect(uris).toEqual(['/tmp/root-path']);
+    });
   });
 
   describe('fisher workspace', () => {

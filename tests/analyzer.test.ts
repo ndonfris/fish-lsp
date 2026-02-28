@@ -12,6 +12,7 @@ import os from 'os';
 import { join } from 'path';
 import { pathToUri } from '../src/utils/translation';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
+import { workspaceManager } from '../src/utils/workspace-manager';
 
 let parser: Parser;
 const tmpDir = join(os.tmpdir(), 'fish-lsp-analyzer-tests');
@@ -271,6 +272,36 @@ describe('Analyzer class in file: `src/analyze.ts`', () => {
       expect(flatSymbols).toBeDefined();
       expect(flatSymbols).toHaveLength(7);
       expect(flatSymbols.map(s => s.name)).toEqual(['argv', 'foo', 'bar', 'baz', 'argv', 'argv', 'argv']);
+    });
+  });
+
+  describe('workspace-scoped definition resolution', () => {
+    it('should not resolve definitions from current workspace when document is in another workspace', () => {
+      workspaceManager.clear();
+
+      const uniqueCommand = '__fish_lsp_workspace_scope_test_cmd_91731';
+      const docA = createFakeLspDocument('/tmp/fish-lsp-ws-a/functions/ws_a.fish', [
+        `function ${uniqueCommand}`,
+        'end',
+      ].join('\n'));
+      const docB = createFakeLspDocument('/tmp/fish-lsp-ws-b/ws_b.fish', [
+        uniqueCommand,
+      ].join('\n'));
+
+      analyzer.analyze(docA);
+      analyzer.analyze(docB);
+      workspaceManager.handleUpdateDocument(docA);
+      workspaceManager.handleUpdateDocument(docB);
+
+      const wsA = workspaceManager.findContainingWorkspace(docA.uri)!;
+      const wsB = workspaceManager.findContainingWorkspace(docB.uri)!;
+      expect(wsA.uri).not.toEqual(wsB.uri);
+
+      // Simulate an unrelated active workspace selection.
+      workspaceManager.setCurrent(wsA);
+
+      const definition = analyzer.getDefinition(docB, LSP.Position.create(0, 1));
+      expect(definition).toBeNull();
     });
   });
 

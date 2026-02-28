@@ -709,6 +709,7 @@ export class Analyzer {
    * @returns {FishSymbol[]} A flat array of FishSymbols that are usable at the given position
    */
   public allSymbolsAccessibleAtPosition(document: LspDocument, position: Position): FishSymbol[] {
+    const workspace = workspaceManager.findContainingWorkspace(document.uri) || workspaceManager.current;
     // Set to avoid duplicate symbols
     const symbolNames: Set<string> = new Set();
     // add the local symbols
@@ -729,6 +730,9 @@ export class Analyzer {
     }
     // add the global symbols
     for (const globalSymbol of this.globalSymbols.allSymbols) {
+      if (workspace && !(workspace.contains(globalSymbol.uri) || globalSymbol.uri === workspace.uri)) {
+        continue;
+      }
       // skip any symbols that are already in the result so that
       // next conditionals don't have to consider duplicate symbols
       if (symbolNames.has(globalSymbol.name)) continue;
@@ -800,7 +804,12 @@ export class Analyzer {
 
     // Finally, check global symbols as fallback
     if (!symbols.length) {
-      symbols.push(...this.globalSymbols.find(word));
+      const workspace = workspaceManager.findContainingWorkspace(document.uri) || workspaceManager.current;
+      const globalSymbols = this.globalSymbols.find(word)
+        .filter(symbol =>
+          !workspace || workspace.contains(symbol.uri) || symbol.uri === workspace.uri,
+        );
+      symbols.push(...globalSymbols);
     }
 
     return symbols;
@@ -947,7 +956,8 @@ export class Analyzer {
     // allow execCommandLocations to provide location for command when no other
     // definition has been found. Previously, config.fish_lsp_single_workspace_support
     // was used to prevent this case from being hit but now we always allow it.
-    if (workspaceManager.current) {
+    const currentWorkspace = workspaceManager.findContainingWorkspace(document.uri) || workspaceManager.current;
+    if (currentWorkspace) {
       const node = this.nodeAtPoint(document.uri, position.line, position.character);
       if (node && isCommandName(node)) {
         const text = node.text.toString();

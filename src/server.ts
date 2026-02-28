@@ -113,10 +113,12 @@ export default class FishServer {
     await setupProcessEnvExecFile();
     const capabilities = params.capabilities;
     const initializeResult = Config.initialize(params, connection);
+    // rootUri/rootPath are deprecated in LSP, but we still log/support them for older clients.
+    const legacyRoots = params as unknown as { rootUri?: string | null; rootPath?: string | null; };
     logger.log({
       server: 'FishServer',
-      rootUri: params.rootUri,
-      rootPath: params.rootPath,
+      rootUri: legacyRoots.rootUri,
+      rootPath: legacyRoots.rootPath,
       workspaceFolders: params.workspaceFolders,
     });
 
