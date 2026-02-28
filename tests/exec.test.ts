@@ -11,8 +11,10 @@ import {
   execCommandType,
   ExecFishFiles,
   EmbeddedFishResult,
+  runEmbeddedFish,
 } from '../src/utils/exec';
 import { BuiltInList } from '../src/utils/builtins';
+import GetType from '../fish_files/get-type.fish';
 
 setLogger();
 
@@ -53,7 +55,7 @@ describe('src/utils/exec.ts tests', () => {
   it('execCommandType', async () => {
     const output = await execCommandType('end');
     // console.log('docs: ', output.split('\n').length);
-    expect(output).toEqual('command');
+    expect(output).toEqual('builtin');
   });
 
   describe('ExecFishFiles namespace', () => {
@@ -254,6 +256,19 @@ describe('src/utils/exec.ts tests', () => {
           expect(output.stdout.toString().trim()).toEqual('file');
           expect(output.code).toEqual(0);
         }
+      });
+
+      it('function shadowing external command is still typed as file', async () => {
+        const script = [
+          'function ls',
+          '  command ls $argv',
+          'end',
+          GetType,
+        ].join('\n');
+        const output = await runEmbeddedFish(script, ['ls']);
+        printDocsStdout({ ...output, cmd: 'ls (shadowed by function)' });
+        expect(output.stdout.toString().trim()).toEqual('file');
+        expect(output.code).toEqual(0);
       });
     });
   });

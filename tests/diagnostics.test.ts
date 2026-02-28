@@ -1132,6 +1132,64 @@ function foo
       diagnostics.forEach(d => logDiagnostics(d, root));
       expect(diagnostics).toHaveLength(0);
     });
+
+    it('VALIDATE: set value should not count as variable reference', async () => {
+      const input = [
+        'set foo bar',
+        'set bar baz',
+      ].join('\n');
+      const { root, document } = analyzer.ensureCachedDocument(createFakeLspDocument('file:///tmp/test-unused-set-values.fish', input)).ensureParsed();
+      const diagnostics = await getDiagnosticsAsync(root, document);
+      expect(diagnostics.map(mapDiagnostics)).toEqual([
+        { code: 4004, text: 'foo' },
+        { code: 4004, text: 'bar' },
+      ]);
+    });
+
+    it('VALIDATE: bare command name should not count as variable reference', async () => {
+      const input = [
+        'set bar baz',
+        'bar',
+      ].join('\n');
+      const { root, document } = analyzer.ensureCachedDocument(createFakeLspDocument('file:///tmp/test-unused-bare-command.fish', input)).ensureParsed();
+      const diagnostics = await getDiagnosticsAsync(root, document);
+      expect(diagnostics.map(mapDiagnostics)).toContainEqual({ code: 4004, text: 'bar' });
+    });
+
+    it('VALIDATE: command name via $var should count as variable reference', async () => {
+      const input = [
+        'set bar echo',
+        '$bar',
+      ].join('\n');
+      const { root, document } = analyzer.ensureCachedDocument(createFakeLspDocument('file:///tmp/test-used-command-via-var.fish', input)).ensureParsed();
+      const diagnostics = await getDiagnosticsAsync(root, document);
+      expect(diagnostics.map(mapDiagnostics)).not.toContainEqual({ code: 4004, text: 'bar' });
+    });
+
+    it('VALIDATE: variable values should not suppress unknown command diagnostics', async () => {
+      const savedDisabled = [...config.fish_lsp_diagnostic_disable_error_codes];
+      try {
+        config.fish_lsp_diagnostic_disable_error_codes = [ErrorCodes.unusedLocalDefinition];
+
+        const unknownFromValue = '__fish_lsp_unknown_from_value_91731';
+        const input = [
+          'function foo',
+          `    set v ${unknownFromValue}`,
+          'end',
+          unknownFromValue,
+          'some_unknown_function',
+        ].join('\n');
+
+        const { root, document } = analyzer.ensureCachedDocument(createFakeLspDocument('file:///tmp/test-unknown-command-via-value.fish', input)).ensureParsed();
+        const diagnostics = await getDiagnosticsAsync(root, document);
+        const mapped = diagnostics.map(mapDiagnostics);
+
+        expect(mapped).toContainEqual({ code: 7001, text: unknownFromValue });
+        expect(mapped).toContainEqual({ code: 7001, text: 'some_unknown_function' });
+      } finally {
+        config.fish_lsp_diagnostic_disable_error_codes = savedDisabled;
+      }
+    });
   });
 });
 
