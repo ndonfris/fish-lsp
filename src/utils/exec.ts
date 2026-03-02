@@ -1,6 +1,5 @@
 import { spawn, exec, execFile, execFileSync } from 'child_process';
 import { promisify } from 'util';
-import { logger } from '../logger';
 import { pathToUri, uriToPath } from './translation';
 import { config } from '../config';
 import GetDocs from '../../fish_files/get-docs.fish';
@@ -93,8 +92,8 @@ export namespace ExecFishFiles {
     return runEmbeddedFish(GetDocumentation, args);
   }
 
-  export function execFish(cmd: string): Promise<EmbeddedFishResult> {
-    return runEmbeddedFish(GetExec, [cmd]);
+  export function execFish(cmd: string, ...args: string[]): Promise<EmbeddedFishResult> {
+    return runEmbeddedFish(GetExec, [cmd, ...args]);
   }
 
   export function getCompletion(...args: string[]): Promise<EmbeddedFishResult> {
@@ -136,7 +135,6 @@ export async function execCmd(cmd: string): Promise<string[]> {
 
 export async function execAsyncF(cmd: string) {
   const result = await ExecFishFiles.execFish(cmd);
-  logger.log({ func: 'execAsyncF', result, cmd });
   return result.stdout.toString().trim();
 }
 
@@ -243,7 +241,7 @@ export async function execCommandDocs(cmd: string): Promise<string> {
  *                     '' ->    cmd is neither
  */
 export async function execCommandType(cmd: string): Promise<string> {
-  const result = await ExecFishFiles.getType(cmd);
+  const result = await ExecFishFiles.getTypeVerbose(cmd);
   if (result?.stderr) {
     return '';
   }

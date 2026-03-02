@@ -201,7 +201,7 @@ export async function documentationHoverProviderForBuiltIns(cmd: string): Promis
       kind: MarkupKind.Markdown,
       value: [
         `__${cmd.toUpperCase()}__ - _https://fishshell.com/docs/current/cmds/${cmd.trim()}.html_`,
-        '___',
+        md.separator(),
         '```man',
         splitDocs.slice(startIndex).join('\n'),
         '```',

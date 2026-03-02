@@ -1003,10 +1003,13 @@ export class Analyzer {
    * function calls the one containing this --inherit-variable, then looks
    * for the variable definition there.
    */
-  public resolveInheritVariableDefinition(inheritSymbol: FishSymbol): FishSymbol | null {
+  public resolveInheritVariableDefinition(inheritSymbol: FishSymbol, visited: Set<string> = new Set()): FishSymbol | null {
     if (!inheritSymbol.isInheritVariable()) return null;
     const parentFunc = inheritSymbol.parent;
     if (!parentFunc) return null;
+    const key = `${inheritSymbol.uri}:${inheritSymbol.selectionRange.start.line}:${inheritSymbol.selectionRange.start.character}:${parentFunc.name}:${inheritSymbol.name}`;
+    if (visited.has(key)) return null;
+    visited.add(key);
 
     // Search all workspace functions for one that calls parentFunc
     const allDocSymbols = this.cache.uris()
@@ -1036,7 +1039,7 @@ export class Analyzer {
       if (callerVar) {
         // If the caller's var is also an --inherit-variable, recurse up
         if (callerVar.isInheritVariable()) {
-          return this.resolveInheritVariableDefinition(callerVar) || callerVar;
+          return this.resolveInheritVariableDefinition(callerVar, visited) || callerVar;
         }
         // If the caller function also inherits this variable from its caller,
         // recurse through the caller's inherit declaration
@@ -1044,7 +1047,7 @@ export class Analyzer {
           const inheritDecl = sym.children
             .find((c: FishSymbol) => c.name === inheritSymbol.name && c.isInheritVariable());
           if (inheritDecl) {
-            return this.resolveInheritVariableDefinition(inheritDecl) || callerVar;
+            return this.resolveInheritVariableDefinition(inheritDecl, visited) || callerVar;
           }
         }
         return callerVar;

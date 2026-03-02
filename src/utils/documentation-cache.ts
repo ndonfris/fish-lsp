@@ -2,6 +2,7 @@ import { SymbolKind, MarkupContent } from 'vscode-languageserver';
 import { execCmd, execCommandDocs, execEscapedCommand } from './exec';
 import { FishCompletionItem, CompletionExample } from './completion/types';
 import { isBuiltin } from './builtins';
+import { md } from './markdown-builder';
 
 /****************************************************************************************
  *                                                                                      *
@@ -125,7 +126,7 @@ export async function getFunctionDocString(name: string): Promise<string | undef
   if (!functionDoc) return;
   return [
     title,
-    '___',
+    md.separator(),
     '```fish',
     functionDoc.join('\n'),
     '```',
@@ -140,7 +141,7 @@ export async function getStaticDocString(item: FishCompletionItem): Promise<stri
   ].join('\n');
   item.examples?.forEach((example: CompletionExample) => {
     result += [
-      '___',
+      md.separator(),
       '```fish',
       `# ${example.title}`,
       example.shellText,
@@ -164,7 +165,7 @@ export async function getAbbrDocString(name: string): Promise<string | undefined
   const [title, body] = getAbbr(items);
   return [
     `Abbreviation: \`${title}\``,
-    '___',
+    md.separator(),
     '```fish',
     body.trimEnd(),
     '```',
@@ -187,7 +188,7 @@ export async function getBuiltinDocString(name: string): Promise<string | undefi
       : splitDocs.join('\n');
   return [
     `__${name.toUpperCase()}__ - _https://fishshell.com/docs/current/cmds/${name.trim()}.html_`,
-    '___',
+    md.separator(),
     '```man',
     resultDocs,
     '```',
@@ -197,7 +198,7 @@ export async function getBuiltinDocString(name: string): Promise<string | undefi
 export async function getAliasDocString(label: string, line: string): Promise<string | undefined> {
   return [
     `Alias: _${label}_`,
-    '___',
+    md.separator(),
     '```fish',
     line.split('\t')[1],
     '```',
@@ -214,13 +215,13 @@ export async function getEventHandlerDocString(documentation: string): Promise<s
   if (!doc) {
     return [
       `Event: \`${label}\``,
-      '___',
+      md.separator(),
       `Event handler for \`${command}\``,
     ].join('\n');
   }
   return [
     `Event: \`${label}\``,
-    '___',
+    md.separator(),
     doc,
   ].join('\n');
 }
@@ -243,9 +244,9 @@ export async function getVariableDocString(name: string): Promise<string | undef
   }, { first: '', middle: [] as string[], last: '' });
   return first ? [
     first,
-    '___',
+    md.separator(),
     middle.join('\n'),
-    '___',
+    md.separator(),
     last,
   ].join('\n') : undefined;
 }

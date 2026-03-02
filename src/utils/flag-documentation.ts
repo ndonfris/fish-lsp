@@ -1,5 +1,6 @@
 import { MarkupContent, MarkupKind } from 'vscode-languageserver-protocol/node';
 import { execCommandDocs, execCompleteLine } from './exec';
+import { md } from './markdown-builder';
 
 const findFirstFlagIndex = (cmdline: string[]) => {
   for (let i = 0; i < cmdline.length; i++) {
@@ -138,8 +139,8 @@ export async function getFlagDocumentationString(input: string): Promise<string>
   const flagLines = await getFlagDocumentationStrings(input);
   const flagString = flagLines.join('\n');
   const manpage = await execCommandDocs(cmdName.replaceAll(' ', '-'));
-  const flagDoc = flagString.trim().length > 0 ? ['___', '  ***Flags***', flagString].join('\n') : '';
-  const manDoc = manpage.trim().length > 0 ? ['___', '```man', manpage, '```'].join('\n') : '';
+  const flagDoc = flagString.trim().length > 0 ? [md.separator(), '  ***Flags***', flagString].join('\n') : '';
+  const manDoc = manpage.trim().length > 0 ? [md.separator(), '```man', manpage, '```'].join('\n') : '';
   const afterString = [flagDoc, manDoc].join('\n').trim();
   return [
     `***\`${cmdName}\`***`,

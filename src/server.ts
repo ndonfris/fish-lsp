@@ -4,7 +4,7 @@ import './utils/polyfills';
 import './virtual-fs';
 import { SyntaxNode } from 'web-tree-sitter';
 import { analyzer, Analyzer } from './analyze';
-import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent, SelectionRangeParams, SelectionRange } from 'vscode-languageserver';
+import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent, SelectionRangeParams, SelectionRange } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, documents, rangeOverlapsLineSpan } from './document';
 import { formatDocumentWithIndentComments, formatDocumentContent } from './formatting';
@@ -18,9 +18,12 @@ import { getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspa
 import { workspaceManager } from './utils/workspace-manager';
 import { formatFishSymbolTree, filterLastPerScopeSymbol, FishSymbol } from './parsing/symbol';
 import { CompletionPager, initializeCompletionPager, isInVariableExpansionContext, SetupData } from './utils/completion/pager';
-import { FishCompletionItem } from './utils/completion/types';
-import { getDocumentationResolver } from './utils/completion/documentation';
+import {
+  FishCompletionItem,
+  normalizeCompletionItemDocumentation,
+} from './utils/completion/types';
 import { FishCompletionList } from './utils/completion/list';
+import { resolveCompletionItemDocumentation } from './utils/completion/resolve-item';
 import { PrebuiltDocumentationMap, getPrebuiltDocUrl } from './utils/snippets';
 import { findParent, findParentCommand, isAliasDefinitionName, isBraceExpansion, isCommand, isCommandName, isConcatenatedValue, isConcatenation, isEndStdinCharacter, isOption, isPathNode, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
 import { config, Config } from './config';
@@ -466,7 +469,9 @@ export default class FishServer {
       }
       if (isInVariableExpansionContext(doc, params.position, line, word, current ?? null)) {
         logger.log('completeVariables');
-        return this.completion.completeVariables(line, word, fishCompletionData, symbols);
+        const variableList = await this.completion.completeVariables(line, word, fishCompletionData, symbols);
+        variableList.items = variableList.items.map(item => normalizeCompletionItemDocumentation(item as FishCompletionItem));
+        return variableList;
       }
     } catch (error) {
       logger.warning('ERROR: onComplete ' + error?.toString() || 'error');
@@ -478,6 +483,7 @@ export default class FishServer {
     } catch (error) {
       logger.logAsJson('ERROR: onComplete ' + error?.toString() || 'error');
     }
+    list.items = list.items.map(item => normalizeCompletionItemDocumentation(item as FishCompletionItem));
     return list;
   }
 
@@ -487,24 +493,12 @@ export default class FishServer {
    * Not seeing a completion result, with typed correctly is likely caused from this.
    */
   async onCompletionResolve(item: CompletionItem): Promise<CompletionItem> {
-    const fishItem = item as FishCompletionItem;
-    logger.log({ onCompletionResolve: fishItem });
     try {
-      if (fishItem.useDocAsDetail || fishItem.local) {
-        item.documentation = {
-          kind: MarkupKind.Markdown,
-          value: fishItem.documentation.toString(),
-        };
-        return item;
-      }
-      const doc = await getDocumentationResolver(fishItem);
-      if (doc) {
-        item.documentation = doc as MarkupContent;
-      }
+      return await resolveCompletionItemDocumentation(item, this.completionMap);
     } catch (err) {
       logger.error('onCompletionResolve', err);
+      return item;
     }
-    return item;
   }
 
   // • lsp-spec: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_symbol
@@ -761,9 +755,9 @@ export default class FishServer {
       return {
         contents: enrichToMarkdown([
           `___${current.text}___  - _${getPrebuiltDocUrl(prebuiltSkipType)}_`,
-          '___',
+          md.separator(),
           `type - __(${prebuiltSkipType.type})__`,
-          '___',
+          md.separator(),
           `${prebuiltSkipType.description}`,
         ].join('\n')),
       };

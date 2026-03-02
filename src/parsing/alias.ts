@@ -165,7 +165,7 @@ export namespace FishAlias {
     if (!detail) return null;
 
     return [
-      `(${md.italic('alias')}) ${name}`,
+      `(${md.bold('alias')}) ${md.inlineCode(name)}`,
       md.separator(),
       md.codeBlock('fish', node.text),
       md.separator(),

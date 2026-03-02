@@ -8,12 +8,12 @@ export type SetupItem = {
 };
 
 export const SetupItemsFromCommandConfig: SetupItem[] = [
-  {
-    command: "[ (abbr --show | count) -eq 0 ] ||  abbr --show | string split ' -- ' -m1 -f2 | string unescape",
-    detail: 'Abbreviation',
-    fishKind: FishCompletionItemKind.ABBR,
-    topLevel: true,
-  },
+  // {
+  //   command: "[ (abbr --show | count) -eq 0 ] ||  abbr --show | string split ' -- ' -m1 -f2 | string unescape",
+  //   detail: 'Abbreviation',
+  //   fishKind: FishCompletionItemKind.ABBR,
+  //   topLevel: true,
+  // },
   {
     command: 'builtin --names',
     detail: 'Builtin',
@@ -33,7 +33,7 @@ export const SetupItemsFromCommandConfig: SetupItem[] = [
     topLevel: true,
   },
   {
-    command: 'complete -C \'\'',
+    command: 'complete -C \'\' | string match -r ".*\\tcommand"',
     detail: 'Command',
     fishKind: FishCompletionItemKind.COMMAND,
     topLevel: true,

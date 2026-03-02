@@ -2,11 +2,13 @@ import {
   CompletionContext,
   CompletionItem,
   CompletionItemKind, MarkupContent,
+  MarkupKind,
   Position, Range,
   SymbolKind,
   TextEdit,
 } from 'vscode-languageserver';
 import { FishSymbol } from '../../parsing/symbol';
+import { md } from '../markdown-builder';
 
 export const FishCompletionItemKind = {
   ABBR: 'abbr',
@@ -63,6 +65,10 @@ export type FishCompletionData = {
   position: Position;
   command?: string;
   context?: CompletionContext;
+  fishKind?: FishCompletionItemKind;
+  detail?: string;
+  local?: boolean;
+  useDocAsDetail?: boolean;
 };
 
 export interface FishCompletionItem extends CompletionItem {
@@ -78,6 +84,46 @@ export interface FishCompletionItem extends CompletionItem {
   setLocal(): FishCompletionItem;
   setData(data: FishCompletionData): FishCompletionItem;
   setPriority(priority: number): FishCompletionItem;
+}
+
+export function getCompletionDocumentationValue(
+  documentation: string | MarkupContent | undefined | null,
+): string {
+  if (typeof documentation === 'string') {
+    return documentation;
+  }
+  if (documentation && typeof documentation.value === 'string') {
+    return documentation.value;
+  }
+  return '';
+}
+
+export function normalizeCompletionMarkdownValue(value: string): string {
+  if (!value) return value;
+  return value
+    .replace(/\r\n/g, '\n')
+    .replace(/^[ \t]*___[ \t]*$/gm, '---')
+    .replace(/[ \t]*\n[ \t]*---[ \t]*\n[ \t]*/g, '\n\n---\n\n');
+}
+
+export function toCompletionMarkdownDocumentation(
+  documentation: string | MarkupContent | undefined | null,
+): MarkupContent {
+  const normalizedValue = normalizeCompletionMarkdownValue(
+    getCompletionDocumentationValue(documentation),
+  );
+  return {
+    kind: MarkupKind.Markdown,
+    value: normalizedValue,
+  };
+}
+
+export function normalizeCompletionItemDocumentation(item: FishCompletionItem): FishCompletionItem {
+  const docValue = getCompletionDocumentationValue(item.documentation).trim();
+  if (docValue.length > 0) {
+    item.documentation = toCompletionMarkdownDocumentation(item.documentation);
+  }
+  return item;
 }
 
 export class FishCompletionItem implements FishCompletionItem {
@@ -111,7 +157,13 @@ export class FishCompletionItem implements FishCompletionItem {
   }
 
   setData(data: FishCompletionData) {
-    this.data = data;
+    this.data = {
+      ...data,
+      fishKind: this.fishKind,
+      detail: this.detail,
+      local: this.local,
+      useDocAsDetail: this.useDocAsDetail,
+    };
     const removeLength = data.word ? data.word.length : 1;
     this.textEdit = TextEdit.replace(
       Range.create({ line: data.position.line, character: data.position.character - removeLength }, data.position),
@@ -204,7 +256,7 @@ export namespace CompletionExample {
 
   export function toMarkedString(example: CompletionExample): string {
     return [
-      '___',
+      md.separator(),
       '```fish',
       `# ${example.title}`,
       example.shellText,
