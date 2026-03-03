@@ -1,5 +1,6 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { isCommand, isCommandWithName, isOption, isString } from '../utils/node-types';
+import { FishString } from './string';
 import { Flag, isMatchingOption, Option } from './options';
 import { LspDocument } from '../document';
 import { getChildNodes, getRange, pointToPosition } from '../utils/tree-sitter';
@@ -437,7 +438,7 @@ export function getCompletionSymbol(node: SyntaxNode, doc?: LspDocument): Comple
       result.commandName = child.text;
     }
     if (isMatchingOption(prev, Option.create('-d', '--description'))) {
-      result.description = isString(child) ? child.text.slice(1, -1) : child.text;
+      result.description = FishString.fromNode(child);
     }
     if (isMatchingOption(prev, Option.create('-n', '--condition'))) {
       result.condition = child.text;

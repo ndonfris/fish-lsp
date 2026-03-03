@@ -362,6 +362,14 @@ Theoretically, the language-server should generally be compatible with almost an
   > This configuration includes a [Fish.plist](https://github.com/ndonfris/fish-lsp-language-clients/blob/bbedit/Lanugage%20Modules/Fish.plist) file that provides syntax highlighting and other features for the fish shell.
 
 </details>
+<details>
+  <summary><span><a id="Intellij"></a><b>IntelliJ</b></span></summary>
+
+  > To install the fish-lsp in [IntelliJ](https://www.jetbrains.com/idea/), please follow the instructions in the repository [jetbrains-fish](https://github.com/tox-dev/jetbrains-fish?tab=readme-ov-file#installation).
+
+</details>
+
+
 
 ### Server Configuration <ins><i>(Optional)</i></ins>
 
@@ -930,6 +938,7 @@ Contributions of any kind are welcome! Special thanks to anyone who contributed 
     </tr>
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/jose-elias-alvarez"><img src="https://avatars.githubusercontent.com/u/54108223?v=4?s=50" width="50px;" alt="Jose Alvarez"/><br /><sub><b>Jose Alvarez</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=jose-elias-alvarez" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://www.bernat.tech/"><img src="https://avatars.githubusercontent.com/u/690238?v=4?s=50" width="50px;" alt="Bernát Gábor"/><br /><sub><b>Bernát Gábor</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=gaborbernat" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>

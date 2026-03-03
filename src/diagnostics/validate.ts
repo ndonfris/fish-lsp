@@ -9,6 +9,7 @@ import { config } from '../config';
 import { DiagnosticCommentsHandler } from './comments-handler';
 import { logger } from '../logger';
 import { isAutoloadedUriLoadsFunctionName, uriToReadablePath } from '../utils/translation';
+import { FishString } from '../parsing/string';
 import { findParent, findParentCommand, isCommandName, isCommandWithName, isComment, isCompleteCommandName, isFunctionDefinitionName, isOption, isScope, isString, isTopLevelFunctionDefinition } from '../utils/node-types';
 import { isBuiltin, isReservedKeyword } from '../utils/builtins';
 import { getNoExecuteDiagnostics } from './no-execute-diagnostic';
@@ -109,7 +110,7 @@ export async function getDiagnosticsAsync(
       const parent = findParentCommand(node);
       if (parent && isCommandWithName(parent, 'set', 'test')) {
         const opt = isCommandWithName(parent, 'test') ? Option.short('-n') : Option.create('-q', '--query');
-        let text = isString(node) ? node.text.slice(1, -1) : node.text;
+        let text = FishString.fromNode(node);
         if (text.startsWith('$')) text = text.slice(1);
         if (text && text.length !== 0) {
           const scope = findParent(node, n => isScope(n));
@@ -405,14 +406,14 @@ export async function getDiagnosticsAsync(
   });
 
   const docNameMatchesCompleteCommandNames = completeCommandNames.some(node =>
-    node.text === doc.getAutoLoadName());
+    FishString.fromNode(node) === doc.getAutoLoadName());
   // if no `complete -c func_name` matches the autoload name
   if (completeCommandNames.length > 0 && !docNameMatchesCompleteCommandNames && doc.isAutoloadedCompletion()) {
     const completeNames: Set<string> = new Set();
     for (const completeCommandName of completeCommandNames) {
-      if (!completeNames.has(completeCommandName.text) && handler.isCodeEnabledAtNode(ErrorCodes.autoloadedCompletionMissingCommandName, completeCommandName)) {
+      if (!completeNames.has(FishString.fromNode(completeCommandName)) && handler.isCodeEnabledAtNode(ErrorCodes.autoloadedCompletionMissingCommandName, completeCommandName)) {
         if (addDiagnostics(FishDiagnostic.create(ErrorCodes.autoloadedCompletionMissingCommandName, completeCommandName, completeCommandName.text))) return diagnostics;
-        completeNames.add(completeCommandName.text);
+        completeNames.add(FishString.fromNode(completeCommandName));
       }
     }
   }

@@ -14,7 +14,8 @@ import { createDetail } from './symbol-detail';
 import { config } from '../config';
 import { flattenNested } from '../utils/flatten';
 import { uriToPath } from '../utils/translation';
-import { isCommand, isCommandWithName, isEmptyString, isFunctionDefinitionName, isString, isVariableDefinitionName } from '../utils/node-types';
+import { FishString } from './string';
+import { isCommand, isCommandWithName, isEmptyString, isFunctionDefinitionName, isVariableDefinitionName } from '../utils/node-types';
 import { SyncFileHelper } from '../utils/file-operations';
 import { isExportVariableDefinitionName, processExportCommand } from './export';
 import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol } from './complete';
@@ -480,9 +481,7 @@ export class FishSymbol {
    */
   valuesAsShellValues() {
     return this.findValueNodes().map(node => {
-      let text = node.text;
-      if (isString(node)) text = text.slice(1, -1);
-      return SyncFileHelper.expandEnvVars(text);
+      return SyncFileHelper.expandEnvVars(FishString.fromNode(node));
     });
   }
 
