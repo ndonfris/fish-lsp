@@ -295,6 +295,18 @@
     "valueType": "boolean"
   },
   {
+    "name": "fish_lsp_show_subcommand_semantic_tokens",
+    "description": "Highlight `COMMAND SUBCOMMAND` tokens together (e.g., `string collect`, `path resolve`, `status is-interactive`)",
+    "shortDescription": "Highlight `COMMAND SUBCOMMAND` tokens together",
+    "exactMatchOptions": true,
+    "options": [
+      true,
+      false
+    ],
+    "defaultValue": true,
+    "valueType": "boolean"
+  },
+  {
     "name": "fish_lsp_max_background_files",
     "description": "The maximum number of background files to read into buffer on startup.",
     "shortDescription": "maximum number of files to analyze in the background on startup",

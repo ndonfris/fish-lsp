@@ -8,11 +8,13 @@ import { calculateModifiersMask, createTokensFromMatches, getTextMatchPositions,
 import { isCommandName, isCommandWithName, isEndStdinCharacter, isShebang, isVariableExpansion } from './utils/node-types';
 import { LspDocument } from './document';
 import { BuiltInList } from './utils/builtins';
+import { config } from './config';
 import { isDiagnosticComment } from './diagnostics/comments-handler';
 import { getRange, isNodeWithinRange } from './utils/tree-sitter';
 import { getSymbolModifiers } from './parsing/symbol-modifiers';
 import { PrebuiltDocumentationMap } from './utils/snippets';
 import { AutoloadedPathVariables } from './utils/process-env';
+import { subcommandCache } from './utils/subcommand-cache';
 
 /**
  * We only want to return the semantic tokens that clients aren't highlighting, since
@@ -219,9 +221,23 @@ const nodeToTokenHandler: NodeToToken[] = [
   [isBuiltinFunction, (n, ctx) => {
     const cmd = n.firstNamedChild;
     if (!cmd) return;
+    const modifiers = calculateModifiersMask('defaultLibrary');
     ctx.tokens.push(
-      SemanticToken.fromNode(cmd, FishSemanticTokens.types.function, calculateModifiersMask('defaultLibrary')),
+      SemanticToken.fromNode(cmd, FishSemanticTokens.types.function, modifiers),
     );
+    // Highlight valid subcommands with the same type/modifiers as the parent
+    const subCmd = n.child(1);
+    if (subCmd && subCmd.isNamed && !subCmd.text.startsWith('-')) {
+      if (subcommandCache.hasSubcommand(cmd.text, subCmd.text)) {
+        if (config.fish_lsp_show_subcommand_semantic_tokens) {
+          ctx.tokens.push(
+            SemanticToken.fromNode(subCmd, FishSemanticTokens.types.function, modifiers),
+          );
+        }
+      } else {
+        subcommandCache.requestPopulate(cmd.text);
+      }
+    }
   }],
 
   // User-defined or fish-shipped function calls
@@ -269,6 +285,19 @@ const nodeToTokenHandler: NodeToToken[] = [
     ctx.tokens.push(
       SemanticToken.fromNode(cmd, FishSemanticTokens.types.function, modifiers),
     );
+    // Highlight valid subcommands with the same type/modifiers as the parent
+    const subCmd = n.child(1);
+    if (subCmd && subCmd.isNamed && !subCmd.text.startsWith('-')) {
+      if (subcommandCache.hasSubcommand(cmd.text, subCmd.text)) {
+        if (config.fish_lsp_show_subcommand_semantic_tokens) {
+          ctx.tokens.push(
+            SemanticToken.fromNode(subCmd, FishSemanticTokens.types.function, modifiers),
+          );
+        }
+      } else {
+        subcommandCache.requestPopulate(cmd.text);
+      }
+    }
   }],
 
   // variable expansions

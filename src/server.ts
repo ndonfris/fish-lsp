@@ -47,6 +47,7 @@ import { getSelectionRanges } from './selection-range';
 import { PkgJson } from './utils/commander-cli-subcommands';
 import { ProgressNotification } from './utils/progress-notification';
 import { md } from './utils/markdown-builder';
+import { subcommandCache } from './utils/subcommand-cache';
 
 export type SupportedFeatures = {
   codeActionDisabledSupport: boolean;
@@ -159,6 +160,12 @@ export default class FishServer {
       params,
     );
     server.register(connection);
+
+    subcommandCache.onPopulated(() => {
+      connection.languages.semanticTokens.refresh();
+    });
+    subcommandCache.initializeBuiltins();
+
     return { server, initializeResult };
   }
 

@@ -499,6 +499,12 @@ set -gx fish_lsp_allow_fish_wrapper_functions true
 # (Default: 'true')
 set -gx fish_lsp_require_autoloaded_functions_to_have_description true
 
+# $fish_lsp_show_subcommand_semantic_tokens <BOOLEAN>
+# Highlight `COMMAND SUBCOMMAND` tokens together (e.g., `string collect`, `path resolve`, `status is-interactive`)
+# (Options: 'true', 'false')
+# (Default: 'true')
+set -gx fish_lsp_show_subcommand_semantic_tokens true
+
 # $fish_lsp_max_background_files <NUMBER>
 # The maximum number of background files to read into buffer on startup.
 # (Example Options: 100, 250, 500, 1000, 5000, 10000)
@@ -662,6 +668,12 @@ set -gx fish_lsp_allow_fish_wrapper_functions
 # (Default: 'true')
 set -gx fish_lsp_require_autoloaded_functions_to_have_description 
 
+# $fish_lsp_show_subcommand_semantic_tokens <BOOLEAN>
+# Highlight `COMMAND SUBCOMMAND` tokens together (e.g., `string collect`, `path resolve`, `status is-interactive`)
+# (Options: 'true', 'false')
+# (Default: 'true')
+set -gx fish_lsp_show_subcommand_semantic_tokens
+
 # $fish_lsp_max_background_files <NUMBER>
 # The maximum number of background files to read into buffer on startup.
 # (Example Options: 100, 250, 500, 1000, 5000, 10000)
@@ -701,7 +713,7 @@ set -gx fish_lsp_max_workspace_depth
 # (Example Options: 'fish', '/usr/bin/fish', '/usr/.local/bin/fish', 
 #                   '~/.local/bin/fish')
 # (Default: '')
-set -gx fish_lsp_fish_path
+set -gx fish_lsp_fish_path 
 ```
 
 </details>
@@ -741,6 +753,7 @@ set -gx fish_lsp_fish_path
   "fish_lsp_prefer_builtin_fish_commands": false,
   "fish_lsp_allow_fish_wrapper_functions": true,
   "fish_lsp_require_autoloaded_functions_to_have_description": true,
+  "fish_lsp_show_subcommand_semantic_tokens": true,
   "fish_lsp_max_background_files": 10000,
   "fish_lsp_show_client_popups": true,
   "fish_lsp_single_workspace_support": false,

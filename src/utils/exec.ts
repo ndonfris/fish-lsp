@@ -225,8 +225,16 @@ export async function execCompleteCmdArgs(cmd: string): Promise<string[]> {
   return fixedResults;
 }
 
-export async function execCommandDocs(cmd: string): Promise<string> {
-  const result = await ExecFishFiles.getDocs(cmd);
+/**
+ * Normalize command args so callers can pass either separate args
+ * (`'string', 'split'`) or a space-joined form (`'string split'`).
+ */
+function normalizeCommandArgs(args: string[]): string[] {
+  return args.flatMap(a => a.split(/\s+/)).filter(Boolean);
+}
+
+export async function execCommandDocs(...args: string[]): Promise<string> {
+  const result = await ExecFishFiles.getDocs(...normalizeCommandArgs(args));
   const out = result.stdout || '';
   return out.toString().trim();
 }
@@ -240,8 +248,8 @@ export async function execCommandDocs(cmd: string): Promise<string> {
  *                     'file' -> cmd is fish function
  *                     '' ->    cmd is neither
  */
-export async function execCommandType(cmd: string): Promise<string> {
-  const result = await ExecFishFiles.getTypeVerbose(cmd);
+export async function execCommandType(...args: string[]): Promise<string> {
+  const result = await ExecFishFiles.getTypeVerbose(...normalizeCommandArgs(args));
   if (result?.stderr) {
     return '';
   }

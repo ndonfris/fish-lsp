@@ -138,7 +138,7 @@ export async function getFlagDocumentationString(input: string): Promise<string>
   const cmdName = getFlagCommand(input);
   const flagLines = await getFlagDocumentationStrings(input);
   const flagString = flagLines.join('\n');
-  const manpage = await execCommandDocs(cmdName.replaceAll(' ', '-'));
+  const manpage = await execCommandDocs(cmdName);
   const flagDoc = flagString.trim().length > 0 ? [md.separator(), '  ***Flags***', flagString].join('\n') : '';
   const manDoc = manpage.trim().length > 0 ? [md.separator(), '```man', manpage, '```'].join('\n') : '';
   const afterString = [flagDoc, manDoc].join('\n').trim();

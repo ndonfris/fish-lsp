@@ -2,6 +2,8 @@
 import { setLogger } from './helpers';
 
 import * as path from 'path';
+import * as fs from 'fs';
+import { execSync } from 'child_process';
 import {
   execEscapedCommand,
   execCmd,
@@ -13,6 +15,24 @@ import {
   EmbeddedFishResult,
   runEmbeddedFish,
 } from '../src/utils/exec';
+
+function hasManPage(name: string): boolean {
+  try {
+    execSync(`man -w ${name}`, { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function hasLocalManFile(relativePath: string): boolean {
+  return fs.existsSync(path.resolve(__dirname, '..', relativePath));
+}
+
+function normalizeManDashes(input: string): string {
+  // Normalize common unicode dash/minus glyphs emitted by `man` formatting.
+  return input.replace(/[‐‑‒–—−]/g, '-');
+}
 import { BuiltInList } from '../src/utils/builtins';
 import GetType from '../fish_files/get-type.fish';
 
@@ -50,6 +70,27 @@ describe('src/utils/exec.ts tests', () => {
     const output = await execCommandDocs('end');
     // console.log('docs: ', output.split('\n').length);
     expect(output.split('\n').length).toBeGreaterThan(10);
+  });
+
+  it('execCommandDocs for subcommands (e.g. string-split)', async () => {
+    const output = await execCommandDocs('string', 'split');
+    const type = await execCommandType('string', 'split');
+    console.log('execCommandDocs("string-split"):', output.split('\n').slice(0, 5).join('\n'));
+    console.log('execCommandType("string-split"):', JSON.stringify(type));
+    expect(output).toBeTruthy();
+    expect(output).toContain('STRING-SPLIT');
+  });
+
+  it.skipIf(!hasLocalManFile('man/fish-lsp.1'))('execCommandDocs does not split hyphenated command names (e.g. fish-lsp)', async () => {
+    const output = await execCommandDocs('fish-lsp');
+    const type = await execCommandType('fish-lsp');
+    const localManOutput = fs.readFileSync(path.resolve(__dirname, '..', 'man/fish-lsp.1'), 'utf8');
+    console.log('execCommandDocs("fish-lsp"):', output.split('\n').slice(0, 5).join('\n'));
+    console.log('local man/fish-lsp.1:', localManOutput.split('\n').slice(0, 5).join('\n'));
+    console.log('execCommandType("fish-lsp"):', JSON.stringify(type));
+    expect(output).toBeTruthy();
+    expect(normalizeManDashes(localManOutput).toUpperCase()).toContain('FISH-LSP');
+    expect(normalizeManDashes(output).toUpperCase()).toContain('FISH-LSP');
   });
 
   it('execCommandType', async () => {
