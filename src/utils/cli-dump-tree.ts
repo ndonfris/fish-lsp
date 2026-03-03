@@ -12,6 +12,19 @@ import { createInterface } from 'node:readline';
 import { startServer } from './startup';
 import * as os from 'os';
 
+/**
+ * Checks whether a CLI dump flag value indicates stdin input.
+ * Returns true when the flag is unset, boolean `true`, empty string, or `"-"`.
+ */
+function isDumpFlagStdin(value: string | boolean | undefined): boolean {
+  if (!value || value === true) return true;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed === '' || trimmed === '-';
+  }
+  return false;
+}
+
 interface ParseTreeOutput {
   source: string;
   parseTree: string;
@@ -257,7 +270,7 @@ export async function cliDumpParseTree(document: LspDocument, useColors: boolean
 // Entire wrapper for `src/cli.ts` usage of this function
 export async function handleCLiDumpParseTree(args: CommanderSubcommand.info.schemaType): Promise<0 | 1> {
   const useColors = !args.noColor; // Use colors unless --no-color flag is set
-  const isStdin = !args.dumpParseTree || args.dumpParseTree === true || typeof args.dumpParseTree === 'string' && args.dumpParseTree.trim() === '';
+  const isStdin = isDumpFlagStdin(args.dumpParseTree);
 
   // Read stdin BEFORE startServer(), since startServer() hijacks stdin for the LSP connection
   let stdinContent = '';
@@ -590,7 +603,7 @@ export async function cliDumpSymbolTree(document: LspDocument, useColors: boolea
 export async function handleCLiDumpSymbolTree(args: CommanderSubcommand.info.schemaType): Promise<0 | 1> {
   const useColors = !args.noColor;
   const useIcons = args.icons !== false;
-  const isStdin = !args.dumpSymbolTree || args.dumpSymbolTree === true || typeof args.dumpSymbolTree === 'string' && args.dumpSymbolTree.trim() === '';
+  const isStdin = isDumpFlagStdin(args.dumpSymbolTree);
 
   // Read stdin BEFORE startServer(), since startServer() hijacks stdin for the LSP connection
   let stdinContent = '';
@@ -625,7 +638,7 @@ export async function handleCLiDumpSymbolTree(args: CommanderSubcommand.info.sch
  */
 export async function handleCLiDumpSemanticTokens(args: CommanderSubcommand.info.schemaType): Promise<0 | 1> {
   const useColors = !args.noColor; // Use colors unless --no-color flag is set
-  const isStdin = !args.dumpSemanticTokens || args.dumpSemanticTokens === true || typeof args.dumpSemanticTokens === 'string' && args.dumpSemanticTokens.trim() === '';
+  const isStdin = isDumpFlagStdin(args.dumpSemanticTokens);
 
   // Read stdin BEFORE startServer(), since startServer() hijacks stdin for the LSP connection
   let stdinContent = '';
