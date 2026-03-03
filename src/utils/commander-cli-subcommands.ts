@@ -617,6 +617,8 @@ export namespace CommanderSubcommand {
         status: z.boolean().optional().default(false),
         dumpParseTree: z.union([z.string(), z.boolean()]).optional().default(''),
         dumpSemanticTokens: z.union([z.string(), z.boolean()]).optional().default(''),
+        dumpSymbolTree: z.union([z.string(), z.boolean()]).optional().default(''),
+        icons: z.boolean().optional().default(true),
         virtualFs: z.boolean().optional().default(false),
       }),
     );

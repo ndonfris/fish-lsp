@@ -17,11 +17,11 @@ Documentation below shows usage of the `fish-lsp` command, including its subcomm
 
 ## OPTIONS  
   
-`-v` or `--version`           Show version information and exit.  
-`-h` or `--help`              Show help message and exit.  
-`--help-all`                Show all the help information  
-`--help-short`              Show shortened help message  
-`--help-man`                Show manpage output  
+`-v` or `--version`                Show version information and exit.  
+`-h` or `--help`                   Show help message and exit.  
+`--help-all`                     Show all the help information  
+`--help-short`                   Show shortened help message  
+`--help-man`                     Show manpage output  
 
 ## SUBCOMMANDS
 
@@ -29,86 +29,88 @@ Documentation below shows usage of the `fish-lsp` command, including its subcomm
 
 Start the language server.  
   
-  `--enable`                  enable the language server features  
-  `--disable`                 disable the language server features  
-  `--dump`                    dump the json output of the language server features enabled after startup  
-  `--stdio`                   use stdin/stdout for communication (default)  
-  `--node-ipc`                use node IPC for communication  
-  `--socket <port>`           use TCP socket for communication  
-  `--memory-limit <mb>`       set memory usage limit in MB  
-  `--max-files <number>`      override the maximum number of files to analyze  
+  `--enable`                       enable the language server features  
+  `--disable`                      disable the language server features  
+  `--dump`                         dump the json output of the language server features enabled after startup  
+  `--stdio`                        use stdin/stdout for communication (default)  
+  `--node-ipc`                     use node IPC for communication  
+  `--socket <port>`                use TCP socket for communication  
+  `--memory-limit <mb>`            set memory usage limit in MB  
+  `--max-files <number>`           override the maximum number of files to analyze  
 
 ### `env`
 
 show the environment variables available to the lsp  
   
-  `-c` or `--create`            create the environment variable  
-  `-s` or `--show`              show the environment variables  
-  `--show-default`            show the default values for fish-lsp env variables  
-  `--only <VAR>`              only include the specified environment variables in the output  
-  `--no-global`               don't use global scope when generating environment variables  
-  `--no-local`                don't use local scope when generating environment variables  
-  `--no-export`               don't use export flag when generating environment variables  
-  `--no-comments`             skip outputting comments  
-  `--confd`                   output for redirecting to conf.d/fish-lsp.fish  
-  `--json`                    output `fish_lsp_*` initialization variables as JSON object (for vscode `settings.json`)  
+  `-c` or `--create`                 create the environment variable  
+  `-s` or `--show`                   show the environment variables  
+  `--show-default`                 show the default values for fish-lsp env variables  
+  `--only <VAR>`                   only include the specified environment variables in the output  
+  `--no-global`                    don't use global scope when generating environment variables  
+  `--no-local`                     don't use local scope when generating environment variables  
+  `--no-export`                    don't use export flag when generating environment variables  
+  `--no-comments`                  skip outputting comments  
+  `--confd`                        output for redirecting to conf.d/fish-lsp.fish  
+  `--json`                         output `fish_lsp_*` initialization variables as JSON object (for vscode `settings.json`)  
 
 ### `info`
 
 show the build info of fish-lsp  
   
-  `--bin`                     show the path of the fish-lsp executable  
-  `--path`                    show the path of the entire fish-lsp installation  
-  `--build-time`              show the path of the entire fish-lsp repo  
-  `--build-type`              show the build type of the command  
-  `-v` or `--version`           show the lsp version  
-  `--lsp-version`             show the vscode-languageserver version  
-  `--capabilities`            show the lsp capabilities  
-  `--man-file`                show the man file path  
-  `--log-file`                show the log file path  
-  `--show`                    show the man/log file contents (needs to be paired with `--log-file` or `--man-file`)  
-  `--extra`                   show debugging server info (capabilities, paths, version, etc.)  
-  `--verbose`                 show debugging server info (capabilities, paths, version, etc.)  
-  `--check-health`            run diagnostics and report health status  
-  `--health-check`            run diagnostics and report health status  
-  `--time-startup`            time the startup of the fish-lsp executable  
-  `--time-only`               show brief summary of the startup timing  
-  `--use-workspace <PATH>`    use the workspace at the specified directory path when `fish-lsp info --time-startup` is used  
-  `--no-warning`              disable message in the `fish-lsp info --time-startup` output  
-  `--show-files`              show the files that were indexed during startup when `fish-lsp info --time-startup` is used  
-  `--dump-parse-tree <FILE>`  show the tree-sitter AST for the specified file  
+  `--bin`                          show the path of the fish-lsp executable  
+  `--path`                         show the path of the entire fish-lsp installation  
+  `--build-time`                   show the path of the entire fish-lsp repo  
+  `--build-type`                   show the build type of the command  
+  `-v` or `--version`                show the lsp version  
+  `--lsp-version`                  show the vscode-languageserver version  
+  `--capabilities`                 show the lsp capabilities  
+  `--man-file`                     show the man file path  
+  `--log-file`                     show the log file path  
+  `--show`                         show the man/log file contents (needs to be paired with `--log-file` or `--man-file`)  
+  `--extra`                        show debugging server info (capabilities, paths, version, etc.)  
+  `--verbose`                      show debugging server info (capabilities, paths, version, etc.)  
+  `--check-health`                 run diagnostics and report health status  
+  `--health-check`                 run diagnostics and report health status  
+  `--time-startup`                 time the startup of the fish-lsp executable  
+  `--time-only`                    show brief summary of the startup timing  
+  `--use-workspace <PATH>`         use the workspace at the specified directory path when `fish-lsp info --time-startup` is used  
+  `--no-warning`                   disable message in the `fish-lsp info --time-startup` output  
+  `--show-files`                   show the files that were indexed during startup when `fish-lsp info --time-startup` is used  
+  `--dump-symbol-tree <FILE>`      show the fish-lsp definition symbol tree for the specified file  
+  `--dump-parse-tree <FILE>`       show the tree-sitter AST for the specified file  
   `--dump-semantic-tokens <FILE>`  show the semantic-tokens for the specified file  
-  `--no-color`                disable color output in the `fish-lsp info --dump-file-tree`/`fish-lsp info --semantic-tokens` output  
-  `--source-maps`             show the source-maps  
-  `--check`                   used in combination with `--source-maps`, verifies source-maps are working by throwing an error  
-  `--status`                  used in combination with `--source-maps`, shows status of source-maps loading  
+  `--no-color`                     disable color output from `--dump-*` output  
+  `--no-icons`                     disable icon usage in output from `fish-lsp info --dump-symbol-tree`  
+  `--source-maps`                  show the source-maps  
+  `--check`                        used in combination with `--source-maps`, verifies source-maps are working by throwing an error  
+  `--status`                       used in combination with `--source-maps`, shows status of source-maps loading  
 
 ### `url`
 
 show a helpful url related to the fish-lsp  
   
-  `--repo` or `--git`           show the github repo  
-  `--npm`                     show the npm package url  
-  `--homepage`                show the homepage  
-  `--contributions`           show the contributions url  
-  `--wiki`                    show the github wiki  
-  `--issues` or `--report`      show the issues page  
-  `--discussions`             show the discussions page  
-  `--clients-repo`            show the clients configuration repo  
-  `--sources`                 show a list of helpful sources  
+  `--repo` or `--git`                show the github repo  
+  `--npm`                          show the npm package url  
+  `--homepage`                     show the homepage  
+  `--contributions`                show the contributions url  
+  `--wiki`                         show the github wiki  
+  `--issues` or `--report`           show the issues page  
+  `--discussions`                  show the discussions page  
+  `--clients-repo`                 show the clients configuration repo  
+  `--sources`                      show a list of helpful sources  
 
 ### `complete`
 
 Provide completions for the `fish-lsp`  
   
-  `--names`                   show the feature names of the completions  
-  `--toggles`                 show the feature names of the completions  
-  `--fish`                    show fish script  
-  `--features`                show features  
-  `--env-variables`           show env variable completions  
-  `--env-variable-names`      show env variable names  
-  `--names-with-summary`      show the names with the summary for the completions  
-  `--abbreviations`           show the 'fish-lsp' subcommand abbreviations  
+  `--names`                        show the feature names of the completions  
+  `--toggles`                      show the feature names of the completions  
+  `--fish`                         show fish script  
+  `--features`                     show features  
+  `--env-variables`                show env variable completions  
+  `--env-variable-names`           show env variable names  
+  `--names-with-summary`           show the names with the summary for the completions  
+  `--abbreviations`                show the 'fish-lsp' subcommand abbreviations  
 
 ## EXAMPLES
 
@@ -118,13 +120,13 @@ Provide completions for the `fish-lsp`
   >_ fish-lsp start
   ```
 
-- Show the path to the `fish-lsp` language server binary:
+- Generate the completions for the `fish-lsp` language server binary:
 
   ```fish
   >_ fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish
   ```
 
-- Debug the `fish-lsp` language server:
+- Debug the `fish-lsp` language server by dumping the enabled features after startup:
 
   ```fish
   >_ fish-lsp start --dump
@@ -158,6 +160,18 @@ Provide completions for the `fish-lsp`
 
   ```fish
   >_ fish-lsp info --check-health
+  ```
+
+- Show the definition symbol tree for a specific file:
+
+  ```fish
+  >_ fish-lsp info --dump-symbol-tree ~/.config/fish/config.fish
+  ```
+
+- Show the semantic tokens for a specific file (read from `stdin`):
+
+  ```fish
+  >_ cat $__fish_data_dir/config.fish | fish-lsp info --dump-semantic-tokens
   ```
 
 - Show the environment variables available to the `fish-lsp` language server:

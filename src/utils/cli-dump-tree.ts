@@ -7,8 +7,23 @@ import chalk from 'chalk';
 import { CommanderSubcommand } from './commander-cli-subcommands';
 import { semanticTokenHandler } from '../semantic-tokens';
 import { FishSemanticTokens } from './semantics';
+import { type FishSymbol, processNestedTree, formatFishSymbolTree } from '../parsing/symbol';
 import { createInterface } from 'node:readline';
 import { startServer } from './startup';
+import * as os from 'os';
+
+/**
+ * Checks whether a CLI dump flag value indicates stdin input.
+ * Returns true when the flag is unset, boolean `true`, empty string, or `"-"`.
+ */
+function isDumpFlagStdin(value: string | boolean | undefined): boolean {
+  if (!value || value === true) return true;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed === '' || trimmed === '-';
+  }
+  return false;
+}
 
 interface ParseTreeOutput {
   source: string;
@@ -254,26 +269,29 @@ export async function cliDumpParseTree(document: LspDocument, useColors: boolean
 
 // Entire wrapper for `src/cli.ts` usage of this function
 export async function handleCLiDumpParseTree(args: CommanderSubcommand.info.schemaType): Promise<0 | 1> {
-  startServer();
-
-  // Initialize the analyzer without starting the full server
-  await Analyzer.initialize();
-
   const useColors = !args.noColor; // Use colors unless --no-color flag is set
+  const isStdin = isDumpFlagStdin(args.dumpParseTree);
 
-  // If no file path provided (either empty string, true boolean, or undefined), read from stdin
-  if (!args.dumpParseTree || args.dumpParseTree === true || typeof args.dumpParseTree === 'string' && args.dumpParseTree.trim() === '') {
-    const stdinContent = await readFromStdin();
+  // Read stdin BEFORE startServer(), since startServer() hijacks stdin for the LSP connection
+  let stdinContent = '';
+  if (isStdin) {
+    stdinContent = await readFromStdin();
     if (stdinContent.trim() === '') {
       logger.logToStderr('Error: No input provided. Please provide either a file path or pipe content to stdin.');
       return 1;
     }
+  }
+
+  startServer();
+  await Analyzer.initialize();
+
+  if (isStdin) {
     const doc = LspDocument.createTextDocumentItem('stdin.fish', stdinContent);
     return await cliDumpParseTree(doc, useColors);
   }
 
   // Original file-based logic
-  const filePath = expandParseCliTreeFile(args.dumpParseTree);
+  const filePath = expandParseCliTreeFile(args.dumpParseTree as string);
   if (!SyncFileHelper.isFile(filePath)) {
     logger.logToStderr(`Error: Cannot read file at ${filePath}. Please check the file path and permissions.`);
     process.exit(1);
@@ -436,28 +454,211 @@ export async function cliDumpSemanticTokens(document: LspDocument, useColors: bo
   return 0;
 }
 
+// ============================================================================
+// Symbol Tree Dumping Functions
+// ============================================================================
+
 /**
- * Main wrapper for `src/cli.ts` usage of semantic tokens dumping
+ * Color scheme for FishSymbolKind values
  */
-export async function handleCLiDumpSemanticTokens(args: CommanderSubcommand.info.schemaType): Promise<0 | 1> {
-  // This initializes the server
-  startServer();
+const symbolKindColors: Record<string, (text: string) => string> = {
+  FUNCTION: chalk.blue.bold,
+  ALIAS: chalk.blue,
+  SET: chalk.red,
+  EXPORT: chalk.red.bold,
+  READ: chalk.green,
+  FOR: chalk.cyan,
+  VARIABLE: chalk.red,
+  FUNCTION_VARIABLE: chalk.magenta,
+  ARGPARSE: chalk.yellow,
+  COMPLETE: chalk.cyan.bold,
+  EVENT: chalk.magenta.bold,
+  FUNCTION_EVENT: chalk.magenta,
+  INLINE_VARIABLE: chalk.red,
+};
 
-  const useColors = !args.noColor; // Use colors unless --no-color flag is set
+/**
+ * Short tag prefix for each symbol kind category
+ */
+const symbolIconTag: Record<string, string> = {
+  FUNCTION: '󰊕',
+  ALIAS: '󰊕',
+  COMPLETE: '󰊕',
+  SET: '',
+  READ: '',
+  FOR: '',
+  VARIABLE: '',
+  FUNCTION_VARIABLE: '',
+  EXPORT: '',
+  INLINE_VARIABLE: '',
+  ARGPARSE: '',
+  EVENT: '󰙵',
+  FUNCTION_EVENT: '󰙵',
+};
 
-  // If no file path provided (either empty string, true boolean, or undefined), read from stdin
-  if (!args.dumpSemanticTokens || args.dumpSemanticTokens === true || typeof args.dumpSemanticTokens === 'string' && args.dumpSemanticTokens.trim() === '') {
-    const stdinContent = await readFromStdin();
+const symbolTextTag: Record<string, string> = {
+  FUNCTION: 'f',
+  ALIAS: 'f',
+  COMPLETE: 'f',
+  SET: 'v',
+  READ: 'v',
+  FOR: 'v',
+  VARIABLE: 'v',
+  FUNCTION_VARIABLE: 'v',
+  EXPORT: 'v',
+  INLINE_VARIABLE: 'v',
+  ARGPARSE: 'v',
+  EVENT: 'e',
+  FUNCTION_EVENT: 'e',
+};
+
+const treeColor = chalk.gray.bold;
+
+const tagColors: Record<string, (text: string) => string> = {
+  f: chalk.blue,
+  v: chalk.magenta,
+  e: chalk.yellow,
+};
+
+function formatSymbolLine(symbol: FishSymbol, useIcons: boolean): string {
+  const scopeTag = symbol.scope?.scopeTag || 'unknown';
+  const kindColor = symbolKindColors[symbol.fishKind] || chalk.white;
+  const textTag = symbolTextTag[symbol.fishKind] || '?';
+  const tag = useIcons ? symbolIconTag[symbol.fishKind] || textTag : textTag;
+  const tagColor = tagColors[textTag] || chalk.white;
+  const tagStr = tagColor(tag);
+  const nameStr = chalk.bold(symbol.name);
+  const { start } = symbol.toLocation().range;
+  const posStr = chalk.dim(`[${start.line}, ${start.character}]`);
+  const scopeStr = chalk.dim(`(${scopeTag})`);
+  const kindStr = kindColor(`(${symbol.fishKind})`);
+  return `${tagStr}  ${nameStr} ${posStr} ${scopeStr} ${kindStr}`;
+}
+
+function formatColoredSymbolNodes(symbols: FishSymbol[], prefix: string, useIcons: boolean): string {
+  let result = '';
+
+  for (let i = 0; i < symbols.length; i++) {
+    const symbol = symbols[i]!;
+    const isLast = i === symbols.length - 1;
+    const connector = treeColor(isLast ? '└── ' : '├── ');
+    const childPrefix = treeColor(isLast ? '    ' : '│   ');
+
+    result += `${prefix}${connector}${formatSymbolLine(symbol, useIcons)}\n`;
+
+    if (symbol.children && symbol.children.length > 0) {
+      result += formatColoredSymbolNodes(symbol.children, prefix + childPrefix, useIcons);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Formats the symbol tree with color highlighting and tree-style connectors
+ */
+function formatColoredSymbolTree(symbols: FishSymbol[], rootLabel: string, useIcons: boolean): string {
+  return chalk.black.dim(rootLabel) + '\n' + formatColoredSymbolNodes(symbols, '', useIcons);
+}
+
+/**
+ * CLI handler for dumping the symbol tree
+ */
+export async function cliDumpSymbolTree(document: LspDocument, useColors: boolean = true, useIcons: boolean = true): Promise<0 | 1> {
+  await Analyzer.initialize();
+
+  // Parse and analyze the document
+  const tree = analyzer.parser.parse(document.getText());
+  const rootNode = tree.rootNode;
+
+  // Build the FishSymbol tree
+  const symbols = processNestedTree(document, ...rootNode.children);
+
+  // Determine root label from document URI
+  // const uriPath = document.uri.replace(/^file:\/\//, '');
+  let rootLabel = document.uri.includes('stdin')
+    ? `/proc/${process.pid}/fd/0`
+    : document.getFilePath();
+
+  rootLabel = rootLabel.replace(os.homedir(), '~');
+
+  // Format the symbol tree
+  const output = useColors
+    ? formatColoredSymbolTree(symbols, rootLabel, useIcons)
+    : rootLabel + '\n' + formatFishSymbolTree(symbols);
+
+  if (output.trim().length === 0) {
+    const errorMsg = useColors ? chalk.red('No symbols found in this document.') : 'No symbols found in this document.';
+    logger.logToStderr(errorMsg);
+    return 1;
+  }
+
+  logger.logToStdout(output);
+  return 0;
+}
+
+/**
+ * Main wrapper for `src/cli.ts` usage of symbol tree dumping
+ */
+export async function handleCLiDumpSymbolTree(args: CommanderSubcommand.info.schemaType): Promise<0 | 1> {
+  const useColors = !args.noColor;
+  const useIcons = args.icons !== false;
+  const isStdin = isDumpFlagStdin(args.dumpSymbolTree);
+
+  // Read stdin BEFORE startServer(), since startServer() hijacks stdin for the LSP connection
+  let stdinContent = '';
+  if (isStdin) {
+    stdinContent = await readFromStdin();
     if (stdinContent.trim() === '') {
       logger.logToStderr('Error: No input provided. Please provide either a file path or pipe content to stdin.');
       return 1;
     }
+  }
+
+  startServer();
+  await Analyzer.initialize();
+
+  if (isStdin) {
+    const doc = LspDocument.createTextDocumentItem('stdin.fish', stdinContent);
+    return await cliDumpSymbolTree(doc, useColors, useIcons);
+  }
+
+  // File-based logic
+  const filePath = expandParseCliTreeFile(args.dumpSymbolTree as string);
+  if (!SyncFileHelper.isFile(filePath)) {
+    logger.logToStderr(`Error: Cannot read file at ${filePath}. Please check the file path and permissions.`);
+    process.exit(1);
+  }
+  const doc = LspDocument.createFromPath(filePath);
+  return await cliDumpSymbolTree(doc, useColors, useIcons);
+}
+
+/**
+ * Main wrapper for `src/cli.ts` usage of semantic tokens dumping
+ */
+export async function handleCLiDumpSemanticTokens(args: CommanderSubcommand.info.schemaType): Promise<0 | 1> {
+  const useColors = !args.noColor; // Use colors unless --no-color flag is set
+  const isStdin = isDumpFlagStdin(args.dumpSemanticTokens);
+
+  // Read stdin BEFORE startServer(), since startServer() hijacks stdin for the LSP connection
+  let stdinContent = '';
+  if (isStdin) {
+    stdinContent = await readFromStdin();
+    if (stdinContent.trim() === '') {
+      logger.logToStderr('Error: No input provided. Please provide either a file path or pipe content to stdin.');
+      return 1;
+    }
+  }
+
+  startServer();
+
+  if (isStdin) {
     const doc = LspDocument.createTextDocumentItem('stdin.fish', stdinContent);
     return await cliDumpSemanticTokens(doc, useColors);
   }
 
   // Original file-based logic
-  const filePath = expandParseCliTreeFile(args.dumpSemanticTokens);
+  const filePath = expandParseCliTreeFile(args.dumpSemanticTokens as string);
   if (!SyncFileHelper.isFile(filePath)) {
     logger.logToStderr(`Error: Cannot read file at ${filePath}. Please check the file path and permissions.`);
     process.exit(1);

@@ -98,6 +98,8 @@ function __fish_lsp_info_complete_opt --description 'check if the commandline co
       or __fish_contains_opt check-health
       or __fish_contains_opt source-maps
       or __fish_contains_opt dump-parse-tree
+      or __fish_contains_opt dump-symbol-tree
+      or __fish_contains_opt dump-semantic-tokens
     end && return 1
     
     for opt in $argv
@@ -436,6 +438,11 @@ complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_o
 complete -c fish-lsp -n '__fish_lsp_info_complete_opt dump-semantic-tokens; and __fish_lsp_is_first_switch'                                        -l dump-semantic-tokens -d 'dump the semantic-tokens of a file'         -k -xa '(__fish_complete_suffix "*.fish" --description="path to show tree-sitter AST" | string match -rei -- ".*\\.fish|.*/")'
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_lsp_last_switch --dump-semantic-tokens; and test (__fish_lsp_count_after_last_switch) -le 1'    -d 'fish script file'                                -k -xa '(__fish_complete_suffix "*.fish" --description="path to show tree-sitter AST" | string match -rei -- ".*\\.fish|.*/")' 
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt dump-semantic-tokens; and not __fish_contains_opt no-color'      -l no-color       -d 'do not colorize the output'
+complete -c fish-lsp -n '__fish_lsp_info_complete_opt dump-symbol-tree; and __fish_lsp_is_first_switch'                                            -l dump-symbol-tree -d 'dump the symbol tree of a file'                -k -xa '(__fish_complete_suffix "*.fish" --description="path to show symbol tree" | string match -rei -- ".*\\.fish|.*/")'
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_lsp_last_switch --dump-symbol-tree; and test (__fish_lsp_count_after_last_switch) -le 1'          -d 'fish script file'                                -k -xa '(__fish_complete_suffix "*.fish" --description="path to show symbol tree" | string match -rei -- ".*\\.fish|.*/")'
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt dump-symbol-tree; and not __fish_contains_opt no-color'         -l no-color        -d 'do not colorize the output'
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt dump-symbol-tree; and not __fish_contains_opt no-icons'         -l no-icons        -d 'use plain text tags (f/v/e) instead of nerdfont icons'
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt no-icons; and not __fish_contains_opt dump-symbol-tree'         -l dump-symbol-tree -d 'dump the symbol tree of a file'               -k -xa '(__fish_complete_suffix "*.fish" --description="path to show symbol tree" | string match -rei -- ".*\\.fish|.*/")'
 `;
 
 const envCompletions: string = `## fish-lsp env --<TAB>
