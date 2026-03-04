@@ -617,9 +617,9 @@ export default class FishServer {
 
     const defSymbol = analyzer.getDefinition(doc, params.position);
 
-    const results = defSymbol
-      ? getReferences(defSymbol.document, defSymbol.toPosition(), { reporter: progress })
-      : getReferences(doc, params.position, { reporter: progress });
+    // Use the original request position; re-targeting through defSymbol.toPosition()
+    // can break synthetic symbols (e.g. function argv focused on function name).
+    const results = getReferences(doc, params.position, { reporter: progress });
 
     logger.info({
       onReferences: 'found references',

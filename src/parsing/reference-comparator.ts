@@ -60,23 +60,14 @@ const isInValidScope: ReferenceCheck = ({ symbol, document, node }) => {
     // Same-document: use existing scope containment check
     if (symbol.uri === document.uri) {
       if (symbol.scopeContainsNode(node)) return true;
-      // If the node is inside a --no-scope-shadowing function that is called
-      // from within the symbol's scope, the reference is valid
-      if (symbol.isVariable()) {
-        const enclosingFunc = findParentFunction(node);
-        if (enclosingFunc && isFunctionDefinition(enclosingFunc)) {
-          const funcName = enclosingFunc.childForFieldName('name')?.text;
-          if (funcName && analyzer.noScopeShadowing.has(funcName)) {
-            // Check that the symbol's scope calls this --no-scope-shadowing function
-            for (const n of nodesGen(symbol.scope.scopeNode)) {
-              if (isCommand(n) && n.firstNamedChild?.text === funcName) {
-                return true;
-              }
-            }
-          }
-        }
-      }
+      // Node is inside a --no-scope-shadowing callee invoked from symbol's scope.
+      if (symbol.isVariable() && isInNoScopeShadowingCallee(symbol, node)) return true;
       return false;
+    }
+    // Cross-document: for regular callers, allow references inside directly called
+    // --no-scope-shadowing callees (same logical scope sharing).
+    if (symbol.isVariable() && isInNoScopeShadowingCallee(symbol, node)) {
+      return true;
     }
     // Cross-document: only allow if symbol is in a --no-scope-shadowing function
     // AND the node is also in a --no-scope-shadowing function (or at program scope)
@@ -359,8 +350,8 @@ const checkVariableReference: ReferenceCheck = ({ symbol, document, node }) => {
   if (isVariable(node) || isVariableDefinitionName(node)) {
     // Same-file: scope was already validated by isInValidScope
     if (symbol.scopeContainsNode(node)) return true;
-    // Same-file: node is inside a --no-scope-shadowing function called from symbol's scope
-    if (symbol.uri === document.uri && isInNoScopeShadowingCallee(symbol, node)) return true;
+    // Node is inside a --no-scope-shadowing callee called from symbol's scope.
+    if (isInNoScopeShadowingCallee(symbol, node)) return true;
     // Same-file but outside active lifetime/scope is not a valid reference.
     if (symbol.uri === document.uri) return false;
     // Cross-file: verify both sides have transparent scope
@@ -384,7 +375,7 @@ const checkVariableReference: ReferenceCheck = ({ symbol, document, node }) => {
 
   if (symbol.name !== node.text) return false;
   if (symbol.scopeContainsNode(node)) return true;
-  if (symbol.uri === document.uri && isInNoScopeShadowingCallee(symbol, node)) return true;
+  if (isInNoScopeShadowingCallee(symbol, node)) return true;
   if (symbol.uri === document.uri) return false;
   return isValidCrossFileVariableReference(symbol, node);
 };

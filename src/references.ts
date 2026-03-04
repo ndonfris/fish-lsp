@@ -582,6 +582,17 @@ function isSymbolLocalToDocument(symbol: FishSymbol): boolean {
     return false;
   }
 
+  // variables in a regular function that calls a --no-scope-shadowing function
+  // using the same variable name can be referenced cross-file
+  if (symbol.isVariable() && symbol.parent?.isFunction() && !symbol.parent.isFunctionWithNoScopeShadowing()) {
+    if (analyzer.noScopeShadowing.allSymbols.some(f =>
+      f.children.some(c => c.isVariable() && c.name === symbol.name)
+      && [...nodesGen(symbol.parent!.scopeNode)].some(n => isCommandWithName(n, f.name)),
+    )) {
+      return false;
+    }
+  }
+
   // --inherit-variable symbols reference the caller's variable, so they're cross-file
   if (symbol.isInheritVariable()) {
     return false;
