@@ -1,4 +1,4 @@
-import { FishCompletionItem, FishCompletionItemKind } from './types';
+import { FishCompletionItem, FishCompletionItemKind, getCompletionDocumentationValue } from './types';
 import { execCmd } from '../exec';
 import { StaticItems } from './static-items';
 import { SetupItemsFromCommandConfig } from './startup-config';
@@ -45,7 +45,7 @@ export class CompletionItemMap {
           item.label,
           kind,
           item.detail,
-          item.documentation.toString(),
+          getCompletionDocumentationValue(item.documentation),
           item.examples,
         ));
       }
@@ -59,7 +59,7 @@ export class CompletionItemMap {
             [
               `(${md.italic(kind)}) ${md.bold(item.label)}`,
               md.separator(),
-              item.documentation.toString(),
+              getCompletionDocumentationValue(item.documentation),
             ].join('\n'),
             item.examples,
           ).setUseDocAsDetail());
@@ -92,7 +92,7 @@ export class CompletionItemMap {
 
   allCompletionsWithoutCommand() {
     return this.allOfKinds(
-      FishCompletionItemKind.ABBR,
+      // FishCompletionItemKind.ABBR,
       FishCompletionItemKind.ALIAS,
       FishCompletionItemKind.BUILTIN,
       FishCompletionItemKind.FUNCTION,

@@ -9,7 +9,7 @@ import { URI } from 'vscode-uri';
 import * as Parser from 'web-tree-sitter';
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
 import { vi } from 'vitest';
-import { analyzer, Analyzer } from '../src/analyze';
+import { analyzer } from '../src/analyze';
 import { documents, LspDocument } from '../src/document';
 import { initializeParser } from '../src/parser';
 import { FishSymbol, processNestedTree } from '../src/parsing/symbol';
@@ -459,24 +459,6 @@ export function createFakeUriPath(path: string): string {
     return `file://${path}`;
   }
   return `file://${homedir()}/.config/fish/${path}`;
-}
-
-export type TestLspDocument = {
-  path: string;
-  text: string | string[];
-};
-
-export function createTestWorkspace(
-  analyzer: Analyzer,
-  ...docs: TestLspDocument[]
-) {
-  const result: LspDocument[] = [];
-  for (const doc of docs) {
-    const newDoc = createFakeLspDocument(doc.path, ...Array.isArray(doc.text) ? doc.text : [doc.text]);
-    analyzer.analyze(newDoc);
-    result.push(newDoc);
-  }
-  return result;
 }
 
 type FakeLspDocumentType = {

@@ -143,7 +143,7 @@ export function buildExportDetail(doc: LspDocument, commandNode: SyntaxNode, var
 
   // Create a detail string with the command and variable definition
   const detail = [
-    `${md.bold('(variable)')} ${md.inlineCode(name)}`,
+    `(${md.bold('variable')}) ${md.inlineCode(name)}`,
     `${md.italic('globally')} scoped, ${md.italic('exported')}`,
     `located in file: ${md.inlineCode(uriToReadablePath(doc.uri))}`,
     md.separator(),

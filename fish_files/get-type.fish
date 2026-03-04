@@ -4,7 +4,9 @@ function get_type --argument-names str
     set -l type_result (type -t "$str" 2> /dev/null)
     switch "$type_result"
     case "function"
-        if type -f -q $str 2>/dev/null || contains -- $str export
+        # Keep legacy behavior for `export`, but classify all other functions as `file`
+        # so hover renders function source as fish code instead of man-format docs.
+        if contains -- $str export || builtin -q -- $str
             echo 'command'
         else
             echo 'file'

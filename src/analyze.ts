@@ -22,6 +22,7 @@ import { workspaceManager } from './utils/workspace-manager';
 import { initializeParser } from './parser';
 import { BufferedAsyncDiagnosticCache } from './diagnostics/buffered-async-cache';
 import { env } from 'src/utils/env-manager';
+import { buildScopeSpans, ScopeSpan } from './utils/skippable-scopes';
 
 /*************************************************************/
 /*     ts-doc type imports for links to other files here     */
@@ -294,6 +295,17 @@ export class Analyzer {
    */
   public globalSymbols: GlobalDefinitionCache = new GlobalDefinitionCache();
 
+  /**
+   * Cache of functions declared with `--no-scope-shadowing`, keyed by function name.
+   */
+  public noScopeShadowing: NoScopeShadowingCache = new NoScopeShadowingCache();
+
+  /**
+   * Cache of functions that use `--inherit-variable`, keyed by variable name.
+   * Maps each inherited variable name to the function symbols that inherit it.
+   */
+  public inheritedVariables: InheritVariableCache = new InheritVariableCache();
+
   public started = false;
 
   public diagnostics: BufferedAsyncDiagnosticCache = new BufferedAsyncDiagnosticCache();
@@ -363,12 +375,20 @@ export class Analyzer {
     const analyzedDocument = this.getAnalyzedDocument(document);
     this.cache.setDocument(document.uri, analyzedDocument);
 
-    // Remove old global symbols for this document before adding new ones
+    // Remove old symbols for this document before adding new ones
     this.globalSymbols.removeSymbolsByUri(document.uri);
+    this.noScopeShadowing.removeSymbolsByUri(document.uri);
+    this.inheritedVariables.removeSymbolsByUri(document.uri);
 
-    // Add new global symbols
+    // Add new global symbols, no-scope-shadowing functions, and inherit-variable mappings
     for (const symbol of iterateNested(...analyzedDocument.documentSymbols)) {
       if (symbol.isGlobal()) this.globalSymbols.add(symbol);
+      if (symbol.isFunctionWithNoScopeShadowing()) this.noScopeShadowing.add(symbol);
+      if (symbol.isFunction()) {
+        for (const varName of symbol.getInheritedVariableNames()) {
+          this.inheritedVariables.add(varName, symbol);
+        }
+      }
     }
     return analyzedDocument;
   }
@@ -378,6 +398,8 @@ export class Analyzer {
    */
   public removeDocumentSymbols(uri: string): void {
     this.globalSymbols.removeSymbolsByUri(uri);
+    this.noScopeShadowing.removeSymbolsByUri(uri);
+    this.inheritedVariables.removeSymbolsByUri(uri);
     this.cache.clear(uri);
   }
 
@@ -701,11 +723,15 @@ export class Analyzer {
    * @returns {FishSymbol[]} A flat array of FishSymbols that are usable at the given position
    */
   public allSymbolsAccessibleAtPosition(document: LspDocument, position: Position): FishSymbol[] {
+    const workspace = workspaceManager.findContainingWorkspace(document.uri) || workspaceManager.current;
     // Set to avoid duplicate symbols
     const symbolNames: Set<string> = new Set();
     // add the local symbols
     const symbols = flattenNested(...this.cache.getDocumentSymbols(document.uri))
-      .filter((symbol) => symbol.scope.containsPosition(position));
+      .filter((symbol) =>
+        symbol.scope.containsPosition(position)
+        && symbol.isWithinDefinitionLifetime(position, document.uri),
+      );
     symbols.forEach((symbol) => symbolNames.add(symbol.name));
     // add the sourced symbols
     const sourcedUris = this.collectReachableSources(document.uri, position);
@@ -721,6 +747,9 @@ export class Analyzer {
     }
     // add the global symbols
     for (const globalSymbol of this.globalSymbols.allSymbols) {
+      if (workspace && !(workspace.contains(globalSymbol.uri) || globalSymbol.uri === workspace.uri)) {
+        continue;
+      }
       // skip any symbols that are already in the result so that
       // next conditionals don't have to consider duplicate symbols
       if (symbolNames.has(globalSymbol.name)) continue;
@@ -772,13 +801,40 @@ export class Analyzer {
     } else {
       const toAdd: FishSymbol[] = localSymbols.filter((s) => {
         const variableBefore = s.kind === SymbolKind.Variable ? precedesRange(s.selectionRange, getRange(node)) : true;
+        const inLifetime = s.isWithinDefinitionLifetime(position, document.uri);
         return (
           s.name === word
           && containsRange(getRange(s.scope.scopeNode), getRange(node))
           && variableBefore
+          && inLifetime
         );
       });
       symbols.push(...toAdd);
+    }
+
+    // If no local symbols found but we're inside a --no-scope-shadowing function,
+    // resolve the variable from the caller's scope
+    if (!symbols.length && node) {
+      const parentFuncNode = findParentFunction(node);
+      if (parentFuncNode) {
+        const parentFuncSymbol = localSymbols.find(s =>
+          s.isFunction() && s.node.equals(parentFuncNode),
+        );
+        if (parentFuncSymbol?.isFunctionWithNoScopeShadowing()) {
+          const caller = this.findCallerFunction(parentFuncSymbol.name, new Set([parentFuncSymbol.name]), document.uri);
+          if (caller) {
+            const callerSymbols = this.getFlatDocumentSymbols(caller.uri);
+            const callerVar = callerSymbols.find(s =>
+              s.name === word
+              && s.isVariable()
+              && s.parent?.name === caller.name,
+            );
+            if (callerVar) {
+              symbols.push(callerVar);
+            }
+          }
+        }
+      }
     }
 
     // If no local symbols found, check sourced symbols
@@ -792,7 +848,29 @@ export class Analyzer {
 
     // Finally, check global symbols as fallback
     if (!symbols.length) {
-      symbols.push(...this.globalSymbols.find(word));
+      const workspace = workspaceManager.findContainingWorkspace(document.uri) || workspaceManager.current;
+      const globalSymbols = this.globalSymbols.find(word)
+        .filter(symbol =>
+          (!workspace || workspace.contains(symbol.uri) || symbol.uri === workspace.uri)
+          && symbol.isWithinDefinitionLifetime(position, document.uri),
+        );
+      symbols.push(...globalSymbols);
+
+      // If no match in the active workspace and single-workspace support is disabled,
+      // fall back to indexed paths across all configured fish workspaces.
+      if (!symbols.length && !config.fish_lsp_single_workspace_support) {
+        const indexedPaths = config.fish_lsp_all_indexed_paths
+          .map(path => SyncFileHelper.expandEnvVars(path))
+          .filter(Boolean);
+
+        const indexedPathSymbols = this.globalSymbols.find(word)
+          .filter(symbol => indexedPaths.some((workspacePath) =>
+            symbol.path === workspacePath || symbol.path.startsWith(`${workspacePath}/`),
+          ))
+          .filter(symbol => symbol.isWithinDefinitionLifetime(position, document.uri));
+
+        symbols.push(...indexedPathSymbols);
+      }
     }
 
     return symbols;
@@ -840,7 +918,192 @@ export class Analyzer {
       });
       if (symbol) return symbol;
     }
-    return symbols.pop() || null;
+    const result = symbols.pop() || null;
+    // For variables inside --no-scope-shadowing functions, resolve to the root
+    // definition in the caller chain
+    if (result?.isVariable() && result.parent?.isFunctionWithNoScopeShadowing()) {
+      return this.resolveNoScopeShadowingDefinition(result);
+    }
+    // For --inherit-variable symbols, resolve to the caller's definition
+    if (result?.isInheritVariable()) {
+      return this.resolveInheritVariableDefinition(result) || result;
+    }
+    // For variables inside a function that inherits this variable name,
+    // resolve to the caller's definition (e.g., B has --inherit-variable VAR
+    // and also `set VAR ...` — the true definition is in the caller)
+    if (result?.isVariable() && result.parent?.hasInheritedVariable(result.name)) {
+      // Find the --inherit-variable declaration symbol for this variable
+      const inheritDecl = result.parent.children
+        .find((c: FishSymbol) => c.name === result.name && c.isInheritVariable());
+      if (inheritDecl) {
+        return this.resolveInheritVariableDefinition(inheritDecl) || result;
+      }
+    }
+    return result;
+  }
+
+  /**
+   * For a variable inside a `--no-scope-shadowing` function, walk up the call
+   * chain to find the root definition. Since `--no-scope-shadowing` functions
+   * share their caller's scope, the "true" definition is in the topmost caller
+   * that also defines the same variable.
+   *
+   * @param varSymbol - a variable symbol whose parent is a --no-scope-shadowing function
+   * @returns the root definition symbol, or the input symbol if no caller chain exists
+   */
+  public resolveNoScopeShadowingDefinition(varSymbol: FishSymbol): FishSymbol {
+    if (!varSymbol.isVariable() || !varSymbol.parent?.isFunctionWithNoScopeShadowing()) {
+      return varSymbol;
+    }
+
+    let currentFunc = varSymbol.parent;
+    let rootVar = varSymbol;
+    const visited = new Set<string>();
+
+    while (currentFunc) {
+      visited.add(currentFunc.name);
+
+      // Find ANY function that calls currentFunc, preferring same-document
+      const caller = this.findCallerFunction(currentFunc.name, visited, varSymbol.uri);
+      if (!caller) break;
+
+      // Check if the caller also defines the same variable
+      const callerSymbols = this.getFlatDocumentSymbols(caller.uri);
+      const callerVar = callerSymbols.find(s =>
+        s.name === varSymbol.name
+        && s.isVariable()
+        && s.parent?.name === caller.name,
+      );
+      if (!callerVar) break;
+
+      // Move up the chain
+      rootVar = callerVar;
+
+      // Only continue walking if the caller is also --no-scope-shadowing
+      if (caller.isFunctionWithNoScopeShadowing()) {
+        currentFunc = caller;
+      } else {
+        break;
+      }
+    }
+
+    return rootVar;
+  }
+
+  /**
+   * Search all workspace functions for one that calls the given function name
+   * (i.e., contains a command node with that name in its body).
+   * Prioritizes callers in the same document as the target function.
+   */
+  private findCallerFunction(funcName: string, visited: Set<string>, preferUri?: string): FishSymbol | null {
+    // Search same-document functions first for locality
+    const uris = this.cache.uris();
+    if (preferUri) {
+      uris.sort((a, b) => a === preferUri ? -1 : b === preferUri ? 1 : 0);
+    }
+    const allDocSymbols = uris
+      .flatMap((uri: string) => this.getFlatDocumentSymbols(uri));
+
+    for (const callerFunc of allDocSymbols) {
+      if (!callerFunc.isFunction()) continue;
+      if (visited.has(callerFunc.name)) continue;
+
+      // Scan the caller's scope node for command calls matching funcName
+      for (const node of nodesGen(callerFunc.scopeNode)) {
+        if (isCommand(node) && node.firstNamedChild?.text === funcName) {
+          return callerFunc;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * For a variable declared with `--inherit-variable`, find the original
+   * definition in the calling function. Walks up the call chain: finds which
+   * function calls the one containing this --inherit-variable, then looks
+   * for the variable definition there.
+   */
+  public resolveInheritVariableDefinition(inheritSymbol: FishSymbol, visited: Set<string> = new Set()): FishSymbol | null {
+    if (!inheritSymbol.isInheritVariable()) return null;
+    const parentFunc = inheritSymbol.parent;
+    if (!parentFunc) return null;
+    const key = `${inheritSymbol.uri}:${inheritSymbol.selectionRange.start.line}:${inheritSymbol.selectionRange.start.character}:${parentFunc.name}:${inheritSymbol.name}`;
+    if (visited.has(key)) return null;
+    visited.add(key);
+
+    // Search all workspace functions for one that calls parentFunc
+    const allDocSymbols = this.cache.uris()
+      .flatMap((uri: string) => this.getFlatDocumentSymbols(uri));
+
+    for (const sym of allDocSymbols) {
+      if (!sym.isFunction() || sym.uri === parentFunc.uri && sym.name === parentFunc.name) continue;
+
+      // Check if this function's body calls parentFunc
+      let callsTarget = false;
+      for (const node of nodesGen(sym.scopeNode)) {
+        if (isCommand(node) && node.firstNamedChild?.text === parentFunc.name) {
+          callsTarget = true;
+          break;
+        }
+      }
+      if (!callsTarget) continue;
+
+      // Found a caller — look for the variable definition in it
+      const callerSymbols = this.getFlatDocumentSymbols(sym.uri);
+      const callerVar = callerSymbols.find(s =>
+        s.name === inheritSymbol.name
+        && s.isVariable()
+        && s.parent?.name === sym.name
+        && !s.isInheritVariable(),
+      );
+      if (callerVar) {
+        // If the caller's var is also an --inherit-variable, recurse up
+        if (callerVar.isInheritVariable()) {
+          return this.resolveInheritVariableDefinition(callerVar, visited) || callerVar;
+        }
+        // If the caller function also inherits this variable from its caller,
+        // recurse through the caller's inherit declaration
+        if (sym.hasInheritedVariable(inheritSymbol.name)) {
+          const inheritDecl = sym.children
+            .find((c: FishSymbol) => c.name === inheritSymbol.name && c.isInheritVariable());
+          if (inheritDecl) {
+            return this.resolveInheritVariableDefinition(inheritDecl, visited) || callerVar;
+          }
+        }
+        return callerVar;
+      }
+    }
+
+    // Fallback: check script-level (program root) callers — e.g., init.fish with
+    // `set -g VAR 1` and `foo` at the top level (not inside any function)
+    for (const uri of this.cache.uris()) {
+      const root = this.cache.getRootNode(uri);
+      if (!root) continue;
+
+      // Check if this document's root level calls parentFunc
+      let callsTarget = false;
+      for (const node of nodesGen(root)) {
+        if (isCommand(node) && node.firstNamedChild?.text === parentFunc.name) {
+          callsTarget = true;
+          break;
+        }
+      }
+      if (!callsTarget) continue;
+
+      // Found a script-level caller — look for a root-level variable definition
+      const docSymbols = this.getFlatDocumentSymbols(uri);
+      const rootVar = docSymbols.find(s =>
+        s.name === inheritSymbol.name
+        && s.isVariable()
+        && !s.parent?.isFunction()
+        && !s.isInheritVariable(),
+      );
+      if (rootVar) return rootVar;
+    }
+
+    return null;
   }
 
   /**
@@ -873,7 +1136,8 @@ export class Analyzer {
     // allow execCommandLocations to provide location for command when no other
     // definition has been found. Previously, config.fish_lsp_single_workspace_support
     // was used to prevent this case from being hit but now we always allow it.
-    if (workspaceManager.current) {
+    const currentWorkspace = workspaceManager.findContainingWorkspace(document.uri) || workspaceManager.current;
+    if (currentWorkspace) {
       const node = this.nodeAtPoint(document.uri, position.line, position.character);
       if (node && isCommandName(node)) {
         const text = node.text.toString();
@@ -1017,6 +1281,22 @@ export class Analyzer {
    */
   getFlatDocumentSymbols(documentUri: string): FishSymbol[] {
     return this.cache.getFlatDocumentSymbols(documentUri);
+  }
+
+  /**
+   * Computes scope spans for a variable `name` within a document.
+   * Returns sorted, non-overlapping ScopeSpan segments covering the document,
+   * each tagged as 'include' or 'exclude' for reference searching.
+   *
+   * When a local variable shadows a global/outer definition of the same name,
+   * the local's scope becomes an 'exclude' span. Self-referencing expansions
+   * (e.g. `$PATH` in `set -lx PATH $PATH:/opt/bin`) punch 'include' holes.
+   */
+  getScopeSpans(doc: LspDocument, name: string): ScopeSpan[] {
+    const root = this.getRootNode(doc.uri);
+    if (!root) return [];
+    const allSymbols = this.getFlatDocumentSymbols(doc.uri);
+    return buildScopeSpans(doc, name, root, allSymbols);
   }
 
   /**
@@ -1439,6 +1719,110 @@ class GlobalDefinitionCache {
   }
   get map(): Map<string, FishSymbol[]> {
     return this._definitions;
+  }
+}
+
+/**
+ * @local
+ * @class NoScopeShadowingCache
+ *
+ * @summary Cache for functions declared with `--no-scope-shadowing`. These functions
+ * do not create a new variable scope, so variables inside them are accessible to the
+ * caller and vice versa.
+ *
+ * The internal map uses the function name as the key, and the value is an array
+ * of FishSymbol's (one per workspace/file where the function is defined).
+ *
+ * @see {@link analyzer.noScopeShadowing} the globally accessible location of this class
+ */
+class NoScopeShadowingCache {
+  constructor(private _definitions: Map<string, FishSymbol[]> = new Map()) { }
+  add(symbol: FishSymbol): void {
+    const current = this._definitions.get(symbol.name) || [];
+    if (!current.some(s => s.equals(symbol))) {
+      current.push(symbol);
+    }
+    this._definitions.set(symbol.name, current);
+  }
+  removeSymbolsByUri(uri: string): void {
+    for (const [name, symbols] of this._definitions.entries()) {
+      const filtered = symbols.filter(symbol => symbol.uri !== uri);
+      if (filtered.length === 0) {
+        this._definitions.delete(name);
+      } else {
+        this._definitions.set(name, filtered);
+      }
+    }
+  }
+  find(name: string): FishSymbol[] {
+    return this._definitions.get(name) || [];
+  }
+  findFirst(name: string): FishSymbol | undefined {
+    const symbols = this.find(name);
+    if (symbols.length === 0) {
+      return undefined;
+    }
+    return symbols[0];
+  }
+  has(name: string): boolean {
+    return this._definitions.has(name);
+  }
+  get allSymbols(): FishSymbol[] {
+    const all: FishSymbol[] = [];
+    for (const [_, symbols] of this._definitions.entries()) {
+      all.push(...symbols);
+    }
+    return all;
+  }
+  get allNames(): string[] {
+    return [...this._definitions.keys()];
+  }
+  get map(): Map<string, FishSymbol[]> {
+    return this._definitions;
+  }
+}
+
+/**
+ * @local
+ * @class InheritVariableCache
+ *
+ * @summary Cache for `--inherit-variable` mappings. Maps each inherited variable
+ * name to the function symbols that inherit it. This enables cross-file reference
+ * resolution for variables shared via `--inherit-variable`.
+ *
+ * @see {@link analyzer.inheritedVariables} the globally accessible location of this class
+ */
+class InheritVariableCache {
+  constructor(private _map: Map<string, FishSymbol[]> = new Map()) { }
+
+  /** Add a mapping: variable `varName` is inherited by function `funcSymbol` */
+  add(varName: string, funcSymbol: FishSymbol): void {
+    const current = this._map.get(varName) || [];
+    if (!current.some(s => s.equals(funcSymbol))) {
+      current.push(funcSymbol);
+    }
+    this._map.set(varName, current);
+  }
+
+  removeSymbolsByUri(uri: string): void {
+    for (const [name, symbols] of this._map.entries()) {
+      const filtered = symbols.filter(s => s.uri !== uri);
+      if (filtered.length === 0) {
+        this._map.delete(name);
+      } else {
+        this._map.set(name, filtered);
+      }
+    }
+  }
+
+  /** Check if any function in the workspace inherits a variable with this name */
+  has(varName: string): boolean {
+    return this._map.has(varName);
+  }
+
+  /** Get all function symbols that inherit a specific variable name */
+  find(varName: string): FishSymbol[] {
+    return this._map.get(varName) || [];
   }
 }
 

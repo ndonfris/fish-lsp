@@ -6,7 +6,6 @@ import { findFunctionDefinitionChildren, FunctionOptions } from './function';
 import { uriToReadablePath, uriToPath } from '../utils/translation';
 import { FishString } from './string';
 import { PrebuiltDocumentationMap } from '../utils/snippets';
-import { setModifierDetailDescriptor, SetModifiers } from './set';
 import { SyntaxNode } from 'web-tree-sitter';
 import { FishAlias } from './alias';
 import { env } from '../utils/env-manager';
@@ -186,6 +185,25 @@ function getArgumentNamesIndexString(node: SyntaxNode, name: string) {
   return `${md.italic('named argument')}: ${md.inlineCode(argvStr)}`;
 }
 
+function variableScopeDescription(symbol: FishSymbol): string {
+  switch (symbol.scope.scopeTag) {
+    case 'global':
+      return 'globally scoped';
+    case 'universal':
+      return 'universally scoped';
+    case 'function':
+      return 'function scoped';
+    case 'inherit':
+    case 'local':
+    default:
+      return 'locally scoped';
+  }
+}
+
+function variableExportDescription(symbol: FishSymbol): string {
+  return symbol.isExported() ? 'exported' : 'not exported';
+}
+
 function buildVariableDetail(symbol: FishSymbol) {
   const { name, node, uri, fishKind } = symbol;
   if (!node) return '';
@@ -193,12 +211,7 @@ function buildVariableDetail(symbol: FishSymbol) {
   // add short info about variable
   description.push(md.separator());
   if (fishKind === 'SET' || fishKind === 'READ') {
-    const setModifiers = SetModifiers.filter(option => option.equalsRawLongOption('--universal', '--global', '--function', '--local', '--export', '--unexport'));
-    const options = findOptions(node.childrenForFieldName('argument'), setModifiers);
-    const modifier = options.found.find(o => o.option.equalsRawOption('-U', '-g', '-f', '-l', '-x', '-u'));
-    if (modifier) {
-      description.push(setModifierDetailDescriptor(node));
-    }
+    description.push(`${variableScopeDescription(symbol)}, ${variableExportDescription(symbol)}`);
   } else if (fishKind === 'ARGPARSE') {
     description.push('locally scoped');
   } else if (node && isVariableArgumentNamed(node, name)) {

@@ -2,7 +2,7 @@ import { Parsers, Option, ParsingDefinitionNames, DefinitionNodeNames } from '..
 import { execAsyncF } from '../src/utils/exec';
 
 import { initializeParser } from '../src/parser';
-import { createFakeLspDocument, createTestWorkspace, setLogger } from './helpers';
+import { createFakeLspDocument, setLogger } from './helpers';
 // import { isLongOption, isOption, isShortOption, NodeOptionQueryText } from '../src/utils/node-types';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
@@ -25,6 +25,7 @@ import { getGlobalArgparseLocations, isGlobalArgparseDefinition } from '../src/p
 import { Workspace } from '../src/utils/workspace';
 import { workspaceManager } from '../src/utils/workspace-manager';
 import { LspDocument } from '../src/document';
+import TestWorkspace, { TestFile } from './test-workspace-utils';
 
 let analyzer: Analyzer;
 let parser: Parser;
@@ -639,6 +640,30 @@ describe('parsing symbols', () => {
       //   console.log(argumentNamesOption);
       // }
     });
+
+    it('variables include inferred scope and export status in detail', async () => {
+      const source = [
+        'set -gx explicitly_exported 1',
+        'echo foo | while read forgit_var',
+        '  echo $forgit_var',
+        'end',
+      ].join('\n');
+
+      const { rootNode } = parser.parse(source);
+      const document = createFakeLspDocument('conf.d/forgit.plugin.fish', source);
+      const symbols = processNestedTree(document, rootNode);
+      const flat = flattenNested<FishSymbol>(...symbols);
+
+      const forgitVar = flat.find(s => s.name === 'forgit_var');
+      expect(forgitVar).toBeDefined();
+      expect(forgitVar!.scope.scopeTag).toBe('global');
+      expect(forgitVar!.detail).toContain('globally scoped, not exported');
+
+      const exportedVar = flat.find(s => s.name === 'explicitly_exported');
+      expect(exportedVar).toBeDefined();
+      expect(exportedVar!.scope.scopeTag).toBe('global');
+      expect(exportedVar!.detail).toContain('globally scoped, exported');
+    });
   });
 
   describe('client trees', () => {
@@ -1118,38 +1143,37 @@ describe('parsing symbols', () => {
       });
     });
     describe.only('completion --> to argparse', () => {
-      let workspace: LspDocument[] = [];
+      let workspaceDocs: LspDocument[] = [];
+      const fixtureWorkspace = TestWorkspace.create({ autoAnalyze: false })
+        .addFiles(
+          TestFile.function('foo', [
+            'function foo',
+            '    argparse -i h/help long other-long s \'1\' -- $argv',
+            '    or return',
+            '    echo hi',
+            'end',
+          ].join('\n')),
+          TestFile.completion('foo', [
+            'complete -c foo -f -k',
+            'complete -c foo -s h -l help',
+            'complete -c foo -k -l long',
+            'complete -c foo -k -l other-long -d \'other long\'',
+            'complete -c foo -k -s s -d \'short\'',
+            'complete -c foo -k -s 1 -d \'1 item\'',
+          ].join('\n')),
+        ).initialize();
+
       beforeEach(async () => {
         parser = await initializeParser();
         analyzer = new Analyzer(parser);
-        workspace = createTestWorkspace(analyzer,
-          {
-            path: 'functions/foo.fish',
-            text: [
-              'function foo',
-              '    argparse -i h/help long other-long s \'1\' -- $argv',
-              '    or return',
-              '    echo hi',
-              'end',
-            ].join('\n'),
-          },
-          {
-            path: 'completions/foo.fish',
-            text: [
-              'complete -c foo -f -k',
-              'complete -c foo -s h -l help',
-              'complete -c foo -k -l long',
-              'complete -c foo -k -l other-long -d \'other long\'',
-              'complete -c foo -k -s s -d \'short\'',
-              'complete -c foo -k -s 1 -d \'1 item\'',
-            ].join('\n'),
-          });
+        workspaceDocs = fixtureWorkspace.documents;
+        workspaceDocs.forEach(doc => analyzer.analyze(doc));
       });
 
       it('completion >>(((*> function', () => {
         const resultOptions: CompletionSymbol[] = [];
         const resultArgparse: FishSymbol[] = [];
-        workspace.forEach(doc => {
+        workspaceDocs.forEach(doc => {
           console.log(doc.uri);
           if (doc.isFunction()) {
             const symbolTree = processNestedTree(doc, analyzer.getRootNode(doc.uri)!);

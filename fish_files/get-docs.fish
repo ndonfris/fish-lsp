@@ -62,7 +62,7 @@ or return 0
 # ┌──────────────┐
 # │ help message │
 # └──────────────┘
-if set -ql _flag_h or set -ql _flag_help
+if set -ql _flag_h || set -ql _flag_help
     echo "Usage: get-docs.fish [OPTIONS] COMMAND
 
 Retrieve documentation for fish builtins, functions, or commands.

@@ -459,6 +459,16 @@ export async function getDiagnosticsAsync(
     const localSymbols = analyzer.getFlatDocumentSymbols(doc.uri);
     const localFunctionNames = new Set(localSymbols.filter(s => s.isFunction()).map(s => s.name));
     const allAccessibleSymbols = analyzer.allReachableSymbols(doc.uri);
+    const allAccessibleFunctionNames = new Set(
+      allAccessibleSymbols
+        .filter(s => s.isFunction())
+        .map(s => s.name),
+    );
+    const globalFunctionNames = new Set(
+      analyzer.globalSymbols.allSymbols
+        .filter(s => s.isFunction())
+        .map(s => s.name),
+    );
 
     // Pre-load completion cache if available
     let commandCompletions: Set<string> | null = null;
@@ -516,11 +526,11 @@ export async function getDiagnosticsAsync(
       } else if (localFunctionNames.has(commandName)) {
         // Check local functions (cached)
         isKnown = true;
-      } else if (allAccessibleSymbols.some(s => s.name === commandName)) {
-        // Check accessible functions (cached)
+      } else if (allAccessibleFunctionNames.has(commandName)) {
+        // Check accessible callable symbols (functions/aliases)
         isKnown = true;
-      } else if (analyzer.globalSymbols.find(commandName).length > 0) {
-        // Check global symbols
+      } else if (globalFunctionNames.has(commandName)) {
+        // Check globally indexed callable symbols (functions/aliases)
         isKnown = true;
       } else if (commandCompletions && commandCompletions.has(commandName)) {
         // Check completion cache (cached)

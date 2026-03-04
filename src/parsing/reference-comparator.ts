@@ -2,9 +2,10 @@ import * as Locations from '../utils/locations';
 import { SyntaxNode } from 'web-tree-sitter';
 import { FishSymbol } from './symbol';
 import { LspDocument } from '../document';
-import { equalRanges, getChildNodes, getRange } from '../utils/tree-sitter';
+import { analyzer } from '../analyze';
+import { equalRanges, getChildNodes, getRange, nodesGen } from '../utils/tree-sitter';
 import { isEmittedEventDefinitionName } from './emit';
-import { findParentCommand, findParentFunction, isArgumentThatCanContainCommandCalls, isCommand, isCommandWithName, isEndStdinCharacter, isFunctionDefinition, isFunctionDefinitionName, isOption, isString, isVariable, isVariableDefinitionName } from '../utils/node-types';
+import { findParentCommand, findParentFunction, isArgumentThatCanContainCommandCalls, isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isFunctionDefinition, isFunctionDefinitionName, isOption, isString, isVariable, isVariableDefinitionName } from '../utils/node-types';
 import { isMatchingCompletionFlagNodeWithFishSymbol } from './complete';
 import { isCompletionArgparseFlagWithCommandName } from './argparse';
 import { isMatchingOption, isMatchingOptionOrOptionValue, Option } from './options';
@@ -56,7 +57,33 @@ const checkEventReference: ReferenceCheck = ({ symbol, node }) => {
 // Scope validation for local symbols
 const isInValidScope: ReferenceCheck = ({ symbol, document, node }) => {
   if (symbol.isLocal() && !symbol.isArgparse()) {
-    return symbol.scopeContainsNode(node) && symbol.uri === document.uri;
+    // Same-document: use existing scope containment check
+    if (symbol.uri === document.uri) {
+      if (symbol.scopeContainsNode(node)) return true;
+      // Node is inside a --no-scope-shadowing callee invoked from symbol's scope.
+      if (symbol.isVariable() && isInNoScopeShadowingCallee(symbol, node)) return true;
+      return false;
+    }
+    // Cross-document: for regular callers, allow references inside directly called
+    // --no-scope-shadowing callees (same logical scope sharing).
+    if (symbol.isVariable() && isInNoScopeShadowingCallee(symbol, node)) {
+      return true;
+    }
+    // Cross-document: only allow if symbol is in a --no-scope-shadowing function
+    // AND the node is also in a --no-scope-shadowing function (or at program scope)
+    if (symbol.parent?.isFunctionWithNoScopeShadowing()) {
+      const enclosingFunc = findParentFunction(node);
+      if (!enclosingFunc || !isFunctionDefinition(enclosingFunc)) {
+        return true; // node is at program/global scope
+      }
+      const funcName = enclosingFunc.childForFieldName('name')?.text;
+      return !!(funcName && analyzer.noScopeShadowing.has(funcName));
+    }
+    // Cross-document: --inherit-variable allows specific variables to cross file boundaries
+    if (symbol.isVariable() && isValidInheritVariableScope(symbol, node)) {
+      return true;
+    }
+    return false;
   }
   return true;
 };
@@ -231,12 +258,105 @@ const checkFunctionReference: ReferenceCheck = ({ symbol, node }) => {
   return symbol.name === node.text && symbol.scopeContainsNode(node);
 };
 
+/**
+ * Checks if a node is inside a --no-scope-shadowing function that is called
+ * from within the symbol's scope. Used for same-file references where the
+ * caller is a regular function and the callee uses --no-scope-shadowing.
+ */
+function isInNoScopeShadowingCallee(symbol: FishSymbol, node: SyntaxNode): boolean {
+  const enclosingFunc = findParentFunction(node);
+  if (!enclosingFunc || !isFunctionDefinition(enclosingFunc)) return false;
+  const funcName = enclosingFunc.childForFieldName('name')?.text;
+  if (!funcName || !analyzer.noScopeShadowing.has(funcName)) return false;
+  // Verify that the symbol's scope calls this --no-scope-shadowing function
+  for (const n of nodesGen(symbol.scope.scopeNode)) {
+    if (isCommand(n) && n.firstNamedChild?.text === funcName) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Checks if a cross-file variable reference is valid for --inherit-variable.
+ * Returns true when:
+ * - The symbol is a regular variable and the node is inside a function that
+ *   inherits this variable name (caller→callee direction)
+ * - The symbol is an --inherit-variable declaration and the node is in the
+ *   calling function that defines this variable (callee→caller direction)
+ */
+function isValidInheritVariableScope(symbol: FishSymbol, node: SyntaxNode): boolean {
+  const enclosingFunc = findParentFunction(node);
+  if (!enclosingFunc || !isFunctionDefinition(enclosingFunc)) {
+    return false;
+  }
+  const funcName = enclosingFunc.childForFieldName('name')?.text;
+  if (!funcName) return false;
+
+  // Direction 1: symbol is a regular variable, node is inside a function
+  // that inherits this variable via --inherit-variable
+  const inheritingFuncs = analyzer.inheritedVariables.find(symbol.name);
+  if (inheritingFuncs.some(f => f.name === funcName)) {
+    return true;
+  }
+
+  // Direction 2: symbol is an --inherit-variable declaration, node is in
+  // another function (the caller that defines this variable)
+  // Verify the enclosing function actually calls the inherit-variable's parent
+  if (symbol.isInheritVariable() && symbol.parent) {
+    for (const n of nodesGen(enclosingFunc)) {
+      if (isCommandWithName(n, symbol.parent.name)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Checks if a cross-file variable reference is valid by verifying that the
+ * candidate node is inside a --no-scope-shadowing function (transparent scope)
+ * or at program/global scope. The symbol must also be in a transparent-scope
+ * function or be global.
+ */
+function isValidCrossFileVariableReference(symbol: FishSymbol, node: SyntaxNode): boolean {
+  const enclosingFunc = findParentFunction(node);
+  // Node is at program/global scope (not inside any function)
+  if (!enclosingFunc || !isFunctionDefinition(enclosingFunc)) {
+    return symbol.isGlobal();
+  }
+  const funcName = enclosingFunc.childForFieldName('name')?.text;
+  // Check --no-scope-shadowing
+  if (funcName && analyzer.noScopeShadowing.has(funcName)) {
+    return symbol.parent?.isFunctionWithNoScopeShadowing() || symbol.isGlobal();
+  }
+  // Check --inherit-variable
+  if (isValidInheritVariableScope(symbol, node)) {
+    return true;
+  }
+  return false;
+}
+
 // Variable-specific reference checking
-const checkVariableReference: ReferenceCheck = ({ symbol, node }) => {
+const checkVariableReference: ReferenceCheck = ({ symbol, document, node }) => {
   if (!symbol.isVariable() || node.text !== symbol.name) return false;
 
-  // Check if the node is a variaable definition with the same name
-  if (isVariable(node) || isVariableDefinitionName(node)) return true;
+  // Bare command names (e.g. `foo`) are command/function references, not
+  // variable references. `$foo` is still handled through variable nodes.
+  if (isCommandName(node)) return false;
+
+  // Check if the node is a variable definition or reference with the same name
+  if (isVariable(node) || isVariableDefinitionName(node)) {
+    // Same-file: scope was already validated by isInValidScope
+    if (symbol.scopeContainsNode(node)) return true;
+    // Node is inside a --no-scope-shadowing callee called from symbol's scope.
+    if (isInNoScopeShadowingCallee(symbol, node)) return true;
+    // Same-file but outside active lifetime/scope is not a valid reference.
+    if (symbol.uri === document.uri) return false;
+    // Cross-file: verify both sides have transparent scope
+    return isValidCrossFileVariableReference(symbol, node);
+  }
 
   const parentNode = node.parent ? findParentCommand(node) : null;
 
@@ -253,7 +373,11 @@ const checkVariableReference: ReferenceCheck = ({ symbol, node }) => {
     if (isVariableDefinitionName(node)) return symbol.name === node.text;
   }
 
-  return symbol.name === node.text && symbol.scopeContainsNode(node);
+  if (symbol.name !== node.text) return false;
+  if (symbol.scopeContainsNode(node)) return true;
+  if (isInNoScopeShadowingCallee(symbol, node)) return true;
+  if (symbol.uri === document.uri) return false;
+  return isValidCrossFileVariableReference(symbol, node);
 };
 
 // Main reference checker that composes all the checks

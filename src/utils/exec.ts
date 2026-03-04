@@ -1,6 +1,5 @@
 import { spawn, exec, execFile, execFileSync } from 'child_process';
 import { promisify } from 'util';
-import { logger } from '../logger';
 import { pathToUri, uriToPath } from './translation';
 import { config } from '../config';
 import GetDocs from '../../fish_files/get-docs.fish';
@@ -93,8 +92,8 @@ export namespace ExecFishFiles {
     return runEmbeddedFish(GetDocumentation, args);
   }
 
-  export function execFish(cmd: string): Promise<EmbeddedFishResult> {
-    return runEmbeddedFish(GetExec, [cmd]);
+  export function execFish(cmd: string, ...args: string[]): Promise<EmbeddedFishResult> {
+    return runEmbeddedFish(GetExec, [cmd, ...args]);
   }
 
   export function getCompletion(...args: string[]): Promise<EmbeddedFishResult> {
@@ -136,7 +135,6 @@ export async function execCmd(cmd: string): Promise<string[]> {
 
 export async function execAsyncF(cmd: string) {
   const result = await ExecFishFiles.execFish(cmd);
-  logger.log({ func: 'execAsyncF', result, cmd });
   return result.stdout.toString().trim();
 }
 
@@ -227,8 +225,16 @@ export async function execCompleteCmdArgs(cmd: string): Promise<string[]> {
   return fixedResults;
 }
 
-export async function execCommandDocs(cmd: string): Promise<string> {
-  const result = await ExecFishFiles.getDocs(cmd);
+/**
+ * Normalize command args so callers can pass either separate args
+ * (`'string', 'split'`) or a space-joined form (`'string split'`).
+ */
+function normalizeCommandArgs(args: string[]): string[] {
+  return args.flatMap(a => a.split(/\s+/)).filter(Boolean);
+}
+
+export async function execCommandDocs(...args: string[]): Promise<string> {
+  const result = await ExecFishFiles.getDocs(...normalizeCommandArgs(args));
   const out = result.stdout || '';
   return out.toString().trim();
 }
@@ -242,8 +248,8 @@ export async function execCommandDocs(cmd: string): Promise<string> {
  *                     'file' -> cmd is fish function
  *                     '' ->    cmd is neither
  */
-export async function execCommandType(cmd: string): Promise<string> {
-  const result = await ExecFishFiles.getType(cmd);
+export async function execCommandType(...args: string[]): Promise<string> {
+  const result = await ExecFishFiles.getTypeVerbose(...normalizeCommandArgs(args));
   if (result?.stderr) {
     return '';
   }

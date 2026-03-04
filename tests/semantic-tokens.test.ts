@@ -23,6 +23,7 @@ import { pathToUri } from '../src/utils/translation';
 import { existsSync } from 'fs';
 import { createFakeLspDocument, FakeLspDocument } from './helpers';
 import { join } from 'path';
+import { subcommandCache } from '../src/utils/subcommand-cache';
 
 logger.setSilent(true);
 
@@ -1798,6 +1799,106 @@ echo $my_var`;
       const varTokens = findTokensByText(tokens, 'my_var');
       expect(varTokens.length).toBeGreaterThan(0);
       expect(varTokens.every(t => t.tokenType === 'variable')).toBe(true);
+    });
+  });
+
+  describe('Subcommand Tokens', () => {
+    function getTokensForContent(content: string, uri = 'test://subcommand.fish') {
+      const doc = new FakeLspDocument({ uri, languageId: 'fish', version: 1, text: content });
+      analyzer.analyze(doc);
+      const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
+      const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
+      return decodeSemanticTokens(result, content);
+    }
+
+    it('should highlight builtin subcommand when cache is populated', () => {
+      subcommandCache.setSubcommands('string', ['split', 'match', 'join', 'replace', 'length']);
+      const tokens = getTokensForContent('string split . "a.b.c"', 'test://subcmd-string-split.fish');
+
+      // 'string' should be highlighted as a function with defaultLibrary
+      expectTokenExists(tokens, { text: 'string', tokenType: 'function', modifiers: ['defaultLibrary'] });
+      // 'split' should also be highlighted as function with defaultLibrary (inherits parent modifiers)
+      expectTokenExists(tokens, { text: 'split', tokenType: 'function', modifiers: ['defaultLibrary'] });
+    });
+
+    it('should highlight path subcommand when cache is populated', () => {
+      subcommandCache.setSubcommands('path', ['normalize', 'resolve', 'basename', 'dirname', 'extension', 'filter', 'sort', 'change-extension', 'is', 'mtime']);
+      const tokens = getTokensForContent('path normalize /usr/bin/../lib', 'test://subcmd-path-norm.fish');
+
+      expectTokenExists(tokens, { text: 'path', tokenType: 'function', modifiers: ['defaultLibrary'] });
+      expectTokenExists(tokens, { text: 'normalize', tokenType: 'function', modifiers: ['defaultLibrary'] });
+    });
+
+    it('should highlight status subcommand when cache is populated', () => {
+      subcommandCache.setSubcommands('status', ['is-login', 'is-interactive', 'is-full-job-control', 'current-command', 'filename']);
+      const tokens = getTokensForContent('status is-login', 'test://subcmd-status-login.fish');
+
+      expectTokenExists(tokens, { text: 'status', tokenType: 'function', modifiers: ['defaultLibrary'] });
+      expectTokenExists(tokens, { text: 'is-login', tokenType: 'function', modifiers: ['defaultLibrary'] });
+    });
+
+    it('should not highlight subcommand when cache has no match', () => {
+      subcommandCache.setSubcommands('string', ['split', 'match', 'join']);
+      const tokens = getTokensForContent('string notasubcmd foo', 'test://subcmd-miss.fish');
+
+      expectTokenExists(tokens, { text: 'string', tokenType: 'function', modifiers: ['defaultLibrary'] });
+      // 'notasubcmd' should NOT be highlighted as a function
+      const subcmdTokens = findTokensByText(tokens, 'notasubcmd').filter(t => t.tokenType === 'function');
+      expect(subcmdTokens.length).toBe(0);
+    });
+
+    it('should not highlight options as subcommands', () => {
+      subcommandCache.setSubcommands('string', ['split', 'match']);
+      const tokens = getTokensForContent('string split -r . "a.b"', 'test://subcmd-option.fish');
+
+      // '-r' should never be highlighted as a function
+      const optionTokens = findTokensByText(tokens, '-r').filter(t => t.tokenType === 'function');
+      expect(optionTokens.length).toBe(0);
+
+      // 'split' should still be highlighted
+      expectTokenExists(tokens, { text: 'split', tokenType: 'function', modifiers: ['defaultLibrary'] });
+    });
+
+    it('should respect fish_lsp_show_subcommand_semantic_tokens = false', () => {
+      const original = config.fish_lsp_show_subcommand_semantic_tokens;
+      try {
+        config.fish_lsp_show_subcommand_semantic_tokens = false;
+        subcommandCache.setSubcommands('string', ['split', 'match']);
+        const tokens = getTokensForContent('string split . "a.b"', 'test://subcmd-disabled.fish');
+
+        // 'string' should still be highlighted
+        expectTokenExists(tokens, { text: 'string', tokenType: 'function', modifiers: ['defaultLibrary'] });
+        // 'split' should NOT be highlighted when the config is disabled
+        const splitTokens = findTokensByText(tokens, 'split').filter(t => t.tokenType === 'function');
+        expect(splitTokens.length).toBe(0);
+      } finally {
+        config.fish_lsp_show_subcommand_semantic_tokens = original;
+      }
+    });
+
+    it('should highlight user function subcommands when cache is populated', () => {
+      subcommandCache.setSubcommands('git', ['commit', 'push', 'pull', 'status', 'worktree']);
+      const tokens = getTokensForContent('git commit -m "msg"', 'test://subcmd-git-commit.fish');
+
+      // 'git' should be a function token
+      expectTokenExists(tokens, { text: 'git', tokenType: 'function' });
+      // 'commit' should also be a function token (inherits parent modifiers)
+      expectTokenExists(tokens, { text: 'commit', tokenType: 'function' });
+    });
+
+    it('should handle multiple subcommand lines independently', () => {
+      subcommandCache.setSubcommands('string', ['split', 'match', 'join']);
+      subcommandCache.setSubcommands('path', ['normalize', 'resolve']);
+      const content = [
+        'string split . "a.b"',
+        'path normalize /usr/../lib',
+        'string match "*.fish" file.fish',
+      ].join('\n');
+      const tokens = getTokensForContent(content, 'test://subcmd-multi.fish');
+
+      expectTokenExists(tokens, { text: 'split', tokenType: 'function', line: 0 });
+      expectTokenExists(tokens, { text: 'normalize', tokenType: 'function', line: 1 });
+      expectTokenExists(tokens, { text: 'match', tokenType: 'function', line: 2 });
     });
   });
 });

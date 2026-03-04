@@ -2,7 +2,7 @@ import { DocumentSymbol, SymbolKind, WorkspaceSymbol, Location, FoldingRange, Ma
 import { SyntaxNode } from 'web-tree-sitter';
 import { DefinitionScope } from '../utils/definition-scope';
 import { LspDocument } from '../document';
-import { containsNode, getChildNodes, getRange } from '../utils/tree-sitter';
+import { containsNode, getChildNodes, getParentNodes, getRange, nodesGen } from '../utils/tree-sitter';
 import { findSetChildren, processSetCommand } from './set';
 import { processReadCommand } from './read';
 import { isFunctionVariableDefinitionName, processArgvDefinition, processFunctionDefinition } from './function';
@@ -15,7 +15,7 @@ import { config } from '../config';
 import { flattenNested } from '../utils/flatten';
 import { uriToPath } from '../utils/translation';
 import { FishString } from './string';
-import { isCommand, isCommandWithName, isEmptyString, isFunctionDefinitionName, isVariableDefinitionName } from '../utils/node-types';
+import { isCommand, isCommandWithName, isEmptyString, isFunctionDefinitionName, isOption, isScope, isVariableDefinitionName } from '../utils/node-types';
 import { SyncFileHelper } from '../utils/file-operations';
 import { isExportVariableDefinitionName, processExportCommand } from './export';
 import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol } from './complete';
@@ -50,6 +50,7 @@ export class FishSymbol {
   public aliasedNames: string[] = [];
   public document: LspDocument;
   public options: Option[] = [];
+  private _lifetimeEndPosition: Position | null | undefined = undefined;
 
   constructor(obj: FishSymbolInput) {
     this.name = obj.name || obj.focusedNode.text;
@@ -126,6 +127,73 @@ export class FishSymbol {
     return this;
   }
 
+  private resolveVariableLifetimeEndPosition(): Position | undefined {
+    if (typeof this._lifetimeEndPosition !== 'undefined') {
+      return this._lifetimeEndPosition || undefined;
+    }
+    if (!this.isVariable() || !this.isGlobal()) {
+      this._lifetimeEndPosition = null;
+      return undefined;
+    }
+
+    const eraseOption = Option.create('-e', '--erase');
+    for (const node of nodesGen(this.scopeNode)) {
+      if (!isCommandWithName(node, 'set')) continue;
+      if (node.startIndex <= this.node.startIndex) continue;
+
+      // The erase must occur in the same nearest lexical scope as the definition.
+      const nearestScope = getParentNodes(node).find(parent => isScope(parent));
+      if (!nearestScope || !nearestScope.equals(this.scopeNode)) continue;
+
+      const args = node.childrenForFieldName('argument');
+      if (!args.some(arg => isMatchingOption(arg, eraseOption))) continue;
+
+      const eraseTargets = args
+        .filter(arg => !isOption(arg))
+        .map(arg => {
+          if (arg.type === 'concatenation' && arg.firstNamedChild) {
+            return arg.firstNamedChild;
+          }
+          return arg;
+        })
+        .filter(Boolean);
+
+      if (eraseTargets.some(target => target.text === this.name)) {
+        this._lifetimeEndPosition = getRange(node).end;
+        return this._lifetimeEndPosition;
+      }
+    }
+
+    this._lifetimeEndPosition = null;
+    return undefined;
+  }
+
+  /**
+   * Global variable lifetime is constrained by its definition position and the first
+   * matching `set -e* <name>` in the same lexical scope.
+   *
+   * Cross-document checks intentionally skip this guard because call-order across
+   * documents cannot be inferred statically.
+   */
+  public isWithinDefinitionLifetime(position: Position, uri: DocumentUri = this.uri): boolean {
+    if (uri !== this.uri) return true;
+    if (!this.isVariable() || !this.isGlobal()) return true;
+
+    const start = this.selectionRange.start;
+    const startsBeforeDefinition =
+      position.line < start.line ||
+      position.line === start.line && position.character < start.character;
+    if (startsBeforeDefinition) return false;
+
+    const end = this.resolveVariableLifetimeEndPosition();
+    if (!end) return true;
+
+    const isAfterErase =
+      position.line > end.line ||
+      position.line === end.line && position.character > end.character;
+    return !isAfterErase;
+  }
+
   private nameEqualsNodeText(node: SyntaxNode) {
     return fishSymbolNameEqualsNodeText(this, node);
   }
@@ -138,6 +206,47 @@ export class FishSymbol {
   public isAfter(other: FishSymbol, urisMustMatch = true) {
     if (this.uri !== other.uri) return !urisMustMatch;
     return this.focusedNode.startIndex > other.focusedNode.startIndex;
+  }
+
+  /**
+   * Checks if the symbol is a function definition with the `--no-scope-shadowing` option, which means that
+   * the function does not create a new scope and can be shadowed by variables in the same scope. This is used
+   * to determine if a function symbol should be considered a match for a variable reference in the same scope.
+   */
+  public isFunctionWithNoScopeShadowing() {
+    if (!this.isFunction()) return false;
+    if (this.options.some(option => option.isOption('-S', '--no-scope-shadowing'))) return true;
+    return false;
+  }
+
+  /**
+   * Checks if this symbol is a FUNCTION_VARIABLE created via `--inherit-variable`.
+   * These variables are inherited from the caller's scope rather than being
+   * new local definitions.
+   */
+  public isInheritVariable(): boolean {
+    return this.fishKind === 'FUNCTION_VARIABLE'
+      && this.options.some(option => option.isOption('-V', '--inherit-variable'));
+  }
+
+  /**
+   * For function symbols, returns the list of variable names declared with
+   * `--inherit-variable`. Returns empty array for non-function symbols or
+   * functions without `--inherit-variable`.
+   */
+  public getInheritedVariableNames(): string[] {
+    if (!this.isFunction()) return [];
+    return this.children
+      .filter((child: FishSymbol) => child.isInheritVariable())
+      .map((child: FishSymbol) => child.name);
+  }
+
+  /**
+   * For function symbols, checks if the function inherits a specific variable
+   * name via `--inherit-variable`.
+   */
+  public hasInheritedVariable(varName: string): boolean {
+    return this.getInheritedVariableNames().includes(varName);
   }
 
   /**
@@ -631,7 +740,34 @@ export class FishSymbol {
    * Checks if the symbol contains the node in its scope.
    */
   scopeContainsNode(node: SyntaxNode): boolean {
-    return symbolScopeContainsNode(this, node);
+    const inScope = symbolScopeContainsNode(this, node);
+    if (!inScope) return false;
+
+    // Only constrain lifetime for references in the same parsed document.
+    if (this.isVariable() && this.isGlobal() && node.tree === this.node.tree) {
+      return this.isWithinDefinitionLifetime(getRange(node).start, this.uri);
+    }
+    return inScope;
+  }
+
+  /**
+   * Finds all self-referencing variable expansion nodes within this symbol's
+   * definition command. In fish, `set -lx PATH $PATH:/opt/bin` evaluates the RHS
+   * `$PATH` before creating the local variable, so it reads the pre-existing (global)
+   * value. Such expansions should not be treated as local references.
+   *
+   * @returns An array of self-referencing SyntaxNodes, or null if none exist
+   */
+  isSelfReferencingVariable(): SyntaxNode[] | null {
+    if (!this.isVariable() || this.fishKind !== 'SET') return null;
+    const results: SyntaxNode[] = [];
+    for (const node of nodesGen(this.node)) {
+      if (this.focusedNode.endIndex > node.startIndex || this.focusedNode.startIndex === node.startIndex) continue;
+      if (node.text === this.name) {
+        results.push(node);
+      }
+    }
+    return results.length > 0 ? results : null;
   }
 
   /**

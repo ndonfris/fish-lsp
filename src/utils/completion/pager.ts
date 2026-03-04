@@ -1,5 +1,5 @@
 import { FishSymbol } from '../../parsing/symbol';
-import { FishCompletionItem } from './types';
+import { FishCompletionItem, getCompletionDocumentationValue } from './types';
 import { execCompleteLine } from '../exec';
 import { logger, Logger } from '../../logger';
 import { InlineParser } from './inline-parser';
@@ -141,8 +141,7 @@ export class CompletionPager {
         item.label,
         item.fishKind,
         item.detail,
-        typeof item.documentation === 'string' ? item.documentation :
-          item.documentation?.toString && item.documentation.toString() || '',
+        getCompletionDocumentationValue(item.documentation),
         item.examples,
       );
       newItem.insertText = dollarPrefix + item.label;

@@ -1,7 +1,6 @@
-import * as fs from 'fs';
-import { AnalyzedDocument, analyzer, Analyzer, EnsuredAnalyzeDocument } from '../src/analyze';
+import { analyzer, Analyzer } from '../src/analyze';
 import { workspaceManager } from '../src/utils/workspace-manager';
-import { fail, printClientTree, printLocations, setLogger, TestLspDocument } from './helpers';
+import { fail, printClientTree, printLocations, setLogger } from './helpers';
 import { getChildNodes, getRange, pointToPosition } from '../src/utils/tree-sitter';
 import { isCompletionCommandDefinition } from '../src/parsing/complete';
 import { isArgumentThatCanContainCommandCalls, isCommand, isCommandWithName, isDefinitionName, isEndStdinCharacter, isOption, isString, isVariable, isVariableDefinitionName } from '../src/utils/node-types';
@@ -10,125 +9,30 @@ import { getRenames } from '../src/renames';
 import { allUnusedLocalReferences, getReferences, getImplementation } from '../src/references';
 import { Position, Location } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
-import { documents, LspDocument } from '../src/document';
-import * as path from 'path';
-import { Workspace } from '../src/utils/workspace';
-import { pathToUri } from '../src/utils/translation';
+import { LspDocument } from '../src/document';
 import { filterFirstPerScopeSymbol } from '../src/parsing/symbol';
 import { isMatchingOptionValue } from '../src/parsing/options';
 import { Option } from '../src/parsing/options';
 import { extractCommands, extractMatchingCommandLocations } from '../src/parsing/nested-strings';
-import { testChangeDocument, testClearDocuments, testOpenDocument } from './document-test-helpers';
+import { initializeParser } from '../src/parser';
+import { setupProcessEnvExecFile } from '../src/utils/process-env';
+import TestWorkspace from './test-workspace-utils';
 
-// let currentWorkspace: CurrentWorkspace = new CurrentWorkspace();
-// let documents: LspDocument[] = [];
-
-/**
- * @param workspacePath `path.join('__dirname', 'workspaces', 'test_workspace_NAME')`
- * @param docs array of `TestLspDocument` objects to create in the workspace
- */
-const setupWorkspace = (workspacePath: string, ...docs: TestLspDocument[]) => {
-  if (!workspacePath.includes('/')) {
-    workspacePath = path.join(__dirname, 'workspaces', workspacePath);
-  }
-
-  const ws = Workspace.syncCreateFromUri(pathToUri(workspacePath))!;
-
-  function setup() {
-    return {
-      rootPath: workspacePath,
-      rootUri: pathToUri(workspacePath),
-      beforeAll: async () => {
-        testClearDocuments();
-        await Analyzer.initialize();
-        fs.promises.mkdir(workspacePath, { recursive: true });
-        const folders = ['functions', 'completions', 'conf.d'];
-        for (const folder of folders) {
-          const folderPath = path.join(workspacePath, folder);
-          await fs.promises.mkdir(folderPath, { recursive: true });
-        }
-        for (const doc of docs) {
-          const fullPath = path.join(workspacePath, doc.path);
-          await fs.promises.writeFile(fullPath, Array.isArray(doc.text) ? doc.text.join('\n') : doc.text);
-          testOpenDocument(LspDocument.createFromPath(fullPath));
-        }
-      },
-      beforeEach: async () => {
-        await Analyzer.initialize();
-        workspaceManager.clear();
-        workspaceManager.setCurrent(ws);
-        documents.all().forEach(doc => {
-          workspaceManager.handleOpenDocument(doc);
-          analyzer.analyze(doc);
-          workspaceManager.current?.addUri(doc.uri);
-        });
-        await workspaceManager.analyzePendingDocuments();
-      },
-      afterAll: async () => {
-        await fs.promises.rm(workspacePath, { recursive: true });
-      },
-      documents: () => {
-        return documents;
-      },
-    };
-  }
-
-  const setupObject = setup();
-
-  return {
-    ...setupObject,
-    setup: (
-      beforeEachCallback: () => Promise<void> = async () => {
-        return;
-      },
-      beforeAllCallback: () => Promise<void> = async () => {
-        return;
-      },
-      afterAllCallback: () => Promise<void> = async () => {
-        return;
-      },
-    ) => {
-      beforeAll(async () => {
-        await setupObject.beforeAll();
-        await beforeAllCallback();
-      });
-      beforeEach(async () => {
-        await setupObject.beforeEach();
-        setupObject.documents().all().forEach(doc => {
-          testOpenDocument(doc);
-        });
-        await beforeEachCallback();
-      });
-      afterAll(async () => {
-        await setupObject.afterAll();
-        await afterAllCallback();
-      });
-    },
-  };
-};
-
-describe('find definition locations of symbols', () => {
+describe('find reference locations of symbols', () => {
   setLogger();
-  // logger.setSilent(true);
 
   beforeEach(async () => {
+    await setupProcessEnvExecFile();
+    await initializeParser();
     await Analyzer.initialize();
-  });
-
-  afterEach(() => {
-    // parser.delete();
-    workspaceManager.clear();
+    await setupProcessEnvExecFile();
   });
 
   describe('argparse', () => {
-    let functionDoc: LspDocument;
-    let completionDoc: LspDocument;
-    let confdDoc: LspDocument;
-
-    setupWorkspace('test_argparse_workspace',
+    const workspace = TestWorkspace.create().addFiles(
       {
-        path: 'functions/test.fish',
-        text: [
+        relativePath: 'functions/test.fish',
+        content: [
           'function test',
           '  argparse --stop-nonopt h/help name= q/quiet v/version y/yes n/no -- $argv',
           '  or return',
@@ -152,35 +56,34 @@ describe('find definition locations of symbols', () => {
           '  end',
           '  echo $argv',
           'end',
-        ],
+        ].join('\n'),
       },
       {
-        path: 'completions/test.fish',
-        text: [
+        relativePath: 'completions/test.fish',
+        content: [
           'complete -c test -s h -l help',
           'complete -c test      -l name',
           'complete -c test -s q -l quiet',
           'complete -c test -s v -l version',
           'complete -c test -s y -l yes',
           'complete -c test -s n -l no',
-        ],
+        ].join('\n'),
       },
       {
-        path: 'conf.d/test.fish',
-        text: [
+        relativePath: 'conf.d/test.fish',
+        content: [
           'function __test',
           '   test --yes',
           'end',
-        ],
+        ].join('\n'),
       },
-    ).setup(async () => {
-      functionDoc = documents.all().find(doc => doc.uri.endsWith('functions/test.fish'))!;
-      completionDoc = documents.all().find(doc => doc.uri.endsWith('completions/test.fish'))!;
-      confdDoc = documents.all().find(doc => doc.uri.endsWith('conf.d/test.fish'))!;
-    });
+    ).initialize();
 
     it('`{functions,completions,conf.d}/test.fish`', () => {
-      expect(documents.all()).toHaveLength(3);
+      const functionDoc = workspace.getDocument('functions/test.fish')!;
+      const completionDoc = workspace.getDocument('completions/test.fish')!;
+      const confdDoc = workspace.getDocument('conf.d/test.fish')!;
+      expect(workspace.documents).toHaveLength(3);
       expect(functionDoc).toBeDefined();
       expect(completionDoc).toBeDefined();
       expect(confdDoc).toBeDefined();
@@ -192,6 +95,7 @@ describe('find definition locations of symbols', () => {
     });
 
     it('test _flag_help', () => {
+      const functionDoc = workspace.getDocument('functions/test.fish')!;
       const found = analyzer.findNode((n, document) => {
         return document!.uri === functionDoc.uri && n.text === '_flag_help';
       })!;
@@ -201,6 +105,7 @@ describe('find definition locations of symbols', () => {
     });
 
     it('test _flag_version', () => {
+      const functionDoc = workspace.getDocument('functions/test.fish')!;
       const nodeAtPoint = analyzer.nodeAtPoint(functionDoc.uri, 1, 52)!;
       expect(nodeAtPoint!.text).toBe('v/version');
       const refs = getReferences(functionDoc, Position.create(1, 52));
@@ -208,6 +113,8 @@ describe('find definition locations of symbols', () => {
     });
 
     it('complete -c test -s h -l help', () => {
+      const functionDoc = workspace.getDocument('functions/test.fish')!;
+      const completionDoc = workspace.getDocument('completions/test.fish')!;
       const nodeAtPoint = analyzer.nodeAtPoint(completionDoc.uri, 0, 27)!;
       expect(nodeAtPoint).toBeDefined();
       expect(nodeAtPoint!.text).toBe('help');
@@ -223,24 +130,20 @@ describe('find definition locations of symbols', () => {
   });
 
   describe('set', () => {
-    let functionDoc: LspDocument;
-    let confdDoc: LspDocument;
-    let globalTestDoc: LspDocument;
-
-    setupWorkspace('references_test_set_workspace',
+    const workspace = TestWorkspace.create().addFiles(
       {
-        path: 'conf.d/_foo.fish',
-        text: [
+        relativePath: 'conf.d/_foo.fish',
+        content: [
           'function test',
           '  set -lx foo bar',
           '  echo $foo',
           'end',
           'test',
-        ],
+        ].join('\n'),
       },
       {
-        path: 'functions/test.fish',
-        text: [
+        relativePath: 'functions/test.fish',
+        content: [
           'function test',
           '    set -lx foo bar',
           '    set -ql foo',
@@ -249,42 +152,40 @@ describe('find definition locations of symbols', () => {
           '        echo $foo',
           '    end',
           'end',
-        ],
+        ].join('\n'),
       },
       {
-        path: 'conf.d/test.fish',
-        text: [
+        relativePath: 'conf.d/test.fish',
+        content: [
           'function __test',
           '   set -x foo bar',
           'end',
           'function next',
           '   set foo bar',
           'end',
-        ],
+        ].join('\n'),
       },
       {
-        path: 'conf.d/global_test.fish',
-        text: [
+        relativePath: 'conf.d/global_test.fish',
+        content: [
           'set -gx foo bar',
           'echo $foo',
-        ],
+        ].join('\n'),
       },
       {
-        path: 'functions/test-other.fish',
-        text: [
+        relativePath: 'functions/test-other.fish',
+        content: [
           'function test-other',
           '    echo $foo',
           'end',
-        ],
+        ].join('\n'),
       },
-    ).setup(async () => {
-      functionDoc = documents.all().find(doc => doc.uri.endsWith('functions/test.fish'))!;
-      confdDoc = documents.all().find(doc => doc.uri.endsWith('conf.d/_foo.fish'))!;
-      globalTestDoc = documents.all().find(doc => doc.uri.endsWith('conf.d/global_test.fish'))!;
-    });
+    ).initialize();
 
     it('foo local in conf.d/_foo.fish `2 refs for \'foo\'`', () => {
-      expect(documents.all()).toHaveLength(5);
+      const confdDoc = workspace.getDocument('conf.d/_foo.fish')!;
+      const functionDoc = workspace.getDocument('functions/test.fish')!;
+      expect(workspace.documents).toHaveLength(5);
       expect(functionDoc).toBeDefined();
       const found = analyzer.findNode((n, document) => {
         return document!.uri === confdDoc.uri && n.text === 'foo';
@@ -298,6 +199,7 @@ describe('find definition locations of symbols', () => {
     });
 
     it('foo local in functions/test.fish `5 refs for \'foo\'`', () => {
+      const functionDoc = workspace.getDocument('functions/test.fish')!;
       const node = analyzer.getNodes(functionDoc.uri).find((n) => n.text === 'foo' && isVariableDefinitionName(n))!;
       expect(node).toBeDefined();
       const result = getReferences(functionDoc, getRange(node).start);
@@ -319,6 +221,7 @@ describe('find definition locations of symbols', () => {
     });
 
     it('foo global', () => {
+      const globalTestDoc = workspace.getDocument('conf.d/global_test.fish')!;
       const node = analyzer.getNodes(globalTestDoc.uri).find((n) => n.text === 'foo' && isVariableDefinitionName(n))!;
       expect(node).toBeDefined();
       const result = getReferences(globalTestDoc, getRange(node).start);
@@ -332,17 +235,88 @@ describe('find definition locations of symbols', () => {
     });
   });
 
-  describe('alias', () => {
-    setupWorkspace('references_test_alias_workspace',
+  describe('variable reference edge cases', () => {
+    const workspace = TestWorkspace.create().addFiles(
       {
-        path: 'conf.d/alias.fish',
-        text: [
-          'alias ls=\'exa\'',
-        ],
+        relativePath: 'conf.d/variable-reference-edge-cases.fish',
+        content: [
+          'set bar baz',
+          'bar',
+          '$bar',
+          'set -q bar',
+          'set -e bar[1]',
+        ].join('\n'),
       },
       {
-        path: 'functions/test.fish',
-        text: [
+        relativePath: 'conf.d/variable-reference-lifetime.fish',
+        content: [
+          'set -g some_var "active"',
+          'echo $some_var',
+          'set -eg some_var',
+          'echo $some_var',
+        ].join('\n'),
+      },
+    ).initialize();
+
+    it('does not treat bare command names as variable references', () => {
+      const doc = workspace.getDocument('conf.d/variable-reference-edge-cases.fish')!;
+      const definitionNode = analyzer.getNodes(doc.uri).find(n =>
+        n.text === 'bar' && isVariableDefinitionName(n),
+      )!;
+      expect(definitionNode).toBeDefined();
+
+      const refs = getReferences(doc, getRange(definitionNode).start);
+      const refLines = new Set(refs.map(loc => loc.range.start.line));
+
+      expect(refLines.has(1)).toBeFalsy();
+    });
+
+    it('includes $bar and set -q/-e targets as variable references', () => {
+      const doc = workspace.getDocument('conf.d/variable-reference-edge-cases.fish')!;
+      const definitionNode = analyzer.getNodes(doc.uri).find(n =>
+        n.text === 'bar' && isVariableDefinitionName(n),
+      )!;
+      expect(definitionNode).toBeDefined();
+
+      const refs = getReferences(doc, getRange(definitionNode).start);
+      const refLines = new Set(refs.map(loc => loc.range.start.line));
+
+      expect(refs).toHaveLength(4);
+      expect(refLines.has(0)).toBeTruthy();
+      expect(refLines.has(2)).toBeTruthy();
+      expect(refLines.has(3)).toBeTruthy();
+      expect(refLines.has(4)).toBeTruthy();
+    });
+
+    it('set -eg should end global variable lifetime for later references', () => {
+      const doc = workspace.getDocument('conf.d/variable-reference-lifetime.fish')!;
+
+      const defNode = analyzer.getNodes(doc.uri).find((n) =>
+        n.startPosition.row === 0 && n.text === 'some_var' && isVariableDefinitionName(n),
+      );
+      expect(defNode).toBeDefined();
+
+      const refs = getReferences(doc, getRange(defNode!).start);
+      const refLines = new Set(refs.map(loc => loc.range.start.line));
+
+      expect(refLines.has(0)).toBeTruthy();
+      expect(refLines.has(1)).toBeTruthy();
+      expect(refLines.has(2)).toBeTruthy();
+      expect(refLines.has(3)).toBeFalsy();
+    });
+  });
+
+  describe('alias', () => {
+    const workspace = TestWorkspace.create().addFiles(
+      {
+        relativePath: 'conf.d/alias.fish',
+        content: [
+          'alias ls=\'exa\'',
+        ].join('\n'),
+      },
+      {
+        relativePath: 'functions/test.fish',
+        content: [
           'function test',
           '    set -lx foo bar',
           '    function ls',
@@ -350,66 +324,64 @@ describe('find definition locations of symbols', () => {
           '    end',
           '    ls',
           'end',
-        ],
+        ].join('\n'),
       },
       {
-        path: 'functions/test-other.fish',
-        text: [
+        relativePath: 'functions/test-other.fish',
+        content: [
           'function test-other',
           '    ls $argv',
           'end',
-        ],
+        ].join('\n'),
       },
       {
-        path: 'completions/ls-wrapper.fish',
-        text: [
+        relativePath: 'completions/ls-wrapper.fish',
+        content: [
           'complete -c ls-wrapper -w \'ls\'',
-        ],
+        ].join('\n'),
       },
       {
-        path: 'completions/ls.fish',
-        text: [
+        relativePath: 'completions/ls.fish',
+        content: [
           'complete -c ls -n \'command -aq ls\'',
-        ],
+        ].join('\n'),
       },
       {
-        path: 'functions/ls-wrapper.fish',
-        text: [
+        relativePath: 'functions/ls-wrapper.fish',
+        content: [
           'function ls-wrapper -w=ls --wraps \'command ls\'',
           '    argparse -n=ls h/help -- $argv; or return 1',
           '    echo "ls-wrapper"',
           '    ls $argv',
           'end',
-        ],
+        ].join('\n'),
       },
       {
-
-        path: 'functions/user_keybinds.fish',
-        text: [
+        relativePath: 'functions/user_keybinds.fish',
+        content: [
           'function user_keybinds',
           '    bind ctro-o,ctrl-l \'ls\'',
           'end',
-        ],
+        ].join('\n'),
       },
       {
-        path: 'conf.d/abbrevaitons.fish',
-        text: [
+        relativePath: 'conf.d/abbrevaitons.fish',
+        content: [
           'abbr -a ll ls -l',
           'abbr -a lt -- ls -t',
           'abbr -a --command=ls lt -- -lt',
-        ],
+        ].join('\n'),
       },
       {
-
-        path: 'functions/local-alias.fish',
-        text: [
+        relativePath: 'functions/local-alias.fish',
+        content: [
           'function local-alias',
           '    alias ls=\'ls-wrapper\'',
           '    ls $argv',
           'end',
-        ],
+        ].join('\n'),
       },
-    ).setup();
+    ).initialize();
 
     it('check seen -w/--wraps nodes', () => {
       const values = analyzer.findNodes((n, _) => {
@@ -490,7 +462,7 @@ describe('find definition locations of symbols', () => {
     });
 
     it('global alias', () => {
-      const searchDoc = documents.all().find(doc => doc.uri.endsWith('conf.d/alias.fish'))!;
+      const searchDoc = workspace.getDocument('conf.d/alias.fish')!;
       expect(searchDoc).toBeDefined();
       const found = analyzer.findNode((n, document) => {
         return document!.uri === searchDoc.uri && n.text === 'ls=';
@@ -573,15 +545,6 @@ describe('find definition locations of symbols', () => {
           }
         });
       }
-      // // console.log({
-      // //   results: results.map(loc => ({
-      // //   })
-      // // })
-      //
-      // // const result = getReferences(searchDoc, getRange(found).start);
-      // printLocations(results, {
-      //   verbose: true,
-      // });
       const builtinRefs = getReferences(searchDoc, getRange(found).start);
       console.log('builtinRefs', builtinRefs.length);
       printLocations(builtinRefs, {
@@ -590,14 +553,10 @@ describe('find definition locations of symbols', () => {
         showIndex: true,
       });
       expect(builtinRefs).toHaveLength(12);
-
-      // expect(result).toHaveLength(2);
-      // const result = getReferencesOld(searchDoc, getRange(found).start);
-      // expect(result).toHaveLength(2);
     });
 
     it('local alias', () => {
-      const searchDoc = documents.all().find(doc => doc.uri.endsWith('functions/local-alias.fish'))!;
+      const searchDoc = workspace.getDocument('functions/local-alias.fish')!;
       expect(searchDoc).toBeDefined();
       const found = analyzer.findNode((n, document) => {
         return document!.uri === searchDoc.uri && n.text === 'ls=';
@@ -609,46 +568,45 @@ describe('find definition locations of symbols', () => {
   });
 
   describe('functions', () => {
-    setupWorkspace(
-      'test_references_functions_workspace',
+    const workspace = TestWorkspace.create().addFiles(
       {
-        path: 'conf.d/foo.fish',
-        text: [
+        relativePath: 'conf.d/foo.fish',
+        content: [
           'function foo',
           '    echo \'hello there!\'',
           'end',
-        ],
+        ].join('\n'),
       },
       {
-        path: 'functions/test.fish',
-        text: [
+        relativePath: 'functions/test.fish',
+        content: [
           'function test',
           '    foo --help',
           'end',
-        ],
+        ].join('\n'),
       },
       {
-        path: 'functions/test-other.fish',
-        text: [
+        relativePath: 'functions/test-other.fish',
+        content: [
           'function test-other',
           '    function foo',
           '         echo \'general kenobi!\'',
           '    end',
           '    foo',
           'end',
-        ],
+        ].join('\n'),
       },
       {
-        path: 'completions/foo.fish',
-        text: [
+        relativePath: 'completions/foo.fish',
+        content: [
           'complete -c foo -n \'test\' -s h -l help',
-        ],
+        ].join('\n'),
       },
-    ).setup();
+    ).initialize();
 
     it('conf.d/foo.fish ->  foo function definition', () => {
-      expect(documents.all()).toHaveLength(4);
-      const searchDoc = documents.all().find(doc => doc.uri.endsWith('conf.d/foo.fish'))!;
+      expect(workspace.documents).toHaveLength(4);
+      const searchDoc = workspace.getDocument('conf.d/foo.fish')!;
       expect(searchDoc).toBeDefined();
       const found = analyzer.findNode((n, document) => {
         return document!.uri === searchDoc.uri && n.text === 'foo';
@@ -667,14 +625,10 @@ describe('find definition locations of symbols', () => {
 
   describe('renames', () => {
     describe('using `conf.d/test.fish` document', () => {
-      let cached: EnsuredAnalyzeDocument;
-      let document: LspDocument;
-
-      setupWorkspace(
-        'test_renames_conf_d_workspace',
+      const workspace = TestWorkspace.create().addFiles(
         {
-          path: 'conf.d/test.fish',
-          text: ['function test_1',
+          relativePath: 'conf.d/test.fish',
+          content: ['function test_1',
             '    argparse --stop-nonopt h/help name= q/quiet v/version y/yes n/no -- $argv',
             '    or return',
             '    if set -lq _flag_help',
@@ -692,16 +646,13 @@ describe('find definition locations of symbols', () => {
             'complete -c test_1 -s q -l quiet',
             'complete -c test_1 -s v -l version',
             'complete -c test_1 -s y -l yes',
-          ],
+          ].join('\n'),
         },
-      ).setup(
-        async () => {
-          document = documents.all().find(doc => doc.uri.endsWith('conf.d/test.fish'))!;
-          cached = analyzer.analyze(document).ensureParsed();
-        },
-      );
+      ).initialize();
 
       it('child completion nodes', () => {
+        const document = workspace.getDocument('conf.d/test.fish')!;
+        const cached = analyzer.analyze(document).ensureParsed();
         const nodeAtPoint = analyzer.nodeAtPoint(document.uri, 1, 32);
         console.log(nodeAtPoint?.text);
         expect(nodeAtPoint).toBeDefined();
@@ -718,6 +669,8 @@ describe('find definition locations of symbols', () => {
       });
 
       it('argparse references for `h/help` position inside of `help`', () => {
+        const document = workspace.getDocument('conf.d/test.fish')!;
+        const cached = analyzer.analyze(document).ensureParsed();
         const nodeAtPoint = analyzer.nodeAtPoint(document.uri, 1, 32);
         console.log(nodeAtPoint?.text);
         expect(nodeAtPoint).toBeDefined();
@@ -737,74 +690,66 @@ describe('find definition locations of symbols', () => {
     });
 
     describe('using \'workspaces/test_renames_workspace/{completions,functions,conf.d}/**.fish\' workspace', () => {
-      let functionDoc: LspDocument;
-      let completionDoc: LspDocument;
-      let confdDoc: LspDocument;
-      let configDoc: LspDocument;
-
-      setupWorkspace('test_renames_workspace', {
-        path: 'functions/foo_test.fish',
-        text: [
-          'function foo_test',
-          '  argparse --stop-nonopt special-option h/help name= q/quiet v/version y/yes n/no -- $argv',
-          '  or return',
-          '  if set -lq _flag_help',
-          '      echo "help_msg"',
-          '  end',
-          '  if set -lq _flag_name && test -n "$_flag_name"',
-          '      echo "$_flag_name"',
-          '  end',
-          '  if set -lq _flag_special_option',
-          '      echo "special-option"',
-          '  end',
-          'end',
-        ],
-      },
-      {
-        path: 'completions/foo_test.fish',
-        text: [
-          'complete -c foo_test -s h -l help',
-          'complete -c foo_test      -l name',
-          'complete -c foo_test -s q -l quiet',
-          'complete -c foo_test -s v -l version',
-          'complete -c foo_test -s y -l yes',
-          'complete -c foo_test -s n -l no',
-          'complete -c foo_test -l special-option',
-        ],
-      },
-      {
-        path: 'conf.d/__test.fish',
-        text: [
-          'function __test',
-          '   foo_test --yes',
-          '   foo_test --special-option',
-          '   baz',
-          'end',
-        ],
-      },
-      {
-        path: 'config.fish',
-        text: [
-          'set -gx FISH_TEST_CONFIG "test"',
-          'set -gx FISH_TEST_CONFIG_2 "test"',
-          'function foo_test_wrapper -w foo_test -d "`foo_test --yes` wrapper"',
-          '   foo_test --yes $argv',
-          '   foo_test --special-option="$argv"',
-          'end',
-          "alias baz='foo'",
-        ],
-      }).setup(async () => {
-        functionDoc = documents.all().find(doc => doc.uri.endsWith('functions/foo_test.fish'))!;
-        completionDoc = documents.all().find(doc => doc.uri.endsWith('completions/foo_test.fish'))!;
-        confdDoc = documents.all().find(doc => doc.uri.endsWith('conf.d/__test.fish'))!;
-        configDoc = documents.all().find(doc => doc.uri.endsWith('config.fish'))!;
-        expect(functionDoc).toBeDefined();
-        expect(completionDoc).toBeDefined();
-        expect(confdDoc).toBeDefined();
-        expect(configDoc).toBeDefined();
-      });
+      const workspace = TestWorkspace.create().addFiles(
+        {
+          relativePath: 'functions/foo_test.fish',
+          content: [
+            'function foo_test',
+            '  argparse --stop-nonopt special-option h/help name= q/quiet v/version y/yes n/no -- $argv',
+            '  or return',
+            '  if set -lq _flag_help',
+            '      echo "help_msg"',
+            '  end',
+            '  if set -lq _flag_name && test -n "$_flag_name"',
+            '      echo "$_flag_name"',
+            '  end',
+            '  if set -lq _flag_special_option',
+            '      echo "special-option"',
+            '  end',
+            'end',
+          ].join('\n'),
+        },
+        {
+          relativePath: 'completions/foo_test.fish',
+          content: [
+            'complete -c foo_test -s h -l help',
+            'complete -c foo_test      -l name',
+            'complete -c foo_test -s q -l quiet',
+            'complete -c foo_test -s v -l version',
+            'complete -c foo_test -s y -l yes',
+            'complete -c foo_test -s n -l no',
+            'complete -c foo_test -l special-option',
+          ].join('\n'),
+        },
+        {
+          relativePath: 'conf.d/__test.fish',
+          content: [
+            'function __test',
+            '   foo_test --yes',
+            '   foo_test --special-option',
+            '   baz',
+            'end',
+          ].join('\n'),
+        },
+        {
+          relativePath: 'config.fish',
+          content: [
+            'set -gx FISH_TEST_CONFIG "test"',
+            'set -gx FISH_TEST_CONFIG_2 "test"',
+            'function foo_test_wrapper -w foo_test -d "`foo_test --yes` wrapper"',
+            '   foo_test --yes $argv',
+            '   foo_test --special-option="$argv"',
+            'end',
+            "alias baz='foo'",
+          ].join('\n'),
+        },
+      ).initialize();
 
       it('setup test', () => {
+        const functionDoc = workspace.getDocument('functions/foo_test.fish')!;
+        const completionDoc = workspace.getDocument('completions/foo_test.fish')!;
+        const confdDoc = workspace.getDocument('conf.d/__test.fish')!;
+        const configDoc = workspace.getDocument('config.fish')!;
         expect(workspaceManager.current?.uris.indexed).toHaveLength(4);
         expect(workspaceManager.current?.uris.all).toHaveLength(4);
         expect(functionDoc).toBeDefined();
@@ -814,6 +759,7 @@ describe('find definition locations of symbols', () => {
       });
 
       it('argparse rename `name=` -> `na` test', () => {
+        const functionDoc = workspace.getDocument('functions/foo_test.fish')!;
         const nodeAtPoint = analyzer.nodeAtPoint(functionDoc.uri, 1, 49)!;
         expect(nodeAtPoint).toBeDefined();
         console.debug(1, nodeAtPoint?.text);
@@ -840,6 +786,7 @@ describe('find definition locations of symbols', () => {
       });
 
       it('argparse `special-option` test', () => {
+        const functionDoc = workspace.getDocument('functions/foo_test.fish')!;
         const nodeAtPoint = analyzer.nodeAtPoint(functionDoc.uri, 1, 27);
         expect(nodeAtPoint).toBeDefined();
         expect(nodeAtPoint!.text).toBe('special-option');
@@ -859,6 +806,10 @@ describe('find definition locations of symbols', () => {
       });
 
       it('function `foo_test`', () => {
+        const functionDoc = workspace.getDocument('functions/foo_test.fish')!;
+        const completionDoc = workspace.getDocument('completions/foo_test.fish')!;
+        const confdDoc = workspace.getDocument('conf.d/__test.fish')!;
+        const configDoc = workspace.getDocument('config.fish')!;
         const nodeAtPoint = analyzer.nodeAtPoint(functionDoc.uri, 0, 11);
         expect(nodeAtPoint).toBeDefined();
         expect(nodeAtPoint!.text).toBe('foo_test');
@@ -890,6 +841,7 @@ describe('find definition locations of symbols', () => {
       });
 
       it('config.fish $argv rename', () => {
+        const configDoc = workspace.getDocument('config.fish')!;
         const argvNode = analyzer.getNodes(configDoc.uri)
           .find(n => n.text === '$argv' && n.parent && isCommand(n.parent))!;
         console.log({
@@ -911,6 +863,7 @@ describe('find definition locations of symbols', () => {
       });
 
       it('alias `baz` references && renames', () => {
+        const configDoc = workspace.getDocument('config.fish')!;
         const bazNode = analyzer.getFlatDocumentSymbols(configDoc.uri)
           .find(s => s.name === 'baz' && s.fishKind === 'ALIAS')!;
         console.log({
@@ -931,46 +884,43 @@ describe('find definition locations of symbols', () => {
   });
 
   describe('references to skip', () => {
-    let funcDoc: LspDocument;
-    let configDoc: LspDocument;
-    setupWorkspace('references_skip_workspace',
+    const workspace = TestWorkspace.create().addFiles(
       {
-        path: 'functions/_test.fish',
-        text: [
+        relativePath: 'functions/_test.fish',
+        content: [
           'function _test',
           '  set -l argv',
           'end',
-        ],
+        ].join('\n'),
       },
       {
-        path: 'config.fish',
-        text: [
+        relativePath: 'config.fish',
+        content: [
           'test -d ~/.config/fish &>/dev/null',
           'echo $status',
           'echo $argv',
           'echo $argv[1]',
           'echo $pipestatus',
-        ],
+        ].join('\n'),
       },
-    ).setup(
-      async () => {
-        funcDoc = documents.all().find(doc => doc.uri.endsWith('functions/_test.fish'))!;
-        configDoc = documents.all().find(doc => doc.uri.endsWith('config.fish'))!;
-      },
-    );
+    ).initialize();
 
     it('variables to skip test', () => {
+      const configDoc = workspace.getDocument('config.fish')!;
       const variableNodes = analyzer.getNodes(configDoc.uri).filter(
         n => isVariable(n) && n.type === 'variable_name',
       );
       expect(variableNodes.length).toBe(4);
+      // Prebuilt variables (status, argv, pipestatus) now correctly return
+      // references via the prebuilt variable fallback, so they will have ≥1 ref
       variableNodes.forEach(node => {
         const refs = getReferences(configDoc, getRange(node).start);
-        expect(refs).toHaveLength(0);
+        expect(refs.length).toBeGreaterThanOrEqual(1);
       });
     });
 
     it('function `test` -> `argv` references w/ `set -l argv`', () => {
+      const funcDoc = workspace.getDocument('functions/_test.fish')!;
       const variableNode = analyzer.getNodes(funcDoc.uri).find(
         n => isVariableDefinitionName(n),
       )!;
@@ -980,15 +930,10 @@ describe('find definition locations of symbols', () => {
   });
 
   describe('emit event references', () => {
-    let focusedDoc1: LspDocument;
-    let focusedDoc2: LspDocument;
-    let focusedDoc3: LspDocument;
-    let customFishDoc: LspDocument;
-    let configDoc: LspDocument;
-    setupWorkspace('references_emit_event_workspace',
+    const workspace = TestWorkspace.create().addFiles(
       {
-        path: 'event_test.fish',
-        text: [
+        relativePath: 'event_test.fish',
+        content: [
           'function event_test --on-event test_event',
           '    echo event test: $argv',
           'end',
@@ -1009,21 +954,21 @@ describe('find definition locations of symbols', () => {
           'foo',
           '',
           'emit test_event something',
-        ],
+        ].join('\n'),
       },
       {
-        path: 'other_event_test.fish',
-        text: [
+        relativePath: 'other_event_test.fish',
+        content: [
           'function other_event_test --on-event test_event_2',
           '    echo other event test: $argv',
           'end',
           '',
           'emit test_event_2 something',
-        ],
+        ].join('\n'),
       },
       {
-        path: 'event_without_emit.fish',
-        text: [
+        relativePath: 'event_without_emit.fish',
+        content: [
           '# NOT an autoloaded file',
           'function _event_without_emit --on-event test_event_a',
           '    echo event without emit',
@@ -1036,11 +981,11 @@ describe('find definition locations of symbols', () => {
           '    echo event with emit',
           'end',
           'emit test_event_c',
-        ],
+        ].join('\n'),
       },
       {
-        path: 'functions/custom_fish_prompt.fish',
-        text: [
+        relativePath: 'functions/custom_fish_prompt.fish',
+        content: [
           'function custom_fish_prompt --on-event fish_prompt',
           '    echo "fish prompt $(pwd) >>>"',
           'end',
@@ -1049,39 +994,26 @@ describe('find definition locations of symbols', () => {
           '    echo resetting fish prompt',
           '    custom_fish_prompt',
           'end',
-        ],
+        ].join('\n'),
       },
       {
-        path: 'config.fish',
-        text: [
+        relativePath: 'config.fish',
+        content: [
           'custom_fish_prompt',
           'emit reset_fish_prompt',
-        ],
+        ].join('\n'),
       },
-
-    ).setup(async () => {
-      focusedDoc1 = documents.all().find(doc => doc.uri.endsWith('event_test.fish'))!;
-      focusedDoc2 = documents.all().find(doc => doc.uri.endsWith('other_event_test.fish'))!;
-      focusedDoc3 = documents.all().find(doc => doc.uri.endsWith('event_without_emit.fish'))!;
-      customFishDoc = documents.all().find(doc => doc.uri.endsWith('functions/custom_fish_prompt.fish'))!;
-      configDoc = documents.all().find(doc => doc.uri.endsWith('config.fish'))!;
-      expect(focusedDoc1).toBeDefined();
-      expect(focusedDoc2).toBeDefined();
-      expect(focusedDoc3).toBeDefined();
-      expect(customFishDoc).toBeDefined();
-      expect(configDoc).toBeDefined();
-    });
+    ).initialize();
 
     describe('all unused references', () => {
       it('event_test.fish', () => {
-        const focusedDoc = focusedDoc1;
+        const focusedDoc = workspace.getDocument('event_test.fish')!;
         const unusedRefs = allUnusedLocalReferences(focusedDoc);
         expect(unusedRefs).toHaveLength(0);
       });
 
       it('other_event_test.fish', () => {
-        const focusedDoc = focusedDoc2;
-        // const allSymbols = analyzer.getDocumentSymbols(focusedDoc.uri);
+        const focusedDoc = workspace.getDocument('other_event_test.fish')!;
         const symbols = filterFirstPerScopeSymbol(focusedDoc);
         printClientTree({ log: true }, ...symbols);
         const unusedRefs = allUnusedLocalReferences(focusedDoc);
@@ -1095,8 +1027,7 @@ describe('find definition locations of symbols', () => {
       });
 
       it('event_without_emit.fish', () => {
-        const focusedDoc = focusedDoc3;
-        // const allSymbols = analyzer.getDocumentSymbols(focusedDoc.uri);
+        const focusedDoc = workspace.getDocument('event_without_emit.fish')!;
         const symbols = filterFirstPerScopeSymbol(focusedDoc);
         printClientTree({ log: true }, ...symbols);
         const unusedRefs = allUnusedLocalReferences(focusedDoc);
@@ -1110,28 +1041,18 @@ describe('find definition locations of symbols', () => {
       });
 
       it('custom_fish_prompt `--on-event fish_prompt` not emitted but not show unused', () => {
-        const focusedDoc = customFishDoc;
+        const focusedDoc = workspace.getDocument('functions/custom_fish_prompt.fish')!;
         const focusedSymbol = analyzer.getFlatDocumentSymbols(focusedDoc.uri).find(s => s.isFunction() && s.hasEventHook() && s.name === '__fish_configure_prompt')!;
         const allRefs = getReferences(focusedDoc, focusedSymbol.toPosition());
-        // console.log('ALL')
-        // printLocations(allRefs, {verbose: true, showText: true, showLineText: true });
         expect(allRefs).toHaveLength(1);
         const unusedRefs = allUnusedLocalReferences(focusedDoc);
         expect(unusedRefs).toHaveLength(0);
-        // console.log('unused references', unusedRefs.length);
-        // printLocations(unusedRefs, {
-        //   showIndex: true,
-        //   showText: true,
-        //   showLineText: true,
-        // });
       });
 
       it('config.fish `reset_fish_prompt` emitted', () => {
-        const focusedDoc = configDoc;
+        const focusedDoc = workspace.getDocument('config.fish')!;
         const focusedSymbol = analyzer.getFlatDocumentSymbols(focusedDoc.uri).find(s => s.isEmittedEvent() && s.name === 'reset_fish_prompt')!;
         const allRefs = getReferences(focusedDoc, focusedSymbol.toPosition());
-        // console.log('ALL')
-        // printLocations(allRefs, {verbose: true, showText: true, showLineText: true });
         expect(allRefs).toHaveLength(2);
         const unusedRefs = allUnusedLocalReferences(focusedDoc);
         expect(unusedRefs).toHaveLength(0);
@@ -1140,7 +1061,7 @@ describe('find definition locations of symbols', () => {
 
     describe('goto implementation', () => {
       it('config.fish `emit reset_fish_prompt`', () => {
-        const focusedDoc = configDoc;
+        const focusedDoc = workspace.getDocument('config.fish')!;
         const focusedSymbol = analyzer.getFlatDocumentSymbols(focusedDoc.uri).find(s => s.isEmittedEvent() && s.name === 'reset_fish_prompt')!;
         const impls = getImplementation(focusedDoc, focusedSymbol.toPosition());
         printLocations(impls, {
@@ -1153,7 +1074,7 @@ describe('find definition locations of symbols', () => {
       });
 
       it('functions/custom_fish_prompt.fish -> `emit reset_fish_prompt`', () => {
-        const focusedDoc = customFishDoc;
+        const focusedDoc = workspace.getDocument('functions/custom_fish_prompt.fish')!;
         const focusedSymbol = analyzer.getFlatDocumentSymbols(focusedDoc.uri).find(s => s.isEventHook() && s.name === 'reset_fish_prompt')!;
         const impls = getImplementation(focusedDoc, focusedSymbol.toPosition());
         expect(impls).toHaveLength(1);
@@ -1162,10 +1083,10 @@ describe('find definition locations of symbols', () => {
   });
 
   describe('variable references edge cases', () => {
-    setupWorkspace('test_v_ref_edge_cases_workspace',
+    const workspace = TestWorkspace.create().addFiles(
       {
-        path: 'functions/local_test_var.fish',
-        text: [
+        relativePath: 'functions/local_test_var.fish',
+        content: [
           'set -g test_var # definition',
           'set other_test_var',
           'function local_test_var',
@@ -1192,24 +1113,23 @@ describe('find definition locations of symbols', () => {
           'function no_skip; echo $test_var; end # used in function',
           'function skip -a test_var; echo $test_var; end; # 3',
           'set test_var # global inherit 4',
-        ],
+        ].join('\n'),
       },
       {
-        path: 'conf.d/global_test_var.fish',
-        text: [
+        relativePath: 'conf.d/global_test_var.fish',
+        content: [
           'set -gx global_test_var',
           'echo $global_test_var',
           'echo $test_var        # global ref 5',
           'set -U universal_v -gx',
           'set -gx global_fake_universal_v --universal',
           'set fake_universal_v --universal',
-        ],
-      }
-      ,
-    ).setup();
+        ].join('\n'),
+      },
+    ).initialize();
 
     it('test global variable w/o local references', () => {
-      const doc = documents.all().find(d => d.uri.endsWith('functions/local_test_var.fish'))!;
+      const doc = workspace.getDocument('functions/local_test_var.fish')!;
       expect(doc).toBeDefined();
       const focusedSymbol = analyzer.getFlatDocumentSymbols(doc.uri).find(s => s.name === 'test_var')!;
 
@@ -1227,7 +1147,7 @@ describe('find definition locations of symbols', () => {
     });
 
     it('test global variable w/ local references', () => {
-      const doc = documents.all().find(d => d.uri.endsWith('functions/local_test_var.fish'))!;
+      const doc = workspace.getDocument('functions/local_test_var.fish')!;
       expect(doc).toBeDefined();
       const focusedSymbol = analyzer.getFlatDocumentSymbols(doc.uri).find(s => s.name === 'test_var' && s.parent?.name === 'local_test_var')!;
       console.log('focusedSymbol', focusedSymbol.toString());
@@ -1235,10 +1155,6 @@ describe('find definition locations of symbols', () => {
       console.log('definition', def?.toString());
 
       const refs = getReferences(doc, focusedSymbol.toPosition());
-      // console.log({
-      //   date: new Date().toISOString(),
-      //   refs: refs.length,
-      // });
       const matchSymbols = refs.map(loc => analyzer.getSymbolAtLocation(loc));
       console.log('matchSymbols', matchSymbols.map(s => s?.toString()));
       printLocations(refs, {
@@ -1250,7 +1166,7 @@ describe('find definition locations of symbols', () => {
     });
 
     it('test variable w/ local references && {localOnly: true}', () => {
-      const doc = documents.all().find(d => d.uri.endsWith('functions/local_test_var.fish'))!;
+      const doc = workspace.getDocument('functions/local_test_var.fish')!;
       expect(doc).toBeDefined();
       const focusedSymbol = analyzer.getFlatDocumentSymbols(doc.uri).find(s => s.name === 'test_var' && s.parent?.name === 'local_test_var')!;
       console.log('focusedSymbol', focusedSymbol.toString());
@@ -1258,10 +1174,6 @@ describe('find definition locations of symbols', () => {
       console.log('definition', def?.toString());
 
       const refs = getReferences(doc, focusedSymbol.toPosition(), { localOnly: true });
-      // console.log({
-      //   date: new Date().toISOString(),
-      //   refs: refs.length,
-      // });
       const matchSymbols = refs.map(loc => analyzer.getSymbolAtLocation(loc));
       console.log('matchSymbols', matchSymbols.map(s => s?.toString()));
       printLocations(refs, {

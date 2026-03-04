@@ -4,7 +4,7 @@ import './utils/polyfills';
 import './virtual-fs';
 import { SyntaxNode } from 'web-tree-sitter';
 import { analyzer, Analyzer } from './analyze';
-import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent, SelectionRangeParams, SelectionRange } from 'vscode-languageserver';
+import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent, SelectionRangeParams, SelectionRange, PrepareRenameParams, CancellationToken } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, documents, rangeOverlapsLineSpan } from './document';
 import { formatDocumentWithIndentComments, formatDocumentContent } from './formatting';
@@ -18,9 +18,12 @@ import { getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspa
 import { workspaceManager } from './utils/workspace-manager';
 import { formatFishSymbolTree, filterLastPerScopeSymbol, FishSymbol } from './parsing/symbol';
 import { CompletionPager, initializeCompletionPager, isInVariableExpansionContext, SetupData } from './utils/completion/pager';
-import { FishCompletionItem } from './utils/completion/types';
-import { getDocumentationResolver } from './utils/completion/documentation';
+import {
+  FishCompletionItem,
+  normalizeCompletionItemDocumentation,
+} from './utils/completion/types';
 import { FishCompletionList } from './utils/completion/list';
+import { resolveCompletionItemDocumentation } from './utils/completion/resolve-item';
 import { PrebuiltDocumentationMap, getPrebuiltDocUrl } from './utils/snippets';
 import { findParent, findParentCommand, isAliasDefinitionName, isBraceExpansion, isCommand, isCommandName, isConcatenatedValue, isConcatenation, isEndStdinCharacter, isOption, isPathNode, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
 import { config, Config } from './config';
@@ -44,6 +47,7 @@ import { getSelectionRanges } from './selection-range';
 import { PkgJson } from './utils/commander-cli-subcommands';
 import { ProgressNotification } from './utils/progress-notification';
 import { md } from './utils/markdown-builder';
+import { subcommandCache } from './utils/subcommand-cache';
 
 export type SupportedFeatures = {
   codeActionDisabledSupport: boolean;
@@ -113,10 +117,12 @@ export default class FishServer {
     await setupProcessEnvExecFile();
     const capabilities = params.capabilities;
     const initializeResult = Config.initialize(params, connection);
+    // rootUri/rootPath are deprecated in LSP, but we still log/support them for older clients.
+    const legacyRoots = params as unknown as { rootUri?: string | null; rootPath?: string | null; };
     logger.log({
       server: 'FishServer',
-      rootUri: params.rootUri,
-      rootPath: params.rootPath,
+      rootUri: legacyRoots.rootUri,
+      rootPath: legacyRoots.rootPath,
       workspaceFolders: params.workspaceFolders,
     });
 
@@ -154,6 +160,14 @@ export default class FishServer {
       params,
     );
     server.register(connection);
+
+    subcommandCache.onPopulated(() => {
+      void Promise.resolve()
+        .then(() => connection?.languages?.semanticTokens?.refresh?.())
+        .catch(() => undefined);
+    });
+    subcommandCache.initializeBuiltins();
+
     return { server, initializeResult };
   }
 
@@ -214,6 +228,7 @@ export default class FishServer {
     connection.onReferences(this.onReferences.bind(this));
     connection.onHover(this.onHover.bind(this));
 
+    connection.onPrepareRename(this.onPrepareRename.bind(this));
     connection.onRenameRequest(this.onRename.bind(this));
 
     connection.onDocumentFormatting(this.onDocumentFormatting.bind(this));
@@ -464,7 +479,9 @@ export default class FishServer {
       }
       if (isInVariableExpansionContext(doc, params.position, line, word, current ?? null)) {
         logger.log('completeVariables');
-        return this.completion.completeVariables(line, word, fishCompletionData, symbols);
+        const variableList = await this.completion.completeVariables(line, word, fishCompletionData, symbols);
+        variableList.items = variableList.items.map(item => normalizeCompletionItemDocumentation(item as FishCompletionItem));
+        return variableList;
       }
     } catch (error) {
       logger.warning('ERROR: onComplete ' + error?.toString() || 'error');
@@ -476,6 +493,7 @@ export default class FishServer {
     } catch (error) {
       logger.logAsJson('ERROR: onComplete ' + error?.toString() || 'error');
     }
+    list.items = list.items.map(item => normalizeCompletionItemDocumentation(item as FishCompletionItem));
     return list;
   }
 
@@ -485,24 +503,12 @@ export default class FishServer {
    * Not seeing a completion result, with typed correctly is likely caused from this.
    */
   async onCompletionResolve(item: CompletionItem): Promise<CompletionItem> {
-    const fishItem = item as FishCompletionItem;
-    logger.log({ onCompletionResolve: fishItem });
     try {
-      if (fishItem.useDocAsDetail || fishItem.local) {
-        item.documentation = {
-          kind: MarkupKind.Markdown,
-          value: fishItem.documentation.toString(),
-        };
-        return item;
-      }
-      const doc = await getDocumentationResolver(fishItem);
-      if (doc) {
-        item.documentation = doc as MarkupContent;
-      }
+      return await resolveCompletionItemDocumentation(item, this.completionMap);
     } catch (err) {
       logger.error('onCompletionResolve', err);
+      return item;
     }
-    return item;
   }
 
   // • lsp-spec: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_symbol
@@ -611,21 +617,17 @@ export default class FishServer {
     const progress = await connection.window.createWorkDoneProgress();
 
     const defSymbol = analyzer.getDefinition(doc, params.position);
-    if (!defSymbol) {
-      logger.log('onReferences: no definition found at position', params.position);
-      return [];
-    }
 
-    const results = getReferences(defSymbol.document, defSymbol.toPosition(), {
-      reporter: progress,
-    });
+    // Use the original request position; re-targeting through defSymbol.toPosition()
+    // can break synthetic symbols (e.g. function argv focused on function name).
+    const results = getReferences(doc, params.position, { reporter: progress });
 
     logger.info({
       onReferences: 'found references',
-      uri: defSymbol.uri,
+      uri: defSymbol?.uri ?? doc.uri,
       count: results.length,
       position: params.position,
-      symbol: defSymbol.name,
+      symbol: defSymbol?.name ?? 'prebuilt',
     });
 
     if (results.length === 0) {
@@ -763,9 +765,9 @@ export default class FishServer {
       return {
         contents: enrichToMarkdown([
           `___${current.text}___  - _${getPrebuiltDocUrl(prebuiltSkipType)}_`,
-          '___',
+          md.separator(),
           `type - __(${prebuiltSkipType.type})__`,
-          '___',
+          md.separator(),
           `${prebuiltSkipType.description}`,
         ].join('\n')),
       };
@@ -809,16 +811,46 @@ export default class FishServer {
     return fallbackHover;
   }
 
-  async onRename(params: RenameParams): Promise<WorkspaceEdit | null> {
+  /**
+   * Check if we can rename the symbol at the given position
+   *
+   * This is called by the client before showing the rename UI to check if renaming is valid at the given position.
+   *
+   * @params params The parameters for the prepare rename request
+   * @returns A protocol-compliant prepare-rename result, or throws an error if
+   * renaming is not valid at the given position.
+   */
+  public onPrepareRename(params: PrepareRenameParams, token?: CancellationToken): LSP.PrepareRenameResult {
+    this.logParams('onPrepareRename', params);
+    if (token?.isCancellationRequested) return null;
+
+    const doc = analyzer.getDocument(params.textDocument.uri);
+    if (!doc) this.throwResponseError('document could not be found');
+
+    analyzer.ensureCachedDocument(doc);
+
+    this.getPrepareRenameDefinitionOrThrow(doc, params.position);
+    return { defaultBehavior: true };
+  }
+
+  async onRename(params: RenameParams, token?: CancellationToken): Promise<WorkspaceEdit | null> {
     this.logParams('onRename', params);
+    if (token?.isCancellationRequested) return null;
 
     const { doc } = this.getDefaults(params);
     if (!doc) return null;
 
+    const definition = analyzer.getDefinition(doc, params.position);
+    if (!definition || definition.skippableVariableName()) {
+      return null;
+    }
+
     const locations = getRenames(doc, params.position, params.newName);
+    if (token?.isCancellationRequested) return null;
 
     const changes: { [uri: string]: TextEdit[]; } = {};
     for (const location of locations) {
+      if (token?.isCancellationRequested) return null;
       const range = location.range;
       const uri = location.uri;
       const edits = changes[uri] || [];
@@ -1136,6 +1168,44 @@ export default class FishServer {
     const path = doc?.path ?? uriToPath(params.textDocument.uri);
     const root = doc ? analyzer.getRootNode(doc.uri) : undefined;
     return { doc, path, root };
+  }
+
+  private throwResponseError(message: string, code: number = LSP.ErrorCodes.UnknownErrorCode): never {
+    throw new LSP.ResponseError(code, message);
+  }
+
+  private getPrepareRenameDefinitionOrThrow(doc: LspDocument, position: LSP.Position): FishSymbol {
+    analyzer.ensureCachedDocument(doc);
+    const definition = analyzer.getDefinition(doc, position);
+    logger.log('prepareRename definition', {
+      name: definition?.name,
+      kind: definition ? definition.kind : 'undefined',
+      doc: {
+        uri: definition?.document.uri,
+        position: definition ? definition.toPosition() : 'undefined',
+      },
+    });
+    if (
+      definition?.isVariable()
+      && PrebuiltDocumentationMap.getByType('variable').some(v => v.name === definition.name)
+    ) {
+      this.throwResponseError(`Can't rename symbol '${definition.name}', variable doesn't have a definition or is read-only.`);
+    }
+    if (!definition || definition.skippableVariableName()) {
+      this.throwResponseError('symbol is not defined in fish or is read-only');
+    }
+    if (definition.document.uri !== doc.uri) {
+      if (doc.isCommandlineBuffer()) {
+        this.throwResponseError('Cannot rename across multiple files from a `edit_commandline_buffer` document');
+      }
+      if (doc.isFunced()) {
+        this.throwResponseError('Cannot rename across multiple files from a `funced` document');
+      }
+      if (Config.isWebServer) {
+        this.throwResponseError('Cannot rename across multiple files from the web server');
+      }
+    }
+    return definition;
   }
 
   private logDocument(request: string, document: LspDocument | undefined, options: {

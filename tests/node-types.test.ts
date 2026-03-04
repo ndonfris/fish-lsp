@@ -228,6 +228,35 @@ describe('node-types tests', () => {
     );
   });
 
+  it('isPossibleDefinitionName', () => {
+    const input = [
+      'function runner --argument-names one two --inherit-variable inherited',
+      '    argparse h/help -- $argv',
+      '    read local_one local_two',
+      '    complete -c runner -s h -l help -o legacy',
+      '    emit runner_event',
+      '    set foo bar',
+      'end',
+    ].join('\n');
+
+    const possibleDefinitions = parseStringForNodeType(input, NodeTypes.isPossibleDefinitionName);
+    expect(possibleDefinitions.map(n => n.text)).toEqual([
+      'runner',
+      'one',
+      'two',
+      'inherited',
+      'h/help',
+      'local_one',
+      'local_two',
+      'runner',
+      'h',
+      'help',
+      'legacy',
+      'runner_event',
+      'foo',
+    ]);
+  });
+
   it('isVariableDef', () => {
     const input = [
       'set -x set_foo 1',
