@@ -139,18 +139,13 @@ export async function initializeDefaultFishWorkspaces(...uris: string[]): Promis
 
   const singleWorkspaceModeEnabled = config.fish_lsp_single_workspace_support === true;
 
-  if (singleWorkspaceModeEnabled && newWorkspaces.length > 0) {
-    const activeWorkspacePaths = new Set(newWorkspaces.map(ws => ws.path));
-    const narrowedConfigWorkspaces = configWorkspaces.filter(ws => activeWorkspacePaths.has(ws.path));
-    if (narrowedConfigWorkspaces.length !== configWorkspaces.length) {
-      logger.info('initializeDefaultFishWorkspaces() narrowing indexed paths for single-workspace support', {
-        requestedWorkspaces: Array.from(activeWorkspacePaths),
-        droppedConfigWorkspaces: configWorkspaces
-          .filter(ws => !activeWorkspacePaths.has(ws.path))
-          .map(ws => ws.path),
-      });
-    }
-    configWorkspaces = narrowedConfigWorkspaces;
+  if (singleWorkspaceModeEnabled) {
+    const configuredPaths = configWorkspaces.map(ws => ws.path);
+    configWorkspaces = [];
+    logger.info('initializeDefaultFishWorkspaces() single-workspace support enabled; skipping fish_lsp_all_indexed_paths during startup', {
+      startupWorkspaceUris: newWorkspaces.map(ws => ws.uri),
+      skippedConfiguredPaths: configuredPaths,
+    });
   }
 
   // merge both arrays but keep the unique uris in the order they were passed in

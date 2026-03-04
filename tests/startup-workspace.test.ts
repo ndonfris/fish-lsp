@@ -185,6 +185,17 @@ describe('setup workspace', () => {
       expect(config.fish_lsp_single_workspace_support).toBe(true);
     });
 
+    it('no startup URIs + single-workspace support should not index fish_lsp_all_indexed_paths', async () => {
+      config.fish_lsp_single_workspace_support = true;
+      config.fish_lsp_all_indexed_paths = [
+        `${os.homedir()}/.config/fish`,
+        '/usr/share/fish',
+      ];
+
+      const workspaces = await initializeDefaultFishWorkspaces();
+      expect(workspaces.length).toBe(0);
+    });
+
     // it('/tmp/foo.fish \`true -> false\`', async () => {
     //   config.fish_lsp_single_workspace_support = true;
     //   const uri = 'file:///tmp';

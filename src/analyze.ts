@@ -849,6 +849,21 @@ export class Analyzer {
           !workspace || workspace.contains(symbol.uri) || symbol.uri === workspace.uri,
         );
       symbols.push(...globalSymbols);
+
+      // If no match in the active workspace and single-workspace support is disabled,
+      // fall back to indexed paths across all configured fish workspaces.
+      if (!symbols.length && !config.fish_lsp_single_workspace_support) {
+        const indexedPaths = config.fish_lsp_all_indexed_paths
+          .map(path => SyncFileHelper.expandEnvVars(path))
+          .filter(Boolean);
+
+        const indexedPathSymbols = this.globalSymbols.find(word)
+          .filter(symbol => indexedPaths.some((workspacePath) =>
+            symbol.path === workspacePath || symbol.path.startsWith(`${workspacePath}/`),
+          ));
+
+        symbols.push(...indexedPathSymbols);
+      }
     }
 
     return symbols;

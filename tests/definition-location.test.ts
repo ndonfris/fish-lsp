@@ -16,6 +16,7 @@ import { isCompletionCommandDefinition, isCompletionDefinitionWithName, isComple
 import { isCommandWithName, isOption } from '../src/utils/node-types';
 import { isArgparseVariableDefinitionName } from '../src/parsing/argparse';
 import { getReferences } from '../src/references';
+import { config } from '../src/config';
 import TestWorkspace, { TestFile } from './test-workspace-utils';
 
 let parser: Parser;
@@ -35,6 +36,36 @@ describe('find definition locations of symbols', () => {
   });
 
   describe('find analyzed symbol location', () => {
+    it('falls back to indexed paths when workspace-local definition is missing and single-workspace mode is disabled', () => {
+      const prevSingleWorkspace = config.fish_lsp_single_workspace_support;
+      const prevIndexedPaths = [...config.fish_lsp_all_indexed_paths];
+
+      try {
+        config.fish_lsp_single_workspace_support = false;
+        config.fish_lsp_all_indexed_paths = [`${os.homedir()}/.config/fish`];
+
+        const confdDoc = createFakeLspDocument(
+          'conf.d/fallback-global.fish',
+          'set -g forgit_var "from_confd"',
+        );
+        const tmpDoc = createFakeLspDocument(
+          '/tmp/fish-lsp-fallback-definition-test.fish',
+          'echo $forgit_var',
+        );
+
+        analyzer.analyze(confdDoc);
+        analyzer.analyze(tmpDoc);
+
+        const definition = analyzer.getDefinition(tmpDoc, { line: 0, character: 8 });
+        expect(definition).toBeDefined();
+        expect(definition?.name).toBe('forgit_var');
+        expect(definition?.uri).toBe(confdDoc.uri);
+      } finally {
+        config.fish_lsp_single_workspace_support = prevSingleWorkspace;
+        config.fish_lsp_all_indexed_paths = prevIndexedPaths;
+      }
+    });
+
     describe('symbol location', () => {
       const workspace = TestWorkspace.create()
         .addFiles(

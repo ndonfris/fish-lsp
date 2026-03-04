@@ -640,6 +640,30 @@ describe('parsing symbols', () => {
       //   console.log(argumentNamesOption);
       // }
     });
+
+    it('variables include inferred scope and export status in detail', async () => {
+      const source = [
+        'set -gx explicitly_exported 1',
+        'echo foo | while read forgit_var',
+        '  echo $forgit_var',
+        'end',
+      ].join('\n');
+
+      const { rootNode } = parser.parse(source);
+      const document = createFakeLspDocument('conf.d/forgit.plugin.fish', source);
+      const symbols = processNestedTree(document, rootNode);
+      const flat = flattenNested<FishSymbol>(...symbols);
+
+      const forgitVar = flat.find(s => s.name === 'forgit_var');
+      expect(forgitVar).toBeDefined();
+      expect(forgitVar!.scope.scopeTag).toBe('global');
+      expect(forgitVar!.detail).toContain('globally scoped, not exported');
+
+      const exportedVar = flat.find(s => s.name === 'explicitly_exported');
+      expect(exportedVar).toBeDefined();
+      expect(exportedVar!.scope.scopeTag).toBe('global');
+      expect(exportedVar!.detail).toContain('globally scoped, exported');
+    });
   });
 
   describe('client trees', () => {
