@@ -105,6 +105,7 @@ commandBin.command('start')
   .option('--port <port>', 'use TCP socket for communication (alias for --socket)')
   .option('--memory-limit <mb>', 'set memory usage limit in MB')
   .option('--max-files <number>', 'override the maximum number of files to analyze')
+  .option('--web', 'start the server in web playground mode (fish-lsp.dev/playground)')
   .addHelpText('afterAll', [
     '',
     'Strings for \'--enable/--disable\' switches:',
@@ -159,6 +160,11 @@ commandBin.command('start')
     updateHandlers(enabled, true);
     updateHandlers(disabled, false);
     Config.fixPopups(enabled, disabled);
+
+    // Set web playground mode if requested
+    if (opts.web) {
+      Config.isWebServer = true;
+    }
 
     // Dump the configHandlers, if requested from the command line. This stops the server.
     if (dumpCmd) {

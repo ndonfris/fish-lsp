@@ -37,6 +37,7 @@ Start the language server.
   `--socket <port>`                use TCP socket for communication  
   `--memory-limit <mb>`            set memory usage limit in MB  
   `--max-files <number>`           override the maximum number of files to analyze  
+  `--web`                          start server in web mode used for [https://fish-lsp.dev/playground](https://fish-lsp.dev/playground)  
 
 ### `env`
 

@@ -99,11 +99,6 @@ function createLspConnection(connectionType: ConnectionType = 'stdio', options: 
   }
 }
 
-export type WebServerProps = {
-  connection?: Connection;
-  params?: InitializeParams;
-};
-
 /**
  * Creates a browser connection for the FISH-LSP server.
  */

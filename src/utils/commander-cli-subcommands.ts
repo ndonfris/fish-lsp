@@ -580,6 +580,7 @@ export namespace CommanderSubcommand {
         memoryLimit: z.string().optional(),
         stdio: z.boolean().optional().default(false),
         nodeIpc: z.boolean().optional().default(false),
+        web: z.boolean().optional().default(false),
       }),
     );
     export type schemaType = z.infer<typeof schema>;

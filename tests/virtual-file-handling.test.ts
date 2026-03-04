@@ -5,6 +5,7 @@ import { workspaceManager } from '../src/utils/workspace-manager';
 import { initializeParser } from '../src/parser';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import FishServer from '../src/server';
+import { Config } from '../src/config';
 import * as LSP from 'vscode-languageserver';
 import { Workspace } from '../src/utils/workspace';
 import { getDiagnosticsAsync } from '../src/diagnostics/validate';
@@ -22,7 +23,6 @@ const testDiagnosticsWrapper = async (analyzedDoc: AnalyzedDocument) => {
 setupStartupMock();
 vi.mock('../src/utils/startup', () => ({
   connection: createMockConnection(),
-  createBrowserConnection: vi.fn().mockImplementation(() => createMockConnection()),
   setExternalConnection: vi.fn(),
 }));
 
@@ -124,10 +124,8 @@ echo $var_name
         workspaceFolders: null,
       };
 
-      const { server, initializeResult } = await FishServer.createWebServer({
-        connection: mockConnection,
-        params: virtualParams,
-      });
+      Config.isWebServer = true;
+      const { server, initializeResult } = await FishServer.create(mockConnection, virtualParams);
 
       expect(server).toBeDefined();
       expect(initializeResult).toBeDefined();
@@ -172,9 +170,8 @@ echo $var_name
     // });
 
     it('should provide completions for virtual files', async () => {
-      const { server } = await FishServer.createWebServer({
-        connection: mockConnection,
-      });
+      Config.isWebServer = true;
+      const { server } = await FishServer.create(mockConnection, { processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
 
       const virtualUri = 'memory://test.fish';
       const fishContent = `
@@ -214,9 +211,8 @@ end
     });
 
     it('should handle hover for virtual files', async () => {
-      const { server } = await FishServer.createWebServer({
-        connection: mockConnection,
-      });
+      Config.isWebServer = true;
+      const { server } = await FishServer.create(mockConnection, { processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
 
       const virtualUri = 'vscode-vfs://github/user/repo/test.fish';
       const fishContent = `
@@ -255,9 +251,8 @@ test_func
     });
 
     it('should update virtual document content when client sends didChangeTextDocument', async () => {
-      const { server } = await FishServer.createWebServer({
-        connection: mockConnection,
-      });
+      Config.isWebServer = true;
+      const { server } = await FishServer.create(mockConnection, { processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
 
       const virtualUri = 'https://example.com/dynamic.fish';
       const initialContent = `
@@ -448,9 +443,8 @@ end
     });
 
     it('should provide basic language features without shell access', async () => {
-      const { server } = await FishServer.createWebServer({
-        connection: mockConnection,
-      });
+      Config.isWebServer = true;
+      const { server } = await FishServer.create(mockConnection, { processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
 
       const dockerUri = 'docker://container/workspace/script.fish';
       const fishScript = `
@@ -639,9 +633,8 @@ virtual_only_func
     });
 
     it('should mirror textDocument/diagnostics request behavior', async () => {
-      const { server } = await FishServer.createWebServer({
-        connection: mockConnection,
-      });
+      Config.isWebServer = true;
+      const { server } = await FishServer.create(mockConnection, { processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
 
       const virtualUri = 'memory://test-diagnostics-mirror.fish';
       const fishContentForDiagnostics = `
@@ -692,9 +685,8 @@ set $local_var "trying to set with dollar sign"
     });
 
     it('should handle document updates and re-analyze for diagnostics', async () => {
-      const { server } = await FishServer.createWebServer({
-        connection: mockConnection,
-      });
+      Config.isWebServer = true;
+      const { server } = await FishServer.create(mockConnection, { processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
 
       const virtualUri = 'memory://test-updates.fish';
       const initialContent = `
