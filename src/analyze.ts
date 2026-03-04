@@ -728,7 +728,10 @@ export class Analyzer {
     const symbolNames: Set<string> = new Set();
     // add the local symbols
     const symbols = flattenNested(...this.cache.getDocumentSymbols(document.uri))
-      .filter((symbol) => symbol.scope.containsPosition(position));
+      .filter((symbol) =>
+        symbol.scope.containsPosition(position)
+        && symbol.isWithinDefinitionLifetime(position, document.uri),
+      );
     symbols.forEach((symbol) => symbolNames.add(symbol.name));
     // add the sourced symbols
     const sourcedUris = this.collectReachableSources(document.uri, position);
@@ -798,10 +801,12 @@ export class Analyzer {
     } else {
       const toAdd: FishSymbol[] = localSymbols.filter((s) => {
         const variableBefore = s.kind === SymbolKind.Variable ? precedesRange(s.selectionRange, getRange(node)) : true;
+        const inLifetime = s.isWithinDefinitionLifetime(position, document.uri);
         return (
           s.name === word
           && containsRange(getRange(s.scope.scopeNode), getRange(node))
           && variableBefore
+          && inLifetime
         );
       });
       symbols.push(...toAdd);
@@ -846,7 +851,8 @@ export class Analyzer {
       const workspace = workspaceManager.findContainingWorkspace(document.uri) || workspaceManager.current;
       const globalSymbols = this.globalSymbols.find(word)
         .filter(symbol =>
-          !workspace || workspace.contains(symbol.uri) || symbol.uri === workspace.uri,
+          (!workspace || workspace.contains(symbol.uri) || symbol.uri === workspace.uri)
+          && symbol.isWithinDefinitionLifetime(position, document.uri),
         );
       symbols.push(...globalSymbols);
 
@@ -860,7 +866,8 @@ export class Analyzer {
         const indexedPathSymbols = this.globalSymbols.find(word)
           .filter(symbol => indexedPaths.some((workspacePath) =>
             symbol.path === workspacePath || symbol.path.startsWith(`${workspacePath}/`),
-          ));
+          ))
+          .filter(symbol => symbol.isWithinDefinitionLifetime(position, document.uri));
 
         symbols.push(...indexedPathSymbols);
       }

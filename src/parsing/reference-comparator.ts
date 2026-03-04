@@ -361,6 +361,8 @@ const checkVariableReference: ReferenceCheck = ({ symbol, document, node }) => {
     if (symbol.scopeContainsNode(node)) return true;
     // Same-file: node is inside a --no-scope-shadowing function called from symbol's scope
     if (symbol.uri === document.uri && isInNoScopeShadowingCallee(symbol, node)) return true;
+    // Same-file but outside active lifetime/scope is not a valid reference.
+    if (symbol.uri === document.uri) return false;
     // Cross-file: verify both sides have transparent scope
     return isValidCrossFileVariableReference(symbol, node);
   }
@@ -383,6 +385,7 @@ const checkVariableReference: ReferenceCheck = ({ symbol, document, node }) => {
   if (symbol.name !== node.text) return false;
   if (symbol.scopeContainsNode(node)) return true;
   if (symbol.uri === document.uri && isInNoScopeShadowingCallee(symbol, node)) return true;
+  if (symbol.uri === document.uri) return false;
   return isValidCrossFileVariableReference(symbol, node);
 };
 

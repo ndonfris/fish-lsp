@@ -18,7 +18,7 @@ import { initializeParser } from '../src/parser';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import TestWorkspace from './test-workspace-utils';
 
-describe('find definition locations of symbols', () => {
+describe('find reference locations of symbols', () => {
   setLogger();
 
   beforeEach(async () => {
@@ -247,6 +247,15 @@ describe('find definition locations of symbols', () => {
           'set -e bar[1]',
         ].join('\n'),
       },
+      {
+        relativePath: 'conf.d/variable-reference-lifetime.fish',
+        content: [
+          'set -g some_var "active"',
+          'echo $some_var',
+          'set -eg some_var',
+          'echo $some_var',
+        ].join('\n'),
+      },
     ).initialize();
 
     it('does not treat bare command names as variable references', () => {
@@ -277,6 +286,23 @@ describe('find definition locations of symbols', () => {
       expect(refLines.has(2)).toBeTruthy();
       expect(refLines.has(3)).toBeTruthy();
       expect(refLines.has(4)).toBeTruthy();
+    });
+
+    it('set -eg should end global variable lifetime for later references', () => {
+      const doc = workspace.getDocument('conf.d/variable-reference-lifetime.fish')!;
+
+      const defNode = analyzer.getNodes(doc.uri).find((n) =>
+        n.startPosition.row === 0 && n.text === 'some_var' && isVariableDefinitionName(n),
+      );
+      expect(defNode).toBeDefined();
+
+      const refs = getReferences(doc, getRange(defNode!).start);
+      const refLines = new Set(refs.map(loc => loc.range.start.line));
+
+      expect(refLines.has(0)).toBeTruthy();
+      expect(refLines.has(1)).toBeTruthy();
+      expect(refLines.has(2)).toBeTruthy();
+      expect(refLines.has(3)).toBeFalsy();
     });
   });
 

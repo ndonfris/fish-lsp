@@ -36,24 +36,64 @@ describe('find definition locations of symbols', () => {
   });
 
   describe('find analyzed symbol location', () => {
+    const TestWorkspaceOne = TestWorkspace.create().addFiles(
+      {
+        path: 'conf.d/variable-lifetime.fish',
+        text: [
+          'set -g some_var "active"',
+          'echo $some_var',
+          'set -eg some_var',
+          'echo $some_var',
+        ].join('\n'),
+      },
+      {
+        path: 'functions/lifetime_test.fish',
+        text: [
+          'function lifetime_test',
+          '  echo "hello"',
+          '  $some_var',
+          'end',
+        ].join('\n'),
+      },
+      {
+        path: 'conf.d/fallback-global.fish',
+        text: [
+          'set -g forgit_var "from_confd"',
+        ].join('\n'),
+      },
+    ).initialize();
+
+    it('set -g var should not resolve after matching set -eg var in same scope', () => {
+      const doc = TestWorkspaceOne.getDocument('conf.d/variable-lifetime.fish')!;
+      analyzer.analyze(doc);
+
+      const beforeErase = analyzer.getDefinition(doc, { line: 1, character: 6 });
+      expect(beforeErase).toBeDefined();
+      expect(beforeErase?.name).toBe('some_var');
+      expect(beforeErase?.selectionRange.start.line).toBe(0);
+
+      const eraseTarget = analyzer.getDefinition(doc, { line: 2, character: 8 });
+      expect(eraseTarget).toBeDefined();
+      expect(eraseTarget?.name).toBe('some_var');
+      expect(eraseTarget?.selectionRange.start.line).toBe(0);
+
+      const afterErase = analyzer.getDefinition(doc, { line: 3, character: 6 });
+      expect(afterErase).toBeNull();
+    });
+
     it('falls back to indexed paths when workspace-local definition is missing and single-workspace mode is disabled', () => {
       const prevSingleWorkspace = config.fish_lsp_single_workspace_support;
       const prevIndexedPaths = [...config.fish_lsp_all_indexed_paths];
 
       try {
         config.fish_lsp_single_workspace_support = false;
-        config.fish_lsp_all_indexed_paths = [`${os.homedir()}/.config/fish`];
-
-        const confdDoc = createFakeLspDocument(
-          'conf.d/fallback-global.fish',
-          'set -g forgit_var "from_confd"',
-        );
+        config.fish_lsp_all_indexed_paths = [TestWorkspaceOne.path];
+        const confdDoc = TestWorkspaceOne.getDocument('conf.d/fallback-global.fish')!;
         const tmpDoc = createFakeLspDocument(
           '/tmp/fish-lsp-fallback-definition-test.fish',
           'echo $forgit_var',
         );
 
-        analyzer.analyze(confdDoc);
         analyzer.analyze(tmpDoc);
 
         const definition = analyzer.getDefinition(tmpDoc, { line: 0, character: 8 });
@@ -175,7 +215,7 @@ describe('find definition locations of symbols', () => {
         const resultUri = result[0]?.uri;
         if (!resultUri) {
           console.log('resultUri is undefined');
-          fail();
+          expect(false).toBeTruthy();
           return;
         }
         expect(result).toHaveLength(1);

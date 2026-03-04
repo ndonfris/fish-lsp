@@ -162,7 +162,9 @@ export default class FishServer {
     server.register(connection);
 
     subcommandCache.onPopulated(() => {
-      connection.languages.semanticTokens.refresh();
+      void Promise.resolve()
+        .then(() => connection?.languages?.semanticTokens?.refresh?.())
+        .catch(() => undefined);
     });
     subcommandCache.initializeBuiltins();
 
