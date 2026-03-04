@@ -183,13 +183,13 @@ namespace CheckHealthErrorMessages {
       logger.logToStderr('\nTO UPDATE MAN FILE, RUN: ');
       logger.logToStderr([
         '```fish',
-        'fish-lsp info --man-file --show > $MANPATH[1]/fish-lsp.1',
+        'fish-lsp info --man-file --show > $MANPATH[1]/man1/fish-lsp.1',
         '```',
       ].join('\n'));
     },
     globalNotFound: () => {
       logger.logToStdout('✗ global man file not found');
-      logger.logToStderr('\nPLEASE INCLUDE `fish-lsp info --man-file` IN YOUR $MANPATH, or write it to your $MANPATH `fish-lsp info --man-file --show > $MANPATH[1]/man/man1/fish-lsp.1`\n');
+      logger.logToStderr('\nPLEASE INCLUDE `fish-lsp info --man-file` IN YOUR $MANPATH, or write it to your $MANPATH `fish-lsp info --man-file --show > $MANPATH[1]/man1/fish-lsp.1`\n');
     },
   };
 }

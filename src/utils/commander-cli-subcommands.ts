@@ -619,6 +619,7 @@ export namespace CommanderSubcommand {
         dumpSemanticTokens: z.union([z.string(), z.boolean()]).optional().default(''),
         dumpSymbolTree: z.union([z.string(), z.boolean()]).optional().default(''),
         icons: z.boolean().optional().default(true),
+        color: z.boolean().optional().default(true),
         virtualFs: z.boolean().optional().default(false),
       }),
     );
@@ -628,23 +629,25 @@ export namespace CommanderSubcommand {
       return isValidArgs?.success ? isValidArgs.data : schema.parse(args);
     }
     export const defaultSchema: schemaType = schema.parse({});
-    export const skipable = z.object({
-      healhCheck: z.boolean().default(false),
+    export const skippable = z.object({
+      healthCheck: z.boolean().default(false),
       checkHealth: z.boolean().default(false),
       timeStartup: z.boolean().default(false),
       timeOnly: z.boolean().default(false),
       useWorkspace: z.string().default(''),
       warning: z.boolean().default(true),
+      icons: z.boolean().default(true),
+      color: z.boolean().default(true),
     });
-    export type skipableType = z.infer<typeof skipable>;
-    export type skipableArgs = keyof skipableType;
+    export type skippableType = z.infer<typeof skippable>;
+    export type skippableArgs = keyof skippableType;
 
-    export const parseSkip = (args: unknown): z.infer<typeof skipable> => {
-      const isValidArgs = skipable.safeParse(args);
-      return isValidArgs?.success ? isValidArgs.data : skipable.parse(args) || skipable.parse({}); // Validate the args against the schema
+    export const parseSkip = (args: unknown): z.infer<typeof skippable> => {
+      const isValidArgs = skippable.safeParse(args);
+      return isValidArgs?.success ? isValidArgs.data : skippable.parse(args) || skippable.parse({}); // Validate the args against the schema
     };
 
-    export const allSkipableArgvs = [
+    export const allSkippableArgvs = [
       'info',
       '--health-check',
       '--check-health',
@@ -665,8 +668,8 @@ export namespace CommanderSubcommand {
         ].join('\n\n'));
         process.exit(1);
       }
-      const skippedArgs = commandBin.args.filter(arg => arg.startsWith('--') && allSkipableArgvs.some(skipable => arg.startsWith(skipable)));
-      const unrelatedArgs = commandBin.args.filter(arg => arg.startsWith('--') && !allSkipableArgvs.some(skipable => arg.startsWith(skipable)));
+      const skippedArgs = commandBin.args.filter(arg => arg.startsWith('--') && allSkippableArgvs.some(skippable => arg.startsWith(skippable)));
+      const unrelatedArgs = commandBin.args.filter(arg => arg.startsWith('--') && !allSkippableArgvs.some(skippable => arg.startsWith(skippable)));
       if (skippedArgs.length > 0 && unrelatedArgs.length > 0) {
         const unrelatedArgsSeen = argsToString(unrelatedArgs);
         logger.logToStderr([
@@ -943,11 +946,11 @@ export namespace CommanderSubcommand {
     return [...schema.keyof().options];
   };
 
-  export function hasSkipable(command: SubcommandType) {
+  export function hasSkippable(command: SubcommandType) {
     switch (command) {
       case 'info':
         return true;
-      // No skipable
+      // No skippable
       case 'start':
       case 'complete':
       case 'url':
@@ -978,13 +981,15 @@ export namespace CommanderSubcommand {
   export function countArgsWithValues(subcommand: SubcommandType, args: Record<string, unknown>): number {
     const keysToCount = getSubcommand(subcommand).parse(args);
     const results: Record<string, boolean> = {};
-    const skipableArgs = hasSkipable(subcommand);
+    const skippableArgs = hasSkippable(subcommand);
     const removed: Record<string, boolean> = {};
-    if (skipableArgs) {
-      const skipable = info.skipable.parse(args);
-      for (const key in skipable) {
+    if (skippableArgs) {
+      const skippable = info.skippable.parse(args);
+      const defaults = info.skippable.parse({});
+      for (const key in skippable) {
         if (key === subcommand) removed[key] = true;
-        if (skipable[key as keyof typeof skipable]) {
+        removed[key] = true;
+        if (skippable[key as keyof typeof skippable] !== defaults[key as keyof typeof defaults]) {
           removed[key] = false;
         }
       }
