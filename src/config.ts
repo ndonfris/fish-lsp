@@ -665,7 +665,10 @@ export namespace Config {
         definitionProvider: configHandlers.definition,
         implementationProvider: configHandlers.implementation,
         referencesProvider: configHandlers.reference,
-        renameProvider: configHandlers.rename,
+        renameProvider: configHandlers.rename ? {
+          prepareProvider: true,
+          workDoneProgress: true,
+        } : false,
         documentFormattingProvider: configHandlers.formatting,
         documentRangeFormattingProvider: configHandlers.formatRange,
         foldingRangeProvider: configHandlers.folding,

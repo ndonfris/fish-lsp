@@ -4,7 +4,7 @@ import './utils/polyfills';
 import './virtual-fs';
 import { SyntaxNode } from 'web-tree-sitter';
 import { analyzer, Analyzer } from './analyze';
-import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent, SelectionRangeParams, SelectionRange } from 'vscode-languageserver';
+import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent, SelectionRangeParams, SelectionRange, PrepareRenameParams, CancellationToken } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, documents, rangeOverlapsLineSpan } from './document';
 import { formatDocumentWithIndentComments, formatDocumentContent } from './formatting';
@@ -228,6 +228,7 @@ export default class FishServer {
     connection.onReferences(this.onReferences.bind(this));
     connection.onHover(this.onHover.bind(this));
 
+    connection.onPrepareRename(this.onPrepareRename.bind(this));
     connection.onRenameRequest(this.onRename.bind(this));
 
     connection.onDocumentFormatting(this.onDocumentFormatting.bind(this));
@@ -810,16 +811,46 @@ export default class FishServer {
     return fallbackHover;
   }
 
-  async onRename(params: RenameParams): Promise<WorkspaceEdit | null> {
+  /**
+   * Check if we can rename the symbol at the given position
+   *
+   * This is called by the client before showing the rename UI to check if renaming is valid at the given position.
+   *
+   * @params params The parameters for the prepare rename request
+   * @returns A protocol-compliant prepare-rename result, or throws an error if
+   * renaming is not valid at the given position.
+   */
+  public onPrepareRename(params: PrepareRenameParams, token?: CancellationToken): LSP.PrepareRenameResult {
+    this.logParams('onPrepareRename', params);
+    if (token?.isCancellationRequested) return null;
+
+    const doc = analyzer.getDocument(params.textDocument.uri);
+    if (!doc) this.throwResponseError('document could not be found');
+
+    analyzer.ensureCachedDocument(doc);
+
+    this.getPrepareRenameDefinitionOrThrow(doc, params.position);
+    return { defaultBehavior: true };
+  }
+
+  async onRename(params: RenameParams, token?: CancellationToken): Promise<WorkspaceEdit | null> {
     this.logParams('onRename', params);
+    if (token?.isCancellationRequested) return null;
 
     const { doc } = this.getDefaults(params);
     if (!doc) return null;
 
+    const definition = analyzer.getDefinition(doc, params.position);
+    if (!definition || definition.skippableVariableName()) {
+      return null;
+    }
+
     const locations = getRenames(doc, params.position, params.newName);
+    if (token?.isCancellationRequested) return null;
 
     const changes: { [uri: string]: TextEdit[]; } = {};
     for (const location of locations) {
+      if (token?.isCancellationRequested) return null;
       const range = location.range;
       const uri = location.uri;
       const edits = changes[uri] || [];
@@ -1137,6 +1168,44 @@ export default class FishServer {
     const path = doc?.path ?? uriToPath(params.textDocument.uri);
     const root = doc ? analyzer.getRootNode(doc.uri) : undefined;
     return { doc, path, root };
+  }
+
+  private throwResponseError(message: string, code: number = LSP.ErrorCodes.UnknownErrorCode): never {
+    throw new LSP.ResponseError(code, message);
+  }
+
+  private getPrepareRenameDefinitionOrThrow(doc: LspDocument, position: LSP.Position): FishSymbol {
+    analyzer.ensureCachedDocument(doc);
+    const definition = analyzer.getDefinition(doc, position);
+    logger.log('prepareRename definition', {
+      name: definition?.name,
+      kind: definition ? definition.kind : 'undefined',
+      doc: {
+        uri: definition?.document.uri,
+        position: definition ? definition.toPosition() : 'undefined',
+      },
+    });
+    if (
+      definition?.isVariable()
+      && PrebuiltDocumentationMap.getByType('variable').some(v => v.name === definition.name)
+    ) {
+      this.throwResponseError(`Can't rename symbol '${definition.name}', variable doesn't have a definition or is read-only.`);
+    }
+    if (!definition || definition.skippableVariableName()) {
+      this.throwResponseError('symbol is not defined in fish or is read-only');
+    }
+    if (definition.document.uri !== doc.uri) {
+      if (doc.isCommandlineBuffer()) {
+        this.throwResponseError('Cannot rename across multiple files from a `edit_commandline_buffer` document');
+      }
+      if (doc.isFunced()) {
+        this.throwResponseError('Cannot rename across multiple files from a `funced` document');
+      }
+      if (Config.isWebServer) {
+        this.throwResponseError('Cannot rename across multiple files from the web server');
+      }
+    }
+    return definition;
   }
 
   private logDocument(request: string, document: LspDocument | undefined, options: {
