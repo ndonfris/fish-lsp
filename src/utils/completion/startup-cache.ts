@@ -1,7 +1,6 @@
 import { FishCompletionItem, FishCompletionItemKind } from './types';
-import { execCmd } from '../exec';
 import { StaticItems } from './static-items';
-import { SetupItemsFromCommandConfig } from './startup-config';
+import { runSetupItems, SetupItemsFromCommandConfig } from './startup-config';
 import { md } from '../markdown-builder';
 
 export type ItemMapRecord = Record<FishCompletionItemKind, FishCompletionItem[]>;
@@ -13,11 +12,10 @@ export class CompletionItemMap {
     const result: ItemMapRecord = {} as ItemMapRecord;
     const cmdOutputs: Map<FishCompletionItemKind, string[]> = new Map();
     const topLevelLabels: Set<string> = new Set();
-    await Promise.all(SetupItemsFromCommandConfig.map(async (item) => {
-      const stdout = await execCmd(item.command);
-      cmdOutputs.set(item.fishKind, stdout);
-    }));
-
+    const setupResults = await runSetupItems();
+    for (const item of setupResults) {
+      cmdOutputs.set(item.fishKind, item.results);
+    }
     SetupItemsFromCommandConfig.forEach((item) => {
       const items: FishCompletionItem[] = [];
       const stdout = cmdOutputs.get(item.fishKind)!;
