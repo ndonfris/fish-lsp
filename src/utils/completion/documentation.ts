@@ -4,7 +4,7 @@ import { execCmd, execCommandDocs } from '../exec';
 import { md } from '../markdown-builder';
 
 export async function getDocumentationResolver(item: FishCompletionItem): Promise<MarkupContent> {
-  let docString: string = ['```fish', item.documentation.toString(), '```'].join('\n');
+  let docString: string = item.documentation.toString();
   if (!item.local) {
     switch (item.fishKind) {
       case FishCompletionItemKind.ABBR:
