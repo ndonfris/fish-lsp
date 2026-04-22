@@ -123,8 +123,18 @@ export async function execEscapedCommand(cmd: string): Promise<string[]> {
   return stdout.trim().split('\n');
 }
 
-export async function execCmd(cmd: string): Promise<string[]> {
-  const { stdout, stderr } = await execAsync(cmd, { shell: config.fish_lsp_fish_path });
+export async function execCmd(cmd: string, options?: {
+  interactiveMode?: boolean;
+  shellCommand?: string;
+}): Promise<string[]> {
+  const shellCmd = options?.shellCommand || config.fish_lsp_fish_path || 'fish';
+  const prefixOpts = [
+    '--private',
+    options?.interactiveMode ? '--interactive' : '',
+    '--command',
+  ].filter(Boolean);
+
+  const { stdout, stderr } = await execFileAsync(shellCmd, [...prefixOpts, cmd]);
 
   if (stderr) return [''];
 

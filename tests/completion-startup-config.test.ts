@@ -1,137 +1,285 @@
-import { SetupItemsFromCommandConfig } from '../src/utils/completion/startup-config';
+import { runSetupItems, SetupItem, SetupItemsFromCommandConfig } from '../src/utils/completion/startup-config';
 import { CompletionItemMap } from '../src/utils/completion/startup-cache';
 import { setLogger } from './helpers';
-import { spawn } from 'child_process';
 import { StaticItems } from '../src/utils/completion/static-items';
-import { execAsyncF, execCompleteLine } from '../src/utils/exec';
+import { execCmd } from '../src/utils/exec';
+import { ConfigSchema } from '../src/config';
+import { FishCompletionItemKind } from '../src/utils/completion/types';
 
 /**
- * Executes a command in a Fish subshell without inheriting autoloaded behaviors.
- * @param command - The command to be executed.
- * @returns A promise that resolves with the command output or rejects with an error.
+ * NOTE: since the test suite is dependent on the machine's shell environment, we need to
+ *       account for the possibility of certain commands specifically not being used at all by the user,
+ *       while keeping the test suite's confirmation that the command will work if it is used.
  */
-async function execPrivateFishCommand(command: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    /**
-     * spawn `fish --no-config`, don't throw stderr and see
-     * how SetupItemsFromCommand & CompletionItemMap would handle it
-     */
-    const child = spawn('fish', ['--no-config', '-c', command], {
-      stdio: 'pipe',
-      env: {
-        PATH: process.env.PATH,
-      },
-    });
+namespace AllowedEmptyCommands {
+  const allowedEmptyCommands = [
+    { kind: FishCompletionItemKind.ALIAS, command: 'alias | count' },
+    { kind: FishCompletionItemKind.ABBR, command: 'abbr --show | count' },
+  ];
 
-    let output = '';
-    let errorOutput = '';
+  type AllowedEmptyCommandResult = { kind: FishCompletionItemKind; command: string; count: number; };
+  export const items: AllowedEmptyCommandResult[] = [];
 
-    child.stdout.on('data', (data) => {
-      output += data.toString();
-    });
+  export async function setup(): Promise<AllowedEmptyCommandResult[]> {
+    const results: AllowedEmptyCommandResult[] = [];
+    for (const { kind, command } of allowedEmptyCommands) {
+      const output = await execCmd(command, { interactiveMode: true });
+      const count = parseInt(output.join('') ?? '0', 10);
+      results.push({ kind, command, count });
+    }
+    return results;
+  }
 
-    child.stderr.on('data', (data) => {
-      errorOutput += data.toString();
-    });
+  export function hasKind(kind: FishCompletionItemKind): boolean {
+    const item = items.find(item => item.kind === kind);
+    return item ? item.count === 0 : false;
+  }
 
-    child.on('close', (code) => {
-      if (code === 0) {
-        resolve(output);
-      } else {
-        console.log('error:' + command);
-        resolve('error:' + output);
-        // reject(new Error(`Command failed with exit code ${code}: ${errorOutput}`));
-      }
-    });
-
-    child.on('error', (err) => {
-      resolve('error: ' + output);
-    });
-  });
+  export function getCountForKind(kind: FishCompletionItemKind): number {
+    return items.find(item => item.kind === kind)?.count || 0;
+  }
 }
 
-let setupItemsArr: typeof SetupItemsFromCommandConfig;
-let completionItemMap: CompletionItemMap;
+/**
+ * Utility for performance testing of SetupItems Initialization
+ */
+export type SetupResult = SetupItem & {
+  results: string[];
+};
 
-setLogger(
-  async () => {
-    setupItemsArr = SetupItemsFromCommandConfig;
-    completionItemMap = await CompletionItemMap.initialize();
-  },
-  async () => {
-    setupItemsArr = [];
-    completionItemMap = new CompletionItemMap();
-  },
-);
+export async function simpleParrallelTestSetupItemsInitializer(
+  items: SetupItem[] = SetupItemsFromCommandConfig,
+): Promise<SetupResult[]> {
+  const settled = await Promise.allSettled(
+    items.map((item) =>
+      execCmd(item.command, { interactiveMode: true }).then((results) => ({
+        ...item,
+        results,
+      })),
+    ),
+  );
 
-describe('utils/completion/startup-config.ts test', () => {
-  it('read all SetupItemsFromCommandConfig', async () => {
-    /**
-     * create callbacks map
-     */
-    const callbacks = setupItemsArr.map(c => {
-      return {
-        item: c,
-        func: execPrivateFishCommand(c.command),
-      };
-    });
+  return settled.map((outcome, i) => ({
+    ...items[i]!,
+    results: outcome.status === 'fulfilled' ? outcome.value.results : [],
+  }));
+}
 
-    /**
-     * Resolve callback promises
-     */
-    const res = await Promise.all(callbacks.map(async cb => {
-      const cmds = (await cb.func).split('\n').filter(f => f.trim() !== '');
-      return {
-        name: cb.item.fishKind,
-        cmds: cmds,
-        cmdsLen: cmds.length,
-      };
-    }));
+describe('Test completions/startup-config.ts `SetupItem` commands', () => {
+  setLogger();
 
-    /**
-     * Check result
-     */
-    res.forEach(r => {
-      if (r.cmdsLen === 0) {
-        // console.log('empty');
-        expect(['abbr', 'alias', 'event'].includes(r.name)).toBeTruthy();
-      } else {
-        // console.log("not empty");
-        expect(['builtin', 'function', 'command', 'variable'].includes(r.name)).toBeTruthy();
-      }
-    });
-
-    expect(res.length).toBe(7);
+  beforeAll(async () => {
+    await AllowedEmptyCommands.setup();
   });
 
-  /**
-   * Probably should add more tests...
-   *
-   * They will need to be config agnostic though!
-   * (i.e., passes on every machine `fish --no-config`)
-   */
+  describe('test different StartupItem initialization designs', () => {
+    // use to see what is actually being passed to fish for each command,
+    // and confirm it is being parsed correctly (i.e. no unexpected escaping issues, etc.)
+    it.skip('print SetupItems.command string interpretation passed to fish', () => {
+      console.log(SetupItemsFromCommandConfig.map(item => {
+        return {
+          kind: item.fishKind,
+          command: item.command,
+        };
+      }));
+      expect(SetupItemsFromCommandConfig.length).toBeGreaterThanOrEqual(5);
+    });
 
-  describe('static items', () => {
-    it('should have static items', async () => {
-      completionItemMap.allOfKinds('function').forEach(item => {
-        console.log(item.label, item.kind);
-      });
-      completionItemMap.allOfKinds('variable').forEach(item => {
-        // StaticItems.variable.forEach(item => {
-        if (item.label.startsWith('fish_lsp')) {
-          console.log(item);
+    it('parallel SetupItem.command execution', async () => {
+      const setupResults = await simpleParrallelTestSetupItemsInitializer();
+      // for (const { detail, fishKind, results } of setupResults) {
+      //   console.log(`${detail} (${fishKind}): ${results.length} items`);
+      // }
+      expect(setupResults.length).toBeGreaterThanOrEqual(5);
+    });
+    it('better SetupItem.command execution', async () => {
+      const results = await runSetupItems();
+      // console.log(results)
+      expect(results.length).toBeGreaterThanOrEqual(5);
+    });
+  });
+
+  describe('CompletionItemMap', () => {
+    // setup/teardown CompletionItemMap for all tests in this block
+    let completionItemMap: CompletionItemMap;
+    beforeAll(async () => {
+      completionItemMap = await CompletionItemMap.initialize();
+    });
+    afterAll(() => {
+      completionItemMap = new CompletionItemMap();
+    });
+
+    it('should initialize CompletionItemMap without error', () => {
+      console.log('-'.repeat(80));
+      console.log('CompletionItemMap initialized with the following item counts:');
+      completionItemMap.entries().forEach(([kind, items]) => {
+        console.log(`- ${kind}: ${items?.length || 0} items`);
+        expect(items).toBeDefined();
+        // We distinguish between values which a user might not have defined (i.e., no aliases or abbrs)
+        // Which 0 items is an acceptable result for
+        if (AllowedEmptyCommands.hasKind(kind)) {
+          expect(items!.length).toBeGreaterThanOrEqual(AllowedEmptyCommands.getCountForKind(kind));
+        } else {
+          // Non-empty command kinds should have some items (default items are added to cache)
+          expect(items!.length).toBeGreaterThan(0);
         }
       });
-      completionItemMap.allOfKinds('status').forEach(item => {
-        console.log(item.label, item.kind);
+      console.log(`Total kinds in CompletionItemMap: ${completionItemMap.allKinds.length}`);
+      console.log('-'.repeat(80));
+    });
+
+    describe('StaticItems', () => {
+      it('confirm all static items were added to CompletionItemMap', () => {
+        expect(Object.keys(StaticItems).length).toBeGreaterThan(0);
+        Object.keys(StaticItems).forEach(itemType => {
+          const items = completionItemMap.allOfKinds(itemType as any);
+          expect(items.length).toBeGreaterThan(0);
+        });
+      });
+
+      it('verbose static item check', () => {
+        expect(completionItemMap.allOfKinds('function').length).toBeGreaterThan(0);
+        expect(completionItemMap.allOfKinds('command').length).toBeGreaterThan(0);
+        expect(completionItemMap.allOfKinds('variable').length).toBeGreaterThan(0);
+        expect(completionItemMap.allOfKinds('status').length).toBeGreaterThan(0);
+      });
+
+      it('`fish_lsp*` variable check', () => {
+        const foundItems = completionItemMap.allOfKinds('variable').filter(item => item.label.startsWith('fish_lsp'));
+        expect(foundItems.length).toBeGreaterThan(0);
+        for (const key of Object.keys(ConfigSchema.shape)) {
+          const match = foundItems.find(item => item.label === key);
+          // console.log({
+          //   label: match!.label,
+          //   documentation: match!.documentation,
+          // })
+          expect(match).toBeDefined();
+          expect(match!.documentation).toBeDefined();
+        }
       });
     });
-  });
+    describe('test CompletionItemMap utility methods', () => {
+      it('get()', () => {
+        expect(completionItemMap.get('function')).toBeDefined();
+        expect(completionItemMap.get('function')!.length).toBeGreaterThan(0);
+        expect(completionItemMap.get('command')).toBeDefined();
+        expect(completionItemMap.get('command')!.length).toBeGreaterThan(0);
+      });
 
-  describe.only('completion shell', () => {
-    it('should complete shell', async () => {
-      const shell = await execCompleteLine('fish-lsp --');
-      console.log(shell);
+      it('allKinds()', () => {
+        const kinds = completionItemMap.allKinds;
+        expect(kinds.length).toBeGreaterThan(0);
+        expect(kinds).toContain('function');
+        expect(kinds).toContain('command');
+        expect(kinds).toContain('variable');
+        expect(kinds).toContain('status');
+      });
+
+      it('findLabel()', () => {
+        // define type for testing multiple items
+        type TestItemInput = { label: string; kinds: FishCompletionItemKind[]; };
+        type TestItemExpectedOutput = { found: boolean; };
+        // input tested on should work in ci enviornment, so the most straightforward way
+        // to achieve this is by using static items and config variables, which behave
+        // deterministically across machines (since they are defined in code, not user config)
+        const testItems: { inputParams: TestItemInput; expectedOutput: TestItemExpectedOutput; }[] = [
+          {
+            inputParams: { label: 'fish_lsp_fish_path', kinds: [] },
+            expectedOutput: { found: true },
+          },
+          {
+            inputParams: { label: 'fish_lsp_fish_path', kinds: ['variable'] },
+            expectedOutput: { found: true },
+          },
+          {
+            inputParams: { label: 'fish_add_path', kinds: ['function'] },
+            expectedOutput: { found: true },
+          },
+          {
+            inputParams: { label: 'fish_add_path', kinds: ['variable'] },
+            expectedOutput: { found: false },
+          },
+          {
+            inputParams: { label: 'non_existent_label', kinds: [] },
+            expectedOutput: { found: false },
+          },
+        ];
+
+        for (const { inputParams, expectedOutput } of testItems) {
+          const { label, kinds } = inputParams;
+          const foundItem = completionItemMap.findLabel(label, ...kinds);
+
+          if (expectedOutput.found) expect(foundItem).toBeDefined();
+          else expect(foundItem).toBeUndefined();
+        }
+      });
+    });
+
+    // TODO: confirm `mkdir` is included in output of `complete --do-complete` command (issue #154)
+    describe('TEMPORARY TEST FOR #154 `mkdir` command', () => {
+      it('confirm `mkdir` is included in output of `complete --do-complete` command', async () => {
+        const output = await runSetupItems(
+          SetupItemsFromCommandConfig.find(item => item.fishKind === 'command')
+            ? [SetupItemsFromCommandConfig.find(item => item.fishKind === 'command')!]
+            : [],
+        );
+        let foundMkdir = false;
+        for (const item of output.flatMap(item => item.results)) {
+          if (item.startsWith('mkdir')) {
+            foundMkdir = true;
+            break;
+          }
+        }
+        output.forEach(item => {
+          const formattedResults = item.results.map(line => line.trim().split('\t'));
+
+          const closestResults = formattedResults.filter(([label]) => label?.startsWith('mk')).sort((a, b) => {
+            const target = 'mkdir';
+            const similarity = (label: string) => {
+              let i = 0;
+              while (i < label.length && i < target.length && label[i] === target[i]) {
+                i++;
+              }
+              return i;
+            };
+            return similarity(b[0] ?? '') - similarity(a[0] ?? '') || (a[0] ?? '').localeCompare(b[0] ?? '');
+          });
+
+          const mkdirLines = formattedResults.filter(([label]) => label?.startsWith('mkdir')).map(splitLine => splitLine.join('\t'));
+
+          const prettyResult = {
+            mkdirFound: foundMkdir,
+            mkdirLines,
+            totalResults: item.results.length,
+            closestResults: closestResults.map((splitLine) => splitLine.join('\t')),
+          };
+
+          console.log({
+            kind: item.fishKind,
+            command: item.command,
+            // resultsRaw: item.results,
+            resultsFormatted: prettyResult,
+            topLevel: item.topLevel,
+          });
+        });
+        console.log('Final check: was \'mkdir\' found in any command output?', foundMkdir);
+        console.log('-'.repeat(80));
+        expect(foundMkdir).toBe(true);
+        expect(output.length).toBeGreaterThan(0);
+        expect(output.flatMap(o => o.results).length).toBeGreaterThan(0);
+      });
+    });
+
+    it('check `mkdir` in cache', () => {
+      const mkdirItem = completionItemMap.findLabel('mkdir');
+      console.log('Found `mkdir` item in cache:', mkdirItem);
+      expect(mkdirItem).toBeDefined();
+    });
+
+    it('confirm `mkdir` item in cache has correct kind', () => {
+      const mkdirItem = completionItemMap.findLabel('mkdir', 'command');
+      // console.log('`mkdir` item details:', mkdirItem);
+      expect(mkdirItem).toBeDefined();
     });
   });
 });
