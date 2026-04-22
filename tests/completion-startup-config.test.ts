@@ -6,6 +6,43 @@ import { execCmd } from '../src/utils/exec';
 import { ConfigSchema } from '../src/config';
 import { FishCompletionItemKind } from '../src/utils/completion/types';
 
+/**
+ * NOTE: since the test suite is dependent on the machine's shell environment, we need to
+ *       account for the possibility of certain commands specifically not being used at all by the user,
+ *       while keeping the test suite's confirmation that the command will work if it is used.
+ */
+namespace AllowedEmptyCommands {
+  const allowedEmptyCommands = [
+    { kind: FishCompletionItemKind.ALIAS, command: 'alias | count' },
+    { kind: FishCompletionItemKind.ABBR, command: 'abbr --show | count' },
+  ];
+
+  type AllowedEmptyCommandResult = { kind: FishCompletionItemKind; command: string; count: number; };
+  export const items: AllowedEmptyCommandResult[] = [];
+
+  export async function setup(): Promise<AllowedEmptyCommandResult[]> {
+    const results: AllowedEmptyCommandResult[] = [];
+    for (const { kind, command } of allowedEmptyCommands) {
+      const output = await execCmd(command, { interactiveMode: true });
+      const count = parseInt(output.join('') ?? '0', 10);
+      results.push({ kind, command, count });
+    }
+    return results;
+  }
+
+  export function hasKind(kind: FishCompletionItemKind): boolean {
+    const item = items.find(item => item.kind === kind);
+    return item ? item.count === 0 : false;
+  }
+
+  export function getCountForKind(kind: FishCompletionItemKind): number {
+    return items.find(item => item.kind === kind)?.count || 0;
+  }
+}
+
+/**
+ * Utility for performance testing of SetupItems Initialization
+ */
 export type SetupResult = SetupItem & {
   results: string[];
 };
@@ -30,6 +67,10 @@ export async function simpleParrallelTestSetupItemsInitializer(
 
 describe('Test completions/startup-config.ts `SetupItem` commands', () => {
   setLogger();
+
+  beforeAll(async () => {
+    await AllowedEmptyCommands.setup();
+  });
 
   describe('test different StartupItem initialization designs', () => {
     // use to see what is actually being passed to fish for each command,
@@ -74,7 +115,14 @@ describe('Test completions/startup-config.ts `SetupItem` commands', () => {
       completionItemMap.entries().forEach(([kind, items]) => {
         console.log(`- ${kind}: ${items?.length || 0} items`);
         expect(items).toBeDefined();
-        expect(items!.length).toBeGreaterThan(0);
+        // We distinguish between values which a user might not have defined (i.e., no aliases or abbrs)
+        // Which 0 items is an acceptable result for
+        if (AllowedEmptyCommands.hasKind(kind)) {
+          expect(items!.length).toBeGreaterThanOrEqual(AllowedEmptyCommands.getCountForKind(kind));
+        } else {
+          // Non-empty command kinds should have some items (default items are added to cache)
+          expect(items!.length).toBeGreaterThan(0);
+        }
       });
       console.log(`Total kinds in CompletionItemMap: ${completionItemMap.allKinds.length}`);
       console.log('-'.repeat(80));
