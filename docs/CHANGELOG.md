@@ -1,3 +1,25 @@
+## <small>1.1.4-pre.0 (2026-04-24)</small>
+
+* chore: bump deps for new nightly release `1.1.4-pre.0` ([89bcddf](https://github.com/ndonfris/fish-lsp/commit/89bcddf))
+* chore: bump eslint from 8.57.1 to 9.26.0, required updating .eslintrc.cjs to eslint.config.ts (#135) ([a90206b](https://github.com/ndonfris/fish-lsp/commit/a90206b)), closes [#135](https://github.com/ndonfris/fish-lsp/issues/135)
+* fix: `argparse $options` doesn't define `_flag_$options` (improved fix for #136) (#137) ([62022db](https://github.com/ndonfris/fish-lsp/commit/62022db)), closes [#136](https://github.com/ndonfris/fish-lsp/issues/136) [#137](https://github.com/ndonfris/fish-lsp/issues/137)
+* fix: `set name -fxgU` doesn't display value that matches scope modifier (#145) ([44e88e4](https://github.com/ndonfris/fish-lsp/commit/44e88e4)), closes [#145](https://github.com/ndonfris/fish-lsp/issues/145) [#142](https://github.com/ndonfris/fish-lsp/issues/142)
+* fix: added better testing of `tests/interactive-buffers.test.ts` ([17d596f](https://github.com/ndonfris/fish-lsp/commit/17d596f))
+* fix: bump `yarn.lock` file @dependabot `v1.1.4-pre.0` (#152) ([0dc5897](https://github.com/ndonfris/fish-lsp/commit/0dc5897)), closes [#152](https://github.com/ndonfris/fish-lsp/issues/152) [#150](https://github.com/ndonfris/fish-lsp/issues/150)
+* fix: double code block in completion docs (#158) ([ac8949a](https://github.com/ndonfris/fish-lsp/commit/ac8949a)), closes [#158](https://github.com/ndonfris/fish-lsp/issues/158)
+* fix: forward exact `fish-lsp env --confd <...>` ran to output comment (#138) ([b7c832e](https://github.com/ndonfris/fish-lsp/commit/b7c832e)), closes [#138](https://github.com/ndonfris/fish-lsp/issues/138)
+* fix(completions/startup-cache): `SetupItemsFromCommandConfig` quoting + spawn once for completion ca ([82de7e4](https://github.com/ndonfris/fish-lsp/commit/82de7e4)), closes [#154](https://github.com/ndonfris/fish-lsp/issues/154) [#157](https://github.com/ndonfris/fish-lsp/issues/157) [#154](https://github.com/ndonfris/fish-lsp/issues/154)
+* fix(semantic-tokens): use predefined modifier for builtins (#133) ([6e4919b](https://github.com/ndonfris/fish-lsp/commit/6e4919b)), closes [#133](https://github.com/ndonfris/fish-lsp/issues/133) [#133](https://github.com/ndonfris/fish-lsp/issues/133)
+* feat: `fish-lsp start --web` for custom behavior inside `fish-lsp.dev/playground` container ([f26461c](https://github.com/ndonfris/fish-lsp/commit/f26461c))
+* feat: add cli flag `fish-lsp info --dump-symbol-tree` (#151) ([37cb727](https://github.com/ndonfris/fish-lsp/commit/37cb727)), closes [#151](https://github.com/ndonfris/fish-lsp/issues/151)
+* feat: added `FOR` variable def to `Analyzer.needsLocalReferences()` ([95164c7](https://github.com/ndonfris/fish-lsp/commit/95164c7))
+* feat: evaluate string/escaped values correct #140 + intellij docs (#147) ([e7dfc69](https://github.com/ndonfris/fish-lsp/commit/e7dfc69)), closes [#140](https://github.com/ndonfris/fish-lsp/issues/140) [#147](https://github.com/ndonfris/fish-lsp/issues/147) [#140](https://github.com/ndonfris/fish-lsp/issues/140)
+* revert: cli behavior for single info flag, `fish-lsp info --bin` -> `/bin/fish-lsp` ([959e982](https://github.com/ndonfris/fish-lsp/commit/959e982))
+* docs: added SECURITY.md security-policy (#149) ([27d2360](https://github.com/ndonfris/fish-lsp/commit/27d2360)), closes [#149](https://github.com/ndonfris/fish-lsp/issues/149)
+* docs: update README to include VSX/VSCodium mention ([48925a0](https://github.com/ndonfris/fish-lsp/commit/48925a0))
+* refactor: use new `eslint.config.ts` instead of `eslint.config.mts` (#146) ([2bc3838](https://github.com/ndonfris/fish-lsp/commit/2bc3838)), closes [#146](https://github.com/ndonfris/fish-lsp/issues/146)
+* build: updated esbuild scripts + bumped dependencies for release `v1.1.4-pre.0` (#143) ([a48006f](https://github.com/ndonfris/fish-lsp/commit/a48006f)), closes [#143](https://github.com/ndonfris/fish-lsp/issues/143)
+
 ## <small>1.1.3 (2025-12-18)</small>
 
 * test(test-conda.sh): removed `scripts/test-conda.sh` for #130 ([f03367b](https://github.com/ndonfris/fish-lsp/commit/f03367b)), closes [#130](https://github.com/ndonfris/fish-lsp/issues/130)
