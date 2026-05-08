@@ -3,6 +3,7 @@ import * as os from 'os';
 import * as net from 'net';
 import { execSync } from 'child_process';
 import FishServer from '../server';
+import { analyzer } from '../analyze';
 import { createServerLogger, logger } from '../logger';
 import { config, configHandlers } from '../config';
 import { pathToUri, uriToReadablePath } from './translation';
@@ -13,6 +14,7 @@ import { Connection } from 'vscode-languageserver';
 // import { Workspace } from './workspace';
 // import { workspaceManager } from './workspace-manager';
 import { SyncFileHelper } from './file-operations';
+import { disableStartupProfiler, enableStartupProfiler, getStartupProfilerRows, profileStartupSync, resetStartupProfiler } from './startup-profiler';
 // import { env } from './env-manager';
 
 // Define proper types for the connection options
@@ -21,6 +23,70 @@ export type ConnectionType = 'stdio' | 'node-ipc' | 'socket' | 'pipe';
 export interface ConnectionOptions {
   port?: number;
 }
+
+type RestorePatchedMethod = () => void;
+
+function toPatchedTarget(value: unknown): Record<string, unknown> {
+  return value as Record<string, unknown>;
+}
+
+function formatStartupDisplayPath(
+  value: string,
+  opts: { cwdToken?: string; } = {},
+): string {
+  const homeReplaced = value.replace(os.homedir(), '~');
+  if (!opts.cwdToken) return homeReplaced;
+  return homeReplaced.replace(process.cwd().replace(os.homedir(), '~'), opts.cwdToken);
+}
+
+function patchProfileMethod(
+  target: Record<string, unknown>,
+  key: string,
+  label: string,
+): RestorePatchedMethod {
+  const original = target[key];
+  if (typeof original !== 'function') return () => {};
+
+  target[key] = function profiledMethod(this: unknown, ...args: unknown[]) {
+    return profileStartupSync(label, () => (original as (...args: unknown[]) => unknown).apply(this, args));
+  };
+
+  return () => {
+    target[key] = original;
+  };
+}
+
+function installStartupProfiling(): RestorePatchedMethod {
+  const patches: Array<{ target: unknown; key: string; label: string; }> = [
+    { target: analyzer, key: 'analyze', label: 'analyzer.analyze()' },
+    { target: analyzer, key: 'analyzePartial', label: 'analyzer.analyzePartial()' },
+    { target: analyzer, key: 'getAnalyzedDocument', label: 'analyzer.getAnalyzedDocument()' },
+    { target: analyzer, key: 'parseDocument', label: 'analyzer.parser.parse()' },
+    { target: analyzer, key: 'processDocumentSymbols', label: 'analyzer.processNestedTree()' },
+    { target: analyzer, key: 'createFullDocument', label: 'analyzer.createFullDocument()' },
+    { target: analyzer.cache, key: 'setDocument', label: 'analyzer.cache.setDocument()' },
+    { target: analyzer.symbols, key: 'refreshDocument', label: 'analyzer.symbols.refreshDocument()' },
+    { target: analyzer.referenceCandidates, key: 'removeByUri', label: 'analyzer.referenceCandidates.removeByUri()' },
+  ];
+
+  const restores = patches.map(p => patchProfileMethod(toPatchedTarget(p.target), p.key, p.label));
+
+  return () => {
+    restores.reverse().forEach(restore => restore());
+  };
+}
+
+async function withStartupProfiling<T>(enabled: boolean, operation: () => Promise<T>): Promise<T> {
+  if (!enabled) return operation();
+
+  const restoreStartupProfiling = installStartupProfiling();
+  try {
+    return await operation();
+  } finally {
+    restoreStartupProfiling();
+  }
+}
+
 export function createConnectionType(opts: {
   stdio?: boolean;
   nodeIpc?: boolean;
@@ -228,6 +294,7 @@ function fixupStartPath(startPath: string | undefined): string | undefined {
 type TimeServerOpts = {
   workspacePath: string;
   warning: boolean;
+  profile: boolean;
   timeOnly: boolean;
   showFiles: boolean;
 };
@@ -235,6 +302,7 @@ type TimeServerOpts = {
 const defaultTimeServerOpts: Partial<TimeServerOpts> = {
   workspacePath: '',
   warning: true,
+  profile: false,
   timeOnly: false,
   showFiles: false,
 };
@@ -247,222 +315,292 @@ const defaultTimeServerOpts: Partial<TimeServerOpts> = {
 export async function timeServerStartup(
   opts: Partial<TimeServerOpts> = defaultTimeServerOpts,
 ): Promise<void> {
-  // define a local server instance
-  let server: FishServer | undefined;
-  // fix the start path if a relative path is given
-  const startPath = fixupStartPath(opts.workspacePath);
-  // silence the logger for initial timing operations
-  logger.setSilent(true);
-
-  if (opts.warning && !opts.timeOnly) {
-    // Title - centered
-    logger.logToStdout(formatAlignedColumns([chalk.bold.blue('fish-lsp')]));
-    logger.logToStdout('');
-
-    // Warning message with proper centering
-    const warningLines = [
-      `${chalk.bold.underline.green('NOTE:')} a normal server instance will only start one of these workspaces`,
-      '',
-      'if you frequently find yourself working inside a relatively large ',
-      'workspaces, please consider using the provided environment variable',
-      '',
-      `\`${chalk.bold.blue('set')} ${chalk.white('-gx')} ${chalk.cyan('fish_lsp_max_background_files')}\``,
-    ];
-
-    warningLines.forEach((line) => {
-      if (line === '') {
-        // Empty line
-        logger.logToStdout('');
-      } else {
-        // Regular warning text - center each line
-        logger.logToStdout(formatAlignedColumns([line]));
-      }
-    });
-    logger.logToStdout('');
+  if (opts.profile) {
+    resetStartupProfiler();
+    enableStartupProfiler();
   }
+  try {
+    // define a local server instance
+    let server: FishServer | undefined;
+    // fix the start path if a relative path is given
+    const startPath = fixupStartPath(opts.workspacePath);
+    // silence the logger for initial timing operations
+    logger.setSilent(true);
 
-  if (!opts.timeOnly) stdoutSeparator();
+    if (opts.warning && !opts.timeOnly) {
+    // Title - centered
+      logger.logToStdout(formatAlignedColumns([chalk.bold.blue('fish-lsp')]));
+      logger.logToStdout('');
 
-  // 1. Time server creation and startup
-  await timeOperation(async () => {
+      // Warning message with proper centering
+      const warningLines = [
+        `${chalk.bold.underline.green('NOTE:')} a normal server instance will only start one of these workspaces`,
+        '',
+        'if you frequently find yourself working inside a relatively large ',
+        'workspaces, please consider using the provided environment variable',
+        '',
+        `\`${chalk.bold.blue('set')} ${chalk.white('-gx')} ${chalk.cyan('fish_lsp_max_background_files')}\``,
+      ];
+
+      warningLines.forEach((line) => {
+        if (line === '') {
+        // Empty line
+          logger.logToStdout('');
+        } else {
+        // Regular warning text - center each line
+          logger.logToStdout(formatAlignedColumns([line]));
+        }
+      });
+      logger.logToStdout('');
+    }
+
+    if (!opts.timeOnly) stdoutSeparator();
+
+    // 1. Time server creation and startup
+    await timeOperation(async () => {
     // Create a null writable stream to discard JSON-RPC messages
     // This prevents them from polluting stdout during timing operations
-    const { Writable } = await import('stream');
-    const nullStream = new Writable({
-      write(_chunk, _encoding, callback) {
-        callback(); // Discard the data
-      },
-    });
+      const { Writable } = await import('stream');
+      const nullStream = new Writable({
+        write(_chunk, _encoding, callback) {
+          callback(); // Discard the data
+        },
+      });
 
-    const connection = createConnection(
-      new StreamMessageReader(process.stdin),
-      new StreamMessageWriter(nullStream),
-    );
-    // const startUri = path.join(os.homedir(), '.config', 'fish');
-    const startupParams: InitializeParams = {
-      processId: process.pid,
-      rootUri: startPath ? pathToUri(startPath) : pathToUri(path.join(os.homedir(), '.config', 'fish')),
-      // rootPath: path.join(os.homedir(), '.config', 'fish'),
-      clientInfo: {
-        name: 'fish-lsp info --time-startup',
-        version: PackageVersion,
-      },
-      initializationOptions: {
+      const connection = createConnection(
+        new StreamMessageReader(process.stdin),
+        new StreamMessageWriter(nullStream),
+      );
+      // const startUri = path.join(os.homedir(), '.config', 'fish');
+      const startupParams: InitializeParams = {
+        processId: process.pid,
+        rootUri: startPath ? pathToUri(startPath) : pathToUri(path.join(os.homedir(), '.config', 'fish')),
+        // rootPath: path.join(os.homedir(), '.config', 'fish'),
+        clientInfo: {
+          name: 'fish-lsp info --time-startup',
+          version: PackageVersion,
+        },
+        initializationOptions: {
         // fish_lsp_all_indexed_paths: startPath ? [startPath] : config.fish_lsp_all_indexed_paths,
-        fish_lsp_max_background_files: config.fish_lsp_max_background_files,
-      },
-      workspaceFolders: startPath ? [
-        {
-          uri: pathToUri(startPath),
-          name: startPath,
+          fish_lsp_max_background_files: config.fish_lsp_max_background_files,
         },
-      ] : [
-        ...config.fish_lsp_all_indexed_paths.map(p => ({
-          uri: pathToUri(SyncFileHelper.expandEnvVars(p)),
-          name: p.startsWith('$') ? p.slice(1) : path.basename(SyncFileHelper.expandEnvVars(p)),
-        })),
-      ],
-      capabilities: {
-        workspace: {
-          workspaceFolders: true,
+        workspaceFolders: startPath ? [
+          {
+            uri: pathToUri(startPath),
+            name: startPath,
+          },
+        ] : [
+          ...config.fish_lsp_all_indexed_paths.map(p => ({
+            uri: pathToUri(SyncFileHelper.expandEnvVars(p)),
+            name: p.startsWith('$') ? p.slice(1) : path.basename(SyncFileHelper.expandEnvVars(p)),
+          })),
+        ],
+        capabilities: {
+          workspace: {
+            workspaceFolders: true,
+          },
         },
-      },
-    };
-    ({ server } = await FishServer.create(connection, startupParams));
-    // Don't call connection.listen() - we're just timing, not handling LSP messages
-    // This prevents JSON-RPC output from polluting stdout
+      };
+      ({ server } = await FishServer.create(connection, startupParams));
+      // Don't call connection.listen() - we're just timing, not handling LSP messages
+      // This prevents JSON-RPC output from polluting stdout
 
-    return server;
-  }, 'Server Start Time');
+      return server;
+    }, 'Server Start Time');
 
-  let all: number = 0;
-  const items: { [key: string]: string[]; } = {};
-  const counts: { [key: string]: number; } = {};
+    let all: number = 0;
+    const items: { [key: string]: string[]; } = {};
+    const counts: { [key: string]: number; } = {};
 
-  // 2. Time server initialization and background analysis
-  // Call onInitialized() exactly as a real client would - this matches the real server flow 1:1
-  await timeOperation(async () => {
-    if (!server) {
-      throw new Error('Server not initialized');
-    }
+    // 2. Time server initialization and background analysis
+    // Call onInitialized() exactly as a real client would - this matches the real server flow 1:1
+    await timeOperation(async () => {
+      if (!server) {
+        throw new Error('Server not initialized');
+      }
 
-    // Call onInitialized() which handles background analysis with proper flag management
-    const initResult = await server.onInitialized({});
-    all = initResult.totalDocuments;
+      await withStartupProfiling(!!opts.profile, async () => {
+        // Call onInitialized() which handles background analysis with proper flag management
+        const initResult = await server.onInitialized({});
+        all = initResult.totalDocuments;
 
-    /** Collect the stats from the initialization result */
-    for (const [path, uris] of Object.entries(initResult.items)) {
-      let displayPath = uriToReadablePath(pathToUri(path)).replace(os.homedir(), '~');
-      displayPath = opts.workspacePath ? displayPath.replace(process.cwd().replace(os.homedir(), '~'), '$PWD') : displayPath;
+        /** Collect the stats from the initialization result */
+        const displayOpts = opts.workspacePath ? { cwdToken: '$PWD' } : {};
+        for (const [path, uris] of Object.entries(initResult.items)) {
+          const displayPath = formatStartupDisplayPath(
+            uriToReadablePath(pathToUri(path)),
+            displayOpts,
+          );
+          counts[displayPath] = uris.length;
+          items[displayPath] = [...uris
+            .map(u => formatStartupDisplayPath(uriToReadablePath(u), displayOpts)),
+          ];
+        }
+      });
+    }, 'Background Analysis Time');
 
-      counts[displayPath] = uris.length;
-      items[displayPath] = [...uris
-        .map(u => uriToReadablePath(u))
-        .map(p => p.replace(os.homedir(), '~'))
-        .map(p => opts.workspacePath ? p.replace(process.cwd().replace(os.homedir(), '~'), '$PWD') : p),
-      ];
-    }
-  }, 'Background Analysis Time');
-
-  // 3. Log the number of files indexed
-  logger.logToStdoutJoined(
-    formatAlignedColumns([
-      chalk.blue('Total Files Indexed: '),
-      `${chalk.white.bold(all)} ${chalk.white('files')}`,
-    ]),
-  );
-
-  // 4. Stop here if we only want to log the time
-  if (opts.timeOnly) return;
-
-  stdoutSeparator();
-  // 5. Log the directories indexed
-  if (!startPath) {
-    const all_indexed = config.fish_lsp_all_indexed_paths;
-    const leftMessage = chalk.blue('Indexed paths in ') + chalk.green('`$fish_lsp_all_indexed_paths`') + chalk.blue(':');
-
-    const amount = all_indexed.length;
-    const itemsText = amount === 1 ? 'path' : 'paths';
-
-    const rightMessage = `${chalk.white.bold(amount)} ${chalk.white(itemsText)}`;
+    // 3. Log the number of files indexed
     logger.logToStdoutJoined(
       formatAlignedColumns([
-        leftMessage,
-        rightMessage,
+        chalk.blue('Total Files Indexed: '),
+        `${chalk.white.bold(all)} ${chalk.white('files')}`,
       ]),
     );
-  } else {
-    const path = startPath.replace(process.cwd(), '.').replace(os.homedir(), '~');
-    const leftMessage = chalk.blue('Indexed paths in ') + chalk.green(`\`${path}\``) + chalk.blue(':');
-    const amount = Object.keys(items).length;
-    const amountText = amount === 1 ? 'path' : 'paths';
-    const rightMessage = `${chalk.white.bold(amount)} ${chalk.white(amountText)}`;
-    logger.logToStdoutJoined(
-      formatAlignedColumns([
-        leftMessage,
-        rightMessage,
-      ]),
-    );
-  }
-  // 6. Log the items indexed
-  Object.keys(items).forEach((item, idx) => {
-    const text = item.length > 55 ? '...' + item.slice(item.length - 52) : item;
-    const filesCount = items[item]?.length || 0;
-    const result = formatAlignedColumns([
-      {
-        text: `${idx + 1}`,
-        padLeft: '     [',
-        padRight: ']       ',
-      },
-      {
-        text: chalk.green(text),
-        padLeft: ' | `',
-        padRight: '` | ',
-        align: 'left',
-        truncate: true,
-        truncateIndicator: '…',
-        truncateBehavior: 'left',
-      },
-      chalk.white(`${chalk.white.bold(filesCount)} ${chalk.white(filesCount === 1 ? 'file' : 'files')}`),
-    ]);
-    logger.logToStdout(result);
-  });
-  if (!opts.timeOnly) stdoutSeparator();
-  if (opts.showFiles) {
-    Object.keys(items).forEach((item, idx) => {
-      const paths = items[item];
-      if (!paths || paths?.length === 0) return;
-      if (idx > 0) stdoutSeparator();
+
+    const startupRows = opts.profile ? getStartupProfilerRows() : [];
+    if (startupRows.length > 0) {
+      stdoutSeparator();
       logger.logToStdoutJoined(
         formatAlignedColumns([
-          chalk.blue('Files in Folder'),
-          chalk.green(`\`${item}\``),
+          chalk.blue('Startup Stage Profile'),
+          `${chalk.white.bold(startupRows.length)} ${chalk.white(startupRows.length === 1 ? 'stage' : 'stages')}`,
         ]),
       );
-      paths.forEach((file, idx) => {
-        const text = file.length > 55 ? file.slice(item.length - 55) : file;
-        logger.logToStdoutJoined(
+
+      startupRows.forEach((row, idx) => {
+        logger.logToStdout(
           formatAlignedColumns([
             {
-              text: chalk.blue(`${idx + 1}`),
+              text: `${idx + 1}`,
               padLeft: '     [',
               padRight: ']       ',
-              truncate: true,
-              truncateIndicator: ' ',
-              truncateBehavior: 'right',
             },
             {
-              text: text,
+              text: chalk.green(row.label),
+              padLeft: ' | ',
+              padRight: ' | ',
+              align: 'left',
+            },
+            {
+              text: `${chalk.white('count')} ${chalk.white.bold(row.count)}`,
               align: 'right',
-              maxWidth: 55,
-              truncate: true,
-              truncateIndicator: '…',
-              truncateBehavior: 'left',
+            },
+          ]),
+        );
+        logger.logToStdout(
+          formatAlignedColumns([
+            {
+              text: '',
+              padLeft: '                ',
+              padRight: '',
+              align: 'left',
+            },
+            {
+              text: `${chalk.white('total')} ${chalk.white.bold(row.totalMs.toFixed(2))} ${chalk.white('ms')}`,
+              padLeft: '                                ',
+              padRight: ' | ',
+              align: 'left',
+            },
+            {
+              text: `${chalk.white('avg')} ${chalk.white.bold(row.averageMs.toFixed(2))} ${chalk.white('ms')}`,
+              padLeft: '',
+              padRight: ' | ',
+            },
+            {
+              text: `${chalk.white('max')} ${chalk.white.bold(row.maxMs.toFixed(2))} ${chalk.white('ms')}`,
+              padLeft: '',
+              padRight: '',
             },
           ]),
         );
       });
+    }
+
+    // 4. Stop here if we only want to log the time
+    if (opts.timeOnly) return;
+
+    stdoutSeparator();
+    // 5. Log the directories indexed
+    if (!startPath) {
+      const all_indexed = config.fish_lsp_all_indexed_paths;
+      const leftMessage = chalk.blue('Indexed paths in ') + chalk.green('`$fish_lsp_all_indexed_paths`') + chalk.blue(':');
+
+      const amount = all_indexed.length;
+      const itemsText = amount === 1 ? 'path' : 'paths';
+
+      const rightMessage = `${chalk.white.bold(amount)} ${chalk.white(itemsText)}`;
+      logger.logToStdoutJoined(
+        formatAlignedColumns([
+          leftMessage,
+          rightMessage,
+        ]),
+      );
+    } else {
+      const path = formatStartupDisplayPath(startPath, { cwdToken: '.' });
+      const leftMessage = chalk.blue('Indexed paths in ') + chalk.green(`\`${path}\``) + chalk.blue(':');
+      const amount = Object.keys(items).length;
+      const amountText = amount === 1 ? 'path' : 'paths';
+      const rightMessage = `${chalk.white.bold(amount)} ${chalk.white(amountText)}`;
+      logger.logToStdoutJoined(
+        formatAlignedColumns([
+          leftMessage,
+          rightMessage,
+        ]),
+      );
+    }
+    // 6. Log the items indexed
+    Object.keys(items).forEach((item, idx) => {
+      const text = item.length > 55 ? '...' + item.slice(item.length - 52) : item;
+      const filesCount = items[item]?.length || 0;
+      const result = formatAlignedColumns([
+        {
+          text: `${idx + 1}`,
+          padLeft: '     [',
+          padRight: ']       ',
+        },
+        {
+          text: chalk.green(text),
+          padLeft: ' | `',
+          padRight: '` | ',
+          align: 'left',
+          truncate: true,
+          truncateIndicator: '…',
+          truncateBehavior: 'left',
+        },
+        chalk.white(`${chalk.white.bold(filesCount)} ${chalk.white(filesCount === 1 ? 'file' : 'files')}`),
+      ]);
+      logger.logToStdout(result);
     });
+    if (!opts.timeOnly) stdoutSeparator();
+    if (opts.showFiles) {
+      Object.keys(items).forEach((item, idx) => {
+        const paths = items[item];
+        if (!paths || paths?.length === 0) return;
+        if (idx > 0) stdoutSeparator();
+        logger.logToStdoutJoined(
+          formatAlignedColumns([
+            chalk.blue('Files in Folder'),
+            chalk.green(`\`${item}\``),
+          ]),
+        );
+        paths.forEach((file, idx) => {
+          logger.logToStdoutJoined(
+            formatAlignedColumns([
+              {
+                text: chalk.blue(`${idx + 1}`),
+                padLeft: '     [',
+                padRight: ']       ',
+                truncate: true,
+                truncateIndicator: ' ',
+                truncateBehavior: 'right',
+              },
+              {
+                text: file,
+                align: 'right',
+                maxWidth: 55,
+                truncate: true,
+                truncateIndicator: '…',
+                truncateBehavior: 'left',
+              },
+            ]),
+          );
+        });
+      });
+    }
+  } finally {
+    if (opts.profile) {
+      disableStartupProfiler();
+    }
   }
 }
 

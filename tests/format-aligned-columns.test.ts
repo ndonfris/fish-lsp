@@ -353,6 +353,21 @@ describe('formatAlignedColumns tests', () => {
         expect(cleaned).toMatch(/^….*Testing$/);
       });
 
+      it('should prefix left-truncated file paths with the truncate indicator', () => {
+        const input: AlignedItem[] = [
+          {
+            text: '/usr/share/fish/functions/__fish_cancel_commandline.fish',
+            align: 'right',
+            maxWidth: 30,
+            truncate: true,
+            truncateIndicator: '…',
+            truncateBehavior: 'left',
+          },
+        ];
+        const result = formatAlignedColumns(input, 30);
+        expect(result).toMatch(/^….*commandline\.fish$/);
+      });
+
       it('should use explicit truncateBehavior "right"', () => {
         const input: AlignedItem[] = [
           {

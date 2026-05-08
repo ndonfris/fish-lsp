@@ -14,7 +14,9 @@ import { SyncFileHelper } from '../src/utils/file-operations';
 import { fail } from 'assert';
 const execAsync = promisify(exec);
 
-describe('cli tests', () => {
+const cliExists = SyncFileHelper.exists('./dist/fish-lsp');
+
+describe.skipIf(!cliExists)('cli tests', () => {
   // Storage for captured output
   let capturedOutput: string[] = [];
   let originalStdoutWrite: typeof process.stdout.write;

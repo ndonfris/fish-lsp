@@ -40,6 +40,8 @@ export class Logger {
   /** clear the log file once a log file has been set */
   private _clear: boolean = true;
 
+  private _fullSilence: boolean = false;
+
   /** logs that were requested before a log file was set */
   private _logQueue: string[] = [];
 
@@ -181,6 +183,15 @@ export class Logger {
     return this.logFilePath !== '';
   }
 
+  setFullSilence(fullSilence: boolean = true): this {
+    this._fullSilence = fullSilence;
+    return this;
+  }
+
+  isFullSilence(): boolean {
+    return this._fullSilence;
+  }
+
   /**
    * Only clears the log file if this option has been enabled.
    */
@@ -292,6 +303,7 @@ export class Logger {
 
   private _log(...args: any[]): void {
     if (!args) return;
+    if (this.isFullSilence()) return;
     if (!this.isSilent() && this.hasConsole()) this._console.log(...args);
     const formattedMessage = this.convertArgsToString(...args);
     if (this.hasLogFile()) {
@@ -314,6 +326,7 @@ export class Logger {
     if (this.hasLogLevel() && LogLevel[this._logLevel] < LogLevel[severity]) {
       return;
     }
+    if (this.isFullSilence()) return;
     const formattedMessage = [severity.toUpperCase() + ':', this.convertArgsToString(...args)].join(' ');
     this._log(formattedMessage);
   }

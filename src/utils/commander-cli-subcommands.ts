@@ -581,6 +581,7 @@ export namespace CommanderSubcommand {
         stdio: z.boolean().optional().default(false),
         nodeIpc: z.boolean().optional().default(false),
         web: z.boolean().optional().default(false),
+        skipStartupLogging: z.boolean().optional().default(false),
       }),
     );
     export type schemaType = z.infer<typeof schema>;
@@ -609,6 +610,7 @@ export namespace CommanderSubcommand {
         healthCheck: z.boolean().optional().default(false),
         checkHealth: z.boolean().optional().default(false),
         timeStartup: z.boolean().optional().default(false),
+        profile: z.boolean().optional().default(false),
         timeOnly: z.boolean().optional().default(false),
         useWorkspace: z.string().optional().default(''),
         warning: z.boolean().optional().default(true),
@@ -622,6 +624,8 @@ export namespace CommanderSubcommand {
         icons: z.boolean().optional().default(true),
         color: z.boolean().optional().default(true),
         virtualFs: z.boolean().optional().default(false),
+        short: z.boolean().optional().default(false),
+        json: z.boolean().optional().default(false),
       }),
     );
     export type schemaType = z.infer<typeof schema>;
@@ -634,6 +638,7 @@ export namespace CommanderSubcommand {
       healthCheck: z.boolean().default(false),
       checkHealth: z.boolean().default(false),
       timeStartup: z.boolean().default(false),
+      profile: z.boolean().default(false),
       timeOnly: z.boolean().default(false),
       useWorkspace: z.string().default(''),
       warning: z.boolean().default(true),
@@ -653,6 +658,7 @@ export namespace CommanderSubcommand {
       '--health-check',
       '--check-health',
       '--time-startup',
+      '--profile',
       '--time-only',
       '--use-workspace',
       '--no-warning',
@@ -661,6 +667,49 @@ export namespace CommanderSubcommand {
 
     export function handleBadArgs(args: schemaType) {
       const argsCount = countArgsWithValues('info', args);
+
+      const conflictingSwitchStates = [
+        args.short,
+        args.verbose,
+        args.extra,
+        args.timeOnly,
+        args.timeStartup,
+        args.sourceMaps,
+        args.dumpParseTree,
+        args.dumpSemanticTokens,
+        args.dumpSymbolTree,
+      ].filter(Boolean).length;
+
+      if (conflictingSwitchStates > 1) {
+        logger.logToStderr([
+          buildErrorMessage('ERROR:', 'Incompatible options provided.'),
+          'For more information on how to use the info command and its options, please refer to the help documentation:',
+          buildColoredCommandlineString({ subcommand: 'info', args: ['--help'] }),
+        ].join('\n\n'));
+        process.exit(1);
+      }
+
+      if (args.json && !args.short) {
+        logger.logToStderr([
+          buildErrorMessage('ERROR:', 'The option', '--json', 'should be used with the', '--info', 'option.'),
+          buildColoredCommandlineString({ subcommand: 'info', args: ['--short', '--json', ...commandBin.args.slice(1)] }),
+          buildErrorMessage(`If you believe this is a bug, please report it at ${chalk.underline.whiteBright(PkgJson.bugs.url)}`),
+        ].join('\n\n'));
+        process.exit(1);
+      }
+
+      if (args.short && argsCount > 0) {
+        const possibleShortArgs = [args.json, !args.color].filter(Boolean).length;
+        const allowedShortArgsUsed = argsCount - possibleShortArgs; // If --json or --no-color are used, they are still compatible with --short, so we allow them in the count
+        if (allowedShortArgsUsed > 0) {
+          logger.logToStderr([
+            buildErrorMessage('ERROR:', 'The option', '--short', 'cannot be used with other options besides', '--json', 'or', '--no-color'),
+            buildErrorMessage(`If you believe this is a bug, please report it at ${chalk.underline.whiteBright(PkgJson.bugs.url)}`),
+          ].join('\n\n'));
+          process.exit(1);
+        }
+      }
+
       if (args.useWorkspace && args.useWorkspace.length > 0 && !args.timeStartup && !args.timeOnly && argsCount >= 1) {
         logger.logToStderr([
           buildErrorMessage('ERROR:', 'The option', '--use-workspace', 'should be used with either:', '--time-startup', 'or', '--time-only'),
@@ -669,6 +718,16 @@ export namespace CommanderSubcommand {
         ].join('\n\n'));
         process.exit(1);
       }
+
+      if (args.profile && !args.timeStartup) {
+        logger.logToStderr([
+          buildErrorMessage('ERROR:', 'The option', '--profile', 'should be used with:', '--time-startup'),
+          buildColoredCommandlineString({ subcommand: 'info', args: ['--time-startup', '--profile'] }),
+          buildErrorMessage(`If you believe this is a bug, please report it at ${chalk.underline.whiteBright(PkgJson.bugs.url)}`),
+        ].join('\n\n'));
+        process.exit(1);
+      }
+
       const skippedArgs = commandBin.args.filter(arg => arg.startsWith('--') && allSkippableArgvs.some(skippable => arg.startsWith(skippable)));
       const unrelatedArgs = commandBin.args.filter(arg => arg.startsWith('--') && !allSkippableArgvs.some(skippable => arg.startsWith(skippable)));
       if (skippedArgs.length > 0 && unrelatedArgs.length > 0) {
@@ -684,9 +743,10 @@ export namespace CommanderSubcommand {
     }
 
     export function handleFileArgs(args: schemaType) {
-      const seenArgs = keys(args).filter(k => ['manFile', 'logFile', 'logsFile'].includes(k));
-      const otherArgs = keys(args).filter(k => !['manFile', 'logFile', 'logsFile', 'show'].includes(k));
-      const argsCount = otherArgs.length >= 1 ? otherArgs.length + 1 + seenArgs.length : otherArgs.length + seenArgs.length || 0;
+      // Keep file-output formatting consistent with the main `info` command by
+      // counting only explicit, non-default info entries. `--show` changes the
+      // content for a file entry, but should not make a single entry print a title.
+      const argsCount = countArgsWithValues('info', args) - (args.show ? 1 : 0);
       const hasLogFile = args.logFile || args.logsFile;
       const hasManFile = args.manFile;
       const hasShowFlag = args.show;
@@ -824,8 +884,35 @@ export namespace CommanderSubcommand {
       return result.join('\n');
     }
 
+    /**
+     * An alias for showing a concise output of the info command flags which are
+     * useful, when testing watched builds of this project that can be displayed on
+     * each time the client restarts the server so that the build used is always clear.
+     */
+    export function handleShortOutput(args: schemaType) {
+      if (args.json) {
+        logger.logToStdout(JSON.stringify({
+          path: SyncFileHelper.toSimplifiedPath(PathObj.execFile),
+          version: PackageVersion,
+          buildTime: PkgJson.buildTime,
+          logFile: SyncFileHelper.toSimplifiedPath(config.fish_lsp_log_file),
+        }, null, 2));
+      } else {
+        log(3, 'Path', SyncFileHelper.toSimplifiedPath(PathObj.execFile));
+        log(3, 'Build Version', PackageVersion);
+        log(3, 'Build Time', PkgJson.buildTime);
+        log(3, 'Log File', SyncFileHelper.toSimplifiedPath(config.fish_lsp_log_file));
+      }
+    }
+
+    /**
+     * Logs the provided message to stdout handling if the title should be shown based
+     * on the number of args and the content of the message. Always shows title if the
+     * title is "Capabilities" for better readability.
+     */
     export function log(argsCount: number, title: string, message: string, alwaysShowTitle = false) {
       const isCapabilitiesString = title.toLowerCase() === 'capabilities';
+      if (!message || message.trim() === '') return;
       if (isCapabilitiesString) message = `\n${message}`;
       if (argsCount > 1 || alwaysShowTitle || isCapabilitiesString) {
         logger.logToStdout(`${chalk.whiteBright.bold(`${title}:`)} ${chalk.cyan(message)}`);

@@ -9,7 +9,7 @@ import { buildExecuteNotificationResponse, execEntireBuffer, fishLspPromptIcon, 
 import { logger } from './logger';
 import { env } from './utils/env-manager';
 import { execAsync, execAsyncF, execAsyncFish } from './utils/exec';
-import { EnvVariableJson, PrebuiltDocumentationMap } from './utils/snippets';
+import { EnvVariableJson, findPrebuiltDoc, PrebuiltDocumentationMap } from './utils/snippets';
 import { pathToUri, uriToPath, uriToReadablePath } from './utils/translation';
 import { getRange } from './utils/tree-sitter';
 import { workspaceManager } from './utils/workspace-manager';
@@ -600,8 +600,7 @@ export function createExecuteCommandHandler(
       logger.log('handleShowStatusDocs', 'statusCode is string', statusCode);
     }
     statusCode = Number.parseInt(statusCode.toString()).toString();
-    const statusInfo = PrebuiltDocumentationMap.getByType('status')
-      .find(item => item.name === statusCode);
+    const statusInfo = findPrebuiltDoc(statusCode, 'status');
 
     logger.log('handleShowStatusDocs', statusCode, {
       foundStatusInfo: PrebuiltDocumentationMap.getByType('status').map(item => item.name),
@@ -925,7 +924,7 @@ export function createExecuteCommandHandler(
     if (parsed.type === 'symbol') {
       logger.log('Searching for global symbol:', parsed.name);
 
-      const globalSymbol = analyzer.globalSymbols.findFirst(parsed.name);
+      const globalSymbol = analyzer.symbols.globalSymbols.findFirst(parsed.name);
 
       if (!globalSymbol) {
         showMessage(`No global symbol found with name: ${parsed.name}`, MessageType.Error);

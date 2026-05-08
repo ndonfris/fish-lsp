@@ -93,6 +93,7 @@ function __fish_lsp_info_complete_opt --description 'check if the commandline co
 
     begin
       __fish_contains_opt extra
+      or __fish_contains_opt short
       or __fish_contains_opt verbose
       or __fish_contains_opt time-startup
       or __fish_contains_opt check-health
@@ -422,6 +423,7 @@ complete -c fish-lsp -n '__fish_lsp_info_complete_opt verbose extra; and __fish_
 complete -c fish-lsp -n '__fish_lsp_info_complete_opt extra verbose; and __fish_lsp_is_first_switch'                                               -l extra           -d 'show all debugging server info (capabilities, paths, version, etc.)' 
 complete -c fish-lsp -n '__fish_lsp_info_complete_opt check-health time-startup; and __fish_lsp_is_first_switch'                                   -l check-health    -d 'show the server health'
 complete -c fish-lsp -n '__fish_lsp_info_complete_opt time-startup check-health; and __fish_lsp_is_first_switch'                                   -l time-startup    -d 'show startup timing info'
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt time-startup; and not __fish_contains_opt profile'              -l profile         -d 'show detailed startup stage profiling'
 complete -c fish-lsp -n '__fish_lsp_info_complete_opt time-only;'                                                                                  -l time-only       -d 'show only summary of the startup timing info'
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt time-startup; and not __fish_contains_opt no-warning'           -l no-warning      -d 'do not show warning message'
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt time-startup; and not __fish_contains_opt use-workspace'        -l use-workspace   -d 'specify workspace directory' -xa '(__fish_complete_directories)'
@@ -443,6 +445,9 @@ complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_lsp_last_s
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt dump-symbol-tree; and not __fish_contains_opt no-color'         -l no-color        -d 'do not colorize the output'
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt dump-symbol-tree; and not __fish_contains_opt no-icons'         -l no-icons        -d 'use plain text tags (f/v/e) instead of nerdfont icons'
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt no-icons; and not __fish_contains_opt dump-symbol-tree'         -l dump-symbol-tree -d 'dump the symbol tree of a file'               -k -xa '(__fish_complete_suffix "*.fish" --description="path to show symbol tree" | string match -rei -- ".*\\.fish|.*/")'
+complete -c fish-lsp -n '__fish_lsp_info_complete_opt short'                                                                                       -l short           -d 'show "short" info (alias of "--bin --build-time --version --log-file")'
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_lsp_last_switch --short;'                                                    -l json            -d 'output "--short" info as json'
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_lsp_last_switch --short;'                                                    -l no-color        -d 'do not colorize the output of "--short"'
 `;
 
 const envCompletions: string = `## fish-lsp env --<TAB>

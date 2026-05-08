@@ -452,6 +452,9 @@ export namespace Config {
   // eslint-disable-next-line prefer-const
   export let isWebServer = false;
 
+  // eslint-disable-next-line prefer-const
+  export let skipStartupLogging = false;
+
   /**
    *  fixPopups - updates the `config.fish_lsp_show_client_popups` value based on the 3 cases:
    *   - cli flags include 'popups' -> directly sets `fish_lsp_show_client_popups`
@@ -715,6 +718,9 @@ export namespace Config {
   export function initialize(params: InitializeParams, connection: Connection) {
     updateFromInitializationOptions(params.initializationOptions);
     createServerLogger(config.fish_lsp_log_file, connection.console);
+    // if the `skipStartupLogging` flag is set, we want to skip logging the
+    // `onInitializedResult` to avoid cluttering the logs with the capabilities object
+    if (skipStartupLogging) logger.setFullSilence();
     const result = getResultCapabilities();
     logger.log({ onInitializedResult: result });
     return result;

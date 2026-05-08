@@ -40,6 +40,51 @@ describe('setup workspace', () => {
     workspaceManager.clear();
   });
 
+  describe('getWorkspacePathsFromInitializationParams', () => {
+    it('prioritizes workspaceFolders over deprecated root fields', () => {
+      const params = {
+        workspaceFolders: [{ uri: 'file:///tmp/workspace-folder', name: 'workspace-folder' }],
+        rootUri: 'file:///tmp/root-uri',
+        rootPath: '/tmp/root-path',
+      } as unknown as LSP.InitializeParams;
+
+      const uris = getWorkspacePathsFromInitializationParams(params);
+      expect(uris).toEqual(['/tmp/workspace-folder']);
+    });
+
+    it('falls back to rootUri when workspaceFolders is missing', () => {
+      const params = {
+        rootUri: 'file:///tmp/root-uri',
+        rootPath: '/tmp/root-path',
+      } as unknown as LSP.InitializeParams;
+
+      const uris = getWorkspacePathsFromInitializationParams(params);
+      expect(uris).toEqual(['/tmp/root-uri']);
+    });
+
+    it('falls back to rootUri when workspaceFolders is empty', () => {
+      const params = {
+        workspaceFolders: [],
+        rootUri: 'file:///tmp/root-uri',
+        rootPath: '/tmp/root-path',
+      } as unknown as LSP.InitializeParams;
+
+      const uris = getWorkspacePathsFromInitializationParams(params);
+      expect(uris).toEqual(['/tmp/root-uri']);
+    });
+
+    it('falls back to rootPath when rootUri is unavailable', () => {
+      const params = {
+        workspaceFolders: [],
+        rootUri: null,
+        rootPath: '/tmp/root-path',
+      } as unknown as LSP.InitializeParams;
+
+      const uris = getWorkspacePathsFromInitializationParams(params);
+      expect(uris).toEqual(['/tmp/root-path']);
+    });
+  });
+
   describe('fisher workspace', () => {
     it('conf.d/fisher-template', () => {
       const params = {
@@ -136,6 +181,17 @@ describe('setup workspace', () => {
       });
       expect(workspaces.length).toBe(1);
       expect(config.fish_lsp_single_workspace_support).toBe(true);
+    });
+
+    it('no startup URIs + single-workspace support should not index fish_lsp_all_indexed_paths', async () => {
+      config.fish_lsp_single_workspace_support = true;
+      config.fish_lsp_all_indexed_paths = [
+        `${os.homedir()}/.config/fish`,
+        '/usr/share/fish',
+      ];
+
+      const workspaces = await initializeDefaultFishWorkspaces();
+      expect(workspaces.length).toBe(0);
     });
 
     // it('/tmp/foo.fish \`true -> false\`', async () => {

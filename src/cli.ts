@@ -1,15 +1,15 @@
 import './utils/polyfills';
-import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, FishLspHelp, FishLspManPage, SourcesDict, SubcommandEnv, CommanderSubcommand, getBuildTypeString, PkgJson } from './utils/commander-cli-subcommands';
-import { Command, Option } from 'commander';
-import { buildFishLspAbbreviations, buildFishLspCompletions } from './utils/get-lsp-completions';
-import { logger } from './logger';
-import { configHandlers, config, updateHandlers, validHandlers, Config, handleEnvOutput } from './config';
-import { ConnectionOptions, ConnectionType, createConnectionType, maxWidthForOutput, startServer, timeServerStartup } from './utils/startup';
-import { performHealthCheck } from './utils/health-check';
-import { setupProcessEnvExecFile } from './utils/process-env';
-import { handleCLiDumpParseTree, handleCLiDumpSemanticTokens, handleCLiDumpSymbolTree } from './utils/cli-dump-tree';
 import PackageJSON from '@package';
 import chalk from 'chalk';
+import { Command, Option } from 'commander';
+import { config, Config, configHandlers, handleEnvOutput, updateHandlers, validHandlers } from './config';
+import { logger } from './logger';
+import { handleCLiDumpParseTree, handleCLiDumpSemanticTokens, handleCLiDumpSymbolTree } from './utils/cli-dump-tree';
+import { accumulateStartupOptions, BuildCapabilityString, CommanderSubcommand, FishLspHelp, FishLspManPage, getBuildTypeString, PackageLspVersion, PackageVersion, PathObj, PkgJson, SourcesDict, SubcommandEnv } from './utils/commander-cli-subcommands';
+import { buildFishLspAbbreviations, buildFishLspCompletions } from './utils/get-lsp-completions';
+import { performHealthCheck } from './utils/health-check';
+import { setupProcessEnvExecFile } from './utils/process-env';
+import { ConnectionOptions, ConnectionType, createConnectionType, maxWidthForOutput, startServer, timeServerStartup } from './utils/startup';
 import vfs from './virtual-fs';
 
 /**
@@ -106,6 +106,7 @@ commandBin.command('start')
   .option('--memory-limit <mb>', 'set memory usage limit in MB')
   .option('--max-files <number>', 'override the maximum number of files to analyze')
   .option('--web', 'start the server in web playground mode (fish-lsp.dev/playground)')
+  .option('--skip-startup-logging', 'skip logging messages during server startup phase')
   .addHelpText('afterAll', [
     '',
     'Strings for \'--enable/--disable\' switches:',
@@ -166,6 +167,10 @@ commandBin.command('start')
       Config.isWebServer = true;
     }
 
+    if (opts.skipStartupLogging) {
+      Config.skipStartupLogging = true;
+    }
+
     // Dump the configHandlers, if requested from the command line. This stops the server.
     if (dumpCmd) {
       logger.logFallbackToStdout({ handlers: configHandlers });
@@ -197,6 +202,7 @@ commandBin.command('info')
   .option('--health-check', 'run diagnostics and report health status', false)
   .option('--check-health', 'run diagnostics and report health status', false)
   .option('--time-startup', 'time the startup of the fish-lsp executable', false)
+  .option('--profile', 'show detailed startup stage profiling (use with --time-startup)', false)
   .option('--time-only', 'alias to show only the time taken for the server to index files', false)
   .option('--use-workspace <PATH>', 'use the specified workspace path for `fish-lsp info --time-startup`', undefined)
   .option('--no-warning', 'do not show warnings in the output for `fish-lsp info --time-startup`', true)
@@ -214,6 +220,8 @@ commandBin.command('info')
   .option('--no-color', 'disable color output for --dump-parse-tree, --dump-semantic-tokens, and --dump-symbol-tree', false)
   .option('--no-icons', 'use plain text tags (f/v/e) instead of nerdfont icons for --dump-symbol-tree')
   .option('--virtual-fs', 'show the virtual filesystem structure (like tree command)', false)
+  .option('--short', 'alias for `--version --build-time --bin --log-file`', false)
+  .option('--json', 'output info in JSON format (only applicable for certain flags, like --source-maps)', false)
   .allowUnknownOption(false)
   // .allowExcessArguments(false)
   .action(async (args: CommanderSubcommand.info.schemaType) => {
@@ -234,8 +242,14 @@ commandBin.command('info')
     }
 
     const sourceMaps = CommanderSubcommand.info.sourcemaps();
+
     // immediately exit if the user requested a specific info
     CommanderSubcommand.info.handleBadArgs(args);
+
+    if (args.short) {
+      CommanderSubcommand.info.handleShortOutput(args);
+      process.exit(0);
+    }
 
     if (args.dumpParseTree) {
       const status = await handleCLiDumpParseTree(args);
@@ -259,6 +273,7 @@ commandBin.command('info')
         await timeServerStartup({
           workspacePath: args.useWorkspace,
           warning: args.warning,
+          profile: args.profile,
           timeOnly: args.timeOnly,
           showFiles: args.showFiles,
         });
