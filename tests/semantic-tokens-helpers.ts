@@ -68,8 +68,8 @@ export function decodeSemanticTokens(
 /**
  * Find tokens by text content
  */
-export function findTokensByText(tokens: DecodedToken[], text: string): DecodedToken[] {
-  return tokens.filter(t => t.text === text);
+export function findTokensByText(tokens: DecodedToken[], ...text: string[]): DecodedToken[] {
+  return tokens.filter(tok => text.find(t => t === tok.text));
 }
 
 /**

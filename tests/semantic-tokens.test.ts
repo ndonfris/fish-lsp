@@ -13,8 +13,8 @@ import {
   printTokens,
   type DecodedToken,
 } from './semantic-tokens-helpers';
-import { getSemanticTokensSimplest, semanticTokenHandler } from '../src/semantic-tokens';
-import { getRange } from '../src/utils/tree-sitter';
+import { getSemanticTokensSimplest, isStructuralKeyword, semanticTokenHandler } from '../src/semantic-tokens';
+import { getRange, isNodeWithinRange, nodesGen } from '../src/utils/tree-sitter';
 import { PrebuiltDocumentationMap } from '../src/utils/snippets';
 import { CompletionItemMap } from '../src/utils/completion/startup-cache';
 import { FishCompletionItemKind } from '../src/utils/completion/types';
@@ -23,8 +23,37 @@ import { pathToUri } from '../src/utils/translation';
 import { existsSync } from 'fs';
 import { createFakeLspDocument, FakeLspDocument } from './helpers';
 import { join } from 'path';
+import { subcommandCache } from '../src/utils/subcommand-cache';
+import { FishString } from '../src/parsing/string';
 
 logger.setSilent(true);
+
+const modsFormatted = (m: DecodedToken['modifiers']) => {
+  const mapped = m.map(s => '"' + s + '"').join(', ').trim();
+  if (mapped.length === 0 || m.length === 0) return '[]';
+  return `[ ${mapped} ]`;
+};
+
+export const formatTokens = (tokens: DecodedToken[]) => {
+  return tokens.map((t, i) => ({
+    index: i,
+    text: t.text,
+    tokenType: t.tokenType,
+    modifiers: modsFormatted(t.modifiers),
+    line: t.line,
+    startChar: t.startChar,
+    length: t.length,
+    modifiersMask: t.modifiersMask, // include modifiers mask for debugging
+    tokenTypeIndex: t.tokenTypeIndex,
+  }));
+};
+
+/** Helper to get all syntax nodes within a given range for a document */
+const _get_nodesInRange = (doc: LspDocument, range: Range) => {
+  const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
+  if (!analyzed) return [];
+  return nodesGen(analyzed.root).filter(n => isNodeWithinRange(n, range));
+};
 
 /**
  * Test suite for the simplified semantic token handler.
@@ -654,6 +683,50 @@ myalias`;
       expect(globalVarTokens.length).toBeGreaterThan(0);
     });
 
+    it('should highlight set query target as variable in "set -q CUSTOM_PATH"', () => {
+      const content = 'set -q CUSTOM_PATH || set CUSTOM_PATH $PATH[1]';
+      const doc = new FakeLspDocument({
+        uri: 'test://set-query-variable.fish',
+        languageId: 'fish',
+        version: 1,
+        text: content,
+      });
+      analyzer.analyze(doc);
+      const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
+
+      const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
+      const tokens = decodeSemanticTokens(result, content);
+
+      const customPathTokens = findTokensByText(tokens, 'CUSTOM_PATH');
+      expect(customPathTokens.length).toBeGreaterThanOrEqual(2);
+      expect(customPathTokens.every(t => t.tokenType === 'variable')).toBe(true);
+
+      const pathTokens = findTokensByText(tokens, 'PATH');
+      expect(pathTokens.length).toBeGreaterThan(0);
+    });
+
+    it('should highlight set show target as variable in "set -S CUSTOM_PATH"', () => {
+      const content = 'set -S CUSTOM_PATH && set -e CUSTOM_PATH[1]';
+      const doc = new FakeLspDocument({
+        uri: 'test://set-show-variable.fish',
+        languageId: 'fish',
+        version: 1,
+        text: content,
+      });
+      analyzer.analyze(doc);
+      const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
+
+      const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
+      const tokens = decodeSemanticTokens(result, content);
+
+      const customPathTokens = findTokensByText(tokens, 'CUSTOM_PATH');
+      expect(customPathTokens).toHaveLength(2);
+      expect(customPathTokens.every(t => t.tokenType === 'variable')).toBeTruthy();
+
+      const numberTokens = findTokensByType(tokens, 'number');
+      expect(numberTokens).toHaveLength(1);
+    });
+
     it('should highlight export command and variable in "export VAR=value"', () => {
       const content = 'export MY_VAR=hello';
       const doc = new FakeLspDocument({
@@ -765,7 +838,10 @@ export LANG=en_US.UTF-8`;
       const tokens = decodeSemanticTokens(result, variables_doc.getText());
 
       // Variable tokens should NOT include the $ character
-      const dollarTokens = tokens.filter(t => t.text?.startsWith('$'));
+      const dollarTokens = tokens.filter(t => t.text?.includes('$'));
+      // console.log({
+      //   dollarTokens: dollarTokens.map(t => ({ text: t.text, tokenType: t.tokenType })),
+      // });
       expect(dollarTokens.length).toBe(0);
 
       // But should have tokens for PATH, HOME, USER (without $)
@@ -781,6 +857,29 @@ export LANG=en_US.UTF-8`;
       expect(pathTokens.every(t => t.tokenType === 'variable')).toBe(true);
       expect(homeTokens.every(t => t.tokenType === 'variable')).toBe(true);
       expect(userTokens.every(t => t.tokenType === 'variable')).toBe(true);
+    });
+
+    it('should highlight dereferenced variable expansions without including $ characters', () => {
+      const content = 'echo $$dereference_variable';
+      const doc = new FakeLspDocument({
+        uri: 'test://double-dereference-variable.fish',
+        languageId: 'fish',
+        version: 1,
+        text: content,
+      });
+      analyzer.analyze(doc);
+      const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
+
+      const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
+      const tokens = decodeSemanticTokens(result, content);
+
+      const variableTokens = findTokensByType(tokens, 'variable');
+      expect(variableTokens).toHaveLength(1);
+      expect(variableTokens[0]?.text).toBe('dereference_variable');
+      expect(variableTokens[0]?.startChar).toBe(content.indexOf('dereference_variable'));
+
+      const dollarTokens = tokens.filter(t => t.text?.includes('$'));
+      expect(dollarTokens).toHaveLength(0);
     });
 
     it('should handle nested variable expansions', () => {
@@ -801,6 +900,12 @@ export LANG=en_US.UTF-8`;
       // It should at least provide some semantic tokens for the variable expansion
       const varTokens = findTokensByType(tokens, 'variable');
       expect(varTokens.length).toBeGreaterThanOrEqual(0);
+
+      expect(varTokens.at(0)?.text).toBe('argv');
+
+      const numberTokens = findTokensByType(tokens, 'number');
+      expect(numberTokens.at(0)?.text).toBe('1');
+      expect(numberTokens.length).toBeGreaterThanOrEqual(1);
     });
 
     it('should highlight for loop variable as variable token', () => {
@@ -844,8 +949,7 @@ export LANG=en_US.UTF-8`;
         version: 1,
         text: content,
       });
-      analyzer.analyze(doc);
-      const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
+      const analyzed = analyzer.analyze(doc)?.ensureParsed();
 
       const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
       const tokens = decodeSemanticTokens(result, content);
@@ -1008,7 +1112,11 @@ export LANG=en_US.UTF-8`;
     });
 
     it('should NOT confuse array indexing with test command in "echo $argv[1]"', () => {
-      const content = 'echo $argv[1]';
+      const content = [
+        'echo $argv[1..-1]',
+        'set -e argv[1]',
+      ].join('\n');
+
       const doc = new FakeLspDocument({
         uri: 'test://array-index.fish',
         languageId: 'fish',
@@ -1029,7 +1137,18 @@ export LANG=en_US.UTF-8`;
 
       // Should have variable tokens (the simplified handler handles array indexing)
       const varTokens = findTokensByType(tokens, 'variable');
-      expect(varTokens.length).toBeGreaterThanOrEqual(0); // May or may not tokenize array indexing
+      expect(varTokens.length).toBeGreaterThanOrEqual(2); // May or may not tokenize array indexing
+
+      const numberTokens = findTokensByType(tokens, 'number');
+      expect(numberTokens.length).toBeGreaterThanOrEqual(3); // May or may not tokenize the index number
+
+      // console.log({
+      //   varTokens: formatTokens(varTokens),
+      //   numberTokens: formatTokens(numberTokens),
+      // });
+
+      expect(varTokens.some(t => t.text === 'argv')).toBeTruthy();
+      expect(numberTokens.every(t => t.text === '1' || t.text === '-1')).toBeTruthy();
 
       // Should NOT have [ or ] as command tokens (they're part of array indexing)
       // If there are bracket tokens, they should NOT be command type
@@ -1180,7 +1299,7 @@ export LANG=en_US.UTF-8`;
     });
   });
 
-  describe.skip('Nested Structures', () => {
+  describe('Nested Structures', () => {
     it('should handle command substitution inside test command', () => {
       const content = 'if test (count $argv) -gt 0; echo "has args"; end';
       const doc = createFakeLspDocument('test://nested-test.fish', content);
@@ -1207,6 +1326,49 @@ export LANG=en_US.UTF-8`;
       const echoTokens = findTokensByText(tokens, 'echo');
       expect(echoTokens.length).toBeGreaterThan(0);
       expect(echoTokens.some(t => t.tokenType === 'function')).toBe(true);
+    });
+
+    it('should handle `begin`/`end` and `{`/`}` the same', () => {
+      const content = 'begin; echo "Hello"; end\n{ echo "World"; } ; for v in _{a,b,c};\n    echo $v;\n end';
+      const doc = createFakeLspDocument('test://nested-blocks.fish', content);
+      // Note: The simplified handler may not differentiate between begin/end and { }, but it should at least provide tokens for the commands inside
+      const analyzed = analyzer.analyze(doc).ensureParsed();
+      const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
+      const tokens = decodeSemanticTokens(result, content);
+
+      const beginTokens = findTokensByText(tokens, 'begin', '{');
+      const endTokens = findTokensByText(tokens, 'end', '}');
+
+      expect(beginTokens.length).toBe(2);
+      expect(beginTokens.map(t => t.text)).toEqual(['begin', '{']);
+      expect(endTokens.length).toBe(3);
+      expect(endTokens.map(t => t.text)).toEqual(['end', '}', 'end']);
+
+      expect([
+        ...beginTokens,
+        ...endTokens,
+      ].every(t => t.tokenType === 'keyword' && t.modifiers.length === 0)).toBeTruthy();
+
+      expect(findTokensByText(tokens, 'echo').length).toBeGreaterThanOrEqual(3);
+    });
+
+    it('should handle nested `{ { } ; { } ; }`', () => {
+      const content = '{ echo "Block 1"; { echo "Block 2"; } ; { echo "Block 3"; } ; }';
+      const doc = createFakeLspDocument('test://nested-braces.fish', content);
+      const analyzed = analyzer.analyze(doc).ensureParsed();
+      const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
+      const tokens = decodeSemanticTokens(result, content);
+
+      // Should have multiple echo tokens (at least 3)
+      const echoTokens = findTokensByText(tokens, 'echo');
+      expect(echoTokens.length).toBeGreaterThanOrEqual(3);
+
+      // Should have { and } tokens
+      const openBraceTokens = findTokensByText(tokens, '{');
+      const closeBraceTokens = findTokensByText(tokens, '}');
+
+      expect(openBraceTokens.length).toBeGreaterThanOrEqual(3);
+      expect(closeBraceTokens.length).toBeGreaterThanOrEqual(3);
     });
 
     it('should handle deeply nested command substitution', () => {
@@ -1240,7 +1402,7 @@ export LANG=en_US.UTF-8`;
       const tokens = decodeSemanticTokens(result, content);
 
       // Should have 'set' as keyword
-      expectTokenExists(tokens, { text: 'set', tokenType: 'keyword' });
+      expectTokenExists(tokens, { text: 'set', tokenType: 'function' });
 
       // Should have 'files' as variable
       const filesTokens = findTokensByText(tokens, 'files');
@@ -1555,7 +1717,7 @@ set incomplete`;
         analyzer.analyzePath(pathToUri(fsPath));
       });
 
-      analyzerSymbolNames = new Set(analyzer.globalSymbols.allNames);
+      analyzerSymbolNames = new Set(analyzer.symbols.globalSymbols.allNames);
 
       try {
         startupCompletionMap = await CompletionItemMap.initialize();
@@ -1685,6 +1847,77 @@ set incomplete`;
       expect(falseToken).toBeDefined();
     });
 
+    it('should highlight true and false inside command args', () => {
+      const content = 'set -l bools true false \\\'true\\\' \\\'false\\\'\n:\necho \\\'true\\\' \\\'false\\\'\nset -l skipable \'true true true\' \'false false false\'\nset false\nfalse';
+      const doc = new FakeLspDocument({
+        uri: 'test://bool-modifier.fish',
+        languageId: 'fish',
+        version: 1,
+        text: content,
+      });
+      analyzer.analyze(doc);
+      const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
+
+      const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
+      const tokens = decodeSemanticTokens(result, content);
+
+      const trueTokens = findTokensByType(tokens, 'function').filter(t => [':', 'true'].includes(FishString.fromText(t.text!)));
+      const falseTokens = findTokensByType(tokens, 'function').filter(t => ['false'].includes(FishString.fromText(t.text!)));
+
+      // const trueTokens = findTokensByText(tokens, 'true', ':');
+      // const falseTokens = findTokensByText(tokens, 'false');
+      const colonToken = expectTokenExists(tokens, {
+        text: ':',
+        tokenType: 'function',
+        modifiers: ['defaultLibrary'],
+      });
+
+      expect(colonToken).toBeDefined();
+      expect(trueTokens).toHaveLength(4);
+      expect(falseTokens).toHaveLength(4);
+      expect(trueTokens.every(token => token.tokenType === 'function')).toBe(true);
+      expect(falseTokens.every(token => token.tokenType === 'function')).toBe(true);
+      expect(trueTokens.every(token => token.modifiers.includes('defaultLibrary'))).toBe(true);
+      expect(falseTokens.every(token => token.modifiers.includes('defaultLibrary'))).toBe(true);
+
+      expect(trueTokens.map(t => t.text)).toEqual(['true', 'true', ':', 'true']);
+      expect(falseTokens.map(t => t.text)).toEqual(['false', 'false', 'false', 'false']);
+    });
+
+    it('should highlight `not` and `!` the same', () => {
+      const content = [
+        'not true',
+        'or ! true',
+        '|| ! false && ! ! true',
+        'or ! ! true',
+        'or ! ! not not false',
+      ].join('\n');
+      const doc = new FakeLspDocument({
+        uri: 'test://not-test.fish',
+        languageId: 'fish',
+        version: 1,
+        text: content,
+      });
+      const analyzed = analyzer.analyze(doc).ensureParsed();
+
+      const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
+      const tokens = decodeSemanticTokens(result, content);
+
+      const notTokens = findTokensByType(tokens, 'keyword').filter(t => ['not', '!'].includes(t.text!));
+
+      const notLiterals = notTokens.filter(t => ['not'].includes(FishString.fromText(t.text!)));
+      const bangLiterals = notTokens.filter(t => ['!'].includes(FishString.fromText(t.text!)));
+      const otherKeywordTokens = findTokensByType(tokens, 'keyword').filter(t => !['not', '!'].includes(FishString.fromText(t.text!))).map(t => t.text);
+      // console.log({
+      //   notLiterals: notLiterals.length,
+      //   bangLiterals: bangLiterals.length,
+      //   otherStructuralKeywordTokens: otherKeywordTokens.length,
+      // });
+      expect(notLiterals.length).toBeGreaterThanOrEqual(3);
+      expect(bangLiterals.length).toBeGreaterThanOrEqual(8);
+      expect(otherKeywordTokens.length).toBeGreaterThanOrEqual(5);
+    });
+
     it('should highlight count with defaultLibrary modifier', () => {
       const content = 'count $argv';
       const doc = new FakeLspDocument({
@@ -1798,6 +2031,106 @@ echo $my_var`;
       const varTokens = findTokensByText(tokens, 'my_var');
       expect(varTokens.length).toBeGreaterThan(0);
       expect(varTokens.every(t => t.tokenType === 'variable')).toBe(true);
+    });
+  });
+
+  describe('Subcommand Tokens', () => {
+    function getTokensForContent(content: string, uri = 'test://subcommand.fish') {
+      const doc = new FakeLspDocument({ uri, languageId: 'fish', version: 1, text: content });
+      analyzer.analyze(doc);
+      const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
+      const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
+      return decodeSemanticTokens(result, content);
+    }
+
+    it('should highlight builtin subcommand when cache is populated', () => {
+      subcommandCache.setSubcommands('string', ['split', 'match', 'join', 'replace', 'length']);
+      const tokens = getTokensForContent('string split . "a.b.c"', 'test://subcmd-string-split.fish');
+
+      // 'string' should be highlighted as a function with defaultLibrary
+      expectTokenExists(tokens, { text: 'string', tokenType: 'function', modifiers: ['defaultLibrary'] });
+      // 'split' should also be highlighted as function with defaultLibrary (inherits parent modifiers)
+      expectTokenExists(tokens, { text: 'split', tokenType: 'function', modifiers: ['defaultLibrary'] });
+    });
+
+    it('should highlight path subcommand when cache is populated', () => {
+      subcommandCache.setSubcommands('path', ['normalize', 'resolve', 'basename', 'dirname', 'extension', 'filter', 'sort', 'change-extension', 'is', 'mtime']);
+      const tokens = getTokensForContent('path normalize /usr/bin/../lib', 'test://subcmd-path-norm.fish');
+
+      expectTokenExists(tokens, { text: 'path', tokenType: 'function', modifiers: ['defaultLibrary'] });
+      expectTokenExists(tokens, { text: 'normalize', tokenType: 'function', modifiers: ['defaultLibrary'] });
+    });
+
+    it('should highlight status subcommand when cache is populated', () => {
+      subcommandCache.setSubcommands('status', ['is-login', 'is-interactive', 'is-full-job-control', 'current-command', 'filename']);
+      const tokens = getTokensForContent('status is-login', 'test://subcmd-status-login.fish');
+
+      expectTokenExists(tokens, { text: 'status', tokenType: 'function', modifiers: ['defaultLibrary'] });
+      expectTokenExists(tokens, { text: 'is-login', tokenType: 'function', modifiers: ['defaultLibrary'] });
+    });
+
+    it('should not highlight subcommand when cache has no match', () => {
+      subcommandCache.setSubcommands('string', ['split', 'match', 'join']);
+      const tokens = getTokensForContent('string notasubcmd foo', 'test://subcmd-miss.fish');
+
+      expectTokenExists(tokens, { text: 'string', tokenType: 'function', modifiers: ['defaultLibrary'] });
+      // 'notasubcmd' should NOT be highlighted as a function
+      const subcmdTokens = findTokensByText(tokens, 'notasubcmd').filter(t => t.tokenType === 'function');
+      expect(subcmdTokens.length).toBe(0);
+    });
+
+    it('should not highlight options as subcommands', () => {
+      subcommandCache.setSubcommands('string', ['split', 'match']);
+      const tokens = getTokensForContent('string split -r . "a.b"', 'test://subcmd-option.fish');
+
+      // '-r' should never be highlighted as a function
+      const optionTokens = findTokensByText(tokens, '-r').filter(t => t.tokenType === 'function');
+      expect(optionTokens.length).toBe(0);
+
+      // 'split' should still be highlighted
+      expectTokenExists(tokens, { text: 'split', tokenType: 'function', modifiers: ['defaultLibrary'] });
+    });
+
+    it('should respect fish_lsp_show_subcommand_semantic_tokens = false', () => {
+      const original = config.fish_lsp_show_subcommand_semantic_tokens;
+      try {
+        config.fish_lsp_show_subcommand_semantic_tokens = false;
+        subcommandCache.setSubcommands('string', ['split', 'match']);
+        const tokens = getTokensForContent('string split . "a.b"', 'test://subcmd-disabled.fish');
+
+        // 'string' should still be highlighted
+        expectTokenExists(tokens, { text: 'string', tokenType: 'function', modifiers: ['defaultLibrary'] });
+        // 'split' should NOT be highlighted when the config is disabled
+        const splitTokens = findTokensByText(tokens, 'split').filter(t => t.tokenType === 'function');
+        expect(splitTokens.length).toBe(0);
+      } finally {
+        config.fish_lsp_show_subcommand_semantic_tokens = original;
+      }
+    });
+
+    it('should highlight user function subcommands when cache is populated', () => {
+      subcommandCache.setSubcommands('git', ['commit', 'push', 'pull', 'status', 'worktree']);
+      const tokens = getTokensForContent('git commit -m "msg"', 'test://subcmd-git-commit.fish');
+
+      // 'git' should be a function token
+      expectTokenExists(tokens, { text: 'git', tokenType: 'function' });
+      // 'commit' should also be a function token (inherits parent modifiers)
+      expectTokenExists(tokens, { text: 'commit', tokenType: 'function' });
+    });
+
+    it('should handle multiple subcommand lines independently', () => {
+      subcommandCache.setSubcommands('string', ['split', 'match', 'join']);
+      subcommandCache.setSubcommands('path', ['normalize', 'resolve']);
+      const content = [
+        'string split . "a.b"',
+        'path normalize /usr/../lib',
+        'string match "*.fish" file.fish',
+      ].join('\n');
+      const tokens = getTokensForContent(content, 'test://subcmd-multi.fish');
+
+      expectTokenExists(tokens, { text: 'split', tokenType: 'function', line: 0 });
+      expectTokenExists(tokens, { text: 'normalize', tokenType: 'function', line: 1 });
+      expectTokenExists(tokens, { text: 'match', tokenType: 'function', line: 2 });
     });
   });
 });
