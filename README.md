@@ -539,6 +539,19 @@ set -gx fish_lsp_max_workspace_depth 3
 #                   '~/.local/bin/fish')
 # (Default: '')
 set -gx fish_lsp_fish_path 'fish'
+
+# $fish_lsp_tree_sitter_wasm_path <STRING>
+# A path to the tree-sitter-fish.wasm binary for the language server to use
+# (Example Options: '~/repos/tree-sitter-fish/tree-sitter-fish.wasm', 
+#                   '~/.local/share/tree-sitter-fish.wasm', '')
+# (Default: '')
+set -gx fish_lsp_tree_sitter_wasm_path ''
+
+# $fish_lsp_show_subcommand_semantic_tokens <BOOLEAN>
+# Highlight `COMMAND SUBCOMMAND` tokens together (e.g., `string collect`, `path resolve`, `status is-interactive`)
+# (Options: 'true', 'false')
+# (Default: 'true')
+set -gx fish_lsp_show_subcommand_semantic_tokens true
 ```
 
 </details>
@@ -701,7 +714,20 @@ set -gx fish_lsp_max_workspace_depth
 # (Example Options: 'fish', '/usr/bin/fish', '/usr/.local/bin/fish', 
 #                   '~/.local/bin/fish')
 # (Default: '')
-set -gx fish_lsp_fish_path
+set -gx fish_lsp_fish_path 
+
+# $fish_lsp_tree_sitter_wasm_path <STRING>
+# A path to the tree-sitter-fish.wasm binary for the language server to use
+# (Example Options: '~/repos/tree-sitter-fish/tree-sitter-fish.wasm', 
+#                   '~/.local/share/tree-sitter-fish.wasm', '')
+# (Default: '')
+set -gx fish_lsp_tree_sitter_wasm_path 
+
+# $fish_lsp_show_subcommand_semantic_tokens <BOOLEAN>
+# Highlight `COMMAND SUBCOMMAND` tokens together (e.g., `string collect`, `path resolve`, `status is-interactive`)
+# (Options: 'true', 'false')
+# (Default: 'true')
+set -gx fish_lsp_show_subcommand_semantic_tokens
 ```
 
 </details>
@@ -751,7 +777,9 @@ set -gx fish_lsp_fish_path
     "**/docker/**"
   ],
   "fish_lsp_max_workspace_depth": 3,
-  "fish_lsp_fish_path": "fish"
+  "fish_lsp_fish_path": "fish",
+  "fish_lsp_tree_sitter_wasm_path": "",
+  "fish_lsp_show_subcommand_semantic_tokens": true
 }
 ```
 

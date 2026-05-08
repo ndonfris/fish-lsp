@@ -30,7 +30,11 @@ export function createPlugins(options: PluginOptions): esbuild.Plugin[] {
       name: 'embedded-assets',
       setup(build) {
         const projectRoot = process.cwd();
-        const wasmFile = resolve(projectRoot, 'node_modules/@esdmr/tree-sitter-fish/tree-sitter-fish.wasm');
+        const wasmOverridePath = process.env.fish_lsp_tree_sitter_wasm_path;
+        const wasmExists = wasmOverridePath && existsSync(resolve(projectRoot, wasmOverridePath));
+        const wasmFile = wasmExists
+          ? resolve(projectRoot, wasmOverridePath)
+          : resolve(projectRoot, 'node_modules/@esdmr/tree-sitter-fish/tree-sitter-fish.wasm');
         const coreWasmFile = resolve(projectRoot, 'node_modules/web-tree-sitter/tree-sitter.wasm');
         const manFile = resolve(projectRoot, 'man', 'fish-lsp.1');
         const buildTimeFile = resolve(projectRoot, 'out', 'build-time.json');

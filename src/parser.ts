@@ -1,7 +1,10 @@
 import Parser from 'web-tree-sitter';
 import treeSitterWasmPath from 'web-tree-sitter/tree-sitter.wasm';
 import fishLanguageWasm from '@esdmr/tree-sitter-fish/tree-sitter-fish.wasm';
+import { readFileSync } from 'fs';
 import { logger } from './logger';
+import { config } from './config';
+import { SyncFileHelper } from './utils/file-operations';
 
 const _global: any = global;
 
@@ -28,7 +31,7 @@ export async function initializeParser(): Promise<Parser> {
   });
 
   const parser = new Parser();
-  const fishWasmBuffer = bufferToUint8Array(fishLanguageWasm); // \0asm
+  const fishWasmBuffer = getFishLanguageWasmBuffer(); // \0asm
 
   try {
     const lang = await Parser.Language.load(fishWasmBuffer);
@@ -40,6 +43,31 @@ export async function initializeParser(): Promise<Parser> {
   }
 
   return parser;
+}
+
+// resolve the WASM buffer for the fish language grammar, allowing for an optional override via environment variable or config setting
+function getFishLanguageWasmBuffer(): Uint8Array {
+  const overridePath = process.env.fish_lsp_tree_sitter_wasm_path || config.fish_lsp_tree_sitter_wasm_path;
+  if (!overridePath) {
+    return bufferToUint8Array(fishLanguageWasm);
+  }
+
+  const expandedOverridePath = SyncFileHelper.expandNormalize(overridePath);
+
+  if (!SyncFileHelper.exists(expandedOverridePath)) {
+    logger.warning(`fish_lsp_tree_sitter_wasm_path override specified but file does not exist: ${overridePath}`);
+    return bufferToUint8Array(fishLanguageWasm);
+  }
+  try {
+    // Keep this runtime-only so browser bundles can still compile without a
+    // hard dependency on Node's fs module.
+    logger.log(`Loading tree-sitter-fish wasm override from: ${expandedOverridePath}`);
+    return readFileSync(expandedOverridePath);
+  } catch (error) {
+    logger.logToStderr(`Failed to load fish_lsp_tree_sitter_fish_wasm override: ${overridePath}`);
+    console.error(error);
+    throw error;
+  }
 }
 
 function bufferToUint8Array(buffer: ArrayBuffer | Buffer | string): Uint8Array {

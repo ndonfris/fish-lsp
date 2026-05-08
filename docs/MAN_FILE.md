@@ -68,6 +68,7 @@ show the build info of fish-lsp
   `--man-file`                     show the man file path  
   `--log-file`                     show the log file path  
   `--show`                         show the man/log file contents (needs to be paired with `--log-file` or `--man-file`)  
+  `--short`                        display small amount of info (alias for `--version --build-type --build-time --lsp-version`)  
   `--extra`                        show debugging server info (capabilities, paths, version, etc.)  
   `--verbose`                      show debugging server info (capabilities, paths, version, etc.)  
   `--check-health`                 run diagnostics and report health status  

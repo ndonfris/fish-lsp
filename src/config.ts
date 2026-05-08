@@ -152,6 +152,9 @@ export const ConfigSchema = z.object({
   /** path to fish executable for child processes */
   fish_lsp_fish_path: z.string().default('fish'),
 
+  /** path to special patch of tree-sitter-fish.wasm file that parser uses */
+  fish_lsp_tree_sitter_wasm_path: z.string().default(''),
+
   /** highlight subcommands with the same semantic token as their parent command */
   fish_lsp_show_subcommand_semantic_tokens: z.boolean().default(true),
 });
@@ -183,6 +186,7 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_ignore_paths: process.env.fish_lsp_ignore_paths?.split(' '),
     fish_lsp_max_workspace_depth: toNumber(process.env.fish_lsp_max_workspace_depth || '4'),
     fish_lsp_fish_path: process.env.fish_lsp_fish_path,
+    fish_lsp_tree_sitter_wasm_path: process.env.fish_lsp_tree_sitter_wasm_path,
     fish_lsp_show_subcommand_semantic_tokens: toBoolean(process.env.fish_lsp_show_subcommand_semantic_tokens),
   };
 
