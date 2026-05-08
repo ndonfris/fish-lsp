@@ -1,6 +1,6 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { Range } from 'vscode-languageserver';
-import { isCommandWithName, isConcatenation, isString } from '../utils/node-types';
+import { getCommandNameNode, isCommandWithName, isConcatenation, isString } from '../utils/node-types';
 import { LspDocument } from '../document';
 import { FishSymbol } from './symbol';
 import { DefinitionScope } from '../utils/definition-scope';
@@ -28,14 +28,12 @@ export function isExportVariableDefinitionName(node: SyntaxNode): boolean {
   // if that is the case, then we need to move up 1 more parent
   if (isConcatenated) parentNode = parentNode.parent as SyntaxNode;
   if (!parentNode || !isCommandWithName(parentNode, 'export')) return false;
-  // since there is two possible cases, handle concatenated and non-concatenated differently
-  const firstChild = isConcatenated
-    ? parentNode.firstNamedChild
-    : parentNode.firstChild;
-  // skip `export` named node, since it's not the alias name
-  if (firstChild && firstChild.equals(node)) return false;
+  // skip the `export` command-name node itself. Using the `name` field is
+  // robust against `override_variable` prefixes.
+  const cmdName = getCommandNameNode(parentNode);
+  if (cmdName && cmdName.equals(node)) return false;
   const args = parentNode.childrenForFieldName('argument');
-  // first element is args is the export name
+  // first element of args is the export name
   const exportName = isConcatenated
     ? args.at(0)?.firstChild
     : args.at(0);
@@ -111,7 +109,7 @@ export function findVariableDefinitionNameNode(node: SyntaxNode): {
  * Extracts variable information from an export definition
  */
 export function extractExportVariable(node: SyntaxNode): ExtractedExportVariable | null {
-  const argument = node.firstChild?.nextNamedSibling;
+  const argument = node.childrenForFieldName('argument')[0];
   if (!argument) {
     return null;
   }
@@ -143,7 +141,7 @@ export function buildExportDetail(doc: LspDocument, commandNode: SyntaxNode, var
 
   // Create a detail string with the command and variable definition
   const detail = [
-    `${md.bold('(variable)')} ${md.inlineCode(name)}`,
+    `(${md.bold('variable')}) ${md.inlineCode(name)}`,
     `${md.italic('globally')} scoped, ${md.italic('exported')}`,
     `located in file: ${md.inlineCode(uriToReadablePath(doc.uri))}`,
     md.separator(),
@@ -160,8 +158,10 @@ export function buildExportDetail(doc: LspDocument, commandNode: SyntaxNode, var
 export function processExportCommand(document: LspDocument, node: SyntaxNode, children: FishSymbol[] = []): FishSymbol[] {
   if (!isExportDefinition(node)) return [];
 
-  // Get the second argument (the variable assignment part)
-  const args = node.namedChildren.slice(1); // Skip 'export' command name
+  // Get the variable assignment part (the first `argument` field).
+  // Reading via the field rather than `namedChildren.slice(1)` correctly
+  // skips both the command name and any `override_variable` prefix.
+  const args = node.childrenForFieldName('argument');
   if (args.length === 0) return [];
 
   const argNode = args[0]!;

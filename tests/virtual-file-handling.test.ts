@@ -28,6 +28,13 @@ vi.mock('../src/utils/startup', () => ({
 
 describe('Virtual Fish File Handling', () => {
   let mockConnection: LSP.Connection;
+  let createdServers: FishServer[] = [];
+
+  const createTestServer = async (params: LSP.InitializeParams) => {
+    const result = await FishServer.create(mockConnection, params);
+    createdServers.push(result.server);
+    return result;
+  };
 
   beforeAll(async () => {
     setLogger();
@@ -47,6 +54,9 @@ describe('Virtual Fish File Handling', () => {
   });
 
   afterEach(() => {
+    createdServers.forEach(server => server.dispose());
+    createdServers = [];
+    analyzer.diagnostics.clear();
     vi.clearAllMocks();
     testClearDocuments();
     workspaceManager.clear();
@@ -125,7 +135,7 @@ echo $var_name
       };
 
       Config.isWebServer = true;
-      const { server, initializeResult } = await FishServer.create(mockConnection, virtualParams);
+      const { server, initializeResult } = await createTestServer(virtualParams);
 
       expect(server).toBeDefined();
       expect(initializeResult).toBeDefined();
@@ -171,7 +181,7 @@ echo $var_name
 
     it('should provide completions for virtual files', async () => {
       Config.isWebServer = true;
-      const { server } = await FishServer.create(mockConnection, { processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
+      const { server } = await createTestServer({ processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
 
       const virtualUri = 'memory://test.fish';
       const fishContent = `
@@ -212,7 +222,7 @@ end
 
     it('should handle hover for virtual files', async () => {
       Config.isWebServer = true;
-      const { server } = await FishServer.create(mockConnection, { processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
+      const { server } = await createTestServer({ processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
 
       const virtualUri = 'vscode-vfs://github/user/repo/test.fish';
       const fishContent = `
@@ -250,9 +260,36 @@ test_func
       expect(hover).toBeDefined();
     });
 
+    it('should handle hover for nested helper commands in complete strings', async () => {
+      Config.isWebServer = true;
+      const { server } = await createTestServer({ processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
+
+      const virtualUri = 'vscode-vfs://github/user/repo/complete-helper-hover.fish';
+      const fishContent = 'complete -c nvim -n \'__fish_use_subcommand\' -a \'(__fish_use_subcommand)\'';
+
+      testOpenDocument(
+        LspDocument.createTextDocumentItem(
+          virtualUri,
+          fishContent,
+        ),
+      );
+
+      const conditionHover = await server.onHover({
+        textDocument: { uri: virtualUri },
+        position: { line: 0, character: 25 },
+      });
+      expect(JSON.stringify(conditionHover?.contents)).toContain('__fish_use_subcommand');
+
+      const argumentHover = await server.onHover({
+        textDocument: { uri: virtualUri },
+        position: { line: 0, character: 56 },
+      });
+      expect(JSON.stringify(argumentHover?.contents)).toContain('__fish_use_subcommand');
+    });
+
     it('should update virtual document content when client sends didChangeTextDocument', async () => {
       Config.isWebServer = true;
-      const { server } = await FishServer.create(mockConnection, { processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
+      const { server } = await createTestServer({ processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
 
       const virtualUri = 'https://example.com/dynamic.fish';
       const initialContent = `
@@ -444,7 +481,7 @@ end
 
     it('should provide basic language features without shell access', async () => {
       Config.isWebServer = true;
-      const { server } = await FishServer.create(mockConnection, { processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
+      const { server } = await createTestServer({ processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
 
       const dockerUri = 'docker://container/workspace/script.fish';
       const fishScript = `
@@ -634,7 +671,7 @@ virtual_only_func
 
     it('should mirror textDocument/diagnostics request behavior', async () => {
       Config.isWebServer = true;
-      const { server } = await FishServer.create(mockConnection, { processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
+      const { server } = await createTestServer({ processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
 
       const virtualUri = 'memory://test-diagnostics-mirror.fish';
       const fishContentForDiagnostics = `
@@ -686,7 +723,7 @@ set $local_var "trying to set with dollar sign"
 
     it('should handle document updates and re-analyze for diagnostics', async () => {
       Config.isWebServer = true;
-      const { server } = await FishServer.create(mockConnection, { processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
+      const { server } = await createTestServer({ processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
 
       const virtualUri = 'memory://test-updates.fish';
       const initialContent = `

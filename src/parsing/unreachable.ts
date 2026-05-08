@@ -1,5 +1,5 @@
 import { SyntaxNode } from 'web-tree-sitter';
-import { isCommand, isReturn, isSwitchStatement, isCaseClause, isIfStatement, isForLoop, isFunctionDefinition, isComment, isConditionalCommand } from '../utils/node-types';
+import { getCommandNameText, isCommand, isReturn, isSwitchStatement, isCaseClause, isIfStatement, isForLoop, isFunctionDefinition, isComment, isConditionalCommand } from '../utils/node-types';
 
 /**
  * Checks if a node represents a control flow statement that terminates execution
@@ -8,7 +8,7 @@ function isTerminalStatement(node: SyntaxNode): boolean {
   if (isReturn(node)) return true;
 
   if (isCommand(node)) {
-    const commandName = node.firstNamedChild?.text;
+    const commandName = getCommandNameText(node);
     return commandName === 'exit' || commandName === 'break' || commandName === 'continue';
   }
 
@@ -126,7 +126,7 @@ function caseContainsTerminalStatement(caseNode: SyntaxNode): boolean {
  * Checks if a sequence of statements terminates all possible execution paths
  * This is the core logic for determining if code after this sequence is unreachable
  */
-function sequenceTerminatesAllPaths(nodes: SyntaxNode[]): boolean {
+export function sequenceTerminatesAllPaths(nodes: SyntaxNode[]): boolean {
   for (const node of nodes) {
     // Skip comments
     if (isComment(node)) {

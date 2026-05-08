@@ -36,9 +36,19 @@ export function hasInlineVariables(commandNode: SyntaxNode): boolean {
 }
 
 /**
- * Check if a node represents an inline variable assignment (VAR=value)
+ * Check if a node represents an inline variable assignment (VAR=value).
+ *
+ * Two shapes are supported so the LSP works across the
+ * tree-sitter-fish PR #41 transition:
+ *
+ *  - Pre-PR grammar: the `VAR=value` prefix is parsed as a regular
+ *    `word` / `concatenation` argument. We detect it via text shape.
+ *  - Post-PR grammar: the prefix is its own `override_variable` node
+ *    under the `override` field of the parent `command`.
  */
 export function isInlineVariableAssignment(node: SyntaxNode): boolean {
+  if (node.type === 'override_variable') return true;
+
   if (node.type !== 'word' && node.type !== 'concatenation') return false;
 
   // Check if the text contains an assignment pattern
@@ -49,10 +59,23 @@ export function isInlineVariableAssignment(node: SyntaxNode): boolean {
 }
 
 /**
- * Extract variable name and value from an inline assignment node
+ * Extract variable name and value from an inline assignment node.
+ *
+ * Handles both the pre-PR shape (text-based regex on `word`/`concatenation`)
+ * and the post-PR shape (`override_variable` with `name`/`value` fields).
  */
 export function parseInlineVariableAssignment(node: SyntaxNode): { name: string; value: string; } | null {
   if (!isInlineVariableAssignment(node)) return null;
+
+  if (node.type === 'override_variable') {
+    const nameField = node.childForFieldName('name');
+    if (!nameField) return null;
+    const valueField = node.childForFieldName('value');
+    return {
+      name: nameField.text,
+      value: valueField?.text ?? '',
+    };
+  }
 
   const text = node.text;
   const assignmentMatch = text.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);

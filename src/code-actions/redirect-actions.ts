@@ -4,7 +4,7 @@ import { LspDocument } from '../document';
 import { logger } from '../logger';
 import { createRefactorAction } from './refactors';
 import { SupportedCodeActionKinds } from './action-kinds';
-import { findParentCommand, isCommand } from '../utils/node-types';
+import { findParentCommand, getCommandNameNode, isCommand } from '../utils/node-types';
 
 function selectCommandNode(node: SyntaxNode): SyntaxNode | null {
   let cmd = node;
@@ -30,7 +30,7 @@ export function silenceCommandAction(
   );
 
   return createRefactorAction(
-    `Silence command '${cmd.firstNamedChild!.text} &>/dev/null' (line: ${cmd.startPosition.row + 1})`,
+    `Silence command '${getCommandNameNode(cmd)?.text ?? cmd.text} &>/dev/null' (line: ${cmd.startPosition.row + 1})`,
     SupportedCodeActionKinds.RefactorRewrite,
     {
       [document.uri]: [insertEdit],
@@ -53,7 +53,7 @@ export function silenceStderrCommandAction(
   );
 
   return createRefactorAction(
-    `Silence stderr of command '${cmd.firstNamedChild!.text} 2>/dev/null' (line: ${cmd.startPosition.row + 1})`,
+    `Silence stderr of command '${getCommandNameNode(cmd)?.text ?? cmd.text} 2>/dev/null' (line: ${cmd.startPosition.row + 1})`,
     SupportedCodeActionKinds.RefactorRewrite,
     {
       [document.uri]: [insertEdit],
@@ -76,7 +76,7 @@ export function silenceStdoutCommandAction(
   );
 
   return createRefactorAction(
-    `Silence stdout of command '${cmd.firstNamedChild!.text} >/dev/null' (line: ${cmd.startPosition.row + 1})`,
+    `Silence stdout of command '${getCommandNameNode(cmd)?.text ?? cmd.text} >/dev/null' (line: ${cmd.startPosition.row + 1})`,
     SupportedCodeActionKinds.RefactorRewrite,
     {
       [document.uri]: [insertEdit],
@@ -99,7 +99,7 @@ export function redirectStoutToStder(
   );
 
   return createRefactorAction(
-    `Redirect stdout to stderr of command '${cmd.firstNamedChild!.text} >&2' (line: ${cmd.startPosition.row + 1})`,
+    `Redirect stdout to stderr of command '${getCommandNameNode(cmd)?.text ?? cmd.text} >&2' (line: ${cmd.startPosition.row + 1})`,
     SupportedCodeActionKinds.RefactorRewrite,
     {
       [document.uri]: [insertEdit],

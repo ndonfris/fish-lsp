@@ -24,7 +24,7 @@ export function isEmittedEventDefinitionName(node: SyntaxNode): boolean {
     return false;
   }
 
-  return !!(node.parent.namedChild(1) && node.parent.namedChild(1)?.equals(node));
+  return !!node.parent.childrenForFieldName('argument')[0]?.equals(node);
 }
 
 /**
@@ -37,8 +37,7 @@ export function isEmittedEventDefinitionName(node: SyntaxNode): boolean {
  */
 function findEmittedEventDefinitionName(node: SyntaxNode): SyntaxNode | undefined {
   if (!isCommandWithName(node, 'emit')) return undefined;
-  if (node.namedChild(1)) return node.namedChild(1) || undefined;
-  return undefined;
+  return node.childrenForFieldName('argument')[0];
 }
 
 /**

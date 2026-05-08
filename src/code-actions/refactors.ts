@@ -3,7 +3,7 @@ import { ChangeAnnotation, CodeAction, CodeActionKind, CreateFile, Range, TextDo
 import { LspDocument } from '../document';
 import { SyntaxNode } from 'web-tree-sitter';
 import { findEnclosingScope, getChildNodes, getRange } from '../utils/tree-sitter';
-import { findParentCommand, isBlock, isCommand, isCommandWithName, isFunctionDefinitionName, isIfStatement, isPathNode, isProgram, isStatement } from '../utils/node-types';
+import { findParentCommand, getCommandNameNode, getCommandNameText, isBlock, isCommand, isCommandWithName, isFunctionDefinitionName, isIfStatement, isPathNode, isProgram, isStatement } from '../utils/node-types';
 import { SupportedCodeActionKinds } from './action-kinds';
 import { convertIfToCombinersString } from './combiner';
 import path from 'path';
@@ -243,7 +243,7 @@ export function extractCommandToFunction(
       return;
     }
     extractRange = getRange(selectedNode);
-    commandName = selectedNode.firstNamedChild?.text || 'command';
+    commandName = getCommandNameText(selectedNode) || 'command';
   }
 
   // Replace the selected text with a call to the new function
@@ -304,7 +304,7 @@ export function extractToVariable(
   const replaceEdit = TextEdit.replace(newRange, declaration);
 
   return createRefactorAction(
-    `Extract selected '${selectedNode.firstNamedChild!.text}' command to local variable '${varName}' (line: ${newRange.start.line + 1})`,
+    `Extract selected '${getCommandNameNode(selectedNode)?.text ?? selectedNode.text}' command to local variable '${varName}' (line: ${newRange.start.line + 1})`,
     SupportedCodeActionKinds.RefactorExtract,
     {
       [document.uri]: [replaceEdit],
@@ -353,7 +353,7 @@ function isPathModifyingCommand(node: SyntaxNode): boolean {
   const cmd = findParentCommand(node);
   if (!cmd) return false;
 
-  const cmdName = cmd.firstNamedChild?.text;
+  const cmdName = getCommandNameText(cmd);
   if (!cmdName) return false;
 
   // Check for fish_add_path command
@@ -361,7 +361,7 @@ function isPathModifyingCommand(node: SyntaxNode): boolean {
 
   // Check for set PATH commands
   if (cmdName === 'set') {
-    const args = cmd.namedChildren.slice(1); // Skip the command name
+    const args = cmd.childrenForFieldName('argument');
     // Look for PATH variable being set
     for (const arg of args) {
       if (arg.text === 'PATH' || arg.text === 'path') return true;

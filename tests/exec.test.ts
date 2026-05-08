@@ -2,6 +2,8 @@
 import { setLogger } from './helpers';
 
 import * as path from 'path';
+import * as fs from 'fs';
+import { execSync } from 'child_process';
 import {
   execEscapedCommand,
   execCmd,
@@ -11,8 +13,28 @@ import {
   execCommandType,
   ExecFishFiles,
   EmbeddedFishResult,
+  runEmbeddedFish,
 } from '../src/utils/exec';
+
+function hasManPage(name: string): boolean {
+  try {
+    execSync(`man -w ${name}`, { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function hasLocalManFile(relativePath: string): boolean {
+  return fs.existsSync(path.resolve(__dirname, '..', relativePath));
+}
+
+function normalizeManDashes(input: string): string {
+  // Normalize common unicode dash/minus glyphs emitted by `man` formatting.
+  return input.replace(/[‐‑‒–—−]/g, '-');
+}
 import { BuiltInList } from '../src/utils/builtins';
+import GetType from '../fish_files/get-type.fish';
 
 setLogger();
 
@@ -74,7 +96,7 @@ describe('src/utils/exec.ts tests', () => {
   it('execCommandType', async () => {
     const output = await execCommandType('end');
     // console.log('docs: ', output.split('\n').length);
-    expect(output).toEqual('command');
+    expect(output).toEqual('builtin');
   });
 
   describe('ExecFishFiles namespace', () => {
@@ -275,6 +297,19 @@ describe('src/utils/exec.ts tests', () => {
           expect(output.stdout.toString().trim()).toEqual('file');
           expect(output.code).toEqual(0);
         }
+      });
+
+      it('function shadowing external command is still typed as file', async () => {
+        const script = [
+          'function ls',
+          '  command ls $argv',
+          'end',
+          GetType,
+        ].join('\n');
+        const output = await runEmbeddedFish(script, ['ls']);
+        printDocsStdout({ ...output, cmd: 'ls (shadowed by function)' });
+        expect(output.stdout.toString().trim()).toEqual('file');
+        expect(output.code).toEqual(0);
       });
     });
   });

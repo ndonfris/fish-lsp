@@ -6,7 +6,7 @@ import { getChildNodes, getNodeText } from './utils/tree-sitter';
 import { md } from './utils/markdown-builder';
 import { Analyzer } from './analyze';
 import { getExpandedSourcedFilenameNode } from './parsing/source';
-import { isCommand, isOption } from './utils/node-types';
+import { getCommandNameText, isCommand, isOption } from './utils/node-types';
 import { LspDocument } from './document';
 import { uriToPath } from './utils/translation';
 
@@ -182,32 +182,11 @@ export async function documentationHoverProvider(cmd: string): Promise<Hover | n
     return null;
   } else {
     return {
-      contents: cmdType === 'command'
+      contents: cmdType === 'command' || cmdType === 'builtin'
         ? enrichToCodeBlockMarkdown(cmdDocs, 'man')
         : enrichToCodeBlockMarkdown(cmdDocs, 'fish'),
     };
   }
-}
-
-export async function documentationHoverProviderForBuiltIns(cmd: string): Promise<Hover | null> {
-  const cmdDocs: string = await execCommandDocs(cmd);
-  if (!cmdDocs) {
-    return null;
-  }
-  const splitDocs = cmdDocs.split('\n');
-  const startIndex = splitDocs.findIndex((line: string) => line.trim() === 'NAME');
-  return {
-    contents: {
-      kind: MarkupKind.Markdown,
-      value: [
-        `__${cmd.toUpperCase()}__ - _https://fishshell.com/docs/current/cmds/${cmd.trim()}.html_`,
-        '___',
-        '```man',
-        splitDocs.slice(startIndex).join('\n'),
-        '```',
-      ].join('\n'),
-    },
-  };
 }
 
 function commandStringHelper(cmd: string) {
@@ -276,14 +255,17 @@ export class HoverFromCompletion {
   private completions: string[][] = [];
   private oldOptions: boolean = false;
   private flagsGiven: string[] = [];
+  private commandArguments: string[] = [];
 
   constructor(commandNode: SyntaxNode, currentNode: SyntaxNode) {
     this.currentNode = currentNode;
     this.commandNode = commandNode;
-    this.commandString = commandNode.child(0)?.text || '';
+    this.commandString = getCommandNameText(commandNode) || '';
     this.entireCommandString = commandNode.text || '';
-    this.flagsGiven = this.entireCommandString
-      .split(' ').slice(1)
+    this.commandArguments = commandNode
+      .childrenForFieldName('argument')
+      .map(node => node.text);
+    this.flagsGiven = this.commandArguments
       .filter(flag => flag.startsWith('-'))
       .map(flag => flag.split('=')[0]) as string[] || [];
   }
@@ -298,7 +280,7 @@ export class HoverFromCompletion {
     if (spaceCmps.length === 0) {
       return this.commandString;
     }
-    const cmdArr = this.commandNode.text.split(' ').slice(1);
+    const cmdArr = this.commandArguments;
     let i = 0;
     while (i < cmdArr.length) {
       const argStr = cmdArr[i]!.trim();

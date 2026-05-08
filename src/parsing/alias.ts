@@ -3,7 +3,7 @@ import { FishSymbol } from './symbol';
 import { DefinitionScope, getScope } from '../utils/definition-scope';
 import { LspDocument } from '../document';
 import { getRange } from '../utils/tree-sitter';
-import { findParentWithFallback, isCommandWithName, isConcatenation, isFunctionDefinition, isString, isTopLevelDefinition } from '../utils/node-types';
+import { findParentWithFallback, getCommandNameNode, isCommandWithName, isConcatenation, isFunctionDefinition, isString, isTopLevelDefinition } from '../utils/node-types';
 import { isBuiltin } from '../utils/builtins';
 import { md } from '../utils/markdown-builder';
 import { flattenNested } from '../utils/flatten';
@@ -40,7 +40,7 @@ export namespace FishAlias {
   } | null {
     if (!isCommandWithName(node, 'alias')) return null;
 
-    const firstArg = node.firstNamedChild?.nextNamedSibling;
+    const firstArg = node.childrenForFieldName('argument')[0];
     if (!firstArg) return null;
 
     let name: string;
@@ -59,7 +59,7 @@ export namespace FishAlias {
       hasEquals = true;
     } else {
       // Format: alias name value
-      const valueNode = firstArg.nextNamedSibling;
+      const valueNode = node.childrenForFieldName('argument')[1];
       if (!valueNode) return null;
 
       name = firstArg.text;
@@ -137,7 +137,7 @@ export namespace FishAlias {
   export function getNameRange(node: SyntaxNode) {
     const aliasInfo = getInfo(node);
     if (!aliasInfo) return null;
-    const nameNode = node.firstNamedChild?.nextNamedSibling;
+    const nameNode = node.childrenForFieldName('argument')[0];
     if (!nameNode) return null;
     if (!aliasInfo.hasEquals) {
       return getRange(nameNode);
@@ -155,6 +155,20 @@ export namespace FishAlias {
     };
   }
 
+  export function getNameNode(node: SyntaxNode): SyntaxNode | null {
+    const aliasInfo = getInfo(node);
+    if (!aliasInfo) return null;
+
+    const nameNode = node.childrenForFieldName('argument')[0];
+    if (!nameNode) return null;
+
+    if (!aliasInfo.hasEquals) {
+      return nameNode;
+    }
+
+    return nameNode.firstNamedChild ?? nameNode;
+  }
+
   export function buildDetail(node: SyntaxNode) {
     const aliasInfo = getInfo(node);
 
@@ -165,7 +179,7 @@ export namespace FishAlias {
     if (!detail) return null;
 
     return [
-      `(${md.italic('alias')}) ${name}`,
+      `(${md.bold('alias')}) ${md.inlineCode(name)}`,
       md.separator(),
       md.codeBlock('fish', node.text),
       md.separator(),
@@ -246,14 +260,12 @@ export function isAliasDefinitionName(node: SyntaxNode) {
   // if that is the case, then we need to move up 1 more parent
   if (isConcatenated) parentNode = parentNode.parent as SyntaxNode;
   if (!parentNode || !isCommandWithName(parentNode, 'alias')) return false;
-  // since there is two possible cases, handle concatenated and non-concatenated differently
-  const firstChild = isConcatenated
-    ? parentNode.firstNamedChild
-    : parentNode.firstChild;
-  // skip `alias` named node, since it's not the alias name
-  if (firstChild && firstChild.equals(node)) return false;
+  // skip the `alias` command-name node itself (it is not the alias name).
+  // Using the `name` field is robust against `override_variable` prefixes.
+  const cmdName = getCommandNameNode(parentNode);
+  if (cmdName && cmdName.equals(node)) return false;
   const args = parentNode.childrenForFieldName('argument');
-  // first element is args is the alias name
+  // first element of args is the alias name
   const aliasName = isConcatenated
     ? args.at(0)?.firstChild
     : args.at(0);
@@ -269,17 +281,18 @@ export function isAliasDefinitionValue(node: SyntaxNode) {
   // if that is the case, then we need to move up 1 more parent
   if (isConcatenated) parentNode = parentNode.parent as SyntaxNode;
   if (!parentNode || !isCommandWithName(parentNode, 'alias')) return false;
-  // since there is two possible cases, handle concatenated and non-concatenated differently
-  const firstChild = isConcatenated
-    ? parentNode.firstNamedChild?.nextNamedSibling
-    : parentNode.firstChild;
-  // skip `alias` named node, since it's not the alias name
-  if (firstChild && firstChild.equals(node)) return false;
+  // skip the `alias` command-name node itself; for the `name=value`
+  // concatenation form the name is the first arg, so reject that too.
+  const cmdName = getCommandNameNode(parentNode);
+  if (cmdName && cmdName.equals(node)) return false;
+  if (isConcatenated) {
+    const nameArg = parentNode.childrenForFieldName('argument').at(0);
+    if (nameArg && nameArg.equals(node)) return false;
+  }
   const args = flattenNested(...parentNode.childrenForFieldName('argument'))
     .filter(a => a.isNamed);
 
-  // first element is args is the alias name
-  // logger.debug('alias args', args.map(a => a.text));
+  // last named child of the args is the alias value
   const aliasValue = args.at(-1);
   return !!aliasValue && aliasValue.equals(node);
 }
@@ -287,11 +300,11 @@ export function isAliasDefinitionValue(node: SyntaxNode) {
 export function processAliasCommand(document: LspDocument, node: SyntaxNode, children: FishSymbol[] = []) {
   const modifier = getAliasScopeModifier(document, node);
   const scopeNode = getScopeNode(node);
-  const definitionNode = node.firstNamedChild!;
   const info = FishAlias.getInfo(node);
   const detail = FishAlias.buildDetail(node);
+  const definitionNode = FishAlias.getNameNode(node);
   const nameRange = FishAlias.getNameRange(node);
-  if (!info || !detail) return [];
+  if (!info || !detail || !definitionNode) return [];
   return [
     FishSymbol.fromObject({
       name: info.name,

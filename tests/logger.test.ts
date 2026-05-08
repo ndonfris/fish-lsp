@@ -240,6 +240,7 @@ describe('Logger', () => {
         (level, message) => {
           vi.clearAllMocks();
           testLogger.setLogLevel(level);
+          testLogger.setSilent(false);
 
           testLogger.error(`ERROR_${message}`);
           testLogger.warning(`WARNING_${message}`);
@@ -267,7 +268,7 @@ describe('Logger', () => {
         fc.string({ minLength: 1 }),
         (silent, message) => {
           vi.clearAllMocks();
-          testLogger.setSilent(silent);
+          testLogger.setSilent(silent).setFullSilence(false);
 
           testLogger.log(message);
 
@@ -277,12 +278,26 @@ describe('Logger', () => {
             expect(mockConsole.log).toHaveBeenCalledWith(message);
           }
 
-          // Should always append to file regardless of silent mode
           expect(mockFs.appendFileSync).toHaveBeenCalledWith(
             '/mock/path/test.log',
             message + '\n',
             'utf-8',
           );
+        },
+      ));
+    });
+
+    it('should handle full silence mode correctly', () => {
+      fc.assert(fc.property(
+        fc.string({ minLength: 1 }),
+        (message) => {
+          vi.clearAllMocks();
+          testLogger.setSilent(false).setFullSilence(true);
+
+          testLogger.log(message);
+
+          expect(mockConsole.log).not.toHaveBeenCalled();
+          expect(mockFs.appendFileSync).not.toHaveBeenCalled();
         },
       ));
     });

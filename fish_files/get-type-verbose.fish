@@ -21,7 +21,7 @@ function get_type_verbose --argument-names str
   # EDITING THIS SCRIPT? 
   # ORDER OF OPERATIONS MATTERS!
   if builtin --query -- "$str"
-    echo "builitn"
+    echo "builtin"
   else if abbr -q -- "$str"
     echo 'abbr'
   else if functions --all --query -- "$str"

@@ -31,7 +31,7 @@ export function isBindKeySequence(node: SyntaxNode) {
   if (!parent || !isBindCommand(parent)) {
     return false;
   }
-  const children = parent.namedChildren.slice(1);
+  const children = parent.childrenForFieldName('argument');
   const optionResults = findOptions(children, BindOptions);
   const { remaining } = optionResults;
   return remaining.at(0)?.equals(node);
@@ -47,7 +47,7 @@ export function isBindFunctionCall(node: SyntaxNode) {
   if (!parent || !isBindCommand(parent)) {
     return false;
   }
-  const children = parent.namedChildren.slice(1);
+  const children = parent.childrenForFieldName('argument');
   const optionResults = findOptions(children, BindOptions);
   const { remaining } = optionResults;
   const functionCalls = remaining.slice(1);

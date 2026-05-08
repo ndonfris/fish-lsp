@@ -8,7 +8,7 @@ import {
   SymbolKind,
 } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
-import { ExtendedBaseJson, PrebuiltDocumentationMap } from './utils/snippets';
+import { ExtendedBaseJson, findPrebuiltDoc, PrebuiltDocumentationMap } from './utils/snippets';
 import { FishAliasCompletionItem } from './utils/completion/types';
 import * as NodeTypes from './utils/node-types';
 import * as TreeSitter from './utils/tree-sitter';
@@ -70,9 +70,8 @@ export function lineSignatureBuilder(lineRootNode: SyntaxNode, lineCurrentNode: 
 }
 
 export function getPipes(rootNode: SyntaxNode): ExtendedBaseJson[] {
-  const pipeNames = PrebuiltDocumentationMap.getByType('pipe');
   return TreeSitter.getChildNodes(rootNode).reduce((acc: ExtendedBaseJson[], node) => {
-    const pipe = pipeNames.find(p => p.name === node.text);
+    const pipe = findPrebuiltDoc(node.text, 'pipe');
     if (pipe) acc.push(pipe);
     return acc;
   }, []);
@@ -109,7 +108,9 @@ function getSignatureForVariable(varNode: SyntaxNode): SignatureHelp | null {
 }
 
 function getReturnStatusSignature(): SignatureHelp {
-  const output = PrebuiltDocumentationMap.getByType('status').map((o: ExtendedBaseJson) => `___${o.name}___ - _${o.description}_`).join('\n');
+  const output = PrebuiltDocumentationMap.getByType('status')
+    .map((o: ExtendedBaseJson) => formatSignatureDescription(o))
+    .join('\n');
   return {
     signatures: [buildSignature('$status', output)],
     activeSignature: 0,
@@ -119,19 +120,23 @@ function getReturnStatusSignature(): SignatureHelp {
 
 function getPipesSignature(pipes: ExtendedBaseJson[]): SignatureHelp {
   return {
-    signatures: pipes.map((o: ExtendedBaseJson) => buildSignature(o.name, `${o.name} - _${o.description}_`)),
+    signatures: pipes.map((o: ExtendedBaseJson) => buildSignature(o.name, formatSignatureDescription(o))),
     activeSignature: 0,
     activeParameter: 0,
   };
 }
 
 function getCommandSignature(firstCmd: SyntaxNode): SignatureHelp {
-  const output = PrebuiltDocumentationMap.getByType('command').filter(n => n.name === firstCmd.text);
+  const output = findPrebuiltDoc(firstCmd.text, 'command');
   return {
-    signatures: [buildSignature(firstCmd.text, output.map((o: ExtendedBaseJson) => `${o.name} - _${o.description}_`).join('\n'))],
+    signatures: [buildSignature(firstCmd.text, output ? formatSignatureDescription(output) : '')],
     activeSignature: 0,
     activeParameter: 0,
   };
+}
+
+function formatSignatureDescription(item: ExtendedBaseJson): string {
+  return `${md.boldItalic(item.name)} - ${md.italic(item.description)}`;
 }
 
 export function getAliasedCompletionItemSignature(item: FishAliasCompletionItem): SignatureHelp {
@@ -345,8 +350,12 @@ export function getFunctionSignatureHelp(
   line: string,
   position: Position,
 ): SignatureHelp | null {
-  // Find the function symbol based on the node's parent's first named child
-  const functionName = lineLastNode.parent?.firstNamedChild?.text.trim();
+  // Find the function symbol from the call site's command name (resolved via
+  // the `name` field so `override_variable` prefixes don't shift the lookup).
+  const parent = lineLastNode.parent;
+  const functionName = parent && NodeTypes.isCommand(parent)
+    ? NodeTypes.getCommandNameText(parent)?.trim()
+    : parent?.firstNamedChild?.text.trim();
   if (!functionName) return null;
 
   const funcSymbol = analyzer.findSymbol((symbol, _) => symbol.name === functionName);
@@ -421,13 +430,45 @@ export function getFunctionSignatureHelp(
   };
 
   // Calculate the active parameter based on cursor position
-  const activeParameter = calculateActiveParameter(line, position) - 1;
+  const activeParameter = parent && NodeTypes.isCommand(parent)
+    ? calculateActiveParameterFromCommand(parent, position)
+    : calculateActiveParameter(line, position) - 1;
 
   return {
     signatures: [signature],
     activeSignature: 0,
     activeParameter: Math.min(activeParameter, paramNames.length - 1),
   };
+}
+
+function calculateActiveParameterFromCommand(commandNode: SyntaxNode, position: Position): number {
+  const args = commandNode.childrenForFieldName('argument');
+  let paramCount = 0;
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!;
+    if (arg.startPosition.row > position.line) break;
+    if (arg.startPosition.row === position.line && arg.startPosition.column > position.character) break;
+
+    if (arg.text.startsWith('-')) {
+      const next = args[i + 1];
+      if (next && !next.text.startsWith('-')) {
+        i++;
+      }
+      continue;
+    }
+
+    paramCount++;
+
+    if (
+      arg.endPosition.row > position.line
+      || arg.endPosition.row === position.line && position.character <= arg.endPosition.column
+    ) {
+      break;
+    }
+  }
+
+  return Math.max(0, paramCount - 1);
 }
 
 /**
