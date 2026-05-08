@@ -8,13 +8,16 @@ import { documents, LspDocument } from './document';
 import { logger } from './logger';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol, processCompletion } from './parsing/complete';
+import { FishSymbolCaches } from './parsing/fish-symbol-caches';
+import { FishReferenceCandidateCache } from './parsing/reference-candidates';
 import { createSourceResources, getExpandedSourcedFilenameNode, isSourceCommandArgumentName, isSourceCommandWithArgument, symbolsFromResource } from './parsing/source';
 import { filterFirstPerScopeSymbol, FishSymbol, processNestedTree } from './parsing/symbol';
 import { getImplementation } from './references';
 import { execCommandLocations } from './utils/exec';
 import { SyncFileHelper } from './utils/file-operations';
 import { flattenNested, iterateNested } from './utils/flatten';
-import { findParentCommand, findParentFunction, isAliasDefinitionName, isCommand, isCommandName, isOption, isTopLevelDefinition, isExportVariableDefinitionName } from './utils/node-types';
+import { findParentCommand, findParentFunction, getCommandNameNode, getCommandNameText, isAliasDefinitionName, isCommand, isCommandName, isOption, isTopLevelDefinition, isExportVariableDefinitionName, isVariableExpansion } from './utils/node-types';
+import { getNestedCommandReferenceAtPoint } from './utils/nested-command-point';
 import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
 import { containsRange, getChildNodes, getNamedChildNodes, getRange, isPositionAfter, isPositionWithinRange, namedNodesGen, nodesGen, precedesRange } from './utils/tree-sitter';
 import { Workspace } from './utils/workspace';
@@ -22,6 +25,7 @@ import { workspaceManager } from './utils/workspace-manager';
 import { initializeParser } from './parser';
 import { BufferedAsyncDiagnosticCache } from './diagnostics/buffered-async-cache';
 import { env } from 'src/utils/env-manager';
+import { buildScopeSpans, ScopeSpan } from './utils/skippable-scopes';
 
 /*************************************************************/
 /*     ts-doc type imports for links to other files here     */
@@ -54,6 +58,11 @@ export type AnalyzedDocumentType = 'partial' | 'full';
  * @see {@link AnalyzedDocument#ensureParsed()}
  */
 export type EnsuredAnalyzeDocument = Required<AnalyzedDocument> & { root: SyntaxNode; tree: Tree; type: 'full'; };
+
+type CursorReferenceAtPoint = {
+  name: string;
+  range: LSP.Range;
+};
 
 /**
  * AnalyzedDocument items are created in three public methods of the Analyzer class:
@@ -182,7 +191,12 @@ export class AnalyzedDocument {
     const commandNodes: SyntaxNode[] = [];
     const sourceNodes: SyntaxNode[] = [];
     tree.rootNode.descendantsOfType('command').forEach(node => {
-      if (isSourceCommandWithArgument(node)) sourceNodes.push(node.child(1)!);
+      if (isSourceCommandWithArgument(node)) {
+        // Use the `argument` field so this still works when the command has
+        // `override_variable` prefixes (post tree-sitter-fish PR #41).
+        const arg = node.childrenForFieldName('argument')[0];
+        if (arg) sourceNodes.push(arg);
+      }
       commandNodes.push(node);
     });
     return new AnalyzedDocument(
@@ -285,14 +299,11 @@ export class Analyzer {
    */
   public cache: AnalyzedDocumentCache = new AnalyzedDocumentCache();
   /**
-   * All of the global symbols throughout all workspaces in the server.
-   * Methods that use this cache might try to limit symbols to a single workspace.
-   *
-   * The `globalSymbols.map` is a used to cache the symbols for quick access
-   *   - keys are the symbol names
-   *   - values are the FishSymbol objects
+   * Grouped FishSymbol indexes used across definition, reference, rename, and
+   * diagnostic features.
    */
-  public globalSymbols: GlobalDefinitionCache = new GlobalDefinitionCache();
+  public symbols: FishSymbolCaches = new FishSymbolCaches();
+  public referenceCandidates: FishReferenceCandidateCache = new FishReferenceCandidateCache();
 
   public started = false;
 
@@ -356,20 +367,17 @@ export class Analyzer {
    * useful information about the document. It will also add the information to both
    * the cache of AnalyzedDocuments and the global symbols cache.
    *
-   * @param document The {@link LspDocument} to analyze.
-   * @returns An {@linkcode AnalyzedDocument} object.
-   */
+  * @param document The {@link LspDocument} to analyze.
+  * @returns An {@linkcode AnalyzedDocument} object.
+  */
   public analyze(document: LspDocument): AnalyzedDocument {
     const analyzedDocument = this.getAnalyzedDocument(document);
     this.cache.setDocument(document.uri, analyzedDocument);
-
-    // Remove old global symbols for this document before adding new ones
-    this.globalSymbols.removeSymbolsByUri(document.uri);
-
-    // Add new global symbols
-    for (const symbol of iterateNested(...analyzedDocument.documentSymbols)) {
-      if (symbol.isGlobal()) this.globalSymbols.add(symbol);
-    }
+    this.symbols.refreshDocument(
+      document.uri,
+      iterateNested(...analyzedDocument.documentSymbols),
+    );
+    this.referenceCandidates.removeByUri(document.uri);
     return analyzedDocument;
   }
 
@@ -377,8 +385,13 @@ export class Analyzer {
    * Remove all global symbols for a document (used when document is closed or deleted)
    */
   public removeDocumentSymbols(uri: string): void {
-    this.globalSymbols.removeSymbolsByUri(uri);
+    this.symbols.removeByUri(uri);
+    this.referenceCandidates.removeByUri(uri);
     this.cache.clear(uri);
+  }
+
+  public isAutoloadedHelperFunction(symbol: FishSymbol): boolean {
+    return this.symbols.isAutoloadedHelperFunction(symbol);
   }
 
   /**
@@ -454,8 +467,24 @@ export class Analyzer {
    * @returns An {@link AnalyzedDocument} object.
    */
   private getAnalyzedDocument(document: LspDocument): AnalyzedDocument {
-    const tree = this.parser.parse(document.getText());
-    const documentSymbols = processNestedTree(document, tree.rootNode);
+    const tree = this.parseDocument(document);
+    const documentSymbols = this.processDocumentSymbols(document, tree.rootNode);
+    return this.createFullDocument(document, documentSymbols, tree);
+  }
+
+  private parseDocument(document: LspDocument): Tree {
+    return this.parser.parse(document.getText());
+  }
+
+  private processDocumentSymbols(document: LspDocument, rootNode: SyntaxNode): FishSymbol[] {
+    return processNestedTree(document, rootNode);
+  }
+
+  private createFullDocument(
+    document: LspDocument,
+    documentSymbols: FishSymbol[],
+    tree: Tree,
+  ): AnalyzedDocument {
     return AnalyzedDocument.createFull(document, documentSymbols, tree);
   }
 
@@ -491,7 +520,7 @@ export class Analyzer {
 
     // Calculate adaptive delay and batch size based on document count
     const BATCH_SIZE = Math.max(1, Math.floor(currentDocuments.length / 20));
-    const UPDATE_DELAY = currentDocuments.length > 100 ? 10 : 25; // Shorter delay for large sets
+    const UPDATE_DELAY = currentDocuments.length > 100 ? 5 : 25; // Shorter delay for large sets
 
     let lastUpdateTime = 0;
     const MIN_UPDATE_INTERVAL = 15; // Minimum ms between visual updates
@@ -546,13 +575,26 @@ export class Analyzer {
   }
 
   /**
+   * Resolve the FishSymbol referenced by a Location.
+   *
+   * Unlike getSymbolAtLocation(), this is intended for arbitrary reference
+   * locations returned by getReferences(), not only definition locations that
+   * already match a symbol's selectionRange.
+   */
+  public getSymbolFromReferenceLocation(location: Location): FishSymbol | null {
+    const document = this.getDocument(location.uri);
+    if (!document) return null;
+    return this.getDefinition(document, location.range.start);
+  }
+
+  /**
    * Return the first FishSymbol seen that could be defined by the given position.
    */
   public findDocumentSymbol(
     document: LspDocument,
     position: Position,
   ): FishSymbol | undefined {
-    const symbols = flattenNested(...this.cache.getDocumentSymbols(document.uri));
+    const symbols = this.cache.getFlatDocumentSymbols(document.uri);
     return symbols.find((symbol) => {
       return isPositionWithinRange(position, symbol.selectionRange);
     });
@@ -565,7 +607,7 @@ export class Analyzer {
     document: LspDocument,
     position: Position,
   ): FishSymbol[] {
-    const symbols = flattenNested(...this.cache.getDocumentSymbols(document.uri));
+    const symbols = this.cache.getFlatDocumentSymbols(document.uri);
     return symbols.filter((symbol) => {
       return isPositionWithinRange(position, symbol.selectionRange);
     });
@@ -701,26 +743,29 @@ export class Analyzer {
    * @returns {FishSymbol[]} A flat array of FishSymbols that are usable at the given position
    */
   public allSymbolsAccessibleAtPosition(document: LspDocument, position: Position): FishSymbol[] {
+    const workspace = workspaceManager.findContainingWorkspace(document.uri) || workspaceManager.current;
     // Set to avoid duplicate symbols
     const symbolNames: Set<string> = new Set();
     // add the local symbols
-    const symbols = flattenNested(...this.cache.getDocumentSymbols(document.uri))
-      .filter((symbol) => symbol.scope.containsPosition(position));
+    const symbols = this.cache.getFlatDocumentSymbols(document.uri)
+      .filter((symbol) =>
+        symbol.scope.containsPosition(position)
+        && symbol.isWithinDefinitionLifetime(position, document.uri),
+      );
     symbols.forEach((symbol) => symbolNames.add(symbol.name));
     // add the sourced symbols
     const sourcedUris = this.collectReachableSources(document.uri, position);
     for (const sourcedUri of Array.from(sourcedUris)) {
-      const sourcedSymbols = this.cache.getFlatDocumentSymbols(sourcedUri)
+      const visibleSourcedSymbols = this.symbols.allDocumentGlobalOrRootSymbols(sourcedUri)
         .filter(s =>
           !symbolNames.has(s.name)
-          && (s.isGlobal() || s.isRootLevel())
           && s.uri !== document.uri,
         );
-      symbols.push(...sourcedSymbols);
-      sourcedSymbols.forEach((symbol) => symbolNames.add(symbol.name));
+      symbols.push(...visibleSourcedSymbols);
+      visibleSourcedSymbols.forEach((symbol) => symbolNames.add(symbol.name));
     }
     // add the global symbols
-    for (const globalSymbol of this.globalSymbols.allSymbols) {
+    for (const globalSymbol of this.symbols.allWorkspaceGlobalSymbols(workspace)) {
       // skip any symbols that are already in the result so that
       // next conditionals don't have to consider duplicate symbols
       if (symbolNames.has(globalSymbol.name)) continue;
@@ -745,8 +790,7 @@ export class Analyzer {
   public getWorkspaceSymbols(query: string = ''): WorkspaceSymbol[] {
     const workspace = workspaceManager.current;
     logger.log({ searching: workspace?.path, query });
-    return this.globalSymbols.allSymbols
-      .filter(symbol => workspace?.contains(symbol.uri) || symbol.uri === workspace?.uri)
+    return this.symbols.allWorkspaceGlobalSymbols(workspace)
       .map((s) => s.toWorkspaceSymbol())
       .filter((symbol: WorkspaceSymbol) => {
         return symbol.name.startsWith(query);
@@ -762,37 +806,88 @@ export class Analyzer {
     const node = this.nodeAtPoint(document.uri, position.line, position.character);
     if (!word || !node) return [];
 
+    const namedSymbols = this.symbols.allSymbolsByName.find(word);
+    const localNamedSymbols = this.symbols.findDocumentNamedSymbols(document.uri, word);
+
     // First check local symbols
-    const localSymbols = this.getFlatDocumentSymbols(document.uri);
-    const localSymbol = localSymbols.find((s) => {
+    const localSymbol = localNamedSymbols.find((s) => {
       return s.name === word && containsRange(s.selectionRange, getRange(node));
     });
     if (localSymbol) {
       symbols.push(localSymbol);
     } else {
-      const toAdd: FishSymbol[] = localSymbols.filter((s) => {
+      const toAdd: FishSymbol[] = localNamedSymbols.filter((s) => {
         const variableBefore = s.kind === SymbolKind.Variable ? precedesRange(s.selectionRange, getRange(node)) : true;
+        const inLifetime = s.isWithinDefinitionLifetime(position, document.uri);
         return (
-          s.name === word
-          && containsRange(getRange(s.scope.scopeNode), getRange(node))
+          containsRange(getRange(s.scope.scopeNode), getRange(node))
           && variableBefore
+          && inLifetime
         );
       });
       symbols.push(...toAdd);
     }
 
+    // If no local symbols found but we're inside a --no-scope-shadowing function,
+    // resolve the variable from the caller's scope
+    if (!symbols.length && node) {
+      const parentFuncNode = findParentFunction(node);
+      if (parentFuncNode) {
+        const parentFuncName = parentFuncNode.childForFieldName('name')?.text;
+        const parentFuncSymbol = parentFuncName
+          ? this.symbols.findDocumentFunctions(document.uri, parentFuncName)
+            .find(s => s.node.equals(parentFuncNode))
+          : undefined;
+        if (parentFuncSymbol?.isFunctionWithNoScopeShadowing()) {
+          const caller = this.findCallerFunction(
+            parentFuncSymbol,
+            new Set([this.functionSymbolKey(parentFuncSymbol)]),
+            document.uri,
+          );
+          if (caller) {
+            const callerVar = this.symbols.findDocumentVariables(caller.uri, word).find(s =>
+              s.parent?.name === caller.name,
+            );
+            if (callerVar) {
+              symbols.push(callerVar);
+            }
+          }
+        }
+      }
+    }
+
     // If no local symbols found, check sourced symbols
     if (!symbols.length) {
-      const allAccessibleSymbols = this.allSymbolsAccessibleAtPosition(document, position);
-      const sourcedSymbols = allAccessibleSymbols.filter(s =>
-        s.name === word && s.uri !== document.uri,
+      const sourcedUris = this.collectReachableSources(document.uri, position);
+      const sourcedSymbols = namedSymbols.filter(s =>
+        s.uri !== document.uri
+        && sourcedUris.has(s.uri)
+        && (s.isGlobal() || s.isRootLevel()),
       );
       symbols.push(...sourcedSymbols);
     }
 
     // Finally, check global symbols as fallback
     if (!symbols.length) {
-      symbols.push(...this.globalSymbols.find(word));
+      const workspace = workspaceManager.findContainingWorkspace(document.uri) || workspaceManager.current;
+      const globalSymbols = this.symbols.findWorkspaceGlobalSymbols(word, workspace)
+        .filter(symbol =>
+          symbol.isWithinDefinitionLifetime(position, document.uri),
+        );
+      symbols.push(...globalSymbols);
+
+      // If no match in the active workspace and single-workspace support is disabled,
+      // fall back to indexed paths across all configured fish workspaces.
+      if (!symbols.length && !config.fish_lsp_single_workspace_support) {
+        const indexedPaths = config.fish_lsp_all_indexed_paths
+          .map(path => SyncFileHelper.expandEnvVars(path))
+          .filter(Boolean);
+
+        const indexedPathSymbols = this.symbols.findIndexedPathGlobalSymbols(word, indexedPaths)
+          .filter(symbol => symbol.isWithinDefinitionLifetime(position, document.uri));
+
+        symbols.push(...indexedPathSymbols);
+      }
     }
 
     return symbols;
@@ -832,7 +927,7 @@ export class Analyzer {
     if (node && isOption(node)) {
       const symbol = this.findSymbol((s) => {
         if (s.parent && s.fishKind === 'ARGPARSE') {
-          return node.parent?.firstNamedChild?.text === s.parent?.name &&
+          return getCommandNameText(node.parent) === s.parent?.name &&
             s.parent.isGlobal() &&
             node.text.startsWith(s.argparseFlag);
         }
@@ -840,7 +935,221 @@ export class Analyzer {
       });
       if (symbol) return symbol;
     }
-    return symbols.pop() || null;
+    const result = symbols.pop() || null;
+    // For variables inside --no-scope-shadowing functions, resolve to the root
+    // definition in the caller chain
+    if (result?.isVariable() && result.parent?.isFunctionWithNoScopeShadowing()) {
+      return this.resolveNoScopeShadowingDefinition(result);
+    }
+    // For --inherit-variable symbols, resolve to the caller's definition
+    if (result?.isInheritVariable()) {
+      return this.resolveInheritVariableDefinition(result) || result;
+    }
+    // For variables inside a function that inherits this variable name,
+    // resolve to the caller's definition (e.g., B has --inherit-variable VAR
+    // and also `set VAR ...` — the true definition is in the caller)
+    if (result?.isVariable() && result.parent?.hasInheritedVariable(result.name)) {
+      // Find the --inherit-variable declaration symbol for this variable
+      const inheritDecl = result.parent.children
+        .find((c: FishSymbol) => c.name === result.name && c.isInheritVariable());
+      if (inheritDecl) {
+        return this.resolveInheritVariableDefinition(inheritDecl) || result;
+      }
+    }
+    return result;
+  }
+
+  private functionSymbolKey(symbol: FishSymbol): string {
+    return symbol.id;
+  }
+
+  /**
+   * Returns the function symbol enclosing a syntax node in the given document.
+   */
+  public getEnclosingFunctionSymbol(uri: string, node: SyntaxNode): FishSymbol | null {
+    const parentFuncNode = findParentFunction(node);
+    if (!parentFuncNode) return null;
+
+    const parentFuncName = parentFuncNode.childForFieldName('name')?.text;
+    if (!parentFuncName) return null;
+
+    return this.symbols.findDocumentFunctions(uri, parentFuncName)
+      .find(s => s.node.equals(parentFuncNode)) || null;
+  }
+
+  /**
+   * Determines whether a function symbol is callable from the provided caller context.
+   *
+   * Current behavior intentionally treats non-global functions as document-local.
+   * Cross-file visibility for `source`-scoped locals is not modeled here.
+   */
+  public isFunctionVisibleFrom(callee: FishSymbol, caller?: FishSymbol | null, callerUri?: string): boolean {
+    if (!callee.isFunction()) return false;
+    if (callee.isGlobal()) return true;
+
+    const effectiveUri = caller?.uri || callerUri;
+    return !!effectiveUri && callee.uri === effectiveUri;
+  }
+
+  public getCallableNoScopeShadowingFunctions(name: string, caller?: FishSymbol | null, callerUri?: string): FishSymbol[] {
+    return this.symbols.noScopeShadowing.find(name)
+      .filter(symbol => this.isFunctionVisibleFrom(symbol, caller, callerUri));
+  }
+
+  public getCallableInheritingFunctions(varName: string, caller?: FishSymbol | null, callerUri?: string): FishSymbol[] {
+    return this.symbols.inheritedVariables.find(varName)
+      .filter(symbol => this.isFunctionVisibleFrom(symbol, caller, callerUri));
+  }
+
+  /**
+   * For a variable inside a `--no-scope-shadowing` function, walk up the call
+   * chain to find the root definition. Since `--no-scope-shadowing` functions
+   * share their caller's scope, the "true" definition is in the topmost caller
+   * that also defines the same variable.
+   *
+   * @param varSymbol - a variable symbol whose parent is a --no-scope-shadowing function
+   * @returns the root definition symbol, or the input symbol if no caller chain exists
+   */
+  public resolveNoScopeShadowingDefinition(varSymbol: FishSymbol): FishSymbol {
+    if (!varSymbol.isVariable() || !varSymbol.parent?.isFunctionWithNoScopeShadowing()) {
+      return varSymbol;
+    }
+
+    let currentFunc = varSymbol.parent;
+    let rootVar = varSymbol;
+    const visited = new Set<string>();
+
+    while (currentFunc) {
+      visited.add(this.functionSymbolKey(currentFunc));
+
+      // Find ANY function that calls currentFunc, preferring same-document
+      const caller = this.findCallerFunction(currentFunc, visited, varSymbol.uri);
+      if (!caller) break;
+
+      // Check if the caller also defines the same variable
+      const callerVar = this.symbols.findDocumentVariables(caller.uri, varSymbol.name).find(s =>
+        s.parent?.name === caller.name,
+      );
+      if (!callerVar) break;
+
+      // Move up the chain
+      rootVar = callerVar;
+
+      // Only continue walking if the caller is also --no-scope-shadowing
+      if (caller.isFunctionWithNoScopeShadowing()) {
+        currentFunc = caller;
+      } else {
+        break;
+      }
+    }
+
+    return rootVar;
+  }
+
+  /**
+   * Search all workspace functions for one that calls the given function name
+   * (i.e., contains a command node with that name in its body).
+   * Prioritizes callers in the same document as the target function.
+   */
+  private findCallerFunction(targetFunc: FishSymbol, visited: Set<string>, preferUri?: string): FishSymbol | null {
+    const workspaceFunctions = [...this.symbols.allFunctionSymbols()];
+    if (preferUri) {
+      workspaceFunctions.sort((a, b) => a.uri === preferUri ? -1 : b.uri === preferUri ? 1 : 0);
+    }
+
+    for (const callerFunc of workspaceFunctions) {
+      if (visited.has(this.functionSymbolKey(callerFunc))) continue;
+      if (!this.isFunctionVisibleFrom(targetFunc, callerFunc, callerFunc.uri)) continue;
+
+      // Scan the caller's scope node for command calls matching funcName
+      for (const node of nodesGen(callerFunc.scopeNode)) {
+        if (isCommand(node) && getCommandNameText(node) === targetFunc.name) {
+          return callerFunc;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * For a variable declared with `--inherit-variable`, find the original
+   * definition in the calling function. Walks up the call chain: finds which
+   * function calls the one containing this --inherit-variable, then looks
+   * for the variable definition there.
+   */
+  public resolveInheritVariableDefinition(inheritSymbol: FishSymbol, visited: Set<string> = new Set()): FishSymbol | null {
+    if (!inheritSymbol.isInheritVariable()) return null;
+    const parentFunc = inheritSymbol.parent;
+    if (!parentFunc) return null;
+    const key = `${inheritSymbol.uri}:${inheritSymbol.selectionRange.start.line}:${inheritSymbol.selectionRange.start.character}:${parentFunc.name}:${inheritSymbol.name}`;
+    if (visited.has(key)) return null;
+    visited.add(key);
+
+    // Search all workspace functions for one that calls parentFunc
+    for (const sym of this.symbols.allFunctionSymbols()) {
+      if (sym.uri === parentFunc.uri && sym.name === parentFunc.name) continue;
+      if (!this.isFunctionVisibleFrom(parentFunc, sym, sym.uri)) continue;
+
+      // Check if this function's body calls parentFunc
+      let callsTarget = false;
+      for (const node of nodesGen(sym.scopeNode)) {
+        if (isCommand(node) && getCommandNameText(node) === parentFunc.name) {
+          callsTarget = true;
+          break;
+        }
+      }
+      if (!callsTarget) continue;
+
+      // Found a caller — look for the variable definition in it
+      const callerVar = this.symbols.findDocumentVariables(sym.uri, inheritSymbol.name).find(s =>
+        s.parent?.name === sym.name
+        && !s.isInheritVariable(),
+      );
+      if (callerVar) {
+        // If the caller's var is also an --inherit-variable, recurse up
+        if (callerVar.isInheritVariable()) {
+          return this.resolveInheritVariableDefinition(callerVar, visited) || callerVar;
+        }
+        // If the caller function also inherits this variable from its caller,
+        // recurse through the caller's inherit declaration
+        if (sym.hasInheritedVariable(inheritSymbol.name)) {
+          const inheritDecl = sym.children
+            .find((c: FishSymbol) => c.name === inheritSymbol.name && c.isInheritVariable());
+          if (inheritDecl) {
+            return this.resolveInheritVariableDefinition(inheritDecl, visited) || callerVar;
+          }
+        }
+        return callerVar;
+      }
+    }
+
+    // Fallback: check script-level (program root) callers — e.g., init.fish with
+    // `set -g VAR 1` and `foo` at the top level (not inside any function)
+    for (const uri of this.cache.uris()) {
+      if (!this.isFunctionVisibleFrom(parentFunc, null, uri)) continue;
+      const root = this.cache.getRootNode(uri);
+      if (!root) continue;
+
+      // Check if this document's root level calls parentFunc
+      let callsTarget = false;
+      for (const node of nodesGen(root)) {
+        if (isCommand(node) && getCommandNameText(node) === parentFunc.name) {
+          callsTarget = true;
+          break;
+        }
+      }
+      if (!callsTarget) continue;
+
+      // Found a script-level caller — look for a root-level variable definition
+      const rootVar = this.symbols.findDocumentVariables(uri, inheritSymbol.name).find(s =>
+        !s.parent?.isFunction()
+        && !s.isInheritVariable(),
+      );
+      if (rootVar) return rootVar;
+    }
+
+    return null;
   }
 
   /**
@@ -870,10 +1179,33 @@ export class Analyzer {
     }
     if (symbol) return [symbol.toLocation()];
 
+    // Match hover()'s symbol fallback so value tokens like `nvim` in
+    // `set -gx EDITOR nvim` can jump to indexed global symbols even when the
+    // token is not itself a direct definition/reference node.
+    const word = this.wordAtPoint(document.uri, position.line, position.character);
+    if (word) {
+      if (!config.fish_lsp_single_workspace_support) {
+        const indexedPaths = config.fish_lsp_all_indexed_paths
+          .map(path => SyncFileHelper.expandEnvVars(path))
+          .filter(Boolean);
+        const indexedPathSymbol = this.symbols.findIndexedPathGlobalSymbols(word, indexedPaths)[0];
+        if (indexedPathSymbol) {
+          return [indexedPathSymbol.toLocation()];
+        }
+      } else {
+        const workspace = workspaceManager.findContainingWorkspace(document.uri) || workspaceManager.current;
+        const workspaceSymbol = this.symbols.findWorkspaceGlobalSymbols(word, workspace)[0];
+        if (workspaceSymbol) {
+          return [workspaceSymbol.toLocation()];
+        }
+      }
+    }
+
     // allow execCommandLocations to provide location for command when no other
     // definition has been found. Previously, config.fish_lsp_single_workspace_support
     // was used to prevent this case from being hit but now we always allow it.
-    if (workspaceManager.current) {
+    const currentWorkspace = workspaceManager.findContainingWorkspace(document.uri) || workspaceManager.current;
+    if (currentWorkspace) {
       const node = this.nodeAtPoint(document.uri, position.line, position.character);
       if (node && isCommandName(node)) {
         const text = node.text.toString();
@@ -892,10 +1224,14 @@ export class Analyzer {
   /**
    * Here we can allow the user to use completion locations for the implementation.
    */
-  public getImplementation(document: LspDocument, position: Position): Location[] {
+  public getImplementation(
+    document: LspDocument,
+    position: Position,
+    opts: { reporter?: WorkDoneProgressReporter; } = {},
+  ): Location[] {
     const definition = this.getDefinition(document, position);
     if (!definition) return [];
-    const locations = getImplementation(document, position);
+    const locations = getImplementation(document, position, opts);
     return locations;
   }
 
@@ -936,7 +1272,7 @@ export class Analyzer {
 
     const symbol =
       this.getDefinition(document, position) ||
-      this.globalSymbols.findFirst(node.text);
+      this.symbols.globalSymbols.findFirst(node.text);
 
     if (!symbol) return null;
     logger.log(`analyzer.getHover: ${symbol.name}`, {
@@ -1017,6 +1353,22 @@ export class Analyzer {
    */
   getFlatDocumentSymbols(documentUri: string): FishSymbol[] {
     return this.cache.getFlatDocumentSymbols(documentUri);
+  }
+
+  /**
+   * Computes scope spans for a variable `name` within a document.
+   * Returns sorted, non-overlapping ScopeSpan segments covering the document,
+   * each tagged as 'include' or 'exclude' for reference searching.
+   *
+   * When a local variable shadows a global/outer definition of the same name,
+   * the local's scope becomes an 'exclude' span. Self-referencing expansions
+   * (e.g. `$PATH` in `set -lx PATH $PATH:/opt/bin`) punch 'include' holes.
+   */
+  getScopeSpans(doc: LspDocument, name: string): ScopeSpan[] {
+    const root = this.getRootNode(doc.uri);
+    if (!root) return [];
+    const variableSymbols = this.symbols.findDocumentVariables(doc.uri, name);
+    return buildScopeSpans(root, variableSymbols);
   }
 
   /**
@@ -1188,13 +1540,18 @@ export class Analyzer {
       const sourceDoc = this.getDocument(sourcedUri);
       if (!sourceDoc) continue;
 
-      const topLevelDefinitions = this.getFlatDocumentSymbols(sourceDoc.uri).filter(s => s.isRootLevel() || s.isGlobal());
-      sourcedSymbols.push(...topLevelDefinitions);
+      const topLevelDefinitions = this.symbols.allDocumentGlobalOrRootSymbols(sourceDoc.uri);
+      for (const symbol of topLevelDefinitions) {
+        if (!uniqueNames.has(symbol.name)) {
+          uniqueNames.add(symbol.name);
+          sourcedSymbols.push(symbol);
+        }
+      }
 
       for (const resource of createSourceResources(analyzer, sourceDoc)) {
         // If the resource is a sourced file, we can get its symbols
         if (resource.to && resource.from && resource.node) {
-          const symbols = symbolsFromResource(this, resource, new Set(sourcedSymbols.map(s => s.name)))
+          const symbols = symbolsFromResource(this, resource, uniqueNames)
             .filter(s => s.isRootLevel() || s.isGlobal());
           for (const symbol of symbols) {
             if (!uniqueNames.has(symbol.name)) {
@@ -1220,15 +1577,36 @@ export class Analyzer {
   public allReachableSymbols(documentUri: string): FishSymbol[] {
     const seenSymbols = this.getFlatDocumentSymbols(documentUri);
     analyzer.collectAllSources(documentUri).forEach((s) => {
-      const cached = analyzer.analyzeUri(s);
-      cached?.flatSymbols
-        .filter(s => s.isRootLevel() || s.isGlobal())
-        .filter(s => s.name !== 'argv')
+      analyzer.analyzeUri(s);
+      this.symbols.allDocumentGlobalOrRootSymbols(s)
+        .filter(symbol => symbol.name !== 'argv')
         .forEach(sym => {
           seenSymbols.push(sym);
         });
     });
     return seenSymbols;
+  }
+
+  /**
+   * Collects all reachable function symbols for a document.
+   *
+   * This is the function-only counterpart to `allReachableSymbols()`, which
+   * avoids repeatedly scanning mixed symbol lists when only callable names are
+   * needed.
+   */
+  public allReachableFunctions(documentUri: string): FishSymbol[] {
+    const seenFunctions = this.symbols.allDocumentFunctions(documentUri);
+
+    analyzer.collectAllSources(documentUri).forEach((s) => {
+      analyzer.analyzeUri(s);
+      this.symbols.allDocumentGlobalOrRootSymbols(s)
+        .filter(symbol => symbol.isFunction())
+        .forEach(symbol => {
+          seenFunctions.push(symbol);
+        });
+    });
+
+    return seenFunctions;
   }
 
   /**
@@ -1277,18 +1655,54 @@ export class Analyzer {
   ): string | null {
     const node = this.nodeAtPoint(uri, line, column);
 
-    if (!node || node.childCount > 0 || node.text.trim() === '') {
+    if (!node) {
       return null;
     }
 
-    // check if the current word is a node that contains a `=` sign, therefore
-    // we don't want to return the whole word, but only the part before the `=`
+    // Handle definition-name nodes like `alias foo='bar'` before nested-command
+    // extraction so the cursor on `foo` keeps resolving to the alias symbol.
     if (
       isAliasDefinitionName(node) ||
       isExportVariableDefinitionName(node)
     ) return node.text.split('=')[0]!.trim();
 
+    // Keep direct variable tokens authoritative so `$var` inside `(math $var + 1)`
+    // resolves as `var` instead of collapsing to the nested command `math`.
+    if (isVariableExpansion(node)) {
+      return node.text.trim().replace(/^\$/, '');
+    }
+    if (node.type === 'variable_name' && node.parent && isVariableExpansion(node.parent)) {
+      return node.text.trim();
+    }
+
+    const nestedCommand = this.getCursorReferenceAtPoint(uri, line, column, node);
+    if (nestedCommand) {
+      return nestedCommand.name;
+    }
+
+    if (node.childCount > 0 || node.text.trim() === '') {
+      return null;
+    }
+
     return node.text.trim();
+  }
+
+  private getCursorReferenceAtPoint(
+    uri: string,
+    line: number,
+    column: number,
+    node: SyntaxNode,
+  ): CursorReferenceAtPoint | null {
+    const nestedCommand = getNestedCommandReferenceAtPoint(
+      node,
+      Position.create(line, column),
+      uri,
+    );
+    if (!nestedCommand) return null;
+    return {
+      name: nestedCommand.command,
+      range: nestedCommand.range,
+    };
   }
   /**
    * Find the node at the given point.
@@ -1322,10 +1736,10 @@ export class Analyzer {
 
     if (!node) return null;
 
-    const firstChild = node.firstNamedChild;
-    if (!firstChild || !isCommandName(firstChild)) return null;
+    const nameNode = getCommandNameNode(node);
+    if (!nameNode || !isCommandName(nameNode)) return null;
 
-    return firstChild.text.trim();
+    return nameNode.text.trim();
   }
 
   public commandAtPoint(
@@ -1369,76 +1783,6 @@ export class Analyzer {
       return currentWs.uris.all;
     }
     return this.cache.uris();
-  }
-}
-
-/**
- * @local
- * @class GlobalDefinitionCache
- *
- * @summary The cache for all of the analyzer's global FishSymbol's across all workspaces
- * analyzed.
- *
- * The enternal map uses the name of the symbol as the key, and the value is an array
- * of FishSymbol's that have the same name. This is because a symbol can be defined
- * multiple times in different scopes/workspaces, and we want to keep track of all of them.
- *
- * @see {@link analyzer.globalSymbols} the globally accessible location of this class
- */
-class GlobalDefinitionCache {
-  constructor(private _definitions: Map<string, FishSymbol[]> = new Map()) { }
-  add(symbol: FishSymbol): void {
-    const current = this._definitions.get(symbol.name) || [];
-    if (!current.some(s => s.equals(symbol))) {
-      current.push(symbol);
-    }
-    this._definitions.set(symbol.name, current);
-  }
-  removeSymbolsByUri(uri: string): void {
-    for (const [name, symbols] of this._definitions.entries()) {
-      const filtered = symbols.filter(symbol => symbol.uri !== uri);
-      if (filtered.length === 0) {
-        this._definitions.delete(name);
-      } else {
-        this._definitions.set(name, filtered);
-      }
-    }
-  }
-  find(name: string): FishSymbol[] {
-    return this._definitions.get(name) || [];
-  }
-  findFirst(name: string): FishSymbol | undefined {
-    const symbols = this.find(name);
-    if (symbols.length === 0) {
-      return undefined;
-    }
-    return symbols[0];
-  }
-  has(name: string): boolean {
-    return this._definitions.has(name);
-  }
-  uniqueSymbols(): FishSymbol[] {
-    const unique: FishSymbol[] = [];
-    this.allNames.forEach(name => {
-      const u = this.findFirst(name);
-      if (u) {
-        unique.push(u);
-      }
-    });
-    return unique;
-  }
-  get allSymbols(): FishSymbol[] {
-    const all: FishSymbol[] = [];
-    for (const [_, symbols] of this._definitions.entries()) {
-      all.push(...symbols);
-    }
-    return all;
-  }
-  get allNames(): string[] {
-    return [...this._definitions.keys()];
-  }
-  get map(): Map<string, FishSymbol[]> {
-    return this._definitions;
   }
 }
 

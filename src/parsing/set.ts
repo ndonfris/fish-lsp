@@ -41,17 +41,44 @@ export function isSetQueryDefinition(node: SyntaxNode) {
   return isCommandWithName(node, 'set') && node.children.some(child => isMatchingOption(child, Option.create('-q', '--query')));
 }
 
+export function getSetCommandScopeTag(document: LspDocument, node: SyntaxNode): ScopeTag | null {
+  if (!isCommandWithName(node, 'set')) return null;
+
+  const searchNodes = findSetChildren(node);
+  const modifierOption = findOptionsSet(searchNodes, SetModifiers).pop();
+  if (modifierOption) {
+    return SetModifierToScopeTag(modifierOption.option) as ScopeTag;
+  }
+
+  return getFallbackModifierScope(document, node) as ScopeTag;
+}
+
 /**
  * checks if a node is the variable name of a set command
  * set -g -x foo '...'
  *           ^-- cursor is here
  */
 export function isSetVariableDefinitionName(node: SyntaxNode, excludeQuery = true) {
-  if (!node.parent || !isSetDefinition(node.parent)) return false;
-  if (excludeQuery && isSetQueryDefinition(node.parent)) return false;
-  const searchNodes = findSetChildren(node.parent);
+  let setCommandNode: SyntaxNode | null = null;
+  if (node.parent && isCommandWithName(node.parent, 'set')) {
+    setCommandNode = node.parent;
+  } else if (
+    node.parent?.type === 'concatenation'
+    && node.parent.parent
+    && isCommandWithName(node.parent.parent, 'set')
+  ) {
+    // `set -e PATH[1]` -> `PATH` is the first named child of a concatenation argument.
+    setCommandNode = node.parent.parent;
+  }
+
+  if (!setCommandNode) return false;
+  if (excludeQuery && !isSetDefinition(setCommandNode)) return false;
+  if (excludeQuery && isSetQueryDefinition(setCommandNode)) return false;
+  const searchNodes = findSetChildren(setCommandNode);
   const definitionNode = searchNodes.find(n => !isOption(n));
-  return !!definitionNode && definitionNode.equals(node);
+  if (!definitionNode) return false;
+  if (definitionNode.equals(node)) return true;
+  return definitionNode.type === 'concatenation' && definitionNode.firstNamedChild?.equals(node);
 }
 
 function getFallbackModifierScope(document: LspDocument, node: SyntaxNode) {

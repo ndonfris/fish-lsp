@@ -1,6 +1,6 @@
-import { getReferences } from './references';
+import { getIncrementalReferences, getReferences } from './references';
 import { analyzer, Analyzer } from './analyze';
-import { Position, Range } from 'vscode-languageserver';
+import { Location, Position, Range, WorkDoneProgressReporter } from 'vscode-languageserver';
 import { LspDocument } from './document';
 import { FishSymbol } from './parsing/symbol';
 import { logger } from './logger';
@@ -14,16 +14,48 @@ export interface FishRenameLocation {
   newText: string;
 }
 
+type RenameOptions = {
+  symbol?: FishSymbol;
+  references?: Location[];
+};
+
+type IncrementalRenameOptions = RenameOptions & {
+  reporter?: WorkDoneProgressReporter;
+};
+
 export function getRenames(
   doc: LspDocument,
   position: Position,
   newText: string,
+  opts: RenameOptions = {},
 ): FishRenameLocation[] {
-  const symbol = analyzer.getDefinition(doc, position);
+  const symbol = opts.symbol ?? analyzer.getDefinition(doc, position);
   if (!symbol || !newText) return [];
   if (!canRenameWithNewText(analyzer, doc, position, newText)) return [];
   newText = fixNewText(symbol, position, newText);
-  const locs = getReferences(doc, position);
+  const locs = opts.references ?? getReferences(doc, position);
+  return buildRenameLocations(symbol, locs, newText);
+}
+
+export async function getIncrementalRenames(
+  doc: LspDocument,
+  position: Position,
+  newText: string,
+  opts: IncrementalRenameOptions = {},
+): Promise<FishRenameLocation[]> {
+  const symbol = opts.symbol ?? analyzer.getDefinition(doc, position);
+  if (!symbol || !newText) return [];
+  if (!canRenameWithNewText(analyzer, doc, position, newText)) return [];
+  newText = fixNewText(symbol, position, newText);
+  const locs = opts.references ?? await getIncrementalReferences(doc, position, { reporter: opts.reporter });
+  return buildRenameLocations(symbol, locs, newText);
+}
+
+function buildRenameLocations(
+  symbol: FishSymbol,
+  locs: Location[],
+  newText: string,
+): FishRenameLocation[] {
   return locs.map(loc => {
     const locationText = analyzer.getTextAtLocation(loc);
     let replaceText = newText || locationText;

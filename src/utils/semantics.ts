@@ -306,7 +306,8 @@ export function analyzeValueType(text: string): { tokenType: string; modifiers?:
  */
 export function getVariableModifiers(variableName: string, documentUri?: string): number {
   // Look up the variable in both local and global symbols
-  let symbols = analyzer.globalSymbols.find(variableName);
+  let symbols = analyzer.symbols.variablesByName.find(variableName)
+    .filter(symbol => symbol.isGlobal());
 
   // If we have a document URI, also check local symbols
   if (documentUri && symbols.length === 0) {
@@ -366,7 +367,7 @@ export type CommandModifierInfo = {
  * @returns Object with modifiers bitmask and whether symbol is defined in this document
  */
 export function getCommandModifierInfo(commandNode: SyntaxNode, documentUri?: string): CommandModifierInfo {
-  const commandName = commandNode.firstNamedChild?.text;
+  const commandName = commandNode.childForFieldName('name')?.text;
 
   if (!commandName) {
     return { modifiers: 0, isDefinedInDocument: false };
@@ -383,7 +384,7 @@ export function getCommandModifierInfo(commandNode: SyntaxNode, documentUri?: st
   }
 
   // Look up the command in both local and global symbols
-  let symbols = analyzer.globalSymbols.find(commandName);
+  let symbols = analyzer.symbols.globalSymbols.find(commandName);
   let isDefinedInDocument = false;
 
   // If we have a document URI, also check local symbols

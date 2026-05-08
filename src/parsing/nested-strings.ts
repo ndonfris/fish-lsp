@@ -1,18 +1,12 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { DocumentUri, Range, Location } from 'vscode-languageserver';
 import { getRange } from '../utils/tree-sitter';
+import { FishString } from './string';
 
 /**
  * Configuration for command extraction
  */
-export interface ExtractConfig {
-  /** Whether to parse command substitutions like $(cmd) */
-  readonly parseCommandSubstitutions: boolean;
-  /** Whether to parse parenthesized expressions like (cmd; and cmd2) */
-  readonly parseParenthesized: boolean;
-  /** Whether to remove fish keywords and operators */
-  readonly cleanKeywords: boolean;
-}
+export type ExtractConfig = FishString.CommandExtractConfig;
 
 /**
  * Command reference with location information
@@ -24,15 +18,8 @@ export interface CommandReference {
   readonly location: Location;
 }
 
-const DEFAULT_CONFIG: ExtractConfig = {
-  parseCommandSubstitutions: true,
-  parseParenthesized: true,
-  cleanKeywords: true,
-};
+const DEFAULT_CONFIG: ExtractConfig = FishString.DEFAULT_COMMAND_EXTRACT_CONFIG;
 
-/**
- * Fish shell keywords and operators that should be filtered out
- */
 const FISH_KEYWORDS = new Set([
   'and', 'or', 'not', 'begin', 'end', 'if', 'else', 'switch', 'case',
   'for', 'in', 'while', 'function', 'return', 'break', 'continue',
@@ -51,36 +38,7 @@ export function extractCommands(
   node: SyntaxNode,
   config: ExtractConfig = DEFAULT_CONFIG,
 ): string[] {
-  if (!node.text?.trim()) return [];
-
-  const nodeText = node.text;
-
-  // Handle option arguments like --wraps=command
-  const optionCommand = parseOptionArgument(nodeText);
-  if (optionCommand) {
-    return [optionCommand];
-  }
-
-  const cleanedText = cleanQuotes(nodeText);
-  const commands = new Set<string>();
-
-  // Always parse direct commands first
-  const directCommands = parseDirectCommands(cleanedText, config);
-  directCommands.forEach(cmd => commands.add(cmd));
-
-  // Parse command substitutions: $(cmd args)
-  if (config.parseCommandSubstitutions) {
-    const substitutionCommands = parseCommandSubstitutions(cleanedText);
-    substitutionCommands.forEach(cmd => commands.add(cmd));
-  }
-
-  // Parse parenthesized expressions: (cmd; and cmd2)
-  if (config.parseParenthesized) {
-    const parenthesizedCommands = parseParenthesizedExpressions(cleanedText);
-    parenthesizedCommands.forEach(cmd => commands.add(cmd));
-  }
-
-  return Array.from(commands).filter(cmd => cmd.length > 0);
+  return FishString.extractCommands(node, config);
 }
 
 /**
@@ -249,6 +207,20 @@ function findParenthesizedCommandOffsets(text: string): Array<{ command: string;
   return results;
 }
 
+function parseOptionArgument(text: string): string | null {
+  const optionArgRegex = /^(?:-[a-zA-Z]|--[a-zA-Z][a-zA-Z0-9-]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_-]*)/;
+  const match = text.match(optionArgRegex);
+
+  if (match && match[1]) {
+    const command = match[1].trim();
+    if (command.length > 1 && !isNumeric(command)) {
+      return command;
+    }
+  }
+
+  return null;
+}
+
 /**
  * Find direct commands with offsets
  */
@@ -330,78 +302,6 @@ function extractCommandsFromText(input: string, cleanKeywords = true): string[] 
 }
 
 /**
- * Parse command substitutions
- */
-function parseCommandSubstitutions(input: string): string[] {
-  const commands: string[] = [];
-  const regex = /\$\(([^)]+)\)/g;
-  let match: RegExpExecArray | null;
-
-  while ((match = regex.exec(input)) !== null) {
-    const commandText = match[1];
-    if (commandText?.trim()) {
-      commands.push(...extractCommandsFromText(commandText, true));
-    }
-  }
-
-  return commands;
-}
-
-/**
- * Parse parenthesized expressions
- */
-function parseParenthesizedExpressions(input: string): string[] {
-  const commands: string[] = [];
-  const stack: number[] = [];
-  let start = -1;
-
-  for (let i = 0; i < input.length; i++) {
-    if (input[i] === '(') {
-      if (stack.length === 0) start = i;
-      stack.push(i);
-    } else if (input[i] === ')' && stack.length > 0) {
-      stack.pop();
-
-      if (stack.length === 0 && start !== -1) {
-        const innerText = input.slice(start + 1, i);
-        if (innerText.trim()) {
-          commands.push(...extractCommandsFromText(innerText, true));
-        }
-        start = -1;
-      }
-    }
-  }
-
-  return commands;
-}
-
-/**
- * Parse option arguments like --wraps=command, --command=cmd, etc.
- */
-function parseOptionArgument(text: string): string | null {
-  // Match patterns like --wraps=command, --command=cmd, -c=cmd
-  const optionArgRegex = /^(?:-[a-zA-Z]|--[a-zA-Z][a-zA-Z0-9-]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_-]*)/;
-  const match = text.match(optionArgRegex);
-
-  if (match && match[1]) {
-    const command = match[1].trim();
-    // Only return if it looks like a valid command (not a number or single char)
-    if (command.length > 1 && !isNumeric(command)) {
-      return command;
-    }
-  }
-
-  return null;
-}
-
-/**
- * Parse direct commands
- */
-function parseDirectCommands(input: string, config: ExtractConfig): string[] {
-  return extractCommandsFromText(input, config.cleanKeywords);
-}
-
-/**
  * Tokenize a statement respecting quotes
  */
 function tokenizeStatement(statement: string): string[] {
@@ -457,9 +357,6 @@ function createPreciseRange(command: string, offset: number, nodeRange: Range): 
   };
 }
 
-/**
- * Check if a string is numeric
- */
 function isNumeric(str: string): boolean {
   return /^[0-9]+$/.test(str);
 }

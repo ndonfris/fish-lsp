@@ -361,11 +361,10 @@ export class WorkspaceManager {
         workspace.addPending(...Array.from(analyzer.collectAllSources(documentUri)));
         const localSymbols = analyzer.cache.getDocumentSymbols(document.uri);
         const sourcedSymbols = analyzer.collectSourcedSymbols(document.uri);
-        [...localSymbols, ...sourcedSymbols]
-          .filter(s => s.isGlobal() || s.isRootLevel())
-          .forEach(s => {
-            analyzer.globalSymbols.add(s);
-          });
+        // Promote global/root-level local+sourced symbols into the shared
+        // workspace-visible global cache while opening/updating workspace
+        // documents, without re-running full subset indexing here.
+        analyzer.symbols.indexGlobalOrRootSymbols([...localSymbols, ...sourcedSymbols]);
       }
     }
     return this.current!;
@@ -444,7 +443,7 @@ export class WorkspaceManager {
 
     // Calculate adaptive delay and batch size based on document count
     const BATCH_SIZE = Math.max(1, Math.floor(currentDocuments.length / 20));
-    const UPDATE_DELAY = currentDocuments.length > 100 ? 10 : 25; // Shorter delay for large sets
+    const UPDATE_DELAY = currentDocuments.length > 100 ? 5 : 25; // Shorter delay for large sets
 
     let lastUpdateTime = 0;
     const MIN_UPDATE_INTERVAL = 15; // Minimum ms between visual updates
@@ -463,7 +462,7 @@ export class WorkspaceManager {
       });
 
       try {
-        if (doc.getAutoloadType() === 'completions') {
+        if (doc.isAutoloadedCompletion()) {
           analyzer.analyzePartial(doc);
         } else {
           analyzer.analyze(doc);

@@ -4,7 +4,7 @@ import { isDefinitionName, isEmittedEventDefinitionName, VariableDefinitionKeywo
 import { Option, isMatchingOption, isMatchingOptionOrOptionValue, isMatchingOptionValue } from '../parsing/options';
 import { isVariableDefinitionName, isFunctionDefinitionName, isAliasDefinitionName, isExportVariableDefinitionName, isArgparseVariableDefinitionName } from '../parsing/barrel';
 import { isBuiltin as checkBuiltinName, BuiltInList } from './builtins';
-import { PrebuiltDocumentationMap } from './snippets';
+import { findPrebuiltDoc } from './snippets';
 
 // use the `../parsing/barrel` barrel file's imports for finding the definition names
 export {
@@ -81,12 +81,33 @@ export function isCommand(node: SyntaxNode): boolean {
 }
 
 export function isFishShippedFunctionName(node: SyntaxNode): boolean {
-  return !!PrebuiltDocumentationMap.getByType('command').find((item) => {
-    if (item.name === node.text) {
-      return true;
-    }
-    return false;
-  });
+  return !!findPrebuiltDoc(node.text, 'command');
+}
+
+/**
+ * Get the SyntaxNode that holds the command name for a `command` node.
+ *
+ * Post tree-sitter-fish PR #41, a `command` node may have one or more
+ * `override_variable` children (the `VAR=value` prefix syntax) ahead of the
+ * actual command name, so the command name is no longer guaranteed to be
+ * `firstChild` / `firstNamedChild`. The grammar exposes the command name
+ * through the `name` field, which is also available pre-PR, making this the
+ * forward-compatible accessor.
+ *
+ * Returns `null` for non-command node types or when the field is absent.
+ */
+export function getCommandNameNode(node: SyntaxNode | null | undefined): SyntaxNode | null {
+  if (!node) return null;
+  if (node.type !== 'command') return null;
+  return node.childForFieldName('name');
+}
+
+/**
+ * Convenience wrapper around `getCommandNameNode` returning the command's
+ * textual name, or `undefined` if the node is not a `command` or has no name.
+ */
+export function getCommandNameText(node: SyntaxNode | null | undefined): string | undefined {
+  return getCommandNameNode(node)?.text;
 }
 
 /**
@@ -146,17 +167,48 @@ export function isDefinition(node: SyntaxNode): boolean {
 }
 
 /**
- * checks if a node is the firstNamedChild of a command
+ * Checks whether a node is in a position that can define a symbol name.
+ *
+ * This is intentionally broader than `isDefinitionName()` and includes:
+ * - variable/function/alias definition names
+ * - emitted event names (`emit EVENT_NAME`)
+ * - completion command targets and option symbols
+ *   (`complete -c CMD -s short -l long -o old`)
+ */
+export function isPossibleDefinitionName(node: SyntaxNode): boolean {
+  if (!node || !node.isNamed) return false;
+
+  if (isDefinitionName(node) || isEmittedEventDefinitionName(node)) {
+    return true;
+  }
+
+  if (isOption(node) || !node.parent || !isCommandWithName(node.parent, 'complete')) {
+    return false;
+  }
+
+  const previousSibling = node.previousNamedSibling;
+  if (!previousSibling) return false;
+
+  return isMatchingOption(
+    previousSibling,
+    Option.create('-c', '--command').withValue(),
+    Option.create('-s', '--short-option').withValue(),
+    Option.create('-l', '--long-option').withValue(),
+    Option.create('-o', '--old-option').withValue(),
+  );
+}
+
+/**
+ * Checks if a node is the command name of its parent `command` node.
+ *
+ * Uses the `name` field selector so the check is correct even when the
+ * command has `override_variable` prefixes (post tree-sitter-fish PR #41).
  */
 export function isCommandName(node: SyntaxNode): boolean {
-  const parent = node.parent || node;
-  const cmdName = parent?.firstNamedChild || node?.firstNamedChild;
-  if (!parent || !cmdName) {
-    return false;
-  }
-  if (!isCommand(parent)) {
-    return false;
-  }
+  const parent = node.parent;
+  if (!parent || !isCommand(parent)) return false;
+  const cmdName = getCommandNameNode(parent);
+  if (!cmdName) return false;
   return node.type === 'word' && node.equals(cmdName);
 }
 
@@ -536,26 +588,16 @@ export function findForLoopVariable(node: SyntaxNode): SyntaxNode | null {
  **/
 export function findSetDefinedVariable(node: SyntaxNode): SyntaxNode | null {
   const parent = findParentCommand(node);
-  if (!parent) {
-    return null;
+  if (!parent) return null;
+
+  // Walk arguments (skips both the command name and any `override_variable`
+  // prefix, since neither lives in the `argument` field) and return the first
+  // non-flag argument — that's the target variable.
+  const args = parent.childrenForFieldName('argument');
+  for (const arg of args) {
+    if (!arg.text.startsWith('-')) return arg;
   }
-
-  const children: SyntaxNode[] = parent.children;
-
-  let i = 1;
-  let child: SyntaxNode = children[i]!;
-
-  while (child !== undefined) {
-    if (!child.text.startsWith('-')) {
-      return child;
-    }
-    if (i === children.length - 1) {
-      return null;
-    }
-    child = children[i++]!;
-  }
-
-  return child;
+  return null;
 }
 
 export function hasParent(node: SyntaxNode, callbackfn: (n: SyntaxNode) => boolean) {
@@ -629,10 +671,10 @@ export function scopeCheck(node1: SyntaxNode, node2: SyntaxNode): boolean {
 }
 
 export function wordNodeIsCommand(node: SyntaxNode) {
-  if (node.type !== 'word') {
-    return false;
-  }
-  return node.parent ? isCommand(node.parent) && node.parent.firstChild?.text === node.text : false;
+  if (node.type !== 'word') return false;
+  if (!node.parent || !isCommand(node.parent)) return false;
+  const name = getCommandNameNode(node.parent);
+  return !!name && name.equals(node);
 }
 
 export function isSwitchStatement(node: SyntaxNode) {
@@ -648,7 +690,7 @@ export function isReturn(node: SyntaxNode) {
 }
 
 export function isExit(node: SyntaxNode) {
-  return node.type === 'command' && node.firstChild?.text === 'exit';
+  return isCommandWithName(node, 'exit');
 }
 
 export function isConditionalCommand(node: SyntaxNode) {
@@ -708,7 +750,8 @@ export function isInlineComment(node: SyntaxNode) {
 
 export function isCommandWithName(node: SyntaxNode, ...commandNames: string[]) {
   if (node.type !== 'command') return false;
-  return !!node.firstChild && commandNames.includes(node.firstChild.text);
+  const name = getCommandNameText(node);
+  return !!name && commandNames.includes(name);
 }
 
 export function isArgumentThatCanContainCommandCalls(node: SyntaxNode) {
@@ -724,13 +767,17 @@ export function isArgumentThatCanContainCommandCalls(node: SyntaxNode) {
   if (isFunctionDefinition(parent)) {
     return isMatchingOptionValue(node, Option.create('-w', '--wraps').withValue());
   }
-  const commandName = parent.firstNamedChild?.text;
+  const commandName = getCommandNameText(parent);
   if (!commandName) return false;
   switch (commandName) {
     case 'complete':
       return isMatchingOptionValue(node, Option.create('-w', '--wraps').withValue())
         || isMatchingOptionValue(node, Option.create('-c', '--command').withValue())
-        || isMatchingOptionValue(node, Option.create('-a', '--arguments').withValue())
+        ||
+          isMatchingOptionValue(node, Option.create('-a', '--arguments').withValue())
+          && node.text.includes('(')
+          && node.text.includes(')')
+
         || isMatchingOptionValue(node, Option.create('-n', '--condition').withValue());
     case 'alias':
     case 'bind':
@@ -760,7 +807,7 @@ export function isStringWithCommandCall(node: SyntaxNode) {
 
   // when a command is `complete`, `alias`, or `bind` command, we check for the options that are allowed
   if (isCommand(parent)) {
-    const parentCommandName = parent.firstChild?.text;
+    const parentCommandName = getCommandNameText(parent);
     if (!parentCommandName) return false;
     switch (parentCommandName) {
       case 'complete':
@@ -903,7 +950,7 @@ export function isCompleteCommandName(node: SyntaxNode) {
 export function isBuiltinCommand(node: SyntaxNode): boolean {
   if (!isCommand(node)) return false;
 
-  const commandName = node.firstNamedChild;
+  const commandName = getCommandNameNode(node);
   if (!commandName || !isCommandName(commandName)) return false;
 
   return checkBuiltinName(commandName.text);

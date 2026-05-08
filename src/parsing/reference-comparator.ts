@@ -2,14 +2,15 @@ import * as Locations from '../utils/locations';
 import { SyntaxNode } from 'web-tree-sitter';
 import { FishSymbol } from './symbol';
 import { LspDocument } from '../document';
-import { equalRanges, getChildNodes, getRange } from '../utils/tree-sitter';
+import { analyzer } from '../analyze';
+import { equalRanges, getChildNodes, getRange, nodesGen } from '../utils/tree-sitter';
 import { isEmittedEventDefinitionName } from './emit';
-import { findParentCommand, findParentFunction, isArgumentThatCanContainCommandCalls, isCommand, isCommandWithName, isEndStdinCharacter, isFunctionDefinition, isFunctionDefinitionName, isOption, isString, isVariable, isVariableDefinitionName } from '../utils/node-types';
+import { findParentCommand, findParentFunction, getCommandNameNode, getCommandNameText, isArgumentThatCanContainCommandCalls, isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isFunctionDefinition, isFunctionDefinitionName, isOption, isString, isVariable, isVariableDefinitionName } from '../utils/node-types';
 import { isMatchingCompletionFlagNodeWithFishSymbol } from './complete';
 import { isCompletionArgparseFlagWithCommandName } from './argparse';
 import { isMatchingOption, isMatchingOptionOrOptionValue, Option } from './options';
-import { isSetVariableDefinitionName } from './set';
-import { extractCommands } from './nested-strings';
+import { getSetCommandScopeTag, isSetQueryDefinition, isSetVariableDefinitionName } from './set';
+import { FishString } from './string';
 import { isAbbrDefinitionName, isMatchingAbbrFunction } from '../diagnostics/node-types';
 import { isBindFunctionCall } from './bind';
 import { isAliasDefinitionValue } from './alias';
@@ -22,6 +23,50 @@ type ReferenceContext = {
 };
 
 type ReferenceCheck = (ctx: ReferenceContext) => boolean;
+
+function isBeforePosition(a: { line: number; character: number; }, b: { line: number; character: number; }) {
+  return a.line < b.line || a.line === b.line && a.character < b.character;
+}
+
+function highestConditionalExecution(node: SyntaxNode | null): SyntaxNode | null {
+  let current = node;
+  let highest: SyntaxNode | null = null;
+  while (current) {
+    if (current.type === 'conditional_execution') {
+      highest = current;
+    }
+    current = current.parent;
+  }
+  return highest;
+}
+
+function guardedSetQueryReference(symbol: FishSymbol, document: LspDocument, node: SyntaxNode): boolean | null {
+  if (!symbol.isVariable() || symbol.uri !== document.uri) return null;
+  if (!isSetVariableDefinitionName(node, false) || node.text !== symbol.name) return null;
+
+  const queryCommand = findParentCommand(node);
+  const definitionCommand = findParentCommand(symbol.focusedNode);
+  if (!queryCommand || !definitionCommand) return null;
+  if (!isSetQueryDefinition(queryCommand) || !isCommandWithName(definitionCommand, 'set')) return null;
+
+  const queryChain = highestConditionalExecution(queryCommand);
+  const definitionChain = highestConditionalExecution(definitionCommand);
+  if (!queryChain || !definitionChain || !queryChain.equals(definitionChain)) return null;
+
+  const nodePos = getRange(node).start;
+  const defPos = symbol.selectionRange.start;
+  if (!isBeforePosition(nodePos, defPos)) return null;
+
+  const queryScope = getSetCommandScopeTag(document, queryCommand);
+  const definitionScope = getSetCommandScopeTag(symbol.document, definitionCommand) || symbol.scopeTag;
+  if (!queryScope || queryScope !== definitionScope) return false;
+
+  if (definitionScope === 'global' || definitionScope === 'universal') {
+    return true;
+  }
+
+  return false;
+}
 
 // Early exit conditions - things we can immediately rule out
 const shouldSkipNode: ReferenceCheck = ({ symbol, document, node, excludeEqualNode }) => {
@@ -56,7 +101,36 @@ const checkEventReference: ReferenceCheck = ({ symbol, node }) => {
 // Scope validation for local symbols
 const isInValidScope: ReferenceCheck = ({ symbol, document, node }) => {
   if (symbol.isLocal() && !symbol.isArgparse()) {
-    return symbol.scopeContainsNode(node) && symbol.uri === document.uri;
+    // Same-document: use existing scope containment check
+    if (symbol.uri === document.uri) {
+      if (symbol.scopeContainsNode(node)) return true;
+      // Node is inside a --no-scope-shadowing callee invoked from symbol's scope.
+      if (symbol.isVariable() && isInNoScopeShadowingCallee(symbol, node, document.uri)) return true;
+      return false;
+    }
+    // Cross-document: for regular callers, allow references inside directly called
+    // --no-scope-shadowing callees (same logical scope sharing).
+    if (symbol.isVariable() && isInNoScopeShadowingCallee(symbol, node, document.uri)) {
+      return true;
+    }
+    // Cross-document: only allow if symbol is in a --no-scope-shadowing function
+    // AND the node is also in a --no-scope-shadowing function (or at program scope)
+    if (symbol.parent?.isFunctionWithNoScopeShadowing()) {
+      const enclosingFunc = findParentFunction(node);
+      if (!enclosingFunc || !isFunctionDefinition(enclosingFunc)) {
+        return true; // node is at program/global scope
+      }
+      const enclosingFuncSymbol = analyzer.getEnclosingFunctionSymbol(document.uri, node);
+      return !!(
+        enclosingFuncSymbol?.isFunctionWithNoScopeShadowing()
+        && analyzer.isFunctionVisibleFrom(enclosingFuncSymbol, symbol.parent, document.uri)
+      );
+    }
+    // Cross-document: --inherit-variable allows specific variables to cross file boundaries
+    if (symbol.isVariable() && isValidInheritVariableScope(symbol, node, document.uri)) {
+      return true;
+    }
+    return false;
   }
   return true;
 };
@@ -143,7 +217,7 @@ const checkFunctionReference: ReferenceCheck = ({ symbol, node }) => {
   if (
     parentNode
     && isCommandWithName(parentNode, symbol.name)
-    && parentNode.firstNamedChild?.equals(node)
+    && getCommandNameNode(parentNode)?.equals(node)
   ) {
     return true;
   }
@@ -154,7 +228,7 @@ const checkFunctionReference: ReferenceCheck = ({ symbol, node }) => {
   // function calls that are strings
   if (isArgumentThatCanContainCommandCalls(node)) {
     if (isString(node) || isOption(node)) {
-      return extractCommands(node).some(cmd => cmd === symbol.name);
+      return FishString.extractCommands(node).some(cmd => cmd === symbol.name);
     }
     return node.text === symbol.name;
   }
@@ -169,13 +243,13 @@ const checkFunctionReference: ReferenceCheck = ({ symbol, node }) => {
   if (prevNode && isMatchingOption(prevNode, Option.create('-w', '--wraps')) ||
     node.parent && isFunctionDefinition(node.parent) &&
     isMatchingOptionOrOptionValue(node, Option.create('-w', '--wraps'))) {
-    return extractCommands(node).some(cmd => cmd === symbol.name);
+    return FishString.extractCommands(node).some(cmd => cmd === symbol.name);
   }
 
   // Abbreviation functions
   if (parentNode && isCommandWithName(parentNode, 'abbr')) {
     if (prevNode && isMatchingAbbrFunction(node)) {
-      return extractCommands(node).some(cmd => cmd === symbol.name);
+      return FishString.extractCommands(node).some(cmd => cmd === symbol.name);
     }
 
     const namedChild = getChildNodes(parentNode).find(n => isAbbrDefinitionName(n));
@@ -191,10 +265,10 @@ const checkFunctionReference: ReferenceCheck = ({ symbol, node }) => {
     if (isOption(node)) return false;
 
     if (isBindFunctionCall(node)) {
-      return extractCommands(node).some(cmd => cmd === symbol.name);
+      return FishString.extractCommands(node).some(cmd => cmd === symbol.name);
     }
 
-    if (isString(node) && extractCommands(node).some(cmd => cmd === symbol.name)) {
+    if (isString(node) && FishString.extractCommands(node).some(cmd => cmd === symbol.name)) {
       return true;
     }
 
@@ -208,20 +282,20 @@ const checkFunctionReference: ReferenceCheck = ({ symbol, node }) => {
   // Alias commands
   if (parentNode && isCommandWithName(parentNode, 'alias')) {
     if (isAliasDefinitionValue(node)) {
-      return extractCommands(node).some(cmd => cmd === symbol.name);
+      return FishString.extractCommands(node).some(cmd => cmd === symbol.name);
     }
   }
 
   if (parentNode && isCommandWithName(parentNode, 'argparse')) {
     if (isOption(node) || isString(node)) {
-      return extractCommands(node).some(cmd => cmd === symbol.name);
+      return FishString.extractCommands(node).some(cmd => cmd === symbol.name);
     }
   }
 
   // Export/set/read/for/argparse commands
   if (parentNode && isCommandWithName(parentNode, 'export', 'set', 'read', 'for', 'argparse')) {
     if (isOption(node) || isString(node)) {
-      return extractCommands(node).some(cmd => cmd === symbol.name);
+      return FishString.extractCommands(node).some(cmd => cmd === symbol.name);
     }
     if (isVariableDefinitionName(node)) return false;
 
@@ -231,12 +305,144 @@ const checkFunctionReference: ReferenceCheck = ({ symbol, node }) => {
   return symbol.name === node.text && symbol.scopeContainsNode(node);
 };
 
+function scopeCallsNoScopeShadowingFunctionTransitively(
+  scopeNode: SyntaxNode,
+  targetFunc: FishSymbol,
+  caller?: FishSymbol | null,
+  callerUri?: string,
+  visited = new Set<string>(),
+): boolean {
+  const targetKey = targetFunc.id;
+
+  for (const node of nodesGen(scopeNode)) {
+    if (!isCommand(node)) continue;
+    const commandName = getCommandNameText(node);
+    if (!commandName) continue;
+
+    const callees = analyzer.getCallableNoScopeShadowingFunctions(commandName, caller, callerUri);
+    for (const callee of callees) {
+      const calleeKey = callee.id;
+      if (calleeKey === targetKey) {
+        return true;
+      }
+      if (visited.has(calleeKey)) {
+        continue;
+      }
+
+      visited.add(calleeKey);
+      if (scopeCallsNoScopeShadowingFunctionTransitively(
+        callee.scope.scopeNode,
+        targetFunc,
+        callee,
+        callee.uri,
+        visited,
+      )) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function isInNoScopeShadowingCallee(symbol: FishSymbol, node: SyntaxNode, uri: string): boolean {
+  const enclosingFuncSymbol = analyzer.getEnclosingFunctionSymbol(uri, node);
+  if (!enclosingFuncSymbol?.isFunctionWithNoScopeShadowing()) return false;
+  if (!analyzer.isFunctionVisibleFrom(enclosingFuncSymbol, symbol.parent, uri)) return false;
+  return scopeCallsNoScopeShadowingFunctionTransitively(
+    symbol.scope.scopeNode,
+    enclosingFuncSymbol,
+    symbol.parent,
+    symbol.uri,
+  );
+}
+
+/**
+ * Checks if a cross-file variable reference is valid for --inherit-variable.
+ * Returns true when:
+ * - The symbol is a regular variable and the node is inside a function that
+ *   inherits this variable name (caller→callee direction)
+ * - The symbol is an --inherit-variable declaration and the node is in the
+ *   calling function that defines this variable (callee→caller direction)
+ */
+function isValidInheritVariableScope(symbol: FishSymbol, node: SyntaxNode, uri: string): boolean {
+  const enclosingFunc = findParentFunction(node);
+  if (!enclosingFunc || !isFunctionDefinition(enclosingFunc)) {
+    return false;
+  }
+  const enclosingFuncSymbol = analyzer.getEnclosingFunctionSymbol(uri, node);
+  if (!enclosingFuncSymbol) return false;
+
+  // Direction 1: symbol is a regular variable, node is inside a function
+  // that inherits this variable via --inherit-variable
+  const inheritingFuncs = analyzer.getCallableInheritingFunctions(symbol.name, symbol.parent, symbol.document.uri);
+  if (inheritingFuncs.some(f => f.equals(enclosingFuncSymbol))) {
+    return true;
+  }
+
+  // Direction 2: symbol is an --inherit-variable declaration, node is in
+  // another function (the caller that defines this variable)
+  // Verify the enclosing function actually calls the inherit-variable's parent
+  if (symbol.isInheritVariable() && symbol.parent) {
+    for (const n of nodesGen(enclosingFunc)) {
+      if (isCommandWithName(n, symbol.parent.name)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Checks if a cross-file variable reference is valid by verifying that the
+ * candidate node is inside a --no-scope-shadowing function (transparent scope)
+ * or at program/global scope. The symbol must also be in a transparent-scope
+ * function or be global.
+ */
+function isValidCrossFileVariableReference(symbol: FishSymbol, node: SyntaxNode, uri: string): boolean {
+  const enclosingFunc = findParentFunction(node);
+  // Node is at program/global scope (not inside any function)
+  if (!enclosingFunc || !isFunctionDefinition(enclosingFunc)) {
+    return symbol.isGlobal();
+  }
+  const enclosingFuncSymbol = analyzer.getEnclosingFunctionSymbol(uri, node);
+  // Check --no-scope-shadowing
+  if (
+    enclosingFuncSymbol?.isFunctionWithNoScopeShadowing()
+    && analyzer.isFunctionVisibleFrom(enclosingFuncSymbol, symbol.parent, symbol.document.uri)
+  ) {
+    return symbol.parent?.isFunctionWithNoScopeShadowing() || symbol.isGlobal();
+  }
+  // Check --inherit-variable
+  if (isValidInheritVariableScope(symbol, node, uri)) {
+    return true;
+  }
+  return false;
+}
+
 // Variable-specific reference checking
-const checkVariableReference: ReferenceCheck = ({ symbol, node }) => {
+const checkVariableReference: ReferenceCheck = ({ symbol, document, node }) => {
   if (!symbol.isVariable() || node.text !== symbol.name) return false;
 
-  // Check if the node is a variaable definition with the same name
-  if (isVariable(node) || isVariableDefinitionName(node)) return true;
+  const guardedQueryMatch = guardedSetQueryReference(symbol, document, node);
+  if (guardedQueryMatch !== null) return guardedQueryMatch;
+
+  // Bare command names (e.g. `foo`) are command/function references, not
+  // variable references. `$foo` is still handled through variable nodes.
+  if (isCommandName(node)) return false;
+
+  // Check if the node is a variable definition or reference with the same name
+  if (isVariable(node) || isVariableDefinitionName(node)) {
+    // Same-file: scope was already validated by isInValidScope
+    if (symbol.scopeContainsNode(node)) return true;
+    // Node is inside a --no-scope-shadowing callee called from symbol's scope.
+    if (isInNoScopeShadowingCallee(symbol, node, document.uri)) return true;
+    // Same-file but outside active lifetime/scope is not a valid reference.
+    if (symbol.uri === document.uri) return false;
+    // Cross-file: verify both sides have transparent scope
+    return isValidCrossFileVariableReference(symbol, node, document.uri);
+  }
 
   const parentNode = node.parent ? findParentCommand(node) : null;
 
@@ -253,7 +459,11 @@ const checkVariableReference: ReferenceCheck = ({ symbol, node }) => {
     if (isVariableDefinitionName(node)) return symbol.name === node.text;
   }
 
-  return symbol.name === node.text && symbol.scopeContainsNode(node);
+  if (symbol.name !== node.text) return false;
+  if (symbol.scopeContainsNode(node)) return true;
+  if (isInNoScopeShadowingCallee(symbol, node, document.uri)) return true;
+  if (symbol.uri === document.uri) return false;
+  return isValidCrossFileVariableReference(symbol, node, document.uri);
 };
 
 // Main reference checker that composes all the checks

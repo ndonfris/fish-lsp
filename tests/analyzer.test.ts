@@ -12,6 +12,7 @@ import os from 'os';
 import { join } from 'path';
 import { pathToUri } from '../src/utils/translation';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
+import { workspaceManager } from '../src/utils/workspace-manager';
 
 let parser: Parser;
 const tmpDir = join(os.tmpdir(), 'fish-lsp-analyzer-tests');
@@ -271,6 +272,122 @@ describe('Analyzer class in file: `src/analyze.ts`', () => {
       expect(flatSymbols).toBeDefined();
       expect(flatSymbols).toHaveLength(7);
       expect(flatSymbols.map(s => s.name)).toEqual(['argv', 'foo', 'bar', 'baz', 'argv', 'argv', 'argv']);
+    });
+  });
+
+  describe('workspace-scoped definition resolution', () => {
+    it('should not resolve definitions from current workspace when document is in another workspace', () => {
+      workspaceManager.clear();
+
+      const uniqueCommand = '__fish_lsp_workspace_scope_test_cmd_91731';
+      const docA = createFakeLspDocument('/tmp/fish-lsp-ws-a/functions/ws_a.fish', [
+        `function ${uniqueCommand}`,
+        'end',
+      ].join('\n'));
+      const docB = createFakeLspDocument('/tmp/fish-lsp-ws-b/ws_b.fish', [
+        uniqueCommand,
+      ].join('\n'));
+
+      analyzer.analyze(docA);
+      analyzer.analyze(docB);
+      workspaceManager.handleUpdateDocument(docA);
+      workspaceManager.handleUpdateDocument(docB);
+
+      const wsA = workspaceManager.findContainingWorkspace(docA.uri)!;
+      const wsB = workspaceManager.findContainingWorkspace(docB.uri)!;
+      expect(wsA.uri).not.toEqual(wsB.uri);
+
+      // Simulate an unrelated active workspace selection.
+      workspaceManager.setCurrent(wsA);
+
+      const definition = analyzer.getDefinition(docB, LSP.Position.create(0, 1));
+      expect(definition).toBeNull();
+    });
+  });
+
+  describe('nested command references', () => {
+    it('resolves definition and hover from inside an alias value', () => {
+      const document = createFakeLspDocument('conf.d/alias-hover.fish', [
+        'function bar',
+        'end',
+        '',
+        "alias bb 'bar'",
+        'alias b_="bar -s"',
+      ].join('\n'));
+
+      analyzer.analyze(document);
+
+      const aliasDefinition = analyzer.getDefinition(document, LSP.Position.create(3, 11));
+      expect(aliasDefinition?.name).toBe('bar');
+      expect(aliasDefinition?.fishKind).toBe('FUNCTION');
+
+      const wrappedAliasDefinition = analyzer.getDefinition(document, LSP.Position.create(4, 11));
+      expect(wrappedAliasDefinition?.name).toBe('bar');
+      expect(wrappedAliasDefinition?.fishKind).toBe('FUNCTION');
+
+      const hover = analyzer.getHover(document, LSP.Position.create(4, 11));
+      expect(JSON.stringify(hover?.contents)).toContain('bar');
+    });
+
+    it('keeps alias-name hover on the alias definition for equals syntax', () => {
+      const document = createFakeLspDocument('conf.d/alias-hover-name.fish', [
+        'alias b_="bar -s"',
+      ].join('\n'));
+
+      analyzer.analyze(document);
+
+      const definition = analyzer.getDefinition(document, LSP.Position.create(0, 7));
+      expect(definition?.name).toBe('b_');
+      expect(definition?.fishKind).toBe('ALIAS');
+
+      const hover = analyzer.getHover(document, LSP.Position.create(0, 7));
+      expect(JSON.stringify(hover?.contents)).toContain('alias');
+      expect(JSON.stringify(hover?.contents)).toContain('b_');
+    });
+
+    it('does not resolve plain string contents that are not real references', () => {
+      const document = createFakeLspDocument('conf.d/non-reference-string.fish', [
+        'function bar',
+        'end',
+        '',
+        "echo 'bar'",
+      ].join('\n'));
+
+      analyzer.analyze(document);
+
+      const definition = analyzer.getDefinition(document, LSP.Position.create(3, 7));
+      expect(definition).toBeNull();
+
+      const hover = analyzer.getHover(document, LSP.Position.create(3, 7));
+      expect(hover).toBeNull();
+    });
+
+    it('resolves definition and hover inside complete -n conditions', () => {
+      const document = createFakeLspDocument('conf.d/complete-condition-hover.fish', [
+        'function __fish_use_subcommand',
+        'end',
+        '',
+        'complete -c foo -n \'__fish_use_subcommand\' -f',
+      ].join('\n'));
+
+      analyzer.analyze(document);
+
+      const definition = analyzer.getDefinition(document, LSP.Position.create(3, 22));
+      expect(definition?.name).toBe('__fish_use_subcommand');
+      expect(definition?.fishKind).toBe('FUNCTION');
+
+      const hover = analyzer.getHover(document, LSP.Position.create(3, 22));
+      expect(JSON.stringify(hover?.contents)).toContain('__fish_use_subcommand');
+    });
+
+    it('extracts nested helper names from complete -a command substitutions', () => {
+      const document = createFakeLspDocument('conf.d/complete-arguments-hover.fish', [
+        'complete -c nvim -a \'(__fish_use_subcommand)\'',
+      ].join('\n'));
+
+      analyzer.analyze(document);
+
+      expect(analyzer.wordAtPoint(document.uri, 0, 24)).toBe('__fish_use_subcommand');
     });
   });
 

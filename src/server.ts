@@ -4,7 +4,7 @@ import './utils/polyfills';
 import './virtual-fs';
 import { SyntaxNode } from 'web-tree-sitter';
 import { analyzer, Analyzer } from './analyze';
-import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent, SelectionRangeParams, SelectionRange } from 'vscode-languageserver';
+import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent, SelectionRangeParams, SelectionRange, PrepareRenameParams, CancellationToken } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, documents, rangeOverlapsLineSpan } from './document';
 import { formatDocumentWithIndentComments, formatDocumentContent } from './formatting';
@@ -18,10 +18,9 @@ import { getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspa
 import { workspaceManager } from './utils/workspace-manager';
 import { formatFishSymbolTree, filterLastPerScopeSymbol, FishSymbol } from './parsing/symbol';
 import { CompletionPager, initializeCompletionPager, isInVariableExpansionContext, SetupData } from './utils/completion/pager';
-import { FishCompletionItem } from './utils/completion/types';
-import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
-import { PrebuiltDocumentationMap, getPrebuiltDocUrl } from './utils/snippets';
+import { resolveCompletionItemDocumentation } from './utils/completion/resolve-item';
+import { PrebuiltDocumentationMap, formatPrebuiltDocMarkdown } from './utils/snippets';
 import { findParent, findParentCommand, isAliasDefinitionName, isBraceExpansion, isCommand, isCommandName, isConcatenatedValue, isConcatenation, isEndStdinCharacter, isOption, isPathNode, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
 import { config, Config } from './config';
 import { enrichToMarkdown, handleBraceExpansionHover, handleEndStdinHover, handleSourceArgumentHover } from './documentation';
@@ -37,16 +36,18 @@ import { setupProcessEnvExecFile } from './utils/process-env';
 import { flattenNested } from './utils/flatten';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { isSourceCommandArgumentName } from './parsing/source';
-import { getReferences } from './references';
-import { getRenames } from './renames';
+import { getIncrementalReferences } from './references';
+import { getIncrementalRenames } from './renames';
 import { getReferenceCountCodeLenses } from './code-lens';
 import { getSelectionRanges } from './selection-range';
 import { PkgJson } from './utils/commander-cli-subcommands';
 import { ProgressNotification } from './utils/progress-notification';
 import { md } from './utils/markdown-builder';
+import { subcommandCache } from './utils/subcommand-cache';
 
 export type SupportedFeatures = {
   codeActionDisabledSupport: boolean;
+  prepareRenameSupport: boolean;
 };
 
 export let server: FishServer;
@@ -71,6 +72,17 @@ export let cachedDocumentation: DocumentationCache;
 export let cachedCompletionMap: CompletionItemMap;
 
 export default class FishServer {
+  /**
+   * Disposables returned by the shared `documents` event emitter.
+   *
+   * We keep these so a server instance can unregister its listeners when the
+   * server is shut down or when tests create multiple server instances in the
+   * same process. Without explicit disposal, listeners accumulate on the global
+   * `documents` collection and later document events fan out through stale
+   * handlers from older server instances.
+   */
+  private documentListeners: Array<{ dispose(): void; }> = [];
+
   /**
    * How a client importing the server as a module would connect to a new server instance
    *
@@ -113,10 +125,12 @@ export default class FishServer {
     await setupProcessEnvExecFile();
     const capabilities = params.capabilities;
     const initializeResult = Config.initialize(params, connection);
+    // rootUri/rootPath are deprecated in LSP, but we still log/support them for older clients.
+    const legacyRoots = params as unknown as { rootUri?: string | null; rootPath?: string | null; };
     logger.log({
       server: 'FishServer',
-      rootUri: params.rootUri,
-      rootPath: params.rootPath,
+      rootUri: legacyRoots.rootUri,
+      rootPath: legacyRoots.rootPath,
       workspaceFolders: params.workspaceFolders,
     });
 
@@ -154,6 +168,14 @@ export default class FishServer {
       params,
     );
     server.register(connection);
+
+    subcommandCache.onPopulated(() => {
+      void Promise.resolve()
+        .then(() => connection?.languages?.semanticTokens?.refresh?.())
+        .catch(() => undefined);
+    });
+    subcommandCache.initializeBuiltins();
+
     return { server, initializeResult };
   }
 
@@ -169,10 +191,23 @@ export default class FishServer {
     private initializeParams: InitializeParams,
 
   ) {
-    this.features = { codeActionDisabledSupport: true };
+    this.features = this.updateFeatures();
     this.clientSupportsShowDocument = false;
     this.backgroundAnalysisComplete = false;
     this.backgroundAnalysisInProgress = false;
+  }
+
+  private updateFeatures() {
+    return {
+      codeActionDisabledSupport: !!(
+        !!this.initializeParams?.capabilities?.textDocument &&
+        !!this.initializeParams.capabilities.textDocument?.codeAction?.disabledSupport
+      ),
+      prepareRenameSupport: !!(
+        !!this.initializeParams?.capabilities?.textDocument &&
+        !!this.initializeParams.capabilities.textDocument?.rename?.prepareSupport
+      ),
+    };
   }
 
   /**
@@ -197,9 +232,6 @@ export default class FishServer {
     const commandCallback = createExecuteCommandHandler(connection);
 
     // register the handlers
-    // connection.onDidOpenTextDocument(this.didOpenTextDocument.bind(this));
-    // connection.onDidChangeTextDocument(this.didChangeTextDocument.bind(this));
-    // connection.onDidCloseTextDocument(this.didCloseTextDocument.bind(this));
     connection.onDidSaveTextDocument(this.didSaveTextDocument.bind(this));
 
     connection.onCompletion(this.onCompletion.bind(this));
@@ -214,6 +246,9 @@ export default class FishServer {
     connection.onReferences(this.onReferences.bind(this));
     connection.onHover(this.onHover.bind(this));
 
+    if (this.features.prepareRenameSupport) {
+      connection.onPrepareRename(this.onPrepareRename.bind(this));
+    }
     connection.onRenameRequest(this.onRename.bind(this));
 
     connection.onDocumentFormatting(this.onDocumentFormatting.bind(this));
@@ -238,7 +273,9 @@ export default class FishServer {
     connection.onShutdown(this.onShutdown.bind(this));
     documents.listen(connection);
 
-    documents.onDidOpen(async ({ document }) => {
+    // Store document listener disposables so this server instance can detach
+    // itself from the shared document collection during shutdown.
+    this.documentListeners.push(documents.onDidOpen(async ({ document }) => {
       this.logDocument('documents.onDidOpen', document);
 
       const { uri } = this.analyzeDocument(document);
@@ -256,9 +293,9 @@ export default class FishServer {
       if (this.backgroundAnalysisComplete) {
         analyzer.diagnostics.requestUpdate(uri, true); // full diagnostics pass on open
       }
-    });
+    }));
 
-    documents.onDidChangeContent(({ document }) => {
+    this.documentListeners.push(documents.onDidChangeContent(({ document }) => {
       this.logDocument('documents.onDidChangeContent', document, {
         showDiagnostics: true,
         showLastChangedSpan: true,
@@ -274,17 +311,30 @@ export default class FishServer {
 
       // Get the first changed line for overlap detection
       analyzer.diagnostics.requestUpdate(uri, overlapExists, changeSpan);
-    });
+    }));
 
-    documents.onDidClose(({ document }) => {
+    this.documentListeners.push(documents.onDidClose(({ document }) => {
       this.logDocument('documents.onDidClose', document);
       const { uri } = document;
       workspaceManager.handleCloseDocument(uri);
       analyzer.diagnostics.delete(uri);
       analyzer.removeDocumentSymbols(uri);
-    });
+    }));
 
     logger.log({ 'server.register': 'registered' });
+  }
+
+  /**
+   * Dispose server-local resources that are safe to tear down independently of
+   * the full shutdown flow.
+   *
+   * Right now this is primarily the document event subscriptions registered in
+   * `register()`. This method intentionally does not clear analyzer/workspace
+   * state; `onShutdown()` handles that broader process-level cleanup.
+   */
+  public dispose(): void {
+    this.documentListeners.forEach(listener => listener.dispose());
+    this.documentListeners = [];
   }
 
   async didSaveTextDocument(params: LSP.DidSaveTextDocumentParams): Promise<void> {
@@ -303,7 +353,21 @@ export default class FishServer {
   /**
    * Stop the server and close all workspaces.
    */
+  /**
+   * Stop the server and clear shared global state.
+   *
+   * This performs a stronger cleanup than `dispose()`:
+   * - unregister this server's document listeners
+   * - clear buffered diagnostics and pending diagnostic timers
+   * - clear workspace manager state
+   * - reset current-document / background-analysis flags
+   *
+   * Tests that spin up a real `FishServer` instance should prefer calling this
+   * method in teardown so they leave the singleton analyzer/workspace state in
+   * a predictable condition for the next suite.
+   */
   async onShutdown() {
+    this.dispose();
     analyzer.diagnostics.clear();
     workspaceManager.clear();
     currentDocument = null;
@@ -390,6 +454,19 @@ export default class FishServer {
       this.backgroundAnalysisInProgress = false;
       this.backgroundAnalysisComplete = false;
       logger.error('Error during background analysis onInitialized', error);
+    } finally {
+      /**
+       * If skipStartupLogging is enabled, the logger was set to silent during startup to avoid logging incomplete information.
+       * Now that initialization is complete, we can disable silent mode to allow logging of the startup information.
+       */
+      if (Config.skipStartupLogging) logger.setFullSilence(false);
+      logger.log({
+        startupTime: new Date().toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' }),
+        binary: PkgJson.path,
+        version: PkgJson.version,
+        buildTime: PkgJson.buildTime,
+        nodeVersion: process.version,
+      });
     }
 
     logger.info(`Initial analysis complete. Analyzed ${totalDocuments} documents.`);
@@ -464,7 +541,8 @@ export default class FishServer {
       }
       if (isInVariableExpansionContext(doc, params.position, line, word, current ?? null)) {
         logger.log('completeVariables');
-        return this.completion.completeVariables(line, word, fishCompletionData, symbols);
+        const variableList = await this.completion.completeVariables(line, word, fishCompletionData, symbols);
+        return variableList;
       }
     } catch (error) {
       logger.warning('ERROR: onComplete ' + error?.toString() || 'error');
@@ -485,20 +563,8 @@ export default class FishServer {
    * Not seeing a completion result, with typed correctly is likely caused from this.
    */
   async onCompletionResolve(item: CompletionItem): Promise<CompletionItem> {
-    const fishItem = item as FishCompletionItem;
-    logger.log({ onCompletionResolve: fishItem });
     try {
-      if (fishItem.useDocAsDetail || fishItem.local) {
-        item.documentation = {
-          kind: MarkupKind.Markdown,
-          value: fishItem.documentation.toString(),
-        };
-        return item;
-      }
-      const doc = await getDocumentationResolver(fishItem);
-      if (doc) {
-        item.documentation = doc as MarkupContent;
-      }
+      return await resolveCompletionItemDocumentation(item, this.completionMap);
     } catch (err) {
       logger.error('onCompletionResolve', err);
     }
@@ -523,13 +589,11 @@ export default class FishServer {
     // Get sourced symbols and convert them to nested structure if needed
     const sourcedSymbols = analyzer.collectSourcedSymbols(doc.uri);
 
-    // Combine local and sourced symbols and cache the sourced symbols as global definitions
-    // local to the document inside the analyzer workspace. Heuristic to cache global symbols
-    // more frequently in background analysis of focused document because server.onDocumentSymbols
-    // is requested repeatedly in most clients when moving around a LspDocument.
-    [...localSymbols, ...sourcedSymbols]
-      .filter(s => s.isGlobal() || s.isRootLevel())
-      .forEach(s => analyzer.globalSymbols.add(s));
+    // Promote global/root-level local+sourced symbols into the shared
+    // workspace-visible global cache. This is a targeted heuristic used by
+    // repeated document-symbol requests; it intentionally does not re-index all
+    // semantic subsets here.
+    analyzer.symbols.indexGlobalOrRootSymbols([...localSymbols, ...sourcedSymbols]);
 
     return filterLastPerScopeSymbol(localSymbols)
       .map(s => s.toDocumentSymbol())
@@ -588,10 +652,20 @@ export default class FishServer {
   async onDefinition(params: DefinitionParams): Promise<Location[]> {
     this.logParams('onDefinition', params);
 
-    const { doc } = this.getDefaults(params);
+    const { doc, current } = this.getDefaults(params);
     if (!doc) return [];
 
     const newDefs = analyzer.getDefinitionLocation(doc, params.position);
+    if (!newDefs || newDefs.length === 0) {
+      // const retryTarget = analyzer.getSymbolFromReferenceLocation(
+      //   Location.create(doc.uri, { start: params.position, end: params.position })
+      // );
+      // if (retryTarget) newDefs.push(retryTarget.toLocation());
+      if (current) {
+        const fallbackSymbol = analyzer.symbols.globalSymbols.findFirst(current?.text);
+        if (fallbackSymbol) newDefs.push(fallbackSymbol.toLocation());
+      }
+    }
     for (const location of newDefs) {
       workspaceManager.handleOpenDocument(location.uri);
       workspaceManager.handleUpdateDocument(location.uri);
@@ -609,30 +683,52 @@ export default class FishServer {
     if (!doc) return [];
 
     const progress = await connection.window.createWorkDoneProgress();
+    progress.begin('[fish-lsp] finding references', 0, 'Resolving symbol...', true);
+    await new Promise(resolve => setImmediate(resolve));
 
-    const defSymbol = analyzer.getDefinition(doc, params.position);
-    if (!defSymbol) {
-      logger.log('onReferences: no definition found at position', params.position);
-      return [];
+    try {
+      const defSymbol = analyzer.getDefinition(doc, params.position);
+
+      // Use the original request position; re-targeting through defSymbol.toPosition()
+      // can break synthetic symbols (e.g. function argv focused on function name).
+      let results = await getIncrementalReferences(doc, params.position, { reporter: progress });
+
+      const retryTarget = await this.getExternalDefinitionRetryTarget(doc, params.position);
+      if (retryTarget) {
+        progress.report(0, 'Retrying from external definition...');
+        const retriedResults = await getIncrementalReferences(retryTarget.doc, retryTarget.position, { reporter: progress });
+        const unique = new Map<string, Location>();
+        for (const location of [...results, ...retriedResults]) {
+          const key = [
+            location.uri,
+            location.range.start.line,
+            location.range.start.character,
+            location.range.end.line,
+            location.range.end.character,
+          ].join(':');
+          unique.set(key, location);
+        }
+        results = [...unique.values()];
+      }
+
+      progress.report(100, `Found ${results.length} reference${results.length === 1 ? '' : 's'}`);
+
+      logger.info({
+        onReferences: 'found references',
+        uri: defSymbol?.uri ?? doc.uri,
+        count: results.length,
+        position: params.position,
+        symbol: defSymbol?.name ?? 'prebuilt',
+      });
+
+      if (results.length === 0) {
+        logger.warning('onReferences: no references found', { uri: params.textDocument.uri, position: params.position });
+        return [];
+      }
+      return results;
+    } finally {
+      progress.done();
     }
-
-    const results = getReferences(defSymbol.document, defSymbol.toPosition(), {
-      reporter: progress,
-    });
-
-    logger.info({
-      onReferences: 'found references',
-      uri: defSymbol.uri,
-      count: results.length,
-      position: params.position,
-      symbol: defSymbol.name,
-    });
-
-    if (results.length === 0) {
-      logger.warning('onReferences: no references found', { uri: params.textDocument.uri, position: params.position });
-      return [];
-    }
-    return results;
   }
 
   /**
@@ -645,9 +741,74 @@ export default class FishServer {
     const symbols = analyzer.cache.getDocumentSymbols(doc.uri);
     const lastSymbols = filterLastPerScopeSymbol(symbols);
     logger.log('symbols', formatFishSymbolTree(lastSymbols));
-    const result = analyzer.getImplementation(doc, params.position);
-    logger.log('implementationResult', { result });
-    return result;
+    const progress = await connection.window.createWorkDoneProgress();
+    progress.begin('[fish-lsp] finding implementations', 0, 'Resolving symbol...', true);
+    await new Promise(resolve => setImmediate(resolve));
+    try {
+      let result = analyzer.getImplementation(doc, params.position, { reporter: progress });
+      const retryTarget = await this.getExternalDefinitionRetryTarget(doc, params.position);
+      if (retryTarget) {
+        progress.report(0, 'Retrying from external definition...');
+        const retried = analyzer.getImplementation(retryTarget.doc, retryTarget.position, { reporter: progress });
+        if (result.length === 0) {
+          result = retried;
+        } else if (retried.length > 0) {
+          const unique = new Map<string, Location>();
+          for (const location of [...result, ...retried]) {
+            const key = [
+              location.uri,
+              location.range.start.line,
+              location.range.start.character,
+              location.range.end.line,
+              location.range.end.character,
+            ].join(':');
+            unique.set(key, location);
+          }
+          result = [...unique.values()];
+        }
+      }
+      progress.report(100, `Found ${result.length} implementation${result.length === 1 ? '' : 's'}`);
+      logger.log('implementationResult', { result });
+      return result;
+    } finally {
+      progress.done();
+    }
+  }
+
+  private async getExternalDefinitionRetryTarget(
+    doc: LspDocument,
+    position: LSP.Position,
+  ): Promise<{ doc: LspDocument; position: LSP.Position; } | null> {
+    const definition = analyzer.getDefinition(doc, position);
+    if (!definition || definition.uri === doc.uri) {
+      return null;
+    }
+
+    const currentWorkspace = workspaceManager.findContainingWorkspace(doc.uri);
+    const definitionWorkspace = workspaceManager.findContainingWorkspace(definition.uri);
+    const isOutsideCurrentWorkspace = !currentWorkspace
+      || !definitionWorkspace
+      || definitionWorkspace.uri !== currentWorkspace.uri;
+
+    if (!isOutsideCurrentWorkspace) {
+      return null;
+    }
+
+    workspaceManager.handleOpenDocument(definition.uri);
+    workspaceManager.handleUpdateDocument(definition.uri);
+    if (workspaceManager.needsAnalysis()) {
+      await workspaceManager.analyzePendingDocuments();
+    }
+
+    const definitionDoc = analyzer.getDocument(definition.uri) || documents.get(definition.uri);
+    if (!definitionDoc) {
+      return null;
+    }
+
+    return {
+      doc: definitionDoc,
+      position: definition.selectionRange.start,
+    };
   }
 
   // Probably should move away from `documentationCache`. It works but is too expensive memory wise.
@@ -761,18 +922,14 @@ export default class FishServer {
     if (symbolItem) return symbolItem;
     if (prebuiltSkipType) {
       return {
-        contents: enrichToMarkdown([
-          `___${current.text}___  - _${getPrebuiltDocUrl(prebuiltSkipType)}_`,
-          '___',
-          `type - __(${prebuiltSkipType.type})__`,
-          '___',
-          `${prebuiltSkipType.description}`,
-        ].join('\n')),
+        contents: enrichToMarkdown(formatPrebuiltDocMarkdown(prebuiltSkipType)),
       };
     }
 
     const definition = analyzer.getDefinition(doc, params.position);
     const allowsGlobalDocs = !definition || definition?.isGlobal();
+    const lookupText = analyzer.wordAtPoint(doc.uri, params.position.line, params.position.character)?.trim()
+      || current.text.trim();
     const symbolType = [
       'function',
       'class',
@@ -780,7 +937,7 @@ export default class FishServer {
     ].includes(kindString) ? kindType : undefined;
 
     const globalItem = await this.documentationCache.resolve(
-      current.text.trim(),
+      lookupText,
       path,
       symbolType,
     );
@@ -809,26 +966,111 @@ export default class FishServer {
     return fallbackHover;
   }
 
-  async onRename(params: RenameParams): Promise<WorkspaceEdit | null> {
+  /**
+   * Check if we can rename the symbol at the given position
+   *
+   * This is called by the client before showing the rename UI to check if renaming is valid at the given position.
+   *
+   * @params params The parameters for the prepare rename request
+   * @returns A protocol-compliant prepare-rename result, or throws an error if
+   * renaming is not valid at the given position.
+   */
+  public onPrepareRename(params: PrepareRenameParams, token?: CancellationToken): LSP.PrepareRenameResult | null {
+    this.logParams('onPrepareRename', params);
+    if (token?.isCancellationRequested) return null;
+
+    const doc = analyzer.getDocument(params.textDocument.uri);
+    if (!doc) this.throwResponseError('document could not be found');
+
+    analyzer.ensureCachedDocument(doc);
+
+    const definition = this.getPrepareRenameDefinitionOrThrow(doc, params.position);
+    /**
+     * We don't return the `{ defaultBehavior: true }` PrepareRenameResult possible return value
+     * because certain clients (e.g., coc.nvim don't support it and will incorrectly treat is as a failed prepareRename response)
+     */
+    return { range: definition.selectionRange, placeholder: definition.name };
+  }
+
+  async onRename(params: RenameParams, token?: CancellationToken): Promise<WorkspaceEdit | null> {
     this.logParams('onRename', params);
+    if (token?.isCancellationRequested) return null;
 
     const { doc } = this.getDefaults(params);
     if (!doc) return null;
 
-    const locations = getRenames(doc, params.position, params.newName);
-
-    const changes: { [uri: string]: TextEdit[]; } = {};
-    for (const location of locations) {
-      const range = location.range;
-      const uri = location.uri;
-      const edits = changes[uri] || [];
-      edits.push(TextEdit.replace(range, location.newText));
-      changes[uri] = edits;
+    const definition = analyzer.getDefinition(doc, params.position);
+    logger.log('onRename', {
+      uri: doc.uri,
+      position: params.position,
+      definition: definition ? { name: definition.name, uri: definition.uri, range: definition.range } : null,
+    });
+    if (params.newName === definition?.name) {
+      logger.warning({
+        method: 'onRename',
+        message: `Can\'t rename "${params.newName}" to the same name`,
+        action: 'returning null to indicate no-op',
+      });
+      return null;
     }
-    const workspaceEdit: WorkspaceEdit = {
-      changes,
-    };
-    return workspaceEdit;
+    if (!definition || definition.skippableVariableName()) {
+      logger.warning({
+        method: 'onRename',
+        message: `The symbol at the given position cannot be renamed ${definition ? `(skippable variable: ${definition.name})` : '(no definition found)'}`,
+        action: 'throwing error to indicate invalid rename target',
+      });
+      this.throwResponseError('The symbol at the given position cannot be renamed');
+    }
+
+    const progress = await connection.window.createWorkDoneProgress();
+    progress.begin('[fish-lsp] renaming symbol', 0, 'Resolving symbol...', true);
+    await new Promise(resolve => setImmediate(resolve));
+    try {
+      const references = await getIncrementalReferences(
+        doc,
+        params.position,
+        { reporter: progress },
+      );
+      if (token?.isCancellationRequested) return null;
+
+      const locations = await getIncrementalRenames(
+        doc,
+        params.position,
+        params.newName,
+        {
+          symbol: definition,
+          references,
+        },
+      );
+      if (token?.isCancellationRequested) return null;
+
+      const changes: { [uri: string]: TextEdit[]; } = {};
+      for (let index = 0; index < locations.length; index++) {
+        if (token?.isCancellationRequested) return null;
+        const location = locations[index]!;
+        const range = location.range;
+        const uri = location.uri;
+        const edits = changes[uri] || [];
+        edits.push(TextEdit.replace(range, location.newText));
+        changes[uri] = edits;
+
+        if (locations.length > 1) {
+          const prog = Math.ceil((index + 1) / locations.length * 100);
+          progress.report(prog, `Building edits ${index + 1}/${locations.length}`);
+          if ((index + 1) % 50 === 0 || index === 0) {
+            await new Promise(resolve => setImmediate(resolve));
+          }
+        }
+      }
+
+      progress.report(100, `Prepared ${locations.length} edit${locations.length === 1 ? '' : 's'}`);
+      const workspaceEdit: WorkspaceEdit = {
+        changes,
+      };
+      return workspaceEdit;
+    } finally {
+      progress.done();
+    }
   }
 
   async onDocumentFormatting(params: DocumentFormattingParams): Promise<TextEdit[]> {
@@ -1138,6 +1380,44 @@ export default class FishServer {
     return { doc, path, root };
   }
 
+  private throwResponseError(message: string, code: number = LSP.ErrorCodes.UnknownErrorCode): never {
+    throw new LSP.ResponseError(code, message);
+  }
+
+  private getPrepareRenameDefinitionOrThrow(doc: LspDocument, position: LSP.Position): FishSymbol {
+    analyzer.ensureCachedDocument(doc);
+    const definition = analyzer.getDefinition(doc, position);
+    logger.log('prepareRename definition', {
+      name: definition?.name,
+      kind: definition ? definition.kind : 'undefined',
+      doc: {
+        uri: definition?.document.uri,
+        position: definition ? definition.toPosition() : 'undefined',
+      },
+    });
+    if (
+      definition?.isVariable()
+      && PrebuiltDocumentationMap.getByType('variable').some(v => v.name === definition.name)
+    ) {
+      this.throwResponseError(`Can't rename symbol '${definition.name}', variable doesn't have a definition or is read-only.`);
+    }
+    if (!definition || definition.skippableVariableName()) {
+      this.throwResponseError('symbol is not defined in fish or is read-only');
+    }
+    if (definition.document.uri !== doc.uri) {
+      if (doc.isCommandlineBuffer()) {
+        this.throwResponseError('Cannot rename across multiple files from a `edit_commandline_buffer` document');
+      }
+      if (doc.isFunced()) {
+        this.throwResponseError('Cannot rename across multiple files from a `funced` document');
+      }
+      if (Config.isWebServer) {
+        this.throwResponseError('Cannot rename across multiple files from the web server');
+      }
+    }
+    return definition;
+  }
+
   private logDocument(request: string, document: LspDocument | undefined, options: {
     showDiagnostics?: boolean;
     showLastChangedSpan?: boolean;
@@ -1178,42 +1458,6 @@ export default class FishServer {
     } else {
       logger.log({ time: now(), request, document: 'undefined', ...extra });
     }
-  }
-
-  static async setupForTestUtilities() {
-    await setupProcessEnvExecFile();
-    // const capabilities = params.capabilities;
-    const initializeResult = Config.initialize({} as InitializeParams, connection);
-    // set this only it it hasn't been set yet
-
-    const initializeUris = getWorkspacePathsFromInitializationParams({} as InitializeParams);
-
-    // Run these operations in parallel rather than sequentially
-    const [
-      cache,
-      _workspaces,
-      completionsMap,
-    ] = await Promise.all([
-      initializeDocumentationCache(),
-      initializeDefaultFishWorkspaces(...initializeUris),
-      CompletionItemMap.initialize(),
-    ]);
-
-    cachedDocumentation = cache;
-    cachedCompletionMap = completionsMap;
-
-    await Analyzer.initialize();
-
-    const completions = await initializeCompletionPager(logger, completionsMap);
-
-    server = new FishServer(
-      completions,
-      completionsMap,
-      cache,
-      {} as InitializeParams,
-    );
-
-    return { server, initializeResult };
   }
 }
 

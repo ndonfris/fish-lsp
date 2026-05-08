@@ -66,6 +66,21 @@ function unescapeSequence(seq: string): string {
  * @see https://github.com/ndonfris/fish-lsp/issues/140
  */
 export namespace FishString {
+  export interface CommandExtractConfig {
+    /** Whether to parse command substitutions like $(cmd) */
+    readonly parseCommandSubstitutions: boolean;
+    /** Whether to parse parenthesized expressions like (cmd; and cmd2) */
+    readonly parseParenthesized: boolean;
+    /** Whether to remove fish keywords and operators */
+    readonly cleanKeywords: boolean;
+  }
+
+  export const DEFAULT_COMMAND_EXTRACT_CONFIG: CommandExtractConfig = {
+    parseCommandSubstitutions: true,
+    parseParenthesized: true,
+    cleanKeywords: true,
+  };
+
   /**
    * Extracts the bare string value from a fish shell SyntaxNode.
    * Strips surrounding quotes and resolves escape sequences.
@@ -114,4 +129,173 @@ export namespace FishString {
   export function parse(input: SyntaxNode | string): string {
     return typeof input === 'string' ? fromText(input) : fromNode(input);
   }
+
+  /**
+   * Extract command names from fish string input.
+   *
+   * This is the text-oriented counterpart to `nested-strings.ts`, which still
+   * owns precise range extraction. Use this when you only need the command
+   * names, not their exact positions.
+   */
+  export function extractCommands(
+    input: SyntaxNode | string,
+    config: CommandExtractConfig = DEFAULT_COMMAND_EXTRACT_CONFIG,
+  ): string[] {
+    const rawText = typeof input === 'string' ? input : input.text;
+    if (!rawText?.trim()) return [];
+
+    const optionCommand = parseOptionArgument(rawText);
+    if (optionCommand) {
+      return [optionCommand];
+    }
+
+    const cleanedText = parse(input);
+    const commands = new Set<string>();
+
+    const directCommands = parseDirectCommands(cleanedText, config);
+    directCommands.forEach(cmd => commands.add(cmd));
+
+    if (config.parseCommandSubstitutions) {
+      const substitutionCommands = parseCommandSubstitutions(cleanedText);
+      substitutionCommands.forEach(cmd => commands.add(cmd));
+    }
+
+    if (config.parseParenthesized) {
+      const parenthesizedCommands = parseParenthesizedExpressions(cleanedText);
+      parenthesizedCommands.forEach(cmd => commands.add(cmd));
+    }
+
+    return Array.from(commands).filter(cmd => cmd.length > 0);
+  }
+}
+
+const FISH_KEYWORDS = new Set([
+  'and', 'or', 'not', 'begin', 'end', 'if', 'else', 'switch', 'case',
+  'for', 'in', 'while', 'function', 'return', 'break', 'continue',
+  'set', 'test', 'true', 'false',
+]);
+
+const FISH_OPERATORS = new Set([
+  '&&', '||', '|', ';', '&', '>', '<', '>>', '<<', '>&', '<&',
+  '2>', '2>>', '2>&1', '1>&2', '/dev/null',
+]);
+
+function parseOptionArgument(text: string): string | null {
+  const optionArgRegex = /^(?:-[a-zA-Z]|--[a-zA-Z][a-zA-Z0-9-]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_-]*)/;
+  const match = text.match(optionArgRegex);
+
+  if (match && match[1]) {
+    const command = match[1].trim();
+    if (command.length > 1 && !isNumeric(command)) {
+      return command;
+    }
+  }
+
+  return null;
+}
+
+function parseDirectCommands(input: string, config: FishString.CommandExtractConfig): string[] {
+  return extractCommandsFromText(input, config.cleanKeywords);
+}
+
+function parseCommandSubstitutions(input: string): string[] {
+  const commands: string[] = [];
+  const regex = /\$\(([^)]+)\)/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(input)) !== null) {
+    const commandText = match[1];
+    if (commandText?.trim()) {
+      commands.push(...extractCommandsFromText(commandText, true));
+    }
+  }
+
+  return commands;
+}
+
+function parseParenthesizedExpressions(input: string): string[] {
+  const commands: string[] = [];
+  const stack: number[] = [];
+  let start = -1;
+
+  for (let i = 0; i < input.length; i++) {
+    if (input[i] === '(') {
+      if (stack.length === 0) start = i;
+      stack.push(i);
+    } else if (input[i] === ')' && stack.length > 0) {
+      stack.pop();
+
+      if (stack.length === 0 && start !== -1) {
+        const innerText = input.slice(start + 1, i);
+        if (innerText.trim()) {
+          commands.push(...extractCommandsFromText(innerText, true));
+        }
+        start = -1;
+      }
+    }
+  }
+
+  return commands;
+}
+
+function extractCommandsFromText(input: string, cleanKeywords = true): string[] {
+  const statements = input.split(/[;&|]+/)
+    .map(stmt => stmt.trim())
+    .filter(stmt => stmt.length > 0);
+
+  const commands: string[] = [];
+
+  for (const statement of statements) {
+    const tokens = tokenizeStatement(statement);
+    const filteredTokens = cleanKeywords
+      ? tokens.filter(token => !FISH_KEYWORDS.has(token) && !FISH_OPERATORS.has(token))
+      : tokens;
+
+    for (const token of filteredTokens) {
+      if (token && !isNumeric(token) && token.length > 1) {
+        commands.push(token);
+      }
+    }
+  }
+
+  return commands;
+}
+
+function tokenizeStatement(statement: string): string[] {
+  const tokens: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  let quoteChar = '';
+
+  for (let i = 0; i < statement.length; i++) {
+    const char = statement[i];
+    if (!char) continue;
+
+    if (!inQuotes && (char === '"' || char === '\'')) {
+      inQuotes = true;
+      quoteChar = char;
+      current += char;
+    } else if (inQuotes && char === quoteChar) {
+      inQuotes = false;
+      current += char;
+      quoteChar = '';
+    } else if (!inQuotes && /\s/.test(char)) {
+      if (current.trim()) {
+        tokens.push(current.trim());
+        current = '';
+      }
+    } else {
+      current += char;
+    }
+  }
+
+  if (current.trim()) {
+    tokens.push(current.trim());
+  }
+
+  return tokens;
+}
+
+function isNumeric(str: string): boolean {
+  return /^[0-9]+$/.test(str);
 }

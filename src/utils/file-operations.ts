@@ -202,6 +202,26 @@ export class SyncFileHelper {
   }
 
   /**
+   * Naive utility to convert an absolute path to a relative path by replacing known base paths with their variable representations.
+   */
+  static toSimplifiedPath(filePath: PathLike): string {
+    const expandedFilePath = this.expandEnvVars(filePath);
+    const shortenendPaths = Object.entries({
+      ['~']: process.env.HOME || env.get('HOME') || '',
+      ['$XDG_CONFIG_HOME']: process.env.XDG_CONFIG_HOME || `${process.env.HOME}/.config`,
+      ['$PWD']: process.cwd(),
+    }).filter(Boolean)
+      .filter(([_, value]) => value !== '' && typeof value === 'string');
+    for (const [key, value] of shortenendPaths) {
+      if (typeof value !== 'string' || !value.includes('/')) continue;
+      if (expandedFilePath.startsWith(value)) {
+        return key + expandedFilePath.substring(value.length);
+      }
+    }
+    return expandedFilePath;
+  }
+
+  /**
    * Synchronously checks if a workspace path is a writable directory
    * @param workspacePath - The path to check
    * @returns true if path exists, is a directory, and is writable

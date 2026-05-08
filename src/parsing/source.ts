@@ -18,20 +18,34 @@ export function isSourceCommandName(node: SyntaxNode) {
   return isCommandWithName(node, 'source') || isCommandWithName(node, '.');
 }
 
+/**
+ * Returns the first non-flag argument of a `source` / `.` command, or
+ * `undefined`. Reading via the `argument` field skips both the command
+ * name and any `override_variable` prefixes (post tree-sitter-fish PR #41).
+ */
+function sourceFilenameArgument(node: SyntaxNode): SyntaxNode | undefined {
+  const args = node.childrenForFieldName('argument');
+  const first = args[0];
+  if (!first || first.text === '-') return undefined;
+  return first;
+}
+
 export function isSourceCommandWithArgument(node: SyntaxNode) {
-  return isSourceCommandName(node) && node.childCount > 1 && node.child(1)?.text !== '-';
+  return isSourceCommandName(node) && !!sourceFilenameArgument(node);
 }
 
 export function isSourceCommandArgumentName(node: SyntaxNode) {
   if (node.parent && isSourceCommandWithArgument(node.parent)) {
-    return node.parent?.child(1)?.equals(node) && node.isNamed && node.text !== '-';
+    const arg = sourceFilenameArgument(node.parent);
+    return !!arg && arg.equals(node) && node.isNamed && node.text !== '-';
   }
   return false;
 }
 
 export function isSourcedFilename(node: SyntaxNode) {
   if (node.parent && isSourceCommandName(node.parent)) {
-    return node.parent?.child(1)?.equals(node) && node.isNamed && node.text !== '-';
+    const arg = sourceFilenameArgument(node.parent);
+    return !!arg && arg.equals(node) && node.isNamed && node.text !== '-';
   }
   return false;
 }
