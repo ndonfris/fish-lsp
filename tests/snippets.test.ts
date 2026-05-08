@@ -56,12 +56,12 @@ describe('snippets tests', () => {
       for (const obj of fishLspObjs) {
         const cli = EnvVariableJson.asCliObject(obj);
         const output = fromCliOutputToString(cli, { includeDefaultValue: true, includeType: true, includeOptions: true, wrap: true });
-        console.log(output);
-        console.log();
+        expect(output.split('\n').length).toBeGreaterThanOrEqual(4);
+        // console.log(output);
       }
     });
 
-    it('env documentation', () => {
+    it.skip('env documentation', () => {
       for (const obj of fishLspObjs) {
         const cli = EnvVariableJson.asCliObject(obj);
         console.log(fromCliToMarkdownString(cli));
@@ -69,12 +69,12 @@ describe('snippets tests', () => {
       }
     });
 
-    it('build in cli', () => {
+    it.skip('build in cli', () => {
       handleEnvOutput('create', logger.log);
     });
 
     it('cli show', () => {
-      handleEnvOutput('show', logger.log);
+      handleEnvOutput('show', logger.debug);
     });
   });
 

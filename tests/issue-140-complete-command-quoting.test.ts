@@ -65,12 +65,14 @@ const MAS_REPRESENTATIONS: { input: string; description: string; nodeType: strin
 
 describe('issue #140 – complete -c with quoted/escaped command names', () => {
   let parser: Parser;
+  let server: FishServer | undefined;
 
   beforeAll(async () => {
     parser = await initializeParser();
     await Analyzer.initialize();
     createMockConnection();
-    await FishServer.create(connection, {} as InitializeParams);
+    const result = await FishServer.create(connection, {} as InitializeParams);
+    server = result.server;
     logger.setSilent();
     await setupProcessEnvExecFile();
   });
@@ -86,6 +88,11 @@ describe('issue #140 – complete -c with quoted/escaped command names', () => {
 
   afterEach(() => {
     config.fish_lsp_diagnostic_disable_error_codes = [];
+  });
+
+  afterAll(() => {
+    server?.dispose();
+    analyzer.diagnostics.clear();
   });
 
   // -------------------------------------------------------------------------

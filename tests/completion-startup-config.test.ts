@@ -4,7 +4,7 @@ import { setLogger } from './helpers';
 import { StaticItems } from '../src/utils/completion/static-items';
 import { execCmd } from '../src/utils/exec';
 import { ConfigSchema } from '../src/config';
-import { FishCompletionItemKind } from '../src/utils/completion/types';
+import { FishCompletionItem, FishCompletionItemKind } from '../src/utils/completion/types';
 
 /**
  * NOTE: since the test suite is dependent on the machine's shell environment, we need to
@@ -280,6 +280,44 @@ describe('Test completions/startup-config.ts `SetupItem` commands', () => {
       const mkdirItem = completionItemMap.findLabel('mkdir', 'command');
       // console.log('`mkdir` item details:', mkdirItem);
       expect(mkdirItem).toBeDefined();
+    });
+
+    it.only('confirm "string-*"', () => {
+      const searchLabels = [
+        'string',
+        'string-split',
+        'string-join',
+        'string-collect',
+        'string-upper',
+        'string-lower',
+        '__fish_contains_opt',
+        'fish_lsp_log_file',
+        'pwd',
+        'PWD',
+        'test',
+        'fish_prompt',
+        'man',
+        'fish-lsp',
+        'fzf',
+        'agg',
+        '0',
+        '# @fish-lsp-enable-next-line',
+      ];
+      const foundLabels: FishCompletionItem[] = [];
+      for (const search of searchLabels) {
+        const foundItem = completionItemMap.findLabel(search);
+        if (foundItem) {
+          foundLabels.push(foundItem);
+        } else {
+          console.log({
+            warning: 'couldn\'t find ' + search + ' in completionItemMap',
+            search,
+          });
+        }
+      }
+      console.log(
+        foundLabels,
+      );
     });
   });
 });

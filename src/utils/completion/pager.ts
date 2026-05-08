@@ -1,6 +1,6 @@
 import { FishSymbol } from '../../parsing/symbol';
-import { FishCompletionItem } from './types';
-import { execCompleteLine } from '../exec';
+import { cloneCompletionItem, FishCompletionItem, getCompletionDocumentationValue } from './types';
+import { execCompleteCmdArgs, execCompleteLine } from '../exec';
 import { logger, Logger } from '../../logger';
 import { InlineParser } from './inline-parser';
 import { CompletionItemMap } from './startup-cache';
@@ -8,7 +8,7 @@ import { CompletionContext, CompletionList, Position, SymbolKind } from 'vscode-
 import { FishCompletionList, FishCompletionListBuilder } from './list';
 import { shellComplete } from './shell';
 import { isVariableDefinitionName } from '../../parsing/barrel';
-import { isOption, isCommandWithName, isVariableExpansion } from '../../utils/node-types';
+import { isOption, isCommandWithName, isUnmatchedStringCharacter, isVariableExpansion } from '../../utils/node-types';
 import * as SetParser from '../../parsing/set';
 import * as ReadParser from '../../parsing/read';
 import * as ArgparseParser from '../../parsing/argparse';
@@ -62,6 +62,9 @@ export class CompletionPager {
       const toAdd = await this.getSubshellStdoutCompletions(' ');
       stdout.push(...toAdd);
       for (const [name, description] of stdout) {
+        if (this.itemsMap.shouldSkipMatch(name)) {
+          continue;
+        }
         this._items.addItem(FishCompletionItem.create(name, 'command', description, name).setPriority(1));
       }
     } catch (e) {
@@ -86,47 +89,21 @@ export class CompletionPager {
       setupData.position,
     );
 
-    // Analyze the context to determine how to format the insertText
-    const lineBeforeCursor = line;
-    const cursorPos = setupData.position.character;
-
-    // Find how many $ characters precede the current word
-    let wordStartPos = cursorPos;
-    while (wordStartPos > 0) {
-      const char = lineBeforeCursor[wordStartPos - 1];
-      // Stop at whitespace or when we find a $ ($ is prefix, not part of word)
-      if (char === ' ' || char === '\t' || char === '\n' || char === '$') {
-        break;
-      }
-      wordStartPos--;
+    const prefixInfo = getVariableCompletionPrefix(
+      line,
+      setupData.position.character,
+      word,
+      this.isInVariableDefinitionContext(line, setupData.position),
+    );
+    const variablePrefix = prefixInfo.insertPrefix;
+    if (prefixInfo.replaceLength !== undefined) {
+      data.replaceLength = prefixInfo.replaceLength;
     }
-
-    // Count $ characters before the word
-    let dollarsBeforeWord = 0;
-    for (let i = wordStartPos - 1; i >= 0 && lineBeforeCursor[i] === '$'; i--) {
-      dollarsBeforeWord++;
-    }
-
-    // Check if we're in a variable definition context (commands like 'set', 'read', etc.)
-    const isVariableDefinitionContext = this.isInVariableDefinitionContext(lineBeforeCursor, setupData.position);
-
-    // Count $ characters in the word itself (e.g., word="$" has 1, word="PA" has 0)
-    const dollarsInWord = (word.match(/\$/g) || []).length;
-
-    // Determine the correct insertText format
-    // We need $ prefix if:
-    // 1. No dollars before word AND no dollars in word AND not in variable definition context
-    // 2. OR if the word itself contains $ characters (to replace them)
-    const shouldAddDollarPrefix = dollarsBeforeWord === 0 && dollarsInWord === 0 && !isVariableDefinitionContext ||
-                                  dollarsInWord > 0;
-
-    // For words containing $ characters, we need to include the right number of $
-    const dollarPrefix = dollarsInWord > 0 ? '$'.repeat(dollarsInWord) : shouldAddDollarPrefix ? '$' : '';
 
     const { variables } = sortSymbols(symbols);
     for (const variable of variables) {
       const variableItem = FishCompletionItem.fromSymbol(variable);
-      variableItem.insertText = dollarPrefix + variable.name;
+      variableItem.insertText = variablePrefix + variable.name;
       this._items.addItem(variableItem);
     }
 
@@ -141,11 +118,10 @@ export class CompletionPager {
         item.label,
         item.fishKind,
         item.detail,
-        typeof item.documentation === 'string' ? item.documentation :
-          item.documentation?.toString && item.documentation.toString() || '',
+        getCompletionDocumentationValue(item.documentation),
         item.examples,
       );
-      newItem.insertText = dollarPrefix + item.label;
+      newItem.insertText = variablePrefix + item.label;
       this._items.addItem(newItem);
     }
 
@@ -248,7 +224,7 @@ export class CompletionPager {
     setupData: SetupData,
     symbols: FishSymbol[],
   ): Promise<FishCompletionList> {
-    const { word, command, commandNode: _commandNode, index } = this.inlineParser.getNodeContext(line || '');
+    const { word, wordNode, command, commandNode: _commandNode, index } = this.inlineParser.getNodeContext(line || '');
     logger.log({
       line,
       word: word,
@@ -264,6 +240,9 @@ export class CompletionPager {
       command || '',
       setupData.context,
     );
+    if (wordNode && isUnmatchedStringCharacter(wordNode)) {
+      data.replaceLength = 0;
+    }
 
     const { variables, functions } = sortSymbols(symbols);
     if (!word && !command) {
@@ -275,9 +254,67 @@ export class CompletionPager {
       this._items.addItems(this.itemsMap.allOfKinds('pipe'), 85);
       return this._items.build(false);
     }
-    const toAdd = await shellComplete(line);
-    stdout.push(...toAdd);
-    logger.log('toAdd =', toAdd.slice(0, 5));
+    const incompleteCompletePayloadPrefix = getIncompleteQuotedCompletePayloadPrefix(line, command);
+    const incompleteAliasPayloadPrefix = getIncompleteQuotedAliasPayloadPrefix(line, command);
+    const isEmbeddedCommandlineCompletion =
+      incompleteAliasPayloadPrefix !== null || incompleteCompletePayloadPrefix !== null;
+    const shellOptions = command === 'complete'
+      ? { sanitizeCompletionPath: true }
+      : undefined;
+    const unmatchedQuoteIndex = findLastUnmatchedQuoteIndex(line);
+    if (incompleteAliasPayloadPrefix !== null) {
+      const embeddedWord = this.inlineParser.parseWord(incompleteAliasPayloadPrefix).word || '';
+      data.word = embeddedWord;
+      data.replaceLength = embeddedWord.length;
+
+      if (incompleteAliasPayloadPrefix.length > 0) {
+        const toAdd = await shellComplete(incompleteAliasPayloadPrefix);
+        stdout.push(...toAdd);
+        logger.log('toAdd =', toAdd.slice(0, 5));
+      } else {
+        this._items.addItems(this.itemsMap.allCompletionsWithoutCommand(), 30);
+      }
+
+      this._items.addItems(this.itemsMap.allCompletionsWithoutCommand(), 30);
+      this._items.addSymbols(functions);
+      this.addEmbeddedVariableItems(variables, incompleteAliasPayloadPrefix, embeddedWord);
+      this._items.addItems(this.itemsMap.allOfKinds('combiner', 'pipe'), 29);
+    } else if (incompleteCompletePayloadPrefix !== null) {
+      const embeddedWord = this.inlineParser.parseWord(incompleteCompletePayloadPrefix).word || '';
+      data.word = embeddedWord;
+      data.replaceLength = embeddedWord.length;
+
+      if (/\$\($/.test(incompleteCompletePayloadPrefix) || /\($/.test(incompleteCompletePayloadPrefix)) {
+        this._items.addItems(this.itemsMap.allCompletionsWithoutCommand(), 30);
+      } else if (incompleteCompletePayloadPrefix.length > 0) {
+        const toAdd = await shellComplete(incompleteCompletePayloadPrefix, shellOptions);
+        stdout.push(...toAdd);
+        logger.log('toAdd =', toAdd.slice(0, 5));
+      } else {
+        this._items.addItems(this.itemsMap.allCompletionsWithoutCommand(), 30);
+      }
+      this.addEmbeddedVariableItems(variables, incompleteCompletePayloadPrefix, embeddedWord);
+      this._items.addItems(this.itemsMap.allOfKinds('combiner', 'pipe'), 29);
+    } else if (command === 'complete' && unmatchedQuoteIndex !== -1) {
+      const safePrefix = line.slice(0, unmatchedQuoteIndex);
+      const toAdd = await shellComplete(safePrefix, shellOptions);
+      stdout.push(...toAdd);
+      logger.log('toAdd =', toAdd.slice(0, 5));
+    } else {
+      const toAdd = await shellComplete(line, shellOptions);
+      stdout.push(...toAdd);
+      logger.log('toAdd =', toAdd.slice(0, 5));
+    }
+
+    if (stdout.length === 0 && !word && !!command && line.endsWith(' ')) {
+      const optionLines = await execCompleteCmdArgs(line.trim());
+      stdout.push(...optionLines
+        .map((optionLine) => {
+          const [name, ...rest] = optionLine.split('\t');
+          return [name || '', rest.join('\t')] as [string, string];
+        })
+        .filter(([name]) => name.length > 0));
+    }
 
     if (word && word.includes('/')) {
       this.logger.log('word includes /', word);
@@ -285,7 +322,35 @@ export class CompletionPager {
       this._items.addItems(toAdd.map((item) => FishCompletionItem.create(item[0], 'path', item[1], item.join(' '))), 1);
     }
     const isOption = this.inlineParser.lastItemIsOption(line);
+    const isStatusCompletionContext = command === 'return' || command === 'exit';
     for (const [name, description] of stdout) {
+      if (this.itemsMap.shouldSkipMatch(name)) {
+        continue;
+      }
+      if (isStatusCompletionContext && this.itemsMap.findLabel(name, 'status')) {
+        continue;
+      }
+      if (isEmbeddedCommandlineCompletion) {
+        const mappedItem = this.itemsMap.findLabel(
+          name,
+          'alias',
+          'builtin',
+          'function',
+          'command',
+          'event',
+        );
+        if (mappedItem) {
+          this._items.addItem(
+            cloneCompletionItem(mappedItem).setPriority(1),
+          );
+          continue;
+        }
+        this._items.addItem(
+          FishCompletionItem.create(name, 'argument', description, name)
+            .setPriority(1),
+        );
+        continue;
+      }
       if (isOption || name.startsWith('-') || command) {
         this._items.addItem(FishCompletionItem.create(name, 'argument', description, [
           line.slice(0, line.lastIndexOf(' ')),
@@ -301,7 +366,9 @@ export class CompletionPager {
     }
 
     if (command && line.includes(' ')) {
-      this._items.addSymbols(variables);
+      if (!isEmbeddedCommandlineCompletion) {
+        this._items.addSymbols(variables);
+      }
       if (index === 1) {
         this._items.addItems(addFirstIndexedItems(command, this.itemsMap), 25);
       } else {
@@ -331,6 +398,27 @@ export class CompletionPager {
     return result;
   }
 
+  private addEmbeddedVariableItems(variables: FishSymbol[], prefixText: string, embeddedWord: string): void {
+    const variablePrefix = getEmbeddedVariableCompletionPrefix(prefixText, embeddedWord);
+    this._items.addItems(variables.map((variable) => {
+      const item = FishCompletionItem.fromSymbol(variable);
+      item.insertText = variablePrefix + variable.name;
+      return item;
+    }));
+
+    this._items.addItems(this.itemsMap.allOfKinds('variable').map((item) => {
+      const newItem = FishCompletionItem.create(
+        item.label,
+        item.fishKind,
+        item.detail,
+        getCompletionDocumentationValue(item.documentation),
+        item.examples,
+      );
+      newItem.insertText = variablePrefix + item.label;
+      return newItem;
+    }));
+  }
+
   getData(uri: string, position: Position, line: string, word: string) {
     return {
       uri,
@@ -357,6 +445,109 @@ export class CompletionPager {
   }
 }
 
+function findLastUnmatchedQuoteIndex(line: string): number {
+  let singleQuoteIndex = -1;
+  let doubleQuoteIndex = -1;
+  let escaped = false;
+
+  for (let index = 0; index < line.length; index++) {
+    const char = line[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (char === '\'' && doubleQuoteIndex === -1) {
+      singleQuoteIndex = singleQuoteIndex === -1 ? index : -1;
+      continue;
+    }
+    if (char === '"' && singleQuoteIndex === -1) {
+      doubleQuoteIndex = doubleQuoteIndex === -1 ? index : -1;
+    }
+  }
+
+  return Math.max(singleQuoteIndex, doubleQuoteIndex);
+}
+
+function getIncompleteQuotedCompletePayloadPrefix(line: string, command: string | null): string | null {
+  if (command !== 'complete') return null;
+
+  const match = line.match(/(?:^|\s)(?:-n|--condition|-a|--arguments)\s+(['"])(.*)$/);
+  if (!match) return null;
+
+  const quote = match[1];
+  const payload = match[2] || '';
+  if (!quote || payload.includes(quote)) return null;
+
+  return payload.trimStart();
+}
+
+function getIncompleteQuotedAliasPayloadPrefix(line: string, command: string | null): string | null {
+  if (command !== 'alias') return null;
+
+  const match = line.match(/^alias\s+\S+\s*=\s*(['"])(.*)$/);
+  if (!match) return null;
+
+  const quote = match[1];
+  const payload = match[2] || '';
+  if (!quote || payload.includes(quote)) return null;
+
+  return payload;
+}
+
+function getVariableCompletionPrefix(
+  lineBeforeCursor: string,
+  cursorPos: number,
+  word: string,
+  isVariableDefinitionContext: boolean,
+): { insertPrefix: string; replaceLength?: number; } {
+  let wordStartPos = cursorPos;
+  while (wordStartPos > 0) {
+    const char = lineBeforeCursor[wordStartPos - 1];
+    if (char === ' ' || char === '\t' || char === '\n' || char === '$') {
+      break;
+    }
+    wordStartPos--;
+  }
+
+  let dollarsBeforeWord = 0;
+  for (let i = wordStartPos - 1; i >= 0 && lineBeforeCursor[i] === '$'; i--) {
+    dollarsBeforeWord++;
+  }
+
+  const dollarsInWord = (word.match(/\$/g) || []).length;
+  const prefixSlice = lineBeforeCursor.slice(Math.max(wordStartPos - dollarsBeforeWord, 0), cursorPos);
+
+  if (prefixSlice.endsWith('${')) {
+    return { insertPrefix: '', replaceLength: 0 };
+  }
+  if (prefixSlice.endsWith('$')) {
+    return { insertPrefix: '$' };
+  }
+
+  const shouldAddDollarPrefix =
+    dollarsBeforeWord === 0 && dollarsInWord === 0 && !isVariableDefinitionContext
+    || dollarsInWord > 0;
+  const dollarPrefix = dollarsInWord > 0 ? '$'.repeat(dollarsInWord) : shouldAddDollarPrefix ? '$' : '';
+  return { insertPrefix: dollarPrefix };
+}
+
+function getEmbeddedVariableCompletionPrefix(prefixText: string, embeddedWord: string): string {
+  const prefixSlice = prefixText.slice(Math.max(prefixText.length - embeddedWord.length - 2, 0));
+
+  if (prefixSlice.endsWith('${')) {
+    return '${';
+  }
+  if (prefixSlice.endsWith('$')) {
+    return '$';
+  }
+
+  return '$';
+}
+
 export async function initializeCompletionPager(logger: Logger, items: CompletionItemMap) {
   const inline = await InlineParser.create();
   return new CompletionPager(inline, items, logger);
@@ -374,6 +565,7 @@ function addFirstIndexedItems(command: string, items: CompletionItemMap) {
     case 'set':
       return items.allOfKinds('variable');
     case 'return':
+    case 'exit':
       return items.allOfKinds('status', 'variable');
     default:
       return [];
@@ -392,6 +584,7 @@ function addSpecialItems(
     //case "end":
     //  return items.allOfKinds("pipe");
     case 'return':
+    case 'exit':
       return items.allOfKinds('status', 'variable');
     case 'printf':
     case 'set':
@@ -472,6 +665,14 @@ function sortSymbols(symbols: FishSymbol[]) {
  * - set -q  (cursor after space - variable definition context)
  */
 export function isInVariableExpansionContext(doc: LspDocument, position: Position, line: string, word: string, current: SyntaxNode | null): boolean {
+  const lineBeforeCursor = doc.getLineBeforeCursor(position);
+
+  // Treat shell-style command-substitution prefixes as command completion
+  // instead of variable expansion so `$(comman` behaves like `(comman`.
+  if (/\$\([^)]*$/.test(lineBeforeCursor)) {
+    return false;
+  }
+
   // Original logic for simple cases
   if (word.trim().endsWith('$') || line.trim().endsWith('$') || word.trim() === '$' && !word.startsWith('$$')) {
     return true;
@@ -488,7 +689,6 @@ export function isInVariableExpansionContext(doc: LspDocument, position: Positio
   }
 
   // Look at the text preceding the current position to detect $ prefixes
-  const lineBeforeCursor = doc.getLineBeforeCursor(position);
   const charIndex = position.character;
 
   // Find the position where the current word starts (excluding $ prefixes)

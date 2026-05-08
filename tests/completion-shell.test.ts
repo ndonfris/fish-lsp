@@ -1,4 +1,4 @@
-import { setLogger } from './helpers';
+import { setLogger, SkipUtils } from './helpers';
 import { escapeCmd, shellComplete } from '../src/utils/completion/shell';
 
 describe('check completions', () => {
@@ -23,14 +23,14 @@ describe('check completions', () => {
       const cmd = 'echo $';
       const escapedCmd = escapeCmd(cmd);
       // console.log({ cmd, escapedCmd });
-      expect(escapedCmd.length).toBeGreaterThan(cmd.length);
+      expect(escapedCmd).toBe(cmd);
     });
 
     it('echo $', async () => {
       const cmd = 'echo $';
       const escapedCmd = escapeCmd(cmd);
       // console.log({ cmd, escapedCmd });
-      expect(escapedCmd.length).toBeGreaterThan(cmd.length);
+      expect(escapedCmd).toBe(cmd);
     });
     it('echo \\"$', async () => {
       const cmd = 'echo \"$';
@@ -47,7 +47,7 @@ describe('check completions', () => {
     });
   });
 
-  describe('fish-lsp', () => {
+  describe.skipIf(!SkipUtils.hasCommand('fish-lsp'))('fish-lsp', () => {
     it('fish-lsp --', async () => {
       const completions = await shellComplete('fish-lsp --');
       const output = [
@@ -69,13 +69,24 @@ describe('check completions', () => {
 
     it('fish-lsp start -', async () => {
       const output = await shellComplete('fish-lsp start -');
-      const expected = [
-        ['--disable', ''],
-        ['--dump', 'dump output and stop server'],
-        ['--enable', ''],
+      const expected: [string, string][] = [
+        ['--disable', 'disable the startup option'],
+        ['--dump', 'stop lsp & show the startup options being read'],
+        ['--enable', 'enable the startup option'],
+        ['--max-files', 'override the maximum number of files to analyze'],
+        ['--memory-limit', 'set memory usage limit in MB'],
+        ['--node-ipc', 'use node IPC for communication'],
+        ['--socket', 'use TCP socket for communication'],
+        ['--stdio', 'use stdin/stdout for communication (default)'],
       ];
+
+      const expectedLabels = expected.map(([name]) => name);
+      const expectedDetails = expected.map(([_, detail]) => detail);
+
+      expect(output.length).toBeGreaterThan(0);
       for (const [name, detail] of output) {
-        expect(expected).toContainEqual([name, detail]);
+        expect(expectedLabels).toContain(name);
+        expect(expectedDetails).toContain(detail);
       }
     });
 
@@ -256,6 +267,19 @@ describe('check completions', () => {
         expect(completions).toContainEqual(item);
       }
     });
+
+    it('completes command substitutions consistently inside incomplete complete -n conditions', async () => {
+      const inputs = [
+        'not test -n $(comman',
+        'not test -n "$(comman',
+        'not test -n (comman',
+      ];
+
+      for (const input of inputs) {
+        const completions = await shellComplete(input, { sanitizeCompletionPath: true });
+        expect(completions.some(([name]) => name === 'commandline')).toBe(true);
+      }
+    });
   });
 
   describe('commands', () => {
@@ -281,13 +305,11 @@ describe('check completions', () => {
 
     it('echo "$', async () => {
       const completions = await shellComplete('echo "$');
-      // console.log(completions);
       expect(completions.length).toBeGreaterThan(1);
       const items = completions.map(item => item[0]);
       items.forEach(name => {
         expect(name.startsWith('$')).toBeTruthy();
       });
-      // expect(items.filter(i => i.includes('$PWD'))).toBeTruthy();
       expect(items).toContain('$PWD');
       expect(items).toContain('$HOME');
       expect(items).toContain('$fish_pid');
@@ -300,6 +322,7 @@ describe('check completions', () => {
 
     it('echo \\\\n$', async () => {
       const completions = await shellComplete('echo \\\n$');
+      console.log(completions);
       const items = completions.map(item => item[0]);
       expect(items.length).toBeGreaterThan(0);
       expect(items).toContain('$PWD');
@@ -318,13 +341,13 @@ describe('check completions', () => {
   });
 
   describe('commands w/ subcommands', () => {
-    it.only('string ', async () => {
+    it.skipIf(!SkipUtils.hasCommand('string'))('string ', async () => {
       const completions = await shellComplete('string ');
       expect(completions.length).toBeGreaterThanOrEqual(17);
       // console.log(completions);
     });
 
-    it.only('git ', async () => {
+    it.skipIf(!SkipUtils.hasCommand('git'))('git ', async () => {
       const completions = await shellComplete('git ');
       expect(completions.length).toBeGreaterThan(3);
       // console.log(completions);

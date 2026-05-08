@@ -1,11 +1,11 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from '../../parser';
 import { getChildNodes, getLeafNodes, getLastLeafNode, firstAncestorMatch } from '../tree-sitter';
-import { isUnmatchedStringCharacter, isPartialForLoop } from '../node-types';
+import { getCommandNameNode, isUnmatchedStringCharacter, isPartialForLoop } from '../node-types';
 import { FishCompletionItem } from './types';
 
 export class InlineParser {
-  private readonly COMMAND_TYPES = ['command', 'for_statement', 'case', 'function'];
+  private readonly COMMAND_TYPES = ['command', 'for_statement', 'case', 'function', 'return'];
 
   static async create() {
     const parser = await initializeParser();
@@ -75,7 +75,15 @@ export class InlineParser {
       return { command: null, commandNode: null };
     }
     let commandNode = firstAncestorMatch(node, (n) => this.COMMAND_TYPES.includes(n.type));
-    commandNode = commandNode?.firstChild || commandNode;
+    // For `command` nodes, resolve to the `name` field so we don't mistake an
+    // `override_variable` prefix (post tree-sitter-fish PR #41) for the
+    // command name. For other COMMAND_TYPES (`for_statement`, `function`,
+    // etc.) the leading keyword still lives at `firstChild`.
+    if (commandNode?.type === 'command') {
+      commandNode = getCommandNameNode(commandNode) || commandNode;
+    } else {
+      commandNode = commandNode?.firstChild || commandNode;
+    }
     return {
       command: commandNode?.text || null,
       commandNode: commandNode || null,

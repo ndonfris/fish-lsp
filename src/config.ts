@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { Connection, FormattingOptions, InitializeParams, InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
 import { createServerLogger, logger } from './logger';
-import { PrebuiltDocumentationMap, EnvVariableJson } from './utils/snippets';
+import { findPrebuiltDocBySpecialType, PrebuiltDocumentationMap, EnvVariableJson } from './utils/snippets';
 import { AllSupportedActions } from './code-actions/action-kinds';
 import { LspCommands } from './command';
 import { getBuildTimeJsonObj, PackageVersion, SubcommandEnv } from './utils/commander-cli-subcommands';
@@ -301,10 +301,11 @@ export function handleEnvOutput(
   const command = getEnvVariableCommand(opts.global, opts.local, opts.export);
   const result: string[] = [];
 
+  const keyIndex = (o: EnvVariableJson) => Object.keys(ConfigSchema.shape).indexOf(o.name);
   const variables = PrebuiltDocumentationMap
     .getByType('variable', 'fishlsp')
     .filter((v) => EnvVariableJson.is(v) ? !v.isDeprecated : false)
-    .map(v => v as EnvVariableJson);
+    .map(v => v as EnvVariableJson).sort((a, b) => keyIndex(a) - keyIndex(b));
 
   const getEnvVariableJsonObject = (keyName: string): EnvVariableJson =>
     variables.find(entry => entry.name === keyName)!;
@@ -537,7 +538,7 @@ export namespace Config {
   }
 
   export function getDocsForKey(key: keyof Config): string {
-    const entry = PrebuiltDocumentationMap.getByType('variable', 'fishlsp').find(e => e.name === key);
+    const entry = findPrebuiltDocBySpecialType(key, 'variable', 'fishlsp');
     if (entry) {
       return entry.description;
     }

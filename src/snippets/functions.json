@@ -1482,12 +1482,14 @@
   {
     "name": "ls",
     "file": "$__fish_data_dir/functions/ls.fish",
-    "flags": []
+    "flags": [],
+    "description": "List contents of directory"
   },
   {
     "name": "man",
     "file": "$__fish_data_dir/functions/man.fish",
-    "flags": []
+    "flags": [],
+    "description": "an interface to the system reference manuals"
   },
   {
     "name": "N_",

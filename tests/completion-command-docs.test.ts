@@ -279,30 +279,22 @@ describe('Command completion documentation', () => {
   });
 
   it('does not resolve complete -c command arguments as complete subcommands', async () => {
-    // Mock shellComplete so the test does not depend on a real `foo`
-    // command existing in PATH (e.g. inside a barebones container).
-    const shellSpy = vi.spyOn(shellModule, 'shellComplete')
-      .mockImplementation(async () => [['foo', 'command']]);
-    try {
-      const content = 'complete -c foo';
-      const doc = createFakeLspDocument('/tmp/complete-command-argument.fish', content);
-      analyzer.analyze(doc);
+    const content = 'complete -c foo';
+    const doc = createFakeLspDocument('/tmp/complete-command-argument.fish', content);
+    analyzer.analyze(doc);
 
-      const params: CompletionParams = {
-        textDocument: { uri: doc.uri },
-        position: { line: 0, character: content.length },
-      };
+    const params: CompletionParams = {
+      textDocument: { uri: doc.uri },
+      position: { line: 0, character: content.length },
+    };
 
-      const result = await server.onCompletion(params);
-      const item = result.items.find(i => i.label === 'foo');
-      const resolvedItem = await server.onCompletionResolve(item!);
+    const result = await server.onCompletion(params);
+    const item = result.items.find(i => i.label === 'foo');
+    const resolvedItem = await server.onCompletionResolve(item!);
 
-      expect(item).toBeDefined();
-      expect(resolvedItem).toBeDefined();
-      expect((resolvedItem?.documentation as MarkupContent).value).not.toContain(md.inlineCode('complete foo'));
-    } finally {
-      shellSpy.mockRestore();
-    }
+    expect(item).toBeDefined();
+    expect(resolvedItem).toBeDefined();
+    expect((resolvedItem?.documentation as MarkupContent).value).not.toContain(md.inlineCode('complete foo'));
   });
 
   it('renders hyphenated command labels as inline code onCompletionResolve', async () => {
@@ -727,3 +719,4 @@ describe('Command completion documentation', () => {
     }
   });
 });
+

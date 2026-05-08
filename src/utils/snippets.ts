@@ -8,6 +8,7 @@ import pipeCharactersJson from '../snippets/pipesAndRedirects.json';
 import fishlspEnvVariablesJson from '../snippets/fishlspEnvVariables.json';
 import functionsJson from '../snippets/functions.json';
 import { md } from './markdown-builder';
+import { execFileSync } from 'child_process';
 
 interface BaseJson {
   name: string;
@@ -16,9 +17,10 @@ interface BaseJson {
   flags?: string[];     // Optional: function flags/options
 }
 
-type JsonType = 'command' | 'function' | 'pipe' | 'status' | 'variable';
+export type JsonType = 'command' | 'function' | 'pipe' | 'status' | 'variable';
 type SpecialType = 'fishlsp' | 'env' | 'locale' | 'special' | 'theme';
 type AllTypes = JsonType | SpecialType;
+export type AllPrebuiltTypes = JsonType | SpecialType;
 
 export interface ExtendedBaseJson extends BaseJson {
   type: JsonType;
@@ -247,6 +249,45 @@ export const fishLspObjs: EnvVariableJson[] = fishlspEnvVariablesJson.map((item:
 
 export type ExtendedJson = ExtendedBaseJson | EnvVariableJson;
 
+let prebuiltCommandDescriptions: Record<string, string> | undefined;
+
+function loadPrebuiltCommandDescriptions(): Record<string, string> {
+  let stdout = '';
+  try {
+    stdout = execFileSync('fish', ['-c', '__fish_describe_command'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+  } catch {
+    return {};
+  }
+  const items = stdout.split('\n')
+    .filter(line => line.includes('\t') && line.trim().length > 0)
+    .map(line => {
+      const [first, ...last] = line.split('\t');
+      return [first, last.join('\t')] as [string, string];
+    });
+
+  const result: { [label: string]: string; } = {};
+  for (const [name, description] of items) {
+    if (name && description) {
+      result[name] = description;
+    }
+  }
+  return result;
+}
+
+export function getPrebuiltCommandDescriptions(): Record<string, string> {
+  if (!prebuiltCommandDescriptions) {
+    prebuiltCommandDescriptions = loadPrebuiltCommandDescriptions();
+  }
+  return prebuiltCommandDescriptions;
+}
+
+export function getHydratedPrebuiltDescription(label: string, fallback = ''): string {
+  return getPrebuiltCommandDescriptions()[label] || fallback;
+}
+
 class DocumentationMap {
   private map: Map<string, ExtendedJson[]> = new Map();
   private typeMap: Map<JsonType, ExtendedJson[]> = new Map();
@@ -322,13 +363,37 @@ const allData: ExtendedBaseJson[] = [
   // Preserve file and flags fields for browser/tooling use
   ...functionsJson.map((item: any) => ExtendedBaseJson.create({
     name: item.name,
-    description: item.description || `Fish function: ${item.name}`,
+    description: item.description || `fish function: ${item.name}`,
     file: item.file,
     flags: item.flags,
   }, 'function')),
 ];
 
 export const PrebuiltDocumentationMap = new DocumentationMap(allData);
+
+export function findPrebuiltDoc(name: string, type: JsonType): ExtendedJson | undefined {
+  return PrebuiltDocumentationMap.getByType(type).find((item) => item.name === name);
+}
+
+export function findPrebuiltDocBySpecialType(
+  name: string,
+  type: JsonType,
+  specialType: SpecialType,
+): ExtendedJson | undefined {
+  return PrebuiltDocumentationMap.getByType(type, specialType).find((item) => item.name === name);
+}
+
+export function getSpecialVariableHoverDoc(name: `$${string}` | string): string {
+  return PrebuiltDocumentationMap.getSpecialVariableAsHoverDoc(name);
+}
+
+export function applyPrebuiltDescription(
+  label: string,
+  fallback: string,
+  type: JsonType,
+): string {
+  return findPrebuiltDoc(label, type)?.description || fallback;
+}
 
 export function getPrebuiltDocUrlByName(name: string): string {
   const objs = PrebuiltDocumentationMap.getByName(name);
@@ -369,4 +434,18 @@ export function getPrebuiltDocUrl(obj: ExtendedBaseJson): string {
     default:
       return '';
   }
+}
+
+/**
+ * Build a markdown documentation block for a prebuilt entry (status, pipe, etc.).
+ * Used by hover and completion-resolve so both surfaces share one formatter.
+ */
+export function formatPrebuiltDocMarkdown(doc: ExtendedJson): string {
+  return [
+    `${md.bold(doc.name)}  - ${md.italic(getPrebuiltDocUrl(doc))}`,
+    md.separator(),
+    `type - ${md.bold(`(${doc.type})`)}`,
+    md.separator(),
+    doc.description,
+  ].join(md.newline());
 }

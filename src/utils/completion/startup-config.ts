@@ -1,35 +1,37 @@
 import { config } from '../../config';
 import { FishCompletionItemKind } from './types';
+import { spawn } from 'child_process';
 
 export type SetupItem = {
   command: string;
   detail: string;
   fishKind: FishCompletionItemKind;
   topLevel: boolean;
+  skipMatchesInResponse?: boolean;
 };
 
 export const SetupItemsFromCommandConfig: SetupItem[] = [
   // {
   //   command: `[ (abbr --show | count) -eq 0 ] ||  abbr --show | string split ' -- ' -m1 -f2 | string unescape`,
-  //   detail: 'Abbreviation',
+  //   detail: 'abbreviation',
   //   fishKind: FishCompletionItemKind.ABBR,
   //   topLevel: true,
   // },
   {
     command: 'builtin --names',
-    detail: 'Builtin',
+    detail: 'builtin',
     fishKind: FishCompletionItemKind.BUILTIN,
     topLevel: true,
   },
   {
     command: '[ (alias | count) -eq 0 ] || alias | string collect | string unescape | string split \' \' -m1 -f2',
-    detail: 'Alias',
+    detail: 'alias',
     fishKind: FishCompletionItemKind.ALIAS,
     topLevel: true,
   },
   {
     command: 'functions --all --names | string collect',
-    detail: 'Function',
+    detail: 'function',
     fishKind: FishCompletionItemKind.FUNCTION,
     topLevel: true,
   },
@@ -40,25 +42,23 @@ export const SetupItemsFromCommandConfig: SetupItem[] = [
     // NOTE: keeping the argument  ( ^^ ) above seems to prevent fish from needing to be
     //       started with `--interactive` switch, saving ~100ms of time during execution
     //       of all commands defined here.
-    detail: 'Command',
+    detail: 'command',
     fishKind: FishCompletionItemKind.COMMAND,
     topLevel: true,
   },
   {
     command: 'set --names',
-    detail: 'Variable',
+    detail: 'variable',
     fishKind: FishCompletionItemKind.VARIABLE,
     topLevel: false,
   },
   {
     command: '[ (functions --handlers | count) -eq 0 ] || functions --handlers | string match -vr \'^Event \\w+\'',
-    detail: 'Event Handler',
+    detail: 'event handler',
     fishKind: FishCompletionItemKind.EVENT,
     topLevel: false,
   },
 ];
-
-import { spawn } from 'child_process';
 
 export type SetupResult = SetupItem & { results: string[]; };
 

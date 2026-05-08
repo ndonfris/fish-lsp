@@ -2,11 +2,13 @@ import {
   CompletionContext,
   CompletionItem,
   CompletionItemKind, MarkupContent,
+  MarkupKind,
   Position, Range,
   SymbolKind,
   TextEdit,
 } from 'vscode-languageserver';
 import { FishSymbol } from '../../parsing/symbol';
+import { md } from '../markdown-builder';
 
 export const FishCompletionItemKind = {
   ABBR: 'abbr',
@@ -61,8 +63,14 @@ export type FishCompletionData = {
   line: string;
   word: string;
   position: Position;
+  replaceLength?: number;
   command?: string;
   context?: CompletionContext;
+  fishKind?: FishCompletionItemKind;
+  detail?: string;
+  documentation?: string | MarkupContent;
+  local?: boolean;
+  useDocAsDetail?: boolean;
 };
 
 export interface FishCompletionItem extends CompletionItem {
@@ -78,6 +86,54 @@ export interface FishCompletionItem extends CompletionItem {
   setLocal(): FishCompletionItem;
   setData(data: FishCompletionData): FishCompletionItem;
   setPriority(priority: number): FishCompletionItem;
+}
+
+export function getCompletionDocumentationValue(
+  documentation: string | MarkupContent | undefined | null,
+): string {
+  if (typeof documentation === 'string') {
+    return documentation;
+  }
+  if (documentation && typeof documentation.value === 'string') {
+    return documentation.value;
+  }
+  return '';
+}
+
+export function normalizeCompletionMarkdownValue(value: string): string {
+  if (!value) return value;
+  return value
+    .replace(/\r\n/g, '\n')
+    .replace(/^[ \t]*___[ \t]*$/gm, '---')
+    .replace(/[ \t]*\n[ \t]*---[ \t]*\n[ \t]*/g, '\n\n---\n\n');
+}
+
+export function toCompletionMarkdownDocumentation(
+  documentation: string | MarkupContent | undefined | null,
+): MarkupContent {
+  const normalizedValue = normalizeCompletionMarkdownValue(
+    getCompletionDocumentationValue(documentation),
+  );
+  return {
+    kind: MarkupKind.Markdown,
+    value: normalizedValue,
+  };
+}
+
+export function cloneCompletionItem<T extends FishCompletionItem>(item: T): T {
+  const clone = Object.assign(
+    Object.create(Object.getPrototypeOf(item)),
+    item,
+  ) as T;
+
+  if (item.data) {
+    clone.data = { ...item.data };
+  }
+  if (item.examples) {
+    clone.examples = [...item.examples];
+  }
+
+  return clone;
 }
 
 export class FishCompletionItem implements FishCompletionItem {
@@ -111,8 +167,16 @@ export class FishCompletionItem implements FishCompletionItem {
   }
 
   setData(data: FishCompletionData) {
-    this.data = data;
-    const removeLength = data.word ? data.word.length : 1;
+    this.data = {
+      ...this.data,
+      ...data,
+      fishKind: this.fishKind,
+      detail: this.detail,
+      documentation: this.data?.documentation ?? this.documentation,
+      local: this.local,
+      useDocAsDetail: this.useDocAsDetail,
+    };
+    const removeLength = data.replaceLength ?? (data.word ? data.word.length : 1);
     this.textEdit = TextEdit.replace(
       Range.create({ line: data.position.line, character: data.position.character - removeLength }, data.position),
       this.insertText || this.label,
@@ -167,12 +231,21 @@ export namespace FishCompletionItem {
   }
   export function fromSymbol(symbol: FishSymbol) {
     switch (symbol.kind) {
-      case SymbolKind.Function:
-        return create(symbol.name, FishCompletionItemKind.FUNCTION, 'Function', symbol.detail).setLocal().setPriority(50);
-      case SymbolKind.Variable:
-        return create(symbol.name, FishCompletionItemKind.VARIABLE, 'Variable', symbol.detail).setLocal().setPriority(60);
-      default:
-        return create(symbol.name, FishCompletionItemKind.EMPTY, 'Empty', symbol.detail).setLocal().setPriority(70);
+      case SymbolKind.Function: {
+        const item = create(symbol.name, FishCompletionItemKind.FUNCTION, 'function', '').setLocal().setPriority(50);
+        item.data = { documentation: symbol.detail } as FishCompletionData;
+        return item;
+      }
+      case SymbolKind.Variable: {
+        const item = create(symbol.name, FishCompletionItemKind.VARIABLE, 'variable', '').setLocal().setPriority(60);
+        item.data = { documentation: symbol.detail } as FishCompletionData;
+        return item;
+      }
+      default: {
+        const item = create(symbol.name, FishCompletionItemKind.EMPTY, 'empty', '').setLocal().setPriority(70);
+        item.data = { documentation: symbol.detail } as FishCompletionData;
+        return item;
+      }
     }
   }
 
@@ -204,11 +277,11 @@ export namespace CompletionExample {
 
   export function toMarkedString(example: CompletionExample): string {
     return [
-      '___',
-      '```fish',
-      `# ${example.title}`,
-      example.shellText,
-      '```',
+      md.separator(),
+      md.codeBlock('fish', [
+        `# ${example.title}`,
+        example.shellText,
+      ].join('\n')),
     ].join('\n');
   }
 }

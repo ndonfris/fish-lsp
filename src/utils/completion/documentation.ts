@@ -1,17 +1,21 @@
-import { MarkupContent } from 'vscode-languageserver';
-import { FishCompletionItem, FishCompletionItemKind, CompletionExample } from './types';
-import { execCmd, execCommandDocs } from '../exec';
+import { MarkupContent, SymbolKind } from 'vscode-languageserver';
+import { FishCompletionItem, FishCompletionItemKind, CompletionExample, getCompletionDocumentationValue, toCompletionMarkdownDocumentation } from './types';
+import { execCmd, execCommandDocs, ExecFishFiles } from '../exec';
+import * as os from 'os';
 import { md } from '../markdown-builder';
+import { cachedDocumentation } from '../../server';
+import { PrebuiltDocumentationMap } from '../snippets';
 
 export async function getDocumentationResolver(item: FishCompletionItem): Promise<MarkupContent> {
-  let docString: string = item.documentation.toString();
+  const docValue = getCompletionDocumentationValue(item.documentation);
+  let docString: string = md.codeBlock('fish', docValue);
   if (!item.local) {
     switch (item.fishKind) {
       case FishCompletionItemKind.ABBR:
         docString = await getAbbrDocString(item.label) ?? docString;
         break;
       case FishCompletionItemKind.ALIAS:
-        docString = await getAliasDocString(item.label, item.documentation.toString() || `alias ${item.label}`) ?? docString;
+        docString = await getAliasDocString(item.label, docValue || `alias ${item.label}`) ?? docString;
         break;
       case FishCompletionItemKind.COMBINER:
       case FishCompletionItemKind.STATEMENT:
@@ -19,10 +23,11 @@ export async function getDocumentationResolver(item: FishCompletionItem): Promis
         docString = await getBuiltinDocString(item.label) ?? docString;
         break;
       case FishCompletionItemKind.COMMAND:
-        docString = await getCommandDocString(item.label) ?? docString;
+        docString = await getCommandDocString(item.label) ?? md.codeBlock('fish', item.label);
         break;
       case FishCompletionItemKind.FUNCTION:
-        docString = await getFunctionDocString(item.label) ?? `(${md.bold('function')}) ${item.label}`;
+        // await cache.find(item.label, );
+        docString = await getFunctionDocString(item.label) ?? `(${md.bold('function')}) - ${md.inlineCode(item.label)}`;
         break;
       case FishCompletionItemKind.VARIABLE:
         docString = await getVariableDocString(item.label) ?? docString;
@@ -33,7 +38,7 @@ export async function getDocumentationResolver(item: FishCompletionItem): Promis
       case FishCompletionItemKind.COMMENT:
       case FishCompletionItemKind.SHEBANG:
       case FishCompletionItemKind.DIAGNOSTIC:
-        docString = item.documentation.toString();
+        docString = docValue;
         break;
       case FishCompletionItemKind.STATUS:
       case FishCompletionItemKind.WILDCARD:
@@ -52,15 +57,12 @@ export async function getDocumentationResolver(item: FishCompletionItem): Promis
     }
   }
   if (item.local) {
-    return {
-      kind: 'markdown',
-      value: item.documentation.toString(),
-    } as MarkupContent;
+    return toCompletionMarkdownDocumentation(docValue) as MarkupContent;
   }
-  return {
+  return toCompletionMarkdownDocumentation({
     kind: 'markdown',
     value: docString,
-  } as MarkupContent;
+  }) as MarkupContent;
 }
 
 /**
@@ -69,61 +71,86 @@ export async function getDocumentationResolver(item: FishCompletionItem): Promis
 export async function getFunctionDocString(name: string): Promise<string | undefined> {
   function formatTitle(title: string[]) {
     const ensured = ensureMinLength(title, 5, '');
-    const [path, autoloaded, line, scope, description] = ensured;
+    const [path, autoloaded, line, _scope, description] = ensured;
+    const header = [
+      `(${md.bold('function')}) ${md.inlineCode(name)}`,
+    ];
+    if (description) {
+      header.push(md.italic(description));
+    }
 
-    return [
-      `__\`${path}\`__`,
-      `- autoloaded: ${autoloaded === 'autoloaded' ? '_true_' : '_false_'}`,
-      `- line: _${line}_`,
-      `- scope: _${scope}_`,
-      `${description}`,
-    ].map((str) => str.trim()).filter(l => l.trim().length).join('\n');
+    header.push(md.separator());
+    if (path && path !== '-') {
+      header.push(`* path: ${md.bold(path.replace(os.homedir(), '~'))}`);
+    } else {
+      header.push(`* path: ${md.bold('sourced')}`);
+    }
+    if (autoloaded) {
+      header.push(`* autoloaded: ${autoloaded === 'autoloaded' ? md.italic('true') : md.italic('false')}`);
+    }
+    if (line) {
+      header.push(`* line: ${md.italic(line)}`);
+    }
+
+    return header.join(md.newline());
   }
+
   const [title, body] = await Promise.all([
     execCmd(`functions -D -v ${name}`),
     execCmd(`functions --no-details ${name}`),
   ]);
+  const value = cachedDocumentation?.find(name, SymbolKind.Function);
+  if (value?.resolved && value.formattedDocs) {
+    return value.formattedDocs.value;
+  }
+  // if (globalFunc.length > 0) {
+  //   const sym = globalFunc.at(0);
+  //   return sym?.toHover().contents.toString()
+  // }
   return [
     formatTitle(title),
-    '___',
-    '```fish',
-    body.join('\n'),
-    '```',
-  ].join('\n') || '';
+    md.separator(),
+    md.codeBlock('fish', body.join('\n')),
+  ].join('\n\n') || '';
 }
 
 export async function getStaticDocString(item: FishCompletionItem): Promise<string> {
-  let result = [
-    '```text',
-    `${item.label}  -  ${item.documentation}`,
-    '```',
-  ].join('\n');
+  let result = md.codeBlock(
+    'text',
+    `${item.label} ${getCompletionDocumentationValue(item.documentation)}`,
+  );
   item.examples?.forEach((example: CompletionExample) => {
     result += [
-      '___',
-      '```fish',
-      `# ${example.title}`,
-      example.shellText,
-      '```',
+      '',
+      md.separator(),
+      '',
+      md.codeBlock('fish', [
+        `# ${example.title}`,
+        example.shellText,
+      ].join('\n')),
     ].join('\n');
   });
   return result;
 }
 
 async function buildArgumentDocString(item: FishCompletionItem): Promise<string> {
+  const docValue = getCompletionDocumentationValue(item.documentation);
+  if (item.label?.startsWith('-')) {
+    return md.codeBlock('fish', item.label);
+  }
   if (!item.detail) {
-    return md.codeBlock('fish', item.documentation.toString());
+    return md.codeBlock('fish', docValue);
   }
   return [
-    md.codeBlock('fish', item.documentation.toString()),
+    md.codeBlock('fish', docValue),
     md.separator(),
     item.detail,
-  ].join('\n');
+  ].join('\n\n');
 }
 
 export async function getAbbrDocString(name: string): Promise<string | undefined> {
   const items: string[] = await execCmd('abbr --show | string split \' -- \' -m1 -f2');
-  function getAbbr(items: string[]): [ string, string ] {
+  function getAbbr(items: string[]): [string, string] {
     const start: string = `${name} `;
     for (const item of items) {
       if (item.startsWith(start)) {
@@ -134,13 +161,24 @@ export async function getAbbrDocString(name: string): Promise<string | undefined
   }
   const [title, body] = getAbbr(items);
   return [
-    `Abbreviation: \`${title}\``,
-    '___',
-    '```fish',
-    body.trimEnd(),
-    '```',
-  ].join('\n') || '';
+    `(${md.bold('abbr')}) ${md.inlineCode(title)}`,
+    md.separator(),
+    md.codeBlock('fish', body.trimEnd()),
+  ].join('\n\n') || '';
 }
+
+export const convertTitleOperatorToToken = (name: string) => {
+  const operatorMap: Record<string, string> = {
+    '||': 'or',
+    '&&': 'and',
+    '|': 'pipe',
+    '>': 'redirect',
+    '<': 'redirect',
+    '!': 'not',
+  };
+  return operatorMap[name] || name;
+};
+
 /**
  * builds MarkupString for builtin documentation
  */
@@ -149,25 +187,28 @@ export async function getBuiltinDocString(name: string): Promise<string | undefi
   if (!cmdDocs) {
     return undefined;
   }
+  const fixedName = convertTitleOperatorToToken(name.trim());
+
   const splitDocs = cmdDocs.split('\n');
   const startIndex = splitDocs.findIndex((line: string) => line.trim() === 'NAME');
+
+  const url = `https://fishshell.com/docs/current/cmds/${fixedName}.html`;
   return [
-    `__${name.toUpperCase()}__ - _https://fishshell.com/docs/current/cmds/${name.trim()}.html_`,
-    '___',
-    '```man',
-    splitDocs.slice(startIndex).join('\n'),
-    '```',
-  ].join('\n');
+    `${md.bold(name.toUpperCase())} - ${md.italic(url)}`,
+    md.separator(),
+    md.codeBlock('man', splitDocs.slice(startIndex).join('\n')),
+  ].join('\n\n');
 }
 
 export async function getAliasDocString(label: string, line: string): Promise<string | undefined> {
+  const content = line.includes('\t')
+    ? line.split('\t')[1] || line
+    : line;
   return [
-    `Alias: _${label}_`,
-    '___',
-    '```fish',
-    line.split('\t')[1],
-    '```',
-  ].join('\n');
+    `(${md.bold('alias')}) ${md.inlineCode(label)}`,
+    md.separator(),
+    md.codeBlock('fish', content),
+  ].join('\n\n');
 }
 
 /**
@@ -179,16 +220,16 @@ export async function getEventHandlerDocString(documentation: string): Promise<s
   const doc = await getFunctionDocString(command);
   if (!doc) {
     return [
-      `Event: \`${label}\``,
-      '___',
+      `(${md.bold('event')}) ${md.inlineCode(label || command)}`,
+      md.separator(),
       `Event handler for \`${command}\``,
-    ].join('\n');
+    ].join('\n\n');
   }
   return [
-    `Event: \`${label}\``,
-    '___',
+    `(${md.bold('event')}) - ${md.inlineCode(label || command)}`,
+    md.separator(),
     doc,
-  ].join('\n');
+  ].join('\n\n');
 }
 
 /**
@@ -209,25 +250,42 @@ export async function getVariableDocString(name: string): Promise<string | undef
   }, { first: '', middle: [] as string[], last: '' });
   return [
     first,
-    '___',
+    md.separator(),
     middle.join('\n'),
-    '___',
+    md.separator(),
     last,
-  ].join('\n');
+  ].join('\n\n');
 }
 
-export async function getCommandDocString(name: string): Promise<string | undefined> {
-  const cmdDocs: string = await execCommandDocs(name);
+export async function getCommandDocString(name: string, subcommand?: string): Promise<string | undefined> {
+  const commandParts = subcommand ? [name, subcommand] : [name];
+  const cmdDocs: string = (await ExecFishFiles.getDocs(...commandParts)).stdout.toString();
+  const displayName = commandParts.join(' ');
+  const title = `(${md.bold('command')}) ${md.inlineCode(displayName)}`;
+  const isAlias = PrebuiltDocumentationMap.getByName(name).at(0);
+
   if (!cmdDocs) {
-    return undefined;
+    return [
+      title,
+      md.separator(),
+      `no manpage found for ${md.inlineCode(displayName)}`,
+    ].join(md.newline());
   }
-  const splitDocs = cmdDocs.split('\n');
-  const startIndex = splitDocs.findIndex((line: string) => line.trim() === 'NAME');
+
+  if (isAlias && isAlias?.type === 'function' || cmdDocs.startsWith('#')) {
+    return [
+      title,
+      md.separator(),
+      isAlias?.description || md.codeBlock('fish', cmdDocs),
+    ].join(md.newline());
+  }
+
+  const docsBody = md.codeBlock('man', cmdDocs);
   return [
-    '```man',
-    splitDocs.slice(startIndex).join('\n'),
-    '```',
-  ].join('\n');
+    title,
+    md.separator(),
+    docsBody,
+  ].join(md.newline());
 }
 
 function ensureMinLength<T>(arr: T[], minLength: number, fillValue?: T): T[] {

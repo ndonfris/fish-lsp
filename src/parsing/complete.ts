@@ -7,7 +7,6 @@ import { getChildNodes, getRange, pointToPosition } from '../utils/tree-sitter';
 import { FishSymbol } from './symbol';
 import { Location, Range } from 'vscode-languageserver';
 import { logger } from '../logger';
-import { extractCommands } from './nested-strings';
 
 export const CompleteOptions = [
   Option.create('-c', '--command').withValue(),
@@ -55,7 +54,7 @@ export function isMatchingCompletionFlagNodeWithFishSymbol(symbol: FishSymbol, n
       Option.create('-a', '--arguments'),
     )) {
       return isString(node)
-        ? extractCommands(node).some(cmd => cmd === symbol.name)
+        ? FishString.extractCommands(node).some(cmd => cmd === symbol.name)
         : node.text === symbol.name;
     }
   }

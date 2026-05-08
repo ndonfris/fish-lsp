@@ -1,6 +1,6 @@
 import { join } from 'path';
 import { existsSync } from 'fs';
-import { PrebuiltDocumentationMap } from './snippets';
+import { findPrebuiltDoc } from './snippets';
 import { md } from './markdown-builder';
 import { env } from './env-manager';
 import { ExecFishFiles } from './exec';
@@ -151,7 +151,7 @@ export namespace AutoloadedPathVariables {
 
   export function getHoverDocumentation(variable: string): string {
     if (includes(variable)) {
-      const doc = PrebuiltDocumentationMap.getByType('variable').find(({ name }) => name === variable);
+      const doc = findPrebuiltDoc(variable, 'variable');
       let description = 'Autoloaded fish variable';
       description += doc?.description ? [
         '\n' + md.separator(),

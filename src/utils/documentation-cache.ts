@@ -1,7 +1,8 @@
 import { SymbolKind, MarkupContent } from 'vscode-languageserver';
 import { execCmd, execCommandDocs, execEscapedCommand } from './exec';
-import { FishCompletionItem, CompletionExample } from './completion/types';
 import { isBuiltin } from './builtins';
+import { md } from './markdown-builder';
+import { convertTitleOperatorToToken } from './completion/documentation';
 
 /****************************************************************************************
  *                                                                                      *
@@ -94,88 +95,27 @@ async function getFunctionUri(name: string): Promise<string | undefined> {
 }
 
 /**
- * builds MarkupString for function names, since fish shell standard for private functions
- * is naming convention with leading '__', this function ensures that our MarkupStrings
- * will be able to display the FunctionName (instead of interpreting it as '__' bold text)
- */
-function _escapePathStr(functionTitleLine: string): string {
-  const afterComment = functionTitleLine.split(' ').slice(1);
-  const pathIndex = afterComment.findIndex((str: string) => str.includes('/'));
-  const path: string = afterComment[pathIndex]?.toString() || '';
-  return [
-    '**' + afterComment.slice(0, pathIndex).join(' ').trim() + '**',
-    `*\`${path}\`*`,
-    '**' + afterComment.slice(pathIndex + 1).join(' ').trim() + '**',
-  ].join(' ');
-}
-
-function _ensureMinLength<T>(arr: T[], minLength: number, fillValue?: T): T[] {
-  while (arr.length < minLength) {
-    arr.push(fillValue as T);
-  }
-  return arr;
-}
-
-/**
  * builds FunctionDocumentation string
  */
 export async function getFunctionDocString(name: string): Promise<string | undefined> {
   const functionDoc = await execCmd(`functions ${name}`);
-  const title = `___(function)___ - _${name}_`;
   if (!functionDoc) return;
   return [
-    title,
-    '___',
-    '```fish',
-    functionDoc.join('\n'),
-    '```',
+    `${md.italic('(function)')} - ${md.inlineCode(name)}`,
+    md.separator(),
+    md.codeBlock('fish', functionDoc.join('\n')),
   ].join('\n');
 }
 
-export async function getStaticDocString(item: FishCompletionItem): Promise<string> {
-  let result = [
-    '```text',
-    `${item.label}  -  ${item.documentation}`,
-    '```',
-  ].join('\n');
-  item.examples?.forEach((example: CompletionExample) => {
-    result += [
-      '___',
-      '```fish',
-      `# ${example.title}`,
-      example.shellText,
-      '```',
-    ].join('\n');
-  });
-  return result;
-}
-
-export async function getAbbrDocString(name: string): Promise<string | undefined> {
-  const items: string[] = await execCmd('abbr --show | string split \' -- \' -m1 -f2');
-  function getAbbr(items: string[]): [string, string] {
-    const start: string = `${name} `;
-    for (const item of items) {
-      if (item.startsWith(start)) {
-        return [start.trimEnd(), item.slice(start.length)];
-      }
-    }
-    return ['', ''];
-  }
-  const [title, body] = getAbbr(items);
-  return [
-    `Abbreviation: \`${title}\``,
-    '___',
-    '```fish',
-    body.trimEnd(),
-    '```',
-  ].join('\n') || '';
-}
 /**
  * builds MarkupString for builtin documentation
  */
 export async function getBuiltinDocString(name: string): Promise<string | undefined> {
   if (!isBuiltin(name)) return undefined;
-  const cmdDocs: string = await execCommandDocs(name);
+
+  const fixedName = convertTitleOperatorToToken(name);
+
+  const cmdDocs: string = await execCommandDocs(fixedName);
   if (!cmdDocs) {
     return undefined;
   }
@@ -186,42 +126,9 @@ export async function getBuiltinDocString(name: string): Promise<string | undefi
       ? splitDocs.slice(startIndex).join('\n')
       : splitDocs.join('\n');
   return [
-    `__${name.toUpperCase()}__ - _https://fishshell.com/docs/current/cmds/${name.trim()}.html_`,
-    '___',
-    '```man',
-    resultDocs,
-    '```',
-  ].join('\n');
-}
-
-export async function getAliasDocString(label: string, line: string): Promise<string | undefined> {
-  return [
-    `Alias: _${label}_`,
-    '___',
-    '```fish',
-    line.split('\t')[1],
-    '```',
-  ].join('\n');
-}
-
-/**
- * builds MarkupString for event handler documentation
- */
-export async function getEventHandlerDocString(documentation: string): Promise<string> {
-  const [label, ...commandArr] = documentation.split(/\s/, 2);
-  const command = commandArr.join(' ');
-  const doc = await getFunctionDocString(command);
-  if (!doc) {
-    return [
-      `Event: \`${label}\``,
-      '___',
-      `Event handler for \`${command}\``,
-    ].join('\n');
-  }
-  return [
-    `Event: \`${label}\``,
-    '___',
-    doc,
+    `${md.bold(name.toUpperCase())} - ${md.italic(`https://fishshell.com/docs/current/cmds/${fixedName.trim()}.html`)}`,
+    md.separator(),
+    md.codeBlock('man', resultDocs),
   ].join('\n');
 }
 
@@ -242,10 +149,12 @@ export async function getVariableDocString(name: string): Promise<string | undef
     return acc;
   }, { first: '', middle: [] as string[], last: '' });
   return first ? [
-    first,
-    '___',
+    `(variable) ${md.inlineCode(name)}`,
+    md.separator(),
+    md.codeBlock('text', first),
+    md.separator(),
     middle.join('\n'),
-    '___',
+    md.separator(),
     last,
   ].join('\n') : undefined;
 }
@@ -257,11 +166,7 @@ export async function getCommandDocString(name: string): Promise<string | undefi
   }
   const splitDocs = cmdDocs.split('\n');
   const startIndex = splitDocs.findIndex((line: string) => line.trim() === 'NAME');
-  return [
-    '```man',
-    splitDocs.slice(startIndex).join('\n'),
-    '```',
-  ].join('\n');
+  return md.codeBlock('man', splitDocs.slice(startIndex).join('\n'));
 }
 
 export function initializeMap(collection: string[], type: SymbolKind, _uri?: string): Map<string, CachedGlobalItem> {

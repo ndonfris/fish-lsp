@@ -5,7 +5,7 @@ import { isFunctionDefinitionName, isVariableDefinition, isProgram, isVariableDe
 //import { FishFlagOption, optionTagProvider } from './options';
 import { symbolKindToString, uriToPath } from './translation';
 import { MarkdownBuilder, md } from './markdown-builder';
-import { PrebuiltDocumentationMap } from './snippets';
+import { findPrebuiltDoc } from './snippets';
 
 /**
  * Current CHANGELOG for documentation:
@@ -71,8 +71,7 @@ export class DocumentationStringBuilder {
   toString() {
     const symbolString = symbolKindToString(this.kind);
     const prebuiltType = symbolString === 'function' ? 'command' : 'variable';
-    const prebuiltMatch = PrebuiltDocumentationMap.getByType(prebuiltType)
-      .find(({ name }) => name === this.name);
+    const prebuiltMatch = findPrebuiltDoc(this.name, prebuiltType);
     const info = prebuiltMatch?.description ?
       [
         `defined in file: ${this.shortenedUri}`,

@@ -8,6 +8,10 @@
     "description": "1 is generally the exit status of commands if they failed to perform the requested operation."
   },
   {
+    "name": "2",
+    "description": "2 is generally the exit status of commands that were used incorrectly (e.g. with invalid options or a missing argument)."
+  },
+  {
     "name": "121",
     "description": "121 is generally the exit status of commands if they were supplied with invalid arguments."
   },
