@@ -1,21 +1,13 @@
-import * as os from 'os';
-import * as fs from 'fs';
 import { findAllMissingArgparseFlags } from '../src/diagnostics/missing-completions';
-import { LspDocument } from '../src/document';
 import { flattenNested } from '../src/utils/flatten';
 import { getDiagnosticsAsync } from '../src/diagnostics/validate';
-import { createTestWorkspace, setLogger, TestLspDocument, fail } from './helpers';
-import { SyntaxNode } from 'web-tree-sitter';
-import { initializeParser } from '../src/parser';
+import { setLogger, fail } from './helpers';
 import { Analyzer, analyzer } from '../src/analyze';
-import { WorkspaceManager, workspaceManager } from '../src/utils/workspace-manager';
-import { FishUriWorkspace, Workspace } from '../src/utils/workspace';
 import { logger } from '../src/logger';
 import { getGroupedCompletionSymbolsAsArgparse, groupCompletionSymbolsTogether } from '../src/parsing/complete';
 import { config } from '../src/config';
 import { ErrorCodes } from '../src/diagnostics/error-codes';
-
-let documents: LspDocument[] = [];
+import TestWorkspace, { TestFile } from './test-workspace-utils';
 
 describe('diagnostics with missing completions', () => {
   setLogger();
@@ -26,10 +18,9 @@ describe('diagnostics with missing completions', () => {
   });
 
   describe('analyze workspace 1: `function`', () => {
-    const inputDocs: TestLspDocument[] = [
-      {
-        path: 'functions/fish_function.fish',
-        text: [
+    const workspace = TestWorkspace.create()
+      .addFiles(
+        TestFile.function('fish_function', [
           'function fish_function',
           '  argparse a/arg1 -- $argv',
           '  or return',
@@ -37,48 +28,17 @@ describe('diagnostics with missing completions', () => {
           '  set -l world "world"',
           '  echo "$hello, $world!"',
           'end',
-        ].join('\n'),
-      },
-      {
-        path: 'completions/fish_function.fish',
-        text: [
+        ].join('\n')),
+        TestFile.completion('fish_function', [
           'complete -c fish_function -s a -l arg1 -d "Argument 1"',
           'complete -c fish_function      -l arg2 -d "Argument 2"',
           'complete -c fish_function      -l arg3 -d "Argument 3"',
-        ].join('\n'),
-      },
-    ];
-
-    beforeEach(async () => {
-      documents = createTestWorkspace(analyzer, ...inputDocs);
-      documents.forEach(doc => {
-        const path = doc.getFilePath();
-        fs.writeFileSync(path, doc.getText(), 'utf-8');
-      });
-      const testWorkspace = await Workspace.create('__fish_config_dir', `file://${os.homedir()}/.config/fish`, `${os.homedir()}/.config/fish`);
-      documents.forEach(doc => {
-        testWorkspace.addUri(doc.uri);
-        analyzer.analyze(doc);
-        logger.log(`Opened document: ${doc.path}`);
-      });
-      workspaceManager.add(testWorkspace);
-      workspaceManager.setCurrent(testWorkspace);
-      await workspaceManager.analyzePendingDocuments();
-      // logger.debug(workspaceManager.all.map(ws => ({ uri: ws.uri, uris: ws.getUris(), analyzed: ws.uris.indexed })));
-    });
-
-    afterEach(() => {
-      documents.forEach(doc => {
-        const path = doc.getFilePath();
-        if (fs.existsSync(path)) {
-          fs.unlinkSync(path);
-        }
-      });
-    });
+        ].join('\n')),
+      ).initialize();
 
     it('should analyze a simple function definition', async () => {
-      const functionDoc = documents.find(doc => doc.path.endsWith('functions/fish_function.fish'))!;
-      const completionDoc = documents.find(doc => doc.path.endsWith('completions/fish_function.fish'))!;
+      const functionDoc = workspace.getDocument('functions/fish_function.fish')!;
+      const completionDoc = workspace.getDocument('completions/fish_function.fish')!;
       if (!functionDoc || !completionDoc) fail();
       expect(functionDoc).toBeDefined();
       expect(completionDoc).toBeDefined();

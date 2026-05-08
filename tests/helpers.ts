@@ -1,27 +1,30 @@
+import { exec, execSync, spawnSync } from 'child_process';
 import { glob } from 'fast-glob';
 import fs, { readFileSync } from 'fs';
 import { homedir } from 'os';
 import * as path from 'path';
 import { resolve } from 'path';
-import { DocumentSymbol, Location, Range, SymbolKind, TextDocumentItem } from 'vscode-languageserver';
+import { vi } from 'vitest';
 import * as LSP from 'vscode-languageserver';
+import { DocumentSymbol, Location, Range, SymbolKind, TextDocumentItem } from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
 import * as Parser from 'web-tree-sitter';
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
-import { vi } from 'vitest';
-import { analyzer, Analyzer } from '../src/analyze';
-import { documents, LspDocument } from '../src/document';
+import { analyzer } from '../src/analyze';
+import { LspDocument } from '../src/document';
+import { logger } from '../src/logger';
 import { initializeParser } from '../src/parser';
 import { FishSymbol, processNestedTree } from '../src/parsing/symbol';
+import type FishServer from '../src/server';
 import { env } from '../src/utils/env-manager';
 import { flattenNested } from '../src/utils/flatten';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { pathToUri } from '../src/utils/translation';
-import { getChildNodes, getNamedChildNodes } from '../src/utils/tree-sitter';
+import { getChildNodes, getNamedChildNodes, getRange } from '../src/utils/tree-sitter';
 import { Workspace } from '../src/utils/workspace';
 import { workspaceManager } from '../src/utils/workspace-manager';
 import { testOpenDocument } from './document-test-helpers';
-import { logger } from '../src/logger';
+import { execAsync } from '../src/utils/exec';
 
 /**
  * Sets up mock for the startup module.
@@ -254,13 +257,6 @@ export function setupStartupMock() {
   }));
 }
 
-export const fail = () => {
-  return (msg?: string) => {
-    expect(true).toBe(false);
-    return null;
-  };
-};
-
 export function setLogger(
   beforeCallback: () => Promise<void> = async () => { },
   afterCallback: () => Promise<void> = async () => { },
@@ -390,6 +386,85 @@ export function createMockConnection(): LSP.Connection {
   } as unknown as LSP.Connection;
 }
 
+export type TestServerHandle = {
+  server: FishServer;
+  connection: LSP.Connection;
+  shutdown: () => Promise<void>;
+};
+
+/**
+ * Create a test-ready `FishServer` for E2E-style suites that exercise real
+ * server handlers against a mocked LSP connection.
+ *
+ * This helper centralizes the common pattern:
+ * 1. create a mock connection
+ * 2. initialize a `FishServer`
+ * 3. optionally mark background analysis complete for request-focused tests
+ * 4. expose a single `shutdown()` callback for teardown
+ *
+ * @example
+ * ```ts
+ * let handle: TestServerHandle;
+ *
+ * beforeAll(async () => {
+ *   handle = await createTestServer();
+ * });
+ *
+ * afterAll(async () => {
+ *   await handle.shutdown();
+ * });
+ * ```
+ */
+export async function createTestServer(
+  options: {
+    connection?: LSP.Connection;
+    params?: Partial<LSP.InitializeParams>;
+    backgroundAnalysisComplete?: boolean;
+    setupEnv?: boolean;
+  } = {},
+): Promise<TestServerHandle> {
+  if (options.setupEnv !== false) {
+    await setupProcessEnvExecFile();
+  }
+
+  const connection = options.connection || createMockConnection();
+  const FishServerModule = await import('../src/server');
+  const FishServer = FishServerModule.default;
+
+  const defaultParams: LSP.InitializeParams = {
+    processId: 1234,
+    rootUri: 'file:///tmp',
+    rootPath: '/tmp',
+    capabilities: {
+      workspace: {
+        workspaceFolders: true,
+      },
+    },
+    initializationOptions: {},
+    workspaceFolders: [],
+  } as LSP.InitializeParams;
+
+  const mergedParams: LSP.InitializeParams = {
+    ...defaultParams,
+    ...options.params,
+    capabilities: {
+      ...defaultParams.capabilities,
+      ...options.params?.capabilities,
+    },
+  } as LSP.InitializeParams;
+
+  const result = await FishServer.create(connection, mergedParams);
+  result.server.backgroundAnalysisComplete = options.backgroundAnalysisComplete ?? true;
+
+  return {
+    server: result.server,
+    connection,
+    shutdown: async () => {
+      await result.server.onShutdown();
+    },
+  };
+}
+
 /**
  * Helper function to get references to mocked initialization functions
  * Use this AFTER you've set up vi.mock() for the modules in your test file.
@@ -459,24 +534,6 @@ export function createFakeUriPath(path: string): string {
     return `file://${path}`;
   }
   return `file://${homedir()}/.config/fish/${path}`;
-}
-
-export type TestLspDocument = {
-  path: string;
-  text: string | string[];
-};
-
-export function createTestWorkspace(
-  analyzer: Analyzer,
-  ...docs: TestLspDocument[]
-) {
-  const result: LspDocument[] = [];
-  for (const doc of docs) {
-    const newDoc = createFakeLspDocument(doc.path, ...Array.isArray(doc.text) ? doc.text : [doc.text]);
-    analyzer.analyze(newDoc);
-    result.push(newDoc);
-  }
-  return result;
 }
 
 type FakeLspDocumentType = {
@@ -641,6 +698,57 @@ export function printLocations(locations: Location[], opts: {
   });
 }
 
+export const formatSyntaxNode = (node: SyntaxNode) => {
+  return {
+    id: node.id,
+    type: node.type,
+    typeId: node.typeId,
+    text: node.text,
+    startPosition: positionStr(node.startPosition),
+    endPosition: positionStr(node.endPosition),
+    range: rangeAsString(getRange(node)),
+    startIndex: node.startIndex,
+    endIndex: node.endIndex,
+    isNamed: node.isNamed,
+    isMissing: node.isMissing,
+    isError: node.isError,
+    isExtra: node.isExtra,
+    toString: node.toString(),
+    parent: node.parent ? {
+      type: node.parent.type,
+      text: node.parent.text,
+    } : null,
+    previousSibling: node.previousSibling ? {
+      type: node.previousSibling.type,
+      text: node.previousSibling.text,
+    } : null,
+    nextSibling: node.nextSibling ? {
+      type: node.nextSibling.type,
+      text: node.nextSibling.text,
+    } : null,
+    childrenCount: node.childCount,
+    children: node.children.map(child => ({
+      type: child.type,
+      text: child.text,
+    })),
+    firstNamedChild: node.firstNamedChild ? {
+      type: node.firstNamedChild.type,
+      text: node.firstNamedChild.text,
+    } : null,
+    lastNamedChild: node.lastNamedChild ? {
+      type: node.lastNamedChild.type,
+      text: node.lastNamedChild.text,
+    } : null,
+    firstChild: node.firstChild ? {
+      type: node.firstChild.type,
+      text: node.firstChild.text,
+    } : null,
+    lastChild: node.lastChild ? {
+      type: node.lastChild.type,
+      text: node.lastChild.text,
+    } : null,
+  };
+};
 /**
  * Call this function in a `beforeEach()`/`beforeAll()` block of a test suite, and
  * it will allow you to use fish-lsp's autoloaded fish variables in your tests.
@@ -902,5 +1010,67 @@ export namespace TestWorkspaces {
       ].join('').toString();
     }
     return result;
+  }
+}
+
+/**
+ * Utility functions for skipping tests based on environment conditions,
+ * such as missing commands, environment variables, or files.
+ *
+ * @example
+ *
+ * ```typescript
+ * import { SkipUtils } from './helpers';
+ *
+ * describe('Some test suite', () => {
+ *    it.skipIf(!SkipUtils.hasCommand('fish'))('requires fish shell', () => {
+ *       expect(SkipUtils.hasCommand('fish')).toBe(true);
+ *    })
+ * })
+ * ```
+ *
+ * All functions are synchronous and return a boolean,
+ */
+export namespace SkipUtils {
+
+  export function hasCommand(cmd: string): boolean {
+    try {
+      const exists = execSync(`command -v ${cmd}`, { stdio: 'pipe' }).toString().trim();
+      return exists.length > 0;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  export function hasCommands(...cmds: string[]): boolean {
+    return cmds.every(cmd => hasCommand(cmd));
+  }
+
+  export function hasEnvVar(varName: string): boolean {
+    return process.env[varName] !== undefined;
+  }
+
+  export function hasRelativeFile(relativePath: string): boolean {
+    return fs.existsSync(path.resolve(__dirname, '..', relativePath));
+  }
+
+  export function hasAbsoluteFile(absolutePath: string): boolean {
+    return fs.existsSync(absolutePath);
+  }
+
+  export function commandSucceeds(cmd: string): boolean {
+    try {
+      const res = spawnSync(cmd, { stdio: 'pipe', shell: 'fish' });
+      if (res.status === 0) {
+        return true;
+      }
+      return false;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  export function commandsSucceed(...cmds: string[]): boolean {
+    return cmds.every(cmd => commandSucceeds(cmd));
   }
 }

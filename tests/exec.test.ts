@@ -50,6 +50,27 @@ describe('src/utils/exec.ts tests', () => {
     expect(output.split('\n').length).toBeGreaterThan(10);
   });
 
+  it('execCommandDocs for subcommands (e.g. string-split)', async () => {
+    const output = await execCommandDocs('string', 'split');
+    const type = await execCommandType('string', 'split');
+    console.log('execCommandDocs("string-split"):', output.split('\n').slice(0, 5).join('\n'));
+    console.log('execCommandType("string-split"):', JSON.stringify(type));
+    expect(output).toBeTruthy();
+    expect(output).toContain('STRING-SPLIT');
+  });
+
+  it.skipIf(!hasLocalManFile('man/fish-lsp.1') || !hasManPage('fish-lsp'))('execCommandDocs does not split hyphenated command names (e.g. fish-lsp)', async () => {
+    const output = await execCommandDocs('fish-lsp');
+    const type = await execCommandType('fish-lsp');
+    const localManOutput = fs.readFileSync(path.resolve(__dirname, '..', 'man/fish-lsp.1'), 'utf8');
+    console.log('execCommandDocs("fish-lsp"):', output.split('\n').slice(0, 5).join('\n'));
+    console.log('local man/fish-lsp.1:', localManOutput.split('\n').slice(0, 5).join('\n'));
+    console.log('execCommandType("fish-lsp"):', JSON.stringify(type));
+    expect(output).toBeTruthy();
+    expect(normalizeManDashes(localManOutput).toUpperCase()).toContain('FISH-LSP');
+    expect(normalizeManDashes(output).toUpperCase()).toContain('FISH-LSP');
+  });
+
   it('execCommandType', async () => {
     const output = await execCommandType('end');
     // console.log('docs: ', output.split('\n').length);

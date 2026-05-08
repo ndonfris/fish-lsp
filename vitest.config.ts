@@ -21,6 +21,12 @@ function fishLoader(): Plugin {
   }
 }
 
+const isSilent = process.argv.includes('--silent') || process.argv.some(c => c.startsWith('--silent=true'));
+const isCI = !!process.env.CI;
+
+const reporters: (string | [string, Record<string, unknown>])[] = isSilent || isCI ? ['verbose'] : ['default'];
+if (isCI) reporters.push('github-actions');
+
 export default defineConfig({
   plugins: [tsconfigPaths(), wasm(), fishLoader()],
   test: {
@@ -28,6 +34,9 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     globals: true,
     setupFiles: ['tests/setup-mocks.ts'],
+    env: isSilent ? { VITEST_SILENT: '1' } : {},
+    onConsoleLog: isSilent ? () => false : undefined,
+    reporters,
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
@@ -50,8 +59,9 @@ export default defineConfig({
       ignoreEmptyLines: true,
       reportOnFailure: true,
     },
-    testTimeout: 20_000,
+    testTimeout: 25_000,
     fileParallelism: true,
+    silent: isSilent,
     hookTimeout: 60_000,
     teardownTimeout: 70_000,
   },

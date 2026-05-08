@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+
+# =============================================================================
+# Post-commit: print commit summary
+# =============================================================================
+short_hash=$(git rev-parse --short HEAD)
+header=$(git log -1 --format="%s")
+stat=$(git diff-tree --no-commit-id --shortstat HEAD 2>/dev/null)
+
+echo ""
+echo "\033[32m✓ ${short_hash}\033[0m ${header}"
+if [ -n "$stat" ]; then
+  echo "  \033[34m${stat}\033[0m"
+fi

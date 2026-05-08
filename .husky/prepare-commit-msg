@@ -1,4 +1,266 @@
 #!/usr/bin/env sh
-# . "$(dirname -- "$0")/_/husky.sh"
 
-cp "$1" "/tmp/fish-lsp-last-commit-msg-$(date +%Y%m%d-%H%M%S).msg"
+MSG_FILE="$1"
+MAX_LINE=100
+
+# Skip merge commits and squash commits
+case "$2" in merge|squash) exit 0 ;; esac
+
+# Only process if the file exists and has content
+[ -f "$MSG_FILE" ] || exit 0
+
+# Read the first line (header) and the rest (body)
+header=$(head -n 1 "$MSG_FILE")
+body=$(tail -n +2 "$MSG_FILE")
+
+# Strip comment lines from header (e.g. default git messages starting with #)
+case "$header" in \#*) exit 0 ;; esac
+
+# =============================================================================
+# 1. Format header: lowercase type, lowercase subject, strip trailing period
+# =============================================================================
+if echo "$header" | grep -qE '^[A-Za-z]+(\([^)]*\))?[!]?:[[:space:]]'; then
+  # Extract everything before the first ": " as the prefix
+  prefix=$(echo "$header" | sed -E 's/^([A-Za-z]+(\([^)]*\))?[!]?):[[:space:]].*/\1/')
+  subject=$(echo "$header" | sed -E 's/^[A-Za-z]+(\([^)]*\))?[!]?:[[:space:]]*//')
+
+  # Parse prefix into type, scope, breaking
+  type=$(echo "$prefix" | sed -E 's/^([A-Za-z]+).*/\1/' | tr '[:upper:]' '[:lower:]')
+
+  scope=""
+  case "$prefix" in
+    *\(*\)*) scope=$(echo "$prefix" | sed -E 's/^[A-Za-z]+(\([^)]*\)).*/\1/') ;;
+  esac
+
+  breaking=""
+  case "$prefix" in
+    *"!") breaking="!" ;;
+  esac
+
+  # Lowercase first letter of subject
+  first_char=$(echo "$subject" | cut -c1 | tr '[:upper:]' '[:lower:]')
+  rest=$(echo "$subject" | cut -c2-)
+  subject="${first_char}${rest}"
+
+  # Remove trailing period
+  subject=$(echo "$subject" | sed 's/\.$//')
+
+  header="${type}${scope}${breaking}: ${subject}"
+fi
+
+# Warn (don't truncate) if header exceeds 100 chars
+header_len=${#header}
+if [ "$header_len" -gt $MAX_LINE ]; then
+  echo "\033[33m⚠ Header is ${header_len} chars (max ${MAX_LINE}):\033[0m"
+  echo "  \033[31m$(echo "$header" | cut -c1-${MAX_LINE})\033[0m\033[41;37m$(echo "$header" | cut -c$(( MAX_LINE + 1 ))-)\033[0m"
+fi
+
+# =============================================================================
+# 2. Format body: fix bullet levels, wrap long lines
+# =============================================================================
+format_body() {
+  # Process body line by line:
+  # - First-level bullets use *    (continuation indent: 2 spaces)
+  # - Second-level bullets use -   (continuation indent: 4 spaces)
+  # - Continuation lines inherit parent bullet's indent
+  # - Lines longer than MAX_LINE are wrapped with matching indentation
+
+  bullet_indent=""  # tracks current bullet's continuation indent
+  prev_line=""       # tracks previous non-empty line
+  under_heading=0    # 1 if current "- " items follow a "Heading:" line
+
+  echo "$1" | while IFS= read -r line; do
+    # Skip comment lines
+    case "$line" in \#*) continue ;; esac
+
+    # Detect heading sub-lists: "- " items whose immediate parent is a
+    # non-bullet line ending with ":" (e.g., "Changes:", "Notes:")
+    # These keep "-" instead of converting to "*"
+    case "$line" in
+      "- "*)
+        if [ "$under_heading" -eq 0 ]; then
+          # Check if previous non-empty line ends with ":"
+          case "$prev_line" in
+            *:) under_heading=1 ;;
+          esac
+        fi
+        ;;
+      "  "*)
+        # Indented lines don't reset heading context
+        ;;
+      "")
+        # Blank line resets heading context
+        under_heading=0
+        ;;
+      *)
+        under_heading=0
+        ;;
+    esac
+
+    # Fix bullet markers (skip conversion for heading sub-lists):
+    if [ "$under_heading" -eq 0 ]; then
+      # First level: "- " at start of line → "* "
+      line=$(echo "$line" | sed -E 's/^- /\* /')
+    fi
+    # Second level: "  * " (2-space indent + *) → "  - "
+    line=$(echo "$line" | sed -E 's/^  \* /  - /')
+
+    # Track bullet context and fix continuation indentation
+    case "$line" in
+      \*\ *)
+        # First-level bullet: continuations get 2-space indent
+        bullet_indent="  "
+        ;;
+      "  - "*)
+        # Second-level bullet: continuations get 4-space indent
+        bullet_indent="    "
+        ;;
+      "- "*)
+        # Heading sub-list bullet: continuations get 2-space indent
+        bullet_indent="  "
+        ;;
+      "")
+        # Blank line resets bullet context
+        bullet_indent=""
+        ;;
+      *)
+        # Non-bullet, non-empty line: indent if inside a bullet context
+        # but only if not already correctly indented
+        if [ -n "$bullet_indent" ]; then
+          current_indent=$(echo "$line" | sed -E 's/^( *).*/\1/')
+          expected_len=${#bullet_indent}
+          current_len=${#current_indent}
+          if [ "$current_len" -lt "$expected_len" ]; then
+            line="${bullet_indent}$(echo "$line" | sed -E 's/^[[:space:]]*//')"
+          fi
+        fi
+        ;;
+    esac
+
+    # Track previous non-empty line
+    if [ -n "$line" ]; then
+      prev_line="$line"
+    fi
+
+    # Wrap long lines
+    if [ ${#line} -gt $MAX_LINE ]; then
+      # Determine the indentation for wrapped continuation lines
+      indent=$(echo "$line" | sed -E 's/^( *([*-] )?).*/\1/' | sed 's/./ /g')
+
+      remaining="$line"
+      while [ ${#remaining} -gt $MAX_LINE ]; do
+        chunk=$(echo "$remaining" | cut -c1-${MAX_LINE})
+        break_at=$(echo "$chunk" | grep -ob ' ' | tail -1 | cut -d: -f1)
+
+        if [ -n "$break_at" ] && [ "$break_at" -gt 0 ]; then
+          printf '%s\n' "$(echo "$remaining" | cut -c1-${break_at})"
+          remaining="${indent}$(echo "$remaining" | cut -c$(( break_at + 2 ))-)"
+        else
+          printf '%s\n' "$chunk"
+          remaining="${indent}$(echo "$remaining" | cut -c$(( MAX_LINE + 1 ))-)"
+        fi
+      done
+      printf '%s\n' "$remaining"
+    else
+      printf '%s\n' "$line"
+    fi
+  done
+}
+
+formatted_body=""
+if [ -n "$body" ]; then
+  formatted_body=$(format_body "$body")
+fi
+
+# =============================================================================
+# 3. Write formatted message back
+# =============================================================================
+{
+  printf '%s\n' "$header"
+  if [ -n "$formatted_body" ]; then
+    # Ensure leading blank line before body
+    first_body_line=$(echo "$formatted_body" | head -n 1)
+    if [ -n "$first_body_line" ]; then
+      echo ""
+    fi
+    echo "$formatted_body"
+  fi
+} > "$MSG_FILE"
+
+# =============================================================================
+# 4. Strip trailing whitespace and collapse multiple blank lines
+# =============================================================================
+tmp_cleanup_file=$(mktemp "${TMPDIR:-/tmp}/fish-lsp-commit-msg.XXXXXX") || exit 1
+awk '
+  {
+    sub(/[[:space:]]+$/, "", $0)
+    lines[++count] = $0
+  }
+  END {
+    last_non_empty = count
+    while (last_non_empty > 0 && lines[last_non_empty] == "") {
+      last_non_empty--
+    }
+
+    previous_blank = 0
+    for (i = 1; i <= last_non_empty; i++) {
+      is_blank = (lines[i] == "")
+      if (is_blank && previous_blank) {
+        continue
+      }
+      print lines[i]
+      previous_blank = is_blank
+    }
+  }
+' "$MSG_FILE" > "$tmp_cleanup_file" && mv "$tmp_cleanup_file" "$MSG_FILE"
+
+# =============================================================================
+# 5. Normalize backtick spacing (skip ``` code blocks)
+#    Fix "` foo`" → "`foo`" and "`foo `" → "`foo`"
+# =============================================================================
+# Use awk to skip lines inside ``` fenced blocks
+# Only trim spaces immediately inside backtick pairs: "` foo `" → "`foo`"
+awk '
+  /^[[:space:]]*```/ { in_code = !in_code; print; next }
+  in_code { print; next }
+  {
+    # Match backtick-quoted spans and trim inner spaces
+    result = ""
+    rest = $0
+    while (match(rest, /`[^`]+`/)) {
+      before = substr(rest, 1, RSTART - 1)
+      span = substr(rest, RSTART, RLENGTH)
+      after = substr(rest, RSTART + RLENGTH)
+      # Trim leading/trailing spaces inside the backticks
+      gsub(/^` +/, "`", span)
+      gsub(/ +`$/, "`", span)
+      result = result before span
+      rest = after
+    }
+    result = result rest
+    print result
+  }
+' "$MSG_FILE" > "${MSG_FILE}.tmp" && mv "${MSG_FILE}.tmp" "$MSG_FILE"
+
+# =============================================================================
+# 6. Detect duplicate adjacent words (non-blocking warning)
+# =============================================================================
+dupes=$(awk '
+  /^[[:space:]]*```/ { in_code = !in_code; next }
+  in_code { next }
+  {
+    n = split(tolower($0), words)
+    for (i = 2; i <= n; i++) {
+      # Skip short words and common intentional repeats
+      if (length(words[i]) <= 2) continue
+      if (words[i] == words[i-1]) {
+        printf "  line %d: \"%s %s\"\n", NR, words[i], words[i]
+      }
+    }
+  }
+' "$MSG_FILE")
+
+if [ -n "$dupes" ]; then
+  echo "\033[33m⚠ Possible duplicate words:\033[0m"
+  echo "$dupes"
+fi

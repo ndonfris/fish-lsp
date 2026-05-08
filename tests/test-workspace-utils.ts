@@ -507,12 +507,10 @@ export class TestWorkspace {
 
     this._name = this._config.name;
     this._basePath = path.resolve(this._config.baseDir);
-    this._workspacePath = path.join(this._basePath, this._name);
-    if (SyncFileHelper.exists(this._workspacePath)) {
-      this._name = this.name + this._generateUniqueName() + new Date().getMilliseconds().toString() + randomBytes(2).toString('hex');
-      this._basePath = path.resolve(this._config.baseDir);
-      this._workspacePath = path.join(this._basePath, this._name);
-    }
+    const workspaceDirName = SyncFileHelper.exists(path.join(this._basePath, this._name))
+      ? `${this._name}_${this._generateUniqueName()}${new Date().getMilliseconds().toString()}${randomBytes(2).toString('hex')}`
+      : this._name;
+    this._workspacePath = path.join(this._basePath, workspaceDirName);
     if (this._config.addEnclosingFishFolder) {
       this._workspacePath = path.join(this._workspacePath, 'fish');
     }

@@ -1,2 +1,11 @@
-##.husky/pre-commit
+#!/usr/bin/env sh
+
+# simple backup file for commit message, in case lint-staged fails and the commit message is lost
+commit_msg_file="$(git rev-parse --git-dir)/COMMIT_EDITMSG"
+if [ -f "$commit_msg_file" ]; then
+  tmp_file="/tmp/fish-lsp-last-commit-msg-$(date +%Y%m%d-%H%M%S).msg"
+  cp "$commit_msg_file" "$tmp_file"
+  echo "Saved commit message backup to: $tmp_file"
+fi
+
 yarn run lint-staged

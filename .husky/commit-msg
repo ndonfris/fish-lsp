@@ -1,3 +1,33 @@
-## .husky/commit-msg
-# yarn commitlint --extends '@commitlint/config-conventional' --edit $1
-yarn commitlint --extends '@commitlint/config-conventional' --edit $1 --git-log-args='first-parent cherry-pick'
+#!/usr/bin/env sh
+
+msg_file="$1"
+
+# husky forces halting execution if any command exits with a non-zero status, 
+# so we need to temporarily disable this behavior for displaying more verbose 
+# output in case of failure.
+set +e
+
+# yarn commitlint --color --edit "$msg_file"
+yarn commitlint --color --extends '@commitlint/config-conventional' --edit $1 --git-log-args='first-parent cherry-pick'
+status=$?
+
+# restore the default behavior of halting execution on non-zero exit status
+set -e
+
+# display the commit message contents and file path if the commitlint command failed
+if [ "$status" -ne 0 ]; then
+  echo ""
+  echo "Hook failed: commit-msg"
+  echo "Raw commit message contents:"
+  echo "-----"
+  if [ -f "$msg_file" ]; then
+    cat "$msg_file"
+  else
+    echo "(missing file)"
+  fi
+  echo "-----"
+  echo "Commit message file: $msg_file"
+  echo "-----"
+fi
+
+exit "$status"

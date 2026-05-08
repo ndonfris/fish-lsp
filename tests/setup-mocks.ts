@@ -1,13 +1,21 @@
-import { vi, expect } from 'vitest';
+import { vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { setupProcessEnvExecFile } from '../src/utils/process-env';
-import { env } from 'process';
 
-// Define global fail function
-global.fail = (message?: string) => {
-  expect.fail(message || 'Test failed');
-};
+if (process.env.VITEST_SILENT === '1') {
+  vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+  vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+}
+
+function fail(message?: string): never {
+  const err = new Error(message ?? 'Test failed');
+  Error.captureStackTrace(err, fail);
+  throw err;
+}
+vi.stubGlobal('fail', fail);
+
+const treeSitterFishWasmPath = process.env.fish_lsp_tree_sitter_wasm_path
+  || resolve(__dirname, '../node_modules/@esdmr/tree-sitter-fish/tree-sitter-fish.wasm');
 
 // Use actual WASM files for tree-sitter functionality in tests
 vi.mock('web-tree-sitter/tree-sitter.wasm', () => ({
@@ -15,12 +23,12 @@ vi.mock('web-tree-sitter/tree-sitter.wasm', () => ({
 }));
 
 vi.mock('@esdmr/tree-sitter-fish/tree-sitter-fish.wasm', () => ({
-  default: readFileSync(resolve(__dirname, '../node_modules/@esdmr/tree-sitter-fish/tree-sitter-fish.wasm')),
+  default: readFileSync(treeSitterFishWasmPath),
 }));
 
 // Legacy mocks for backward compatibility (if needed)
 vi.mock('@embedded_assets/tree-sitter-fish.wasm', () => ({
-  default: readFileSync(resolve(__dirname, '../node_modules/@esdmr/tree-sitter-fish/tree-sitter-fish.wasm')),
+  default: readFileSync(treeSitterFishWasmPath),
 }));
 
 vi.mock('@embedded_assets/tree-sitter.wasm', () => ({
@@ -49,7 +57,7 @@ vi.mock('../src/utils/path-resolution', async () => {
     ...actual,
     getFishBuildTimeFilePath: () => resolve(__dirname, '../out/build-time.json'),
     getProjectRootPath: () => resolve(__dirname, '..'),
-    getTreeSitterWasmPath: () => resolve(__dirname, '../node_modules/@esdmr/tree-sitter-fish/tree-sitter-fish.wasm'),
+    getTreeSitterWasmPath: () => treeSitterFishWasmPath,
   };
 });
 
