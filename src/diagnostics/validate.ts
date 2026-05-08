@@ -10,13 +10,13 @@ import { DiagnosticCommentsHandler } from './comments-handler';
 import { logger } from '../logger';
 import { isAutoloadedUriLoadsFunctionName, uriToReadablePath } from '../utils/translation';
 import { FishString } from '../parsing/string';
-import { findParent, findParentCommand, isCommandName, isCommandWithName, isComment, isCompleteCommandName, isFunctionDefinitionName, isOption, isScope, isString, isTopLevelFunctionDefinition } from '../utils/node-types';
+import { findParent, findParentCommand, getCommandNameNode, isCommandName, isCommandWithName, isComment, isCompleteCommandName, isFunctionDefinitionName, isOption, isScope, isString, isTopLevelFunctionDefinition } from '../utils/node-types';
 import { isBuiltin, isReservedKeyword } from '../utils/builtins';
 import { getNoExecuteDiagnostics } from './no-execute-diagnostic';
 import { checkForInvalidDiagnosticCodes } from './invalid-error-code';
 import { analyzer } from '../analyze';
 import { FishSymbol } from '../parsing/symbol';
-import { findUnreachableCode } from '../parsing/unreachable';
+import { findUnreachableCode, sequenceTerminatesAllPaths } from '../parsing/unreachable';
 import { allUnusedLocalReferences } from '../references';
 import { FishDiagnostic } from './types';
 import { server } from '../server';
@@ -24,6 +24,110 @@ import { FishCompletionItemKind } from '../utils/completion/types';
 
 // Number of nodes to process before yielding to event loop
 const CHUNK_SIZE = 100;
+
+function isConditionalBranch(node: SyntaxNode): boolean {
+  return node.type === 'if_statement' || node.type === 'else_if_clause' || node.type === 'else_clause';
+}
+
+function nearestConditionalBranch(node: SyntaxNode): SyntaxNode | null {
+  let current: SyntaxNode | null = node;
+  while (current) {
+    if (isConditionalBranch(current)) {
+      return current;
+    }
+    current = current.parent;
+  }
+  return null;
+}
+
+function conditionalRoot(node: SyntaxNode | null): SyntaxNode | null {
+  let current = node;
+  let root: SyntaxNode | null = null;
+  while (current) {
+    if (current.type === 'if_statement') {
+      root = current;
+    }
+    current = current.parent;
+  }
+  return root;
+}
+
+function branchBodyNodes(branch: SyntaxNode): SyntaxNode[] {
+  if (branch.type === 'if_statement' || branch.type === 'else_if_clause') {
+    let skippedCondition = false;
+    return branch.namedChildren.filter((child) => {
+      if (!skippedCondition && (child.type === 'command' || child.type === 'test_command' || child.type === 'command_substitution')) {
+        skippedCondition = true;
+        return false;
+      }
+      return child.type !== 'else_clause' && child.type !== 'else_if_clause';
+    });
+  }
+  return [...branch.namedChildren];
+}
+
+function isDescendantOf(node: SyntaxNode, ancestor: SyntaxNode): boolean {
+  let current: SyntaxNode | null = node;
+  while (current) {
+    if (current.equals(ancestor)) {
+      return true;
+    }
+    current = current.parent;
+  }
+  return false;
+}
+
+function branchStatementForNode(branch: SyntaxNode, node: SyntaxNode): SyntaxNode | null {
+  const branchBody = branchBodyNodes(branch);
+  let current = node;
+  while (current.parent && !current.parent.equals(branch)) {
+    current = current.parent;
+  }
+  return branchBody.find(child => child.equals(current) || isDescendantOf(node, child)) || null;
+}
+
+function branchTerminatesAfterSymbol(symbol: FishSymbol): boolean {
+  const branch = nearestConditionalBranch(symbol.focusedNode);
+  if (!branch) return false;
+
+  const branchBody = branchBodyNodes(branch);
+  const statement = branchStatementForNode(branch, symbol.focusedNode);
+  if (!statement) return false;
+
+  const startIndex = branchBody.findIndex(child => child.equals(statement));
+  if (startIndex < 0) return false;
+
+  return sequenceTerminatesAllPaths(branchBody.slice(startIndex));
+}
+
+function definitionsCanOverlap(a: FishSymbol, b: FishSymbol): boolean {
+  if (a.uri !== b.uri) return true;
+
+  const branchA = nearestConditionalBranch(a.focusedNode);
+  const branchB = nearestConditionalBranch(b.focusedNode);
+
+  if (branchA && branchB && !branchA.equals(branchB)) {
+    const rootA = conditionalRoot(branchA);
+    const rootB = conditionalRoot(branchB);
+    if (rootA && rootB && rootA.equals(rootB)) {
+      return false;
+    }
+  }
+
+  if (branchA && !isDescendantOf(b.focusedNode, branchA) && a.focusedNode.startIndex < b.focusedNode.startIndex) {
+    if (branchTerminatesAfterSymbol(a)) {
+      return false;
+    }
+  }
+
+  if (branchB && !isDescendantOf(a.focusedNode, branchB) && b.focusedNode.startIndex < a.focusedNode.startIndex) {
+    if (branchTerminatesAfterSymbol(b)) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
 /**
  * Async version of getDiagnostics that yields to the event loop periodically
@@ -174,7 +278,7 @@ export async function getDiagnosticsAsync(
 
     if (isConditionalWithoutQuietCommand(node) && handler.isCodeEnabled(ErrorCodes.missingQuietOption)) {
       logger.log('isConditionalWithoutQuietCommand', { type: node.type, text: node.text });
-      const command = node.firstNamedChild || node;
+      const command = getCommandNameNode(node) || node.firstNamedChild || node;
       let subCommand = command;
       if (command.text.includes('string')) {
         subCommand = command.nextSibling || node.nextSibling!;
@@ -373,7 +477,11 @@ export async function getDiagnosticsAsync(
     functionSymbols.forEach(n => {
       if (handler.isCodeEnabledAtNode(ErrorCodes.duplicateFunctionDefinitionInSameScope, n.focusedNode)) {
         // dupes are the array of all function symbols that have the same name and scope as the current symbol `n`
-        const dupes = functionSymbols.filter(s => s.scopeNode.equals(n.scopeNode) && !s.equals(n)) ?? [] as FishSymbol[];
+        const dupes = functionSymbols.filter(s =>
+          s.scopeNode.equals(n.scopeNode)
+          && !s.equals(n)
+          && definitionsCanOverlap(n, s),
+        ) ?? [] as FishSymbol[];
         // skip if the function is defined in a different scope
         if (dupes.length < 1) return;
         // create a diagnostic for the duplicate function definition
@@ -396,6 +504,28 @@ export async function getDiagnosticsAsync(
   getAutoloadedFunctionsWithoutDescription(doc, handler, allFunctions).forEach((symbol) => {
     if (addDiagnostics(FishDiagnostic.fromSymbol(ErrorCodes.requireAutloadedFunctionHasDescription, symbol))) return diagnostics;
   });
+
+  if (doc.isAutoloadedFunction()) {
+    const helperFunctions = allFunctions.filter(symbol => analyzer.isAutoloadedHelperFunction(symbol));
+    helperFunctions.forEach((helperSymbol) => {
+      if (!handler.isCodeEnabledAtNode(ErrorCodes.autoloadedHelperFunctionNameCollision, helperSymbol.focusedNode)) {
+        return;
+      }
+
+      const collisions = analyzer.symbols.autoloadedHelperFunctions.find(helperSymbol.name)
+        .filter(symbol => symbol.uri !== helperSymbol.uri);
+      if (collisions.length === 0) return;
+
+      const diagnostic = FishDiagnostic.fromSymbol(ErrorCodes.autoloadedHelperFunctionNameCollision, helperSymbol);
+      diagnostic.message += ` '${helperSymbol.name}' is also defined in ${collisions.length} other autoloaded function file(s).`;
+      diagnostic.relatedInformation = collisions.map(symbol => DiagnosticRelatedInformation.create(
+        symbol.toLocation(),
+        `Helper '${symbol.name}' defined in ${uriToReadablePath(symbol.uri)}`,
+      ));
+      addDiagnostics(diagnostic);
+    });
+    if (hasReachedLimit()) return diagnostics;
+  }
 
   localFunctions.forEach(node => {
     const matches = commandNames.filter(call => call.text === node.text);
@@ -431,6 +561,7 @@ export async function getDiagnosticsAsync(
         });
         continue;
       }
+      logger.log(`Checking unused local definition: ${unusedLocalDefinition.name} at ${uriToReadablePath(unusedLocalDefinition.uri)}:${unusedLocalDefinition.focusedNode.startPosition.row}`);
       if (handler.isCodeEnabledAtNode(ErrorCodes.unusedLocalDefinition, unusedLocalDefinition.focusedNode)) {
         if (addDiagnostics(
           FishDiagnostic.fromSymbol(ErrorCodes.unusedLocalDefinition, unusedLocalDefinition),
@@ -457,8 +588,18 @@ export async function getDiagnosticsAsync(
 
     // Pre-compute expensive lookups once
     const localSymbols = analyzer.getFlatDocumentSymbols(doc.uri);
-    const localFunctionNames = new Set(localSymbols.filter(s => s.isFunction()).map(s => s.name));
-    const allAccessibleSymbols = analyzer.allReachableSymbols(doc.uri);
+    const localFunctionNames = new Set(
+      localSymbols.filter(s => s.isFunction()).map(s => s.name),
+    );
+    const allAccessibleFunctions = analyzer.allReachableFunctions(doc.uri);
+    const allAccessibleFunctionNames = new Set(
+      allAccessibleFunctions.map(s => s.name),
+    );
+    const globalFunctionNames = new Set(
+      analyzer.symbols.functionsByName.allSymbols
+        .filter(s => s.isGlobal() || s.isRootLevel())
+        .map(s => s.name),
+    );
 
     // Pre-load completion cache if available
     let commandCompletions: Set<string> | null = null;
@@ -516,11 +657,11 @@ export async function getDiagnosticsAsync(
       } else if (localFunctionNames.has(commandName)) {
         // Check local functions (cached)
         isKnown = true;
-      } else if (allAccessibleSymbols.some(s => s.name === commandName)) {
-        // Check accessible functions (cached)
+      } else if (allAccessibleFunctionNames.has(commandName)) {
+        // Check accessible callable symbols (functions/aliases)
         isKnown = true;
-      } else if (analyzer.globalSymbols.find(commandName).length > 0) {
-        // Check global symbols
+      } else if (globalFunctionNames.has(commandName)) {
+        // Check globally indexed callable symbols (functions/aliases)
         isKnown = true;
       } else if (commandCompletions && commandCompletions.has(commandName)) {
         // Check completion cache (cached)

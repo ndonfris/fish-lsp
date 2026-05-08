@@ -1,5 +1,5 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
-import { findParentCommand, hasParent, isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
+import { findParentCommand, getCommandNameNode, hasParent, isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
 import { getChildNodes, getRange, isNodeWithinOtherNode, precedesRange, TreeWalker } from '../utils/tree-sitter';
 import { Maybe } from '../utils/maybe';
 import { Option } from '../parsing/options';
@@ -181,7 +181,7 @@ export function isSourceFilename(node: SyntaxNode): boolean {
 
 export function isDotSourceCommand(node: SyntaxNode): boolean {
   if (node.parent && isCommandWithName(node.parent, '.')) {
-    return node.parent.firstNamedChild?.equals(node) || false;
+    return getCommandNameNode(node.parent)?.equals(node) || false;
   }
   return false;
 }
@@ -194,7 +194,12 @@ export function isTestCommandVariableExpansionWithoutString(node: SyntaxNode): b
   if (!isCommandWithName(parent, 'test', '[')) return false;
 
   if (isMatchingOption(previousSibling, Option.short('-n'), Option.short('-z'))) {
-    return !isString(node) && !!parent.child(2) && parent.child(2)!.equals(node);
+    // The `-n`/`-z` operand is the argument right after the flag. Reading via
+    // the `argument` field avoids miscounting if `override_variable` prefixes
+    // shift positional indices (post tree-sitter-fish PR #41).
+    const args = parent.childrenForFieldName('argument');
+    const operand = args[1];
+    return !isString(node) && !!operand && operand.equals(node);
   }
 
   return false;
@@ -592,7 +597,8 @@ export function isKnownCommand(commandName: string, doc: LspDocument): boolean {
   }
 
   // Check if it's a function defined in the workspace
-  const globalFunctions = analyzer.globalSymbols.find(commandName);
+  const globalFunctions = analyzer.symbols.functionsByName.find(commandName)
+    .filter(symbol => symbol.isGlobal() || symbol.isRootLevel());
   if (globalFunctions.length > 0) {
     return true;
   }
@@ -605,7 +611,7 @@ export function isKnownCommand(commandName: string, doc: LspDocument): boolean {
 
   // Check all accessible symbols at document level (includes sourced symbols)
   const allAccessibleSymbols = analyzer.allSymbolsAccessibleAtPosition(doc, { line: 0, character: 0 });
-  if (allAccessibleSymbols.some(s => s.isFunction() && s.name === commandName)) {
+  if (allAccessibleSymbols.some(s => s.name === commandName && s.isFunction())) {
     return true;
   }
 

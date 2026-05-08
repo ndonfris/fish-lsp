@@ -9,6 +9,7 @@ import { flattenNested } from '../utils/flatten';
 import * as Locations from '../utils/locations';
 import { uriToReadablePath } from '../utils/translation';
 import { equalDiagnostics } from '../code-actions/code-action-handler';
+import { getCommandNameNode, isCommand } from '../utils/node-types';
 
 // TODO: add this to the validation.ts file
 
@@ -145,7 +146,13 @@ function createCompletionDiagnostic(completionGroup: CompletionSymbol[], symbols
   }
 
   const hasArgparse = flattenNested(focusedSymbol).find(l => l.fishKind === 'ARGPARSE');
-  const focusedNode = hasArgparse ? hasArgparse.node.firstNamedChild : focusedSymbol.node.firstChild?.nextSibling;
+  // For an argparse command, prefer the `name`-field node so we point at the
+  // `argparse` keyword even when prefixed with `override_variable` nodes.
+  const focusedNode = hasArgparse
+    ? isCommand(hasArgparse.node)
+      ? getCommandNameNode(hasArgparse.node)
+      : hasArgparse.node.firstNamedChild
+    : focusedSymbol.node.firstChild?.nextSibling;
   if (!focusedNode) {
     logger.warning(`No focused node found for completion group: ${completionGroup.map(c => c.text).join(', ')}`);
     return null;

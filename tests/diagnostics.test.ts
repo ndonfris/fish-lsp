@@ -39,6 +39,7 @@ let parser: Parser;
 let diagnostics: Diagnostic[] = [];
 let output: SyntaxNode[] = [];
 let input: string = '';
+let server: FishServer | undefined;
 
 setLogger(
   async () => {
@@ -111,7 +112,8 @@ describe('diagnostics test suite', () => {
   beforeAll(async () => {
     await Analyzer.initialize();
     createMockConnection();
-    await FishServer.create(connection, {} as InitializeParams);
+    const result = await FishServer.create(connection, {} as InitializeParams);
+    server = result.server;
     logger.setSilent();
     await setupProcessEnvExecFile();
   });
@@ -129,6 +131,8 @@ describe('diagnostics test suite', () => {
   });
 
   afterAll(() => {
+    server?.dispose();
+    analyzer.diagnostics.clear();
     config.fish_lsp_diagnostic_disable_error_codes = [];
     config.fish_lsp_strict_conditional_command_warnings = true;
     logger.setSilent(false);
@@ -1103,6 +1107,50 @@ function foo
       result.forEach(d => logDiagnostics(d, root));
       expect(result.length).toBe(0);
     });
+
+    it('VALIDATE: duplicate functions in non-overlapping conditional paths should not warn', async () => {
+      const input = [
+        'if command -sq gseq',
+        '    function seq',
+        '        gseq $argv',
+        '    end',
+        '    exit',
+        'end',
+        '',
+        'function seq',
+        '    __fish_fallback_seq $argv',
+        'end',
+      ].join('\n');
+
+      const { root, document } = analyzer.ensureCachedDocument(
+        createFakeLspDocument('file:///tmp/test-duplicate-function-non-overlap.fish', input),
+      ).ensureParsed();
+      const diagnostics = await getDiagnosticsAsync(root, document);
+
+      expect(diagnostics.map(mapDiagnostics)).not.toContainEqual({
+        code: ErrorCodes.duplicateFunctionDefinitionInSameScope,
+        text: 'seq',
+      });
+    });
+
+    it('VALIDATE: duplicate functions in overlapping scope should still warn', async () => {
+      const input = [
+        'function seq',
+        '    echo first',
+        'end',
+        '',
+        'function seq',
+        '    echo second',
+        'end',
+      ].join('\n');
+
+      const { root, document } = analyzer.ensureCachedDocument(
+        createFakeLspDocument('file:///tmp/test-duplicate-function-overlap.fish', input),
+      ).ensureParsed();
+      const diagnostics = await getDiagnosticsAsync(root, document);
+
+      expect(diagnostics.some(d => d.code === ErrorCodes.duplicateFunctionDefinitionInSameScope)).toBe(true);
+    });
   });
 
   describe('EXTRA: unused variables tests', () => {
@@ -1131,6 +1179,134 @@ function foo
       const diagnostics = await getDiagnosticsAsync(root, doc);
       diagnostics.forEach(d => logDiagnostics(d, root));
       expect(diagnostics).toHaveLength(0);
+    });
+
+    it('VALIDATE: set value should not count as variable reference', async () => {
+      const input = [
+        'set foo bar',
+        'set bar baz',
+      ].join('\n');
+      const { root, document } = analyzer.ensureCachedDocument(createFakeLspDocument('file:///tmp/test-unused-set-values.fish', input)).ensureParsed();
+      const diagnostics = await getDiagnosticsAsync(root, document);
+      expect(diagnostics.map(mapDiagnostics)).toEqual([
+        { code: 4004, text: 'foo' },
+        { code: 4004, text: 'bar' },
+      ]);
+    });
+
+    it('VALIDATE: bare command name should not count as variable reference', async () => {
+      const input = [
+        'set bar baz',
+        'bar',
+      ].join('\n');
+      const { root, document } = analyzer.ensureCachedDocument(createFakeLspDocument('file:///tmp/test-unused-bare-command.fish', input)).ensureParsed();
+      const diagnostics = await getDiagnosticsAsync(root, document);
+      expect(diagnostics.map(mapDiagnostics)).toContainEqual({ code: 4004, text: 'bar' });
+    });
+
+    it('VALIDATE: command name via $var should count as variable reference', async () => {
+      const input = [
+        'set bar echo',
+        '$bar',
+      ].join('\n');
+      const { root, document } = analyzer.ensureCachedDocument(createFakeLspDocument('file:///tmp/test-used-command-via-var.fish', input)).ensureParsed();
+      const diagnostics = await getDiagnosticsAsync(root, document);
+      expect(diagnostics.map(mapDiagnostics)).not.toContainEqual({ code: 4004, text: 'bar' });
+    });
+
+    it('VALIDATE: alias definitions should not report unused local definition', async () => {
+      const input = [
+        '# @fish-lsp-disable 2002',
+        "function bar; echo 'inside bar'; end",
+        "alias bb 'bar'",
+        "alias b_='bar'",
+        "alias bx 'bar'",
+      ].join('\n');
+      const { root, document } = analyzer.ensureCachedDocument(createFakeLspDocument('file:///tmp/test-unused-aliases.fish', input)).ensureParsed();
+      const diagnostics = await getDiagnosticsAsync(root, document);
+      const mapped = diagnostics.map(mapDiagnostics);
+
+      expect(mapped).not.toContainEqual({ code: 4004, text: 'alias' });
+      expect(mapped).not.toContainEqual({ code: 4004, text: 'bb' });
+      expect(mapped).not.toContainEqual({ code: 4004, text: 'b_' });
+      expect(mapped).not.toContainEqual({ code: 4004, text: 'bx' });
+    });
+
+    it('VALIDATE: variable values should not suppress unknown command diagnostics', async () => {
+      const savedDisabled = [...config.fish_lsp_diagnostic_disable_error_codes];
+      try {
+        config.fish_lsp_diagnostic_disable_error_codes = [ErrorCodes.unusedLocalDefinition];
+
+        const unknownFromValue = '__fish_lsp_unknown_from_value_91731';
+        const input = [
+          'function foo',
+          `    set v ${unknownFromValue}`,
+          'end',
+          unknownFromValue,
+          'some_unknown_function',
+        ].join('\n');
+
+        const { root, document } = analyzer.ensureCachedDocument(createFakeLspDocument('file:///tmp/test-unknown-command-via-value.fish', input)).ensureParsed();
+        const diagnostics = await getDiagnosticsAsync(root, document);
+        const mapped = diagnostics.map(mapDiagnostics);
+
+        expect(mapped).toContainEqual({ code: 7001, text: unknownFromValue });
+        expect(mapped).toContainEqual({ code: 7001, text: 'some_unknown_function' });
+      } finally {
+        config.fish_lsp_diagnostic_disable_error_codes = savedDisabled;
+      }
+    });
+
+    describe('autoloaded helper function name collisions', () => {
+      const workspace = TestWorkspace
+        .create({ name: 'diagnostic-autoloaded-helper-collisions' })
+        .addFiles(
+          {
+            relativePath: 'functions/alpha.fish',
+            content: [
+              'function alpha',
+              '    _helper_func',
+              'end',
+              '',
+              'function _helper_func',
+              '    echo alpha_helper',
+              'end',
+            ].join('\n'),
+          },
+          {
+            relativePath: 'functions/beta.fish',
+            content: [
+              'function beta',
+              '    _helper_func',
+              'end',
+              '',
+              'function _helper_func',
+              '    echo beta_helper',
+              'end',
+            ].join('\n'),
+          },
+        ).initialize();
+
+      it('VALIDATE: duplicate autoloaded helper names should produce info diagnostics', async () => {
+        const alphaDoc = workspace.getDocument('functions/alpha.fish')!;
+        const betaDoc = workspace.getDocument('functions/beta.fish')!;
+
+        const alphaRoot = analyzer.analyze(alphaDoc).ensureParsed().root;
+        const betaRoot = analyzer.analyze(betaDoc).ensureParsed().root;
+
+        const alphaDiagnostics = await getDiagnosticsAsync(alphaRoot, alphaDoc);
+        const betaDiagnostics = await getDiagnosticsAsync(betaRoot, betaDoc);
+
+        const alphaCollision = alphaDiagnostics.find(d => d.code === ErrorCodes.autoloadedHelperFunctionNameCollision);
+        const betaCollision = betaDiagnostics.find(d => d.code === ErrorCodes.autoloadedHelperFunctionNameCollision);
+
+        expect(alphaCollision).toBeDefined();
+        expect(betaCollision).toBeDefined();
+        expect(alphaCollision?.severity).toBe(DiagnosticSeverity.Information);
+        expect(betaCollision?.severity).toBe(DiagnosticSeverity.Information);
+        expect(alphaCollision?.message).toContain('_helper_func');
+        expect(betaCollision?.message).toContain('_helper_func');
+      });
     });
   });
 });
