@@ -74,6 +74,10 @@ function getStatusDescription(status: string): string {
     0: 'Success',
     1: 'General error',
     2: 'Misuse of shell builtins',
+    121: 'Command invoked with invalid arguments',
+    123: 'Command name contains invalid character',
+    124: 'Command contained wildcard for any matches',
+    125: 'Command found but cannot execute',
     126: 'Command invoked cannot execute',
     127: 'Command not found',
     128: 'Invalid exit argument',
@@ -94,7 +98,22 @@ export function getReturnStatusValue(returnNode: SyntaxNode): {
 
   if (!statusArg?.text) return undefined;
 
-  const statusInfo = PrebuiltDocumentationMap.getByName(statusArg.text).pop();
+  const statusCode = Number.parseInt(statusArg.text);
+  if (statusCode > 128 && statusCode <= 255 && statusCode !== 130) {
+    const exitSignal = Number.parseInt(statusArg.text) - 128;
+    return {
+      inlineValue: `Exit signal ${exitSignal} (Status Code: ${exitSignal} + 128 = ${statusArg.text})`,
+      tooltip: {
+        code: `Exit signal ${exitSignal} (Status Code: ${exitSignal} + 128 = ${statusArg.text})`,
+        description: `Exit signal ${exitSignal} (Status Code: ${exitSignal} + 128 = ${statusArg.text})`,
+      },
+    };
+  }
+
+  const statusInfo = PrebuiltDocumentationMap.getByName(statusArg.text).pop() || {
+    name: statusArg.text,
+    description: getStatusDescription(statusArg.text),
+  };
   const statusInfoShort = getStatusDescription(statusArg.text);
 
   return statusInfoShort ? {
