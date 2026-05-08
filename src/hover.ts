@@ -3,14 +3,16 @@ import { Hover, MarkupKind } from 'vscode-languageserver-protocol/node';
 import * as Parser from 'web-tree-sitter';
 import { Analyzer } from './analyze';
 import { LspDocument } from './document';
-import { documentationHoverProvider, enrichCommandWithFlags, enrichToMarkdown } from './documentation';
+import { documentationHoverProvider, enrichCommandWithFlags, enrichToCodeBlockMarkdown, enrichToMarkdown } from './documentation';
 import { DocumentationCache } from './utils/documentation-cache';
 import { execCommandDocs, execCompletions, execSubCommandCompletions } from './utils/exec';
-import { findParent, findParentCommand, isCommand, isFunctionDefinition, isOption, isProgram, isVariableDefinitionName, isVariableExpansion, isVariableExpansionWithName } from './utils/node-types';
+import { subcommandCache } from './utils/subcommand-cache';
+import { findParent, findParentCommand, getCommandNameNode, getCommandNameText, isCommand, isFunctionDefinition, isOption, isProgram, isVariableDefinitionName, isVariableExpansion, isVariableExpansionWithName } from './utils/node-types';
 import { findFirstParent, nodeLogFormatter } from './utils/tree-sitter';
+import { getNestedCommandReferenceAtPoint } from './utils/nested-command-point';
 import { symbolKindsFromNode, uriToPath } from './utils/translation';
 import { logger } from './logger';
-import { PrebuiltDocumentationMap } from './utils/snippets';
+import { findPrebuiltDoc, getSpecialVariableHoverDoc } from './utils/snippets';
 import { md } from './utils/markdown-builder';
 import { AutoloadedPathVariables } from './utils/process-env';
 
@@ -37,26 +39,77 @@ export async function handleHover(
       range: local.selectionRange,
     };
   }
+  const nestedCommand = getNestedHoverCommandAtPoint(current, position, document.uri);
+  const lookupText = nestedCommand?.command ?? current.text;
   const { kindType, kindString } = symbolKindsFromNode(current);
   const symbolType = ['function', 'class', 'variable'].includes(kindString) ? kindType : undefined;
 
-  if (cache.find(current.text) !== undefined) {
-    await cache.resolve(current.text, document.uri, symbolType);
-    const item = symbolType ? cache.find(current.text, symbolType) : cache.getItem(current.text);
-    if (item && item?.docs) {
-      return {
-        contents: {
-          kind: MarkupKind.Markdown,
-          value: item.docs.toString(),
-        },
-      };
-    }
+  const resolvedItem = await cache.resolve(lookupText, document.uri, symbolType);
+  const item = symbolType ? cache.find(lookupText, symbolType) : cache.getItem(lookupText);
+  const docsItem = item || resolvedItem;
+  if (docsItem && docsItem.docs) {
+    return {
+      contents: {
+        kind: MarkupKind.Markdown,
+        value: docsItem.docs.toString(),
+      },
+    };
   }
-  const commandString = await collectCommandString(current);
+  const commandString = nestedCommand?.command || await collectCommandString(current);
 
   const result = await documentationHoverProvider(commandString);
   logger.log({ handleHover: 'handleHover()', commandString, result });
-  return result;
+  if (result) return result;
+
+  // Fallback: when hovering on a subcommand/argument token of a command node
+  // and no subcommand-specific docs were found, try to extract the relevant
+  // section from the parent command's man page. Falls back to showing the
+  // full parent man page if no focused section is found.
+  const parentCmdNameNode = current.parent?.type === 'command'
+    ? getCommandNameNode(current.parent)
+    : null;
+  if (parentCmdNameNode && !parentCmdNameNode.equals(current)) {
+    const parentCmdName = parentCmdNameNode.text;
+    if (parentCmdName) {
+      const parentDocs = await execCommandDocs(parentCmdName);
+      if (parentDocs) {
+        const section = extractManPageSection(parentDocs, current.text);
+        if (section) {
+          return {
+            contents: {
+              kind: MarkupKind.Markdown,
+              value: [
+                md.codeBlock('fish', `${parentCmdName} ${current.text}`),
+                md.separator(),
+                md.codeBlock('man', section),
+                md.separator(),
+                [md.italic('full man page'), '-', md.bold(`${parentCmdName}(1)`)].join(' '),
+                md.separator(),
+                md.codeBlock('man', parentDocs),
+              ].join('\n\n'),
+            },
+          };
+        }
+        return { contents: enrichToCodeBlockMarkdown(parentDocs, 'man') };
+      }
+    }
+  }
+
+  return null;
+}
+
+function getNestedHoverCommandAtPoint(
+  node: Parser.SyntaxNode,
+  position: LSP.Position,
+  documentUri: string,
+): { command: string; } | null {
+  const nestedCommand = getNestedCommandReferenceAtPoint(node, position, documentUri, {
+    allowCarrierRangeFallback: true,
+  });
+  if (!nestedCommand) return null;
+  return {
+    command: nestedCommand.command,
+  };
 }
 
 export async function getHoverForFlag(current: Parser.SyntaxNode): Promise<Hover | null> {
@@ -64,10 +117,20 @@ export async function getHoverForFlag(current: Parser.SyntaxNode): Promise<Hover
   if (!commandNode) {
     return null;
   }
-  let commandStr = [commandNode.child(0)?.text || ''];
+  // For function definitions, fall back to the legacy `child(0)` lookup since
+  // those node types are unaffected by tree-sitter-fish PR #41.
+  const cmdName = isCommand(commandNode)
+    ? getCommandNameText(commandNode) ?? ''
+    : commandNode.child(0)?.text ?? '';
+  let commandStr = [cmdName];
   const flags: string[] = [];
   let hasFlags = false;
-  for (const child of commandNode?.children || []) {
+  // Iterate the `argument` field for command nodes so `override_variable`
+  // prefixes are skipped; otherwise walk all children (function definitions).
+  const flagSearchChildren = isCommand(commandNode)
+    ? commandNode.childrenForFieldName('argument')
+    : commandNode?.children || [];
+  for (const child of flagSearchChildren) {
     if (!hasFlags && !child.text.startsWith('-')) {
       commandStr = await appendToCommand(commandStr, child.text);
     } else if (child.text.startsWith('-')) {
@@ -84,10 +147,7 @@ export async function getHoverForFlag(current: Parser.SyntaxNode): Promise<Hover
     .map(line => line.join('\t'));
 
   /** find exact match for command */
-  const prebuiltDocs = PrebuiltDocumentationMap.findMatchingNames(
-    commandStr.join('-'),
-    'command',
-  ).find(doc => doc.name === commandStr.join('-'));
+  const prebuiltDocs = findPrebuiltDoc(commandStr.join('-'), 'command');
   const description = !prebuiltDocs ? '' : prebuiltDocs?.description || '';
   return {
     contents: enrichCommandWithFlags(commandStr.join('-'), description, found),
@@ -131,29 +191,133 @@ async function appendToCommand(commands: string[], subCommand: string): Promise<
   }
 }
 
+/**
+ * Extract a focused section from a man page for a specific subcommand.
+ *
+ * Supports two man page formats:
+ *
+ * 1. Indented entry style (e.g. `status`):
+ *    ` is-full-job-control or --is-full-job-control`
+ *    `        Returns 0 if full job control is enabled.`
+ *
+ * 2. Uppercase header style (e.g. `path`):
+ *    `NORMALIZE SUBCOMMAND`
+ *    `    path normalize [-z | --null-in] ...`
+ *
+ * Returns null if no matching section is found.
+ */
+export function extractManPageSection(manText: string, subcommand: string): string | null {
+  return extractUppercaseHeaderSection(manText, subcommand)
+      ?? extractIndentedEntrySection(manText, subcommand);
+}
+
+/**
+ * Match `NORMALIZE SUBCOMMAND` style headers (used by `path`).
+ * Collects everything until the next top-level uppercase header.
+ */
+function extractUppercaseHeaderSection(manText: string, subcommand: string): string | null {
+  const lines = manText.split('\n');
+  const upper = subcommand.toUpperCase();
+  const headerPattern = /^[A-Z][A-Z0-9 -]+ SUBCOMMANDS?$/;
+  let collecting = false;
+  const result: string[] = [];
+
+  for (const line of lines) {
+    if (!collecting) {
+      if (headerPattern.test(line) && line.includes(upper)) {
+        collecting = true;
+        result.push(line);
+      }
+    } else {
+      // Stop at the next top-level all-caps header
+      if (line.length > 0 && /^[A-Z][A-Z0-9 -]+$/.test(line)) {
+        break;
+      }
+      result.push(line);
+    }
+  }
+
+  while (result.length > 0 && result[result.length - 1]!.trim() === '') {
+    result.pop();
+  }
+
+  return result.length > 0 ? result.join('\n') : null;
+}
+
+/**
+ * Match indented entry style (used by `status`):
+ * ` is-full-job-control or --is-full-job-control`
+ * followed by deeper-indented description lines.
+ */
+function extractIndentedEntrySection(manText: string, subcommand: string): string | null {
+  const lines = manText.split('\n');
+  let collecting = false;
+  let sectionIndent = -1;
+  const result: string[] = [];
+
+  for (const line of lines) {
+    if (!collecting) {
+      const trimmed = line.trimStart();
+      if (trimmed.startsWith(subcommand) && /^\s+/.test(line)) {
+        const indent = line.length - trimmed.length;
+        const afterName = trimmed[subcommand.length];
+        if (afterName === undefined || afterName === ' ' || afterName === ',' || afterName === '\t') {
+          collecting = true;
+          sectionIndent = indent;
+          result.push(line);
+        }
+      }
+    } else {
+      if (line.trim() === '') {
+        result.push(line);
+        continue;
+      }
+      const indent = line.length - line.trimStart().length;
+      if (indent > sectionIndent) {
+        result.push(line);
+      } else {
+        break;
+      }
+    }
+  }
+
+  while (result.length > 0 && result[result.length - 1]!.trim() === '') {
+    result.pop();
+  }
+
+  return result.length > 0 ? result.join('\n') : null;
+}
+
 export async function collectCommandString(current: Parser.SyntaxNode): Promise<string> {
   const commandNode = findFirstParent(current, n => isCommand(n));
   if (!commandNode) {
     return '';
   }
-  const commandNodeText = commandNode.child(0)?.text;
-  const subCommandName = commandNode.child(1)?.text;
+  const commandNodeText = getCommandNameText(commandNode);
+  const subCommandName = commandNode.childrenForFieldName('argument')[0]?.text;
   if (subCommandName?.startsWith('-')) {
     return commandNodeText || '';
   }
-  const commandText = [commandNodeText, subCommandName].join('-');
-  const docs = await execCommandDocs(commandText);
+  // Fast path: use cached subcommand data to avoid async fish subprocess
+  if (commandNodeText && subCommandName && subcommandCache.hasSubcommand(commandNodeText, subCommandName)) {
+    return `${commandNodeText} ${subCommandName}`;
+  }
+  const commandText = [commandNodeText, subCommandName].filter(Boolean) as string[];
+  const docs = await execCommandDocs(...commandText);
   if (docs) {
-    return commandText;
+    return commandText.join(' ');
   }
   return commandNodeText || '';
 }
 
-const allVariables = PrebuiltDocumentationMap.getByType('variable');
+function getPrebuiltVariableDoc(name: string) {
+  return findPrebuiltDoc(name, 'variable');
+}
+
 export function isPrebuiltVariableExpansion(node: Parser.SyntaxNode): boolean {
   if (isVariableExpansion(node)) {
     const variableName = node.text.slice(1);
-    return allVariables.some(variable => variable.name === variableName);
+    return !!getPrebuiltVariableDoc(variableName);
   }
   return false;
 }
@@ -161,13 +325,9 @@ export function isPrebuiltVariableExpansion(node: Parser.SyntaxNode): boolean {
 export function getPrebuiltVariableExpansionDocs(node: Parser.SyntaxNode): LSP.MarkupContent | null {
   if (isVariableExpansion(node)) {
     const variableName = node.text.slice(1);
-    const variable = allVariables.find(variable => variable.name === variableName);
+    const variable = getPrebuiltVariableDoc(variableName);
     if (variable) {
-      return enrichToMarkdown([
-        `(${md.italic('variable')}) - ${md.inlineCode('$' + variableName)}`,
-        md.separator(),
-        variable.description,
-      ].join('\n'));
+      return enrichToMarkdown(getSpecialVariableHoverDoc(variableName));
     }
   }
   return null;
@@ -187,13 +347,9 @@ export function getVariableExpansionDocs(analyzer: Analyzer, doc: LspDocument, p
    * Use this to append prebuilt documentation to variables with local documentation
    */
   function getPrebuiltVariableHoverContent(current: Parser.SyntaxNode): string | null {
-    const docObject = allVariables.find(variable => variable.name === current.text);
+    const docObject = getPrebuiltVariableDoc(current.text);
     if (!docObject) return null;
-    return [
-      `(${md.italic('variable')}) ${md.bold(current.text)}`,
-      md.separator(),
-      docObject.description,
-    ].join('\n');
+    return getSpecialVariableHoverDoc(current.text);
   }
 
   return function isPrebuiltExpansionDocsForVariable(current: Parser.SyntaxNode) {
@@ -220,7 +376,7 @@ export function getVariableExpansionDocs(analyzer: Analyzer, doc: LspDocument, p
           ].join('\n')),
         };
       }
-      if (allVariables.find(variable => variable.name === current.text)) {
+      if (getPrebuiltVariableDoc(current.text)) {
         return {
           contents: enrichToMarkdown([
             getPrebuiltVariableHoverContent(current),
@@ -245,7 +401,7 @@ export function getVariableExpansionDocs(analyzer: Analyzer, doc: LspDocument, p
       if (isVariableExpansionWithName(node, 'argv')) {
         const parentNode = findParent(node, (n) => isProgram(n) || isFunctionDefinition(n)) as Parser.SyntaxNode;
         const variableName = node.text.slice(1);
-        const variableDocObj = allVariables.find(variable => variable.name === variableName);
+        const variableDocObj = getPrebuiltVariableDoc(variableName);
         if (isFunctionDefinition(parentNode)) {
           const functionName = parentNode.firstNamedChild!;
           return {
