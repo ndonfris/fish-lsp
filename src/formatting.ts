@@ -1,40 +1,81 @@
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { logger } from './logger';
 import { LspDocument } from './document';
 import { getEnabledIndentRanges } from './parsing/comments';
 
-export async function formatDocumentContent(content: string): Promise<string> {
-  return new Promise((resolve, _reject) => {
-    const process = exec('fish_indent', (error, stdout, stderr) => {
-      if (error) {
-        // reject(stderr);
-        logger.log('Formatting Error:', stderr);
-      } else {
-        resolve(stdout);
-      }
-    });
-    if (process.stdin) {
-      process.stdin.write(content);
-      process.stdin.end();
+// Cap fish_indent at a generous wall-clock so a hung child cannot hold the LSP
+// formatting request open past a client's request timeout (e.g. helix' ~20s).
+const FISH_INDENT_TIMEOUT_MS = 10_000;
+// fish_indent output is bounded by input size, but Node's default execFile
+// maxBuffer is 1 MiB which truncates large fish files. 50 MiB is well clear of
+// any realistic source while still capping pathological inputs.
+const FISH_INDENT_MAX_BUFFER = 50 * 1024 * 1024;
+
+function runFishIndent(content: string, args: string[] = []): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+
+    const resolveOnce = (value: string) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+
+    const rejectOnce = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      logger.log('Formatting Error:', error.message);
+      reject(error);
+    };
+
+    const process = execFile(
+      'fish_indent',
+      args,
+      { timeout: FISH_INDENT_TIMEOUT_MS, maxBuffer: FISH_INDENT_MAX_BUFFER },
+      (error, stdout, stderr) => {
+        if (error) {
+          const err = error as NodeJS.ErrnoException & { killed?: boolean; signal?: string; };
+          let message: string;
+          if (err.killed && err.signal === 'SIGTERM') {
+            message = `fish_indent timed out after ${FISH_INDENT_TIMEOUT_MS}ms`;
+          } else if (err.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') {
+            message = `fish_indent output exceeded ${FISH_INDENT_MAX_BUFFER} bytes`;
+          } else {
+            message = stderr.trim() || err.message;
+          }
+          rejectOnce(new Error(message));
+          return;
+        }
+
+        resolveOnce(stdout);
+      },
+    );
+
+    process.on('error', rejectOnce);
+
+    if (!process.stdin) {
+      rejectOnce(new Error('Unable to write to fish_indent stdin'));
+      process.kill();
+      return;
+    }
+
+    process.stdin.on('error', rejectOnce);
+
+    try {
+      process.stdin.end(content);
+    } catch (error) {
+      rejectOnce(error instanceof Error ? error : new Error(String(error)));
+      process.kill();
     }
   });
 }
 
+export async function formatDocumentContent(content: string): Promise<string> {
+  return runFishIndent(content);
+}
+
 export async function formatDocumentRangeContent(content: string): Promise<string> {
-  return new Promise((resolve, _reject) => {
-    const process = exec('fish_indent --only-indent --only-unindent', (error, stdout, stderr) => {
-      if (error) {
-        // reject(stderr);
-        logger.log('Formatting Error:', stderr);
-      } else {
-        resolve(stdout);
-      }
-    });
-    if (process.stdin) {
-      process.stdin.write(content);
-      process.stdin.end();
-    }
-  });
+  return runFishIndent(content, ['--only-indent', '--only-unindent']);
 }
 
 interface OriginalRange {
