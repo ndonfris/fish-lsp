@@ -133,7 +133,18 @@ export async function execCmd(cmd: string, options?: {
     '--command',
   ].filter(Boolean);
 
-  const { stdout, stderr } = await execFileAsync(shellCmd, [...prefixOpts, cmd]);
+  // execFileAsync rejects when fish exits non-zero (e.g. `functions -D -v
+  // unknown_fn`). Treat that the same as the empty-stdout/stderr path so
+  // callers do not have to wrap every invocation in their own try/catch.
+  let stdout: string | Buffer = '';
+  let stderr: string | Buffer = '';
+  try {
+    ({ stdout, stderr } = await execFileAsync(shellCmd, [...prefixOpts, cmd]));
+  } catch (err) {
+    const errStdout = (err as { stdout?: string | Buffer; }).stdout;
+    if (errStdout !== undefined) stdout = errStdout;
+    return stdout ? stdout.toString().trim().split('\n') : [''];
+  }
 
   if (stderr) return [''];
 
