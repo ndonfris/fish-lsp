@@ -1,0 +1,208 @@
+## Build package assets and run the vitest suite on the GitHub-hosted Ubuntu runner.
+name: Test Suite CI
+
+on:
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+concurrency:
+  group: test-suite-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-suite:
+    name: Build package and run tests
+    runs-on: ubuntu-latest
+    environment: ci
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      HUSKY: 0
+      MANWIDTH: 120
+      MANPATH: /usr/local/share/man:/usr/share/man:/usr/share/fish/man
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Restore system manpage support
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          # Restore manpage content on minimized Ubuntu images. `unminimize`
+          # replaces the "This system has been minimized" stubs with real
+          # pages and marks the system as unminimized. `echo y` sends the
+          # confirmation prompt exactly once — `yes |` causes SIGPIPE (exit
+          # 141) because it keeps writing after unminimize exits.
+          if command -v unminimize >/dev/null 2>&1; then
+            # `unminimize` asks TWO interactive prompts: its own confirm and
+            # then apt-get's "Do you want to continue?". `yes` feeds both.
+            # `|| true` absorbs the SIGPIPE exit-141 that `yes` receives when
+            # unminimize exits, so set -e doesn't abort the step.
+            yes | sudo unminimize || true
+          fi
+
+          # Also scrub any dpkg path-exclude that would strip /usr/share/man
+          # on subsequent installs (e.g. the fish PPA package).
+          sudo grep -rl 'path-exclude.*share/man' /etc/dpkg/dpkg.cfg.d/ \
+            | xargs sudo rm -f || true
+
+          sudo apt-get update
+
+          sudo apt-get install -y --no-install-recommends \
+            bsdextrautils \
+            ca-certificates \
+            curl \
+            gnupg \
+            man-db \
+            manpages \
+            manpages-dev \
+            software-properties-common
+
+          # Reinstall only the packages whose man pages the test suite
+          # directly calls: man-db (man command), manpages (POSIX/syscall
+          # pages), git-man (git pages). Fish pages are handled in the
+          # fish install step below via --reinstall after the PPA is set up.
+          sudo apt-get install -y --reinstall \
+            man-db \
+            manpages \
+            manpages-dev
+
+      - name: Install Fish Shell (latest stable, auto-detect PPA)
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          # Discover the latest stable fish release. `releases/latest` skips
+          # prereleases, so this lands on a real shipped version. Falls back
+          # to fish 4 if the API is unreachable.
+          latest_tag=$(
+            curl -fsSL https://api.github.com/repos/fish-shell/fish-shell/releases/latest \
+              | sed -nE 's/.*"tag_name":[[:space:]]*"([^"]+)".*/\1/p' \
+              || echo "4.0.0"
+          )
+          latest_major=${latest_tag%%.*}
+          echo "fish latest release: $latest_tag (major=$latest_major)"
+
+          # ppa:fish-shell/release-N exists for every major shipped to date
+          # (release-3, release-4, …). Fall back to the previous major if the
+          # newest PPA isn't ready yet (rare, only happens during a major bump
+          # window). Launchpad mirrors intermittently 503; retry each PPA a
+          # few times before giving up on it.
+          ppa_added=0
+          for candidate in "$latest_major" "$((latest_major - 1))"; do
+            sudo apt-add-repository --yes --no-update "ppa:fish-shell/release-$candidate" || continue
+
+            for attempt in 1 2 3 4 5; do
+              if sudo apt-get update -o Acquire::Retries=3; then
+                ppa_added=$candidate
+                break 2
+              fi
+              echo "apt-get update against release-$candidate failed (attempt $attempt); backing off…"
+              sleep $((attempt * 5))
+            done
+
+            sudo apt-add-repository --remove --yes "ppa:fish-shell/release-$candidate" || true
+          done
+          if [ "$ppa_added" = "0" ]; then
+            echo "::error::could not reach any fish-shell PPA (tried release-$latest_major and release-$((latest_major - 1)))"
+            exit 1
+          fi
+
+          # Drop the noble/universe fish stack so apt resolves cleanly against
+          # the PPA. If we don't do this, apt happily removes fish-common
+          # (which owns /usr/share/man/man1/string-split.1 in fish 3.x) while
+          # upgrading fish itself — leaving the system with no fish manpages
+          # in the standard MANPATH at all.
+          sudo apt-get remove -y fish fish-common || true
+
+          # Install then immediately reinstall so that any residual dpkg
+          # path-exclude that slipped through the earlier cleanup is gone by
+          # the time the package is actually unpacked.
+          sudo apt-get install -y --no-install-recommends fish
+          sudo apt-get install -y --reinstall fish
+
+          # The PPA index can be served partially: apt-get update returns 0
+          # while the release-N entries themselves are missing, and apt then
+          # resolves `fish` from noble/universe (fish 3.7.0 today). Fail the
+          # job if that happens, otherwise every downstream step turns into
+          # confusing manpage errors.
+          installed=$(fish -v | awk '{print $NF}')
+          installed_major=${installed%%.*}
+          echo "installed fish: $installed (major=$installed_major)"
+          if [ "$installed_major" -lt "$ppa_added" ]; then
+            echo "::error::expected fish $ppa_added.x but got '$installed' — apt resolved to a non-PPA source"
+            exit 1
+          fi
+
+          # fish 4.x installs its manpages under $__fish_data_dir/man (typically
+          # /usr/share/fish/man) rather than the system /usr/share/man tree.
+          # Symlink them into a man-db–visible path and refresh the cache so
+          # `man string-split` works for any subsequent step regardless of
+          # whether MANPATH is preserved by the caller.
+          fish_data_dir=$(fish -c 'echo $__fish_data_dir')
+          if [ -d "$fish_data_dir/man/man1" ]; then
+            sudo mkdir -p /usr/local/share/man/man1
+            sudo ln -sf "$fish_data_dir"/man/man1/*.1 /usr/local/share/man/man1/
+            sudo mandb -q
+          fi
+
+      - name: Diagnose fish manpages
+        shell: bash
+        run: |
+          set -x
+          fish -v
+          fish -c 'echo data_dir=$__fish_data_dir; echo MANPATH=$MANPATH'
+          dpkg -L fish 2>/dev/null | grep -E '\.1(\.gz)?$' || true
+          ls -la /usr/share/man/man1
+          ls -la /usr/share/man/man1/string-split* /usr/share/man/man1/status.* /usr/share/man/man1/path.* 2>&1 || true
+          ls -la /usr/local/share/man/man1/ 2>&1 | head -40 || true
+          mandb
+          man -w string-split status path 2>&1 || true
+
+      - name: Verify Fish Manpages
+        shell: fish {0}
+        run: |
+          man string-split | col -bx
+          man status | col -bx 
+          man path | col -bx 
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Prepare Fish Paths
+        shell: fish {0}
+        run: |
+          mkdir -p ~/.config/fish/completions
+          mkdir -p ~/.local/share/man/man1
+
+      - name: Install Yarn
+        shell: bash
+        run: |
+          npm config set prefix ~/.local
+          npm install -g yarn@1.22.22
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Install Dependencies
+        shell: fish {0}
+        run: yarn install --frozen-lockfile --non-interactive
+
+      - name: Build Bundle Targets
+        shell: fish {0}
+        run: yarn build:all
+
+      - name: Build Man Pages
+        shell: fish {0}
+        run: |
+          mkdir -p ~/.local/share/man/man1
+          yarn generate:man:write-global
+
+      - name: Test
+        shell: fish {0}
+        run: yarn test:ci:run

@@ -309,6 +309,22 @@ A github __action__ that uses that compiles the project, requires `fish` to be i
 
 The current [workflow actions](https://github.com/ndonfris/fish-lsp/tree/master/.github/workflows), are the best place to see how this is achieved.
 
+### Running the Test Suite workflow locally
+
+Use `gh act` when you want to verify the workflow bootstrap from an `act` runner image, not just the already-configured local machine:
+
+```bash
+gh act push \
+  -W .github/workflows/test-suite.yml \
+  -j test-suite \
+  -P ubuntu-latest=catthehacker/ubuntu:act-latest \
+  --container-architecture linux/amd64
+```
+
+The workflow itself runs on GitHub's `ubuntu-latest` runner, installs fish 4.x, Node from `.nvmrc`, Yarn 1.22.22, manpage dependencies, generated build assets, and then `yarn test:ci:run`. For faster test iteration while editing `tests/**`, run `yarn test:ci:run` directly and reserve `gh act` for checking the CI bootstrap.
+
+If `gh act` should test only committed files after the workflow is merged, add `--no-skip-checkout`. Leave that flag off when validating uncommitted local changes.
+
 ## Got helpful scripts? :passport_control:
 
 [Show & tell](https://github.com/ndonfris/fish-lsp/discussions) is a helpful place to document your useful configurations for working on the fish-lsp.
