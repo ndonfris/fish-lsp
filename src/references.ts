@@ -19,6 +19,7 @@ import { PrebuiltDocumentationMap } from './utils/snippets';
 import { isSetVariableDefinitionName } from './parsing/set';
 import { FishString } from './parsing/string';
 import { isPotentialReferenceNode } from './parsing/reference-candidates';
+import { config } from './config';
 
 // ┌──────────────────────────────────┐
 // │ file handles 3 main operations:  │
@@ -536,8 +537,10 @@ export function getImplementation(
     }
   }
 
-  const newLocations = getReferences(document, position, { reporter: opts.reporter })
-    .filter(location => location.uri !== document.uri);
+  const newLocations = getReferences(document, position, {
+    reporter: opts.reporter,
+    allWorkspaces: !config.fish_lsp_single_workspace_support,
+  }).filter(location => location.uri !== document.uri);
 
   if (newLocations.some(s => s.uri === symbol.uri)) {
     return prefersMovingCursor([symbol.toLocation()]);
@@ -884,6 +887,9 @@ function getDocumentsToSearch(
     documentsToSearch.push(document);
   } else if (opts.allWorkspaces) {
     workspaceManager.all.forEach((ws: Workspace) => {
+      if (!config.fish_lsp_single_workspace_support && ws.contains(document.uri)) {
+        return; // skip other workspaces if the document is found in one and single workspace support is enabled
+      }
       documentsToSearch.push(...ws.allDocuments());
     });
   } else {

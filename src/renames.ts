@@ -4,6 +4,7 @@ import { Location, Position, Range, WorkDoneProgressReporter } from 'vscode-lang
 import { LspDocument } from './document';
 import { FishSymbol } from './parsing/symbol';
 import { logger } from './logger';
+import { config } from './config';
 
 export type FishRenameLocationType = 'variable' | 'function' | 'command' | 'argparse' | 'flag';
 
@@ -33,7 +34,9 @@ export function getRenames(
   if (!symbol || !newText) return [];
   if (!canRenameWithNewText(analyzer, doc, position, newText)) return [];
   newText = fixNewText(symbol, position, newText);
-  const locs = opts.references ?? getReferences(doc, position);
+  const locs = opts.references ?? getReferences(doc, position, {
+    allWorkspaces: !config.fish_lsp_single_workspace_support,
+  });
   return buildRenameLocations(symbol, locs, newText);
 }
 
@@ -47,7 +50,10 @@ export async function getIncrementalRenames(
   if (!symbol || !newText) return [];
   if (!canRenameWithNewText(analyzer, doc, position, newText)) return [];
   newText = fixNewText(symbol, position, newText);
-  const locs = opts.references ?? await getIncrementalReferences(doc, position, { reporter: opts.reporter });
+  const locs = opts.references ?? await getIncrementalReferences(doc, position, {
+    reporter: opts.reporter,
+    allWorkspaces: !config.fish_lsp_single_workspace_support,
+  });
   return buildRenameLocations(symbol, locs, newText);
 }
 

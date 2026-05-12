@@ -141,7 +141,7 @@ export const ConfigSchema = z.object({
   fish_lsp_show_client_popups: z.boolean().default(true),
 
   /** single workspace support */
-  fish_lsp_single_workspace_support: z.boolean().default(false),
+  fish_lsp_single_workspace_support: z.boolean().default(true),
 
   /** paths to ignore when searching for workspace folders */
   fish_lsp_ignore_paths: z.array(z.string()).default(['**/.git/**', '**/node_modules/**', '**/containerized/**', '**/docker/**']),

@@ -451,8 +451,8 @@ set -gx fish_lsp_modifiable_paths "$__fish_config_dir"
 # $fish_lsp_diagnostic_disable_error_codes <ARRAY>
 # The diagnostics error codes to disable from the fish-lsp's diagnostics.
 # (Options: 1001, 1002, 1003, 1004, 1005, 2001, 2002, 2003, 2004, 3001, 3002, 
-#           3003, 4001, 4002, 4003, 4004, 4005, 4006, 4007, 4008, 5001, 5555, 
-#           6001, 7001, 8001, 9999)
+#           3003, 4001, 4002, 4003, 4004, 4005, 4006, 4007, 4008, 4009, 5001, 
+#           5555, 6001, 7001, 8001, 9999)
 # (Default: [])
 set -gx fish_lsp_diagnostic_disable_error_codes 
 
@@ -514,8 +514,8 @@ set -gx fish_lsp_show_client_popups true
 # $fish_lsp_single_workspace_support <BOOLEAN>
 # Try to limit the fish-lsp's workspace searching to only the current workspace open.
 # (Options: 'true', 'false')
-# (Default: 'false')
-set -gx fish_lsp_single_workspace_support false
+# (Default: 'true')
+set -gx fish_lsp_single_workspace_support true
 
 # $fish_lsp_ignore_paths <ARRAY>
 # Glob paths to never search when indexing their parent folder
@@ -627,8 +627,8 @@ set -gx fish_lsp_modifiable_paths
 # $fish_lsp_diagnostic_disable_error_codes <ARRAY>
 # The diagnostics error codes to disable from the fish-lsp's diagnostics.
 # (Options: 1001, 1002, 1003, 1004, 1005, 2001, 2002, 2003, 2004, 3001, 3002, 
-#           3003, 4001, 4002, 4003, 4004, 4005, 4006, 4007, 4008, 5001, 5555, 
-#           6001, 7001, 8001, 9999)
+#           3003, 4001, 4002, 4003, 4004, 4005, 4006, 4007, 4008, 4009, 5001, 
+#           5555, 6001, 7001, 8001, 9999)
 # (Default: [])
 set -gx fish_lsp_diagnostic_disable_error_codes 
 
@@ -690,7 +690,7 @@ set -gx fish_lsp_show_client_popups
 # $fish_lsp_single_workspace_support <BOOLEAN>
 # Try to limit the fish-lsp's workspace searching to only the current workspace open.
 # (Options: 'true', 'false')
-# (Default: 'false')
+# (Default: 'true')
 set -gx fish_lsp_single_workspace_support 
 
 # $fish_lsp_ignore_paths <ARRAY>
@@ -769,7 +769,7 @@ set -gx fish_lsp_show_subcommand_semantic_tokens
   "fish_lsp_require_autoloaded_functions_to_have_description": true,
   "fish_lsp_max_background_files": 10000,
   "fish_lsp_show_client_popups": true,
-  "fish_lsp_single_workspace_support": false,
+  "fish_lsp_single_workspace_support": true,
   "fish_lsp_ignore_paths": [
     "**/.git/**",
     "**/node_modules/**",

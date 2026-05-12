@@ -344,7 +344,7 @@
       true,
       false
     ],
-    "defaultValue": false,
+    "defaultValue": true,
     "valueType": "boolean"
   },
   {

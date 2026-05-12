@@ -129,6 +129,15 @@ function definitionsCanOverlap(a: FishSymbol, b: FishSymbol): boolean {
   return true;
 }
 
+function isSingleWorkspaceWithDuplicateFunctionName(a: FishSymbol, b: FishSymbol): boolean {
+  if (!(a.isFunction() && b.isFunction())) return false;
+  if (a.name !== b.name || a.equals(b)) return false;
+  if (config.fish_lsp_single_workspace_support) {
+    return a.workspacePath === b.workspacePath;
+  }
+  return true;
+}
+
 /**
  * Async version of getDiagnostics that yields to the event loop periodically
  * to avoid blocking the main thread during diagnostic calculation.
@@ -470,7 +479,7 @@ export async function getDiagnosticsAsync(
     duplicateFunctions[node.name] = currentDupes;
   });
 
-  // Add diagnostics for duplicate function definitions in the same scope
+  // `4006` > diagnostics for duplicate function definitions in the same scope
   Object.entries(duplicateFunctions).forEach(([_, functionSymbols]) => {
     // skip single function definitions
     if (functionSymbols.length <= 1) return;
@@ -479,8 +488,9 @@ export async function getDiagnosticsAsync(
         // dupes are the array of all function symbols that have the same name and scope as the current symbol `n`
         const dupes = functionSymbols.filter(s =>
           s.scopeNode.equals(n.scopeNode)
-          && !s.equals(n)
-          && definitionsCanOverlap(n, s),
+            && !s.equals(n)
+            && definitionsCanOverlap(n, s)
+            && isSingleWorkspaceWithDuplicateFunctionName(n, s),
         ) ?? [] as FishSymbol[];
         // skip if the function is defined in a different scope
         if (dupes.length < 1) return;
@@ -505,6 +515,7 @@ export async function getDiagnosticsAsync(
     if (addDiagnostics(FishDiagnostic.fromSymbol(ErrorCodes.requireAutloadedFunctionHasDescription, symbol))) return diagnostics;
   });
 
+  // `4009` -> auto-loaded function helper with name collision
   if (doc.isAutoloadedFunction()) {
     const helperFunctions = allFunctions.filter(symbol => analyzer.isAutoloadedHelperFunction(symbol));
     helperFunctions.forEach((helperSymbol) => {
@@ -513,7 +524,8 @@ export async function getDiagnosticsAsync(
       }
 
       const collisions = analyzer.symbols.autoloadedHelperFunctions.find(helperSymbol.name)
-        .filter(symbol => symbol.uri !== helperSymbol.uri);
+        .filter(symbol => isSingleWorkspaceWithDuplicateFunctionName(helperSymbol, symbol))
+        .filter(symbol => symbol.uri !== helperSymbol.uri) ?? [];
       if (collisions.length === 0) return;
 
       const diagnostic = FishDiagnostic.fromSymbol(ErrorCodes.autoloadedHelperFunctionNameCollision, helperSymbol);
