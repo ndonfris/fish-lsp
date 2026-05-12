@@ -89,7 +89,6 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
     // External dependencies - don't bundle these, npm will provide them
     external: [
       '@esdmr/tree-sitter-fish',
-      'chalk',
       'commander',
       'fast-glob',
       'fs-extra',
