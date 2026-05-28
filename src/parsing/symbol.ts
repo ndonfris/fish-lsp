@@ -26,6 +26,7 @@ import { equalSymbolDefinitions, equalSymbols, equalSymbolScopes, fishSymbolName
 import { SymbolConverters } from './symbol-converters';
 import { FishKindGroups, FishSymbolInput, FishSymbolKind, fishSymbolKindToSymbolKind, fromFishSymbolKindToSymbolKind } from './symbol-kinds';
 import { isInlineVariableAssignment, processInlineVariables } from './inline-variable';
+import { processStringRegexCommand } from './string-regex';
 
 export const SKIPPABLE_VARIABLE_REFERENCE_NAMES = [
   'argv',
@@ -953,6 +954,9 @@ function buildNested(document: LspDocument, node: SyntaxNode, ...children: FishS
           break;
         case 'emit':
           newSymbols.push(...processEmitEventCommandName(document, node, children));
+          break;
+        case 'string':
+          newSymbols.push(...processStringRegexCommand(document, node, children));
           break;
         default:
           break;

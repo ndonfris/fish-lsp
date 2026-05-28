@@ -9,6 +9,7 @@ import * as CompleteParser from './complete';
 import * as OptionsParser from './options';
 import * as SymbolParser from './symbol';
 import * as EventParser from './emit';
+import * as StringRegexParser from './string-regex';
 import { SyntaxNode } from 'web-tree-sitter';
 
 /**
@@ -31,6 +32,7 @@ export const Parsers = {
   symbol: SymbolParser,
   export: ExportParser,
   event: EventParser,
+  stringRegex: StringRegexParser,
 };
 
 /** @internal */
@@ -59,7 +61,8 @@ export function isVariableDefinitionName(node: SyntaxNode) {
     ArgparseParser.isArgparseVariableDefinitionName(node) ||
     ForParser.isForVariableDefinitionName(node) ||
     FunctionParser.isFunctionVariableDefinitionName(node) ||
-    ExportParser.isExportVariableDefinitionName(node);
+    ExportParser.isExportVariableDefinitionName(node) ||
+    StringRegexParser.isStringRegexCaptureDefinitionName(node);
 }
 
 /**
@@ -142,6 +145,7 @@ export const NodeTypes = {
   isExportVariableDefinitionName: ExportParser.isExportVariableDefinitionName,
   isArgparseVariableDefinitionName: ArgparseParser.isArgparseVariableDefinitionName,
   isFunctionVariableDefinitionName: FunctionParser.isFunctionVariableDefinitionName,
+  isStringRegexCaptureDefinitionName: StringRegexParser.isStringRegexCaptureDefinitionName,
   isMatchingOption: OptionsParser.isMatchingOption,
 };
 
@@ -157,6 +161,7 @@ export const ParsingDefinitionNames = {
   isFunctionDefinitionName: FunctionParser.isFunctionDefinitionName,
   isAliasDefinitionName: AliasParser.isAliasDefinitionName,
   isExportDefinitionName: ExportParser.isExportVariableDefinitionName,
+  isStringRegexCaptureDefinitionName: StringRegexParser.isStringRegexCaptureDefinitionName,
 } as const;
 
 type DefinitionNodeNameTypes = 'isDefinitionName' | 'isVariableDefinitionName' | 'isFunctionDefinitionName' | 'isAliasDefinitionName';
@@ -187,4 +192,5 @@ export {
   CompleteParser,
   OptionsParser,
   SymbolParser,
+  StringRegexParser,
 };

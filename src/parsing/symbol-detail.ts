@@ -1,7 +1,7 @@
 import { SymbolKind } from 'vscode-languageserver';
 import { FishSymbol, fishSymbolKindToSymbolKind } from './symbol';
 import { md } from '../utils/markdown-builder';
-import { findOptions } from './options';
+import { findOptions, Option, isMatchingOption } from './options';
 import { findFunctionDefinitionChildren, FunctionOptions } from './function';
 import { uriToReadablePath, uriToPath } from '../utils/translation';
 import { FishString } from './string';
@@ -279,7 +279,20 @@ export function createDetail(symbol: FishSymbol) {
   }
 
   if (symbolKind === 'variable') {
-    return buildVariableDetail(symbol);
+    const base = buildVariableDetail(symbol);
+    // `string match -ra` / `string match --all` makes the capture variable
+    // list-valued (every match populates the list instead of just the first).
+    // Surface that in the hover so users know `$x` is a list, not a scalar.
+    if (symbol.fishKind === 'STRING_REGEX' && hasAllFlag(symbol.node)) {
+      return [base, md.separator(), md.italic('list-valued (--all)')].join(md.newline());
+    }
+    return base;
   }
   return symbol.detail.toString();
+}
+
+const ALL_OPTION = Option.create('-a', '--all');
+
+function hasAllFlag(commandNode: SyntaxNode): boolean {
+  return commandNode.children.some(child => isMatchingOption(child, ALL_OPTION));
 }

@@ -1,5 +1,4 @@
 import { SyntaxNode } from 'web-tree-sitter';
-import { logger } from '../logger';
 
 /**
  * Resolves a single fish shell escape sequence token to its character value.

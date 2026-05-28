@@ -645,9 +645,9 @@ export function printClientTree(
 
 export function locationAsString(loc: Location): string {
   const result = [
-    LspDocument.testUri(loc.uri), loc.range.start.line.toString(), loc.range.start.character.toString(), loc.range.end.line.toString(), loc.range.end.character.toString()
+    LspDocument.testUri(loc.uri), loc.range.start.line.toString(), loc.range.start.character.toString(), loc.range.end.line.toString(), loc.range.end.character.toString(),
   ];
-  return `[${result.join(', ')}]`
+  return `[${result.join(', ')}]`;
 }
 
 export function rangeAsString(range: Range): string {

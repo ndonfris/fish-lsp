@@ -34,6 +34,7 @@ import { buildScopeSpans, ScopeSpan } from './utils/skippable-scopes';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { FishServer } from './server'; // @ts-ignore
+import { captureNameAtPosition } from './parsing/string-regex';
 
 /*************************************************************/
 
@@ -671,9 +672,9 @@ export class Analyzer {
     callbackfn: (node: SyntaxNode, document: LspDocument) => boolean,
     // useCurrentWorkspace: boolean = true,
   ): {
-    uri: string;
-    nodes: SyntaxNode[];
-  }[] {
+      uri: string;
+      nodes: SyntaxNode[];
+    }[] {
     const result: { uri: string; nodes: SyntaxNode[]; }[] = [];
     for (const uri of this.getIterableUris()) {
       const root = this.cache.getRootNode(uri);
@@ -805,9 +806,16 @@ export class Analyzer {
     const namedSymbols = this.symbols.allSymbolsByName.find(word);
     const localNamedSymbols = this.symbols.findDocumentNamedSymbols(document.uri, word);
 
-    // First check local symbols
+    // First check local symbols. A symbol is "the definition" when either:
+    //   (a) its selectionRange contains the cursor's node (the usual case — node
+    //       is the name token itself), OR
+    //   (b) the cursor position falls within the symbol's selectionRange (which
+    //       handles symbols whose selectionRange is a *substring* of a larger
+    //       node — e.g. `(?<name>...)` captures inside a regex pattern string).
     const localSymbol = localNamedSymbols.find((s) => {
-      return s.name === word && containsRange(s.selectionRange, getRange(node));
+      if (s.name !== word) return false;
+      return containsRange(s.selectionRange, getRange(node))
+        || isPositionWithinRange(position, s.selectionRange);
     });
     if (localSymbol) {
       symbols.push(localSymbol);
@@ -1708,11 +1716,11 @@ export class Analyzer {
     document: LspDocument,
     position: Position,
   ): {
-    line: string;
-    word: string;
-    lineRootNode: SyntaxNode;
-    lineLastNode: SyntaxNode;
-  } {
+      line: string;
+      word: string;
+      lineRootNode: SyntaxNode;
+      lineLastNode: SyntaxNode;
+    } {
     const line = document
       .getLineBeforeCursor(position)
       .replace(/^(.*)\n$/, '$1') || '';
@@ -1762,6 +1770,14 @@ export class Analyzer {
     if (isCommandName(node)) {
       return node.text.trim();
     }
+
+    // Cursor inside `(?<name>…)` of a `string -r` regex pattern. Tree-sitter
+    // keeps the pattern as a single opaque string node, so without this hook
+    // wordAtPoint would fall through to `return null` and the hover handler
+    // would drop into its parent-command man-page fallback (showing the
+    // `string` man page instead of the capture symbol's hover).
+    const capName = captureNameAtPosition(node, { line, character: column });
+    if (capName) return capName;
 
     if (isPossibleNested(node)) {
       const nestedCommand = getNestedCommandReferenceAtPoint(uri, { line, character: column }, node);

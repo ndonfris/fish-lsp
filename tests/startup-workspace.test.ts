@@ -37,6 +37,7 @@ describe('setup workspace', () => {
 
   afterEach(() => {
     config.fish_lsp_all_indexed_paths = [];
+    Object.assign(config, ConfigSchema.parse({}));
     workspaceManager.clear();
   });
 

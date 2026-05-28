@@ -5,7 +5,7 @@ import { Option } from './options';
 /**
  * ALL possible `FishSymbol.fishKind` values
  */
-export type FishSymbolKind = 'ARGPARSE' | 'FUNCTION' | 'ALIAS' | 'COMPLETE' | 'SET' | 'READ' | 'FOR' | 'VARIABLE' | 'FUNCTION_VARIABLE' | 'EXPORT' | 'EVENT' | 'FUNCTION_EVENT' | 'INLINE_VARIABLE';
+export type FishSymbolKind = 'ARGPARSE' | 'FUNCTION' | 'ALIAS' | 'COMPLETE' | 'SET' | 'READ' | 'FOR' | 'VARIABLE' | 'FUNCTION_VARIABLE' | 'EXPORT' | 'EVENT' | 'FUNCTION_EVENT' | 'INLINE_VARIABLE' | 'STRING_REGEX';
 
 /**
  * Map/Record of all possible FishSymbolKind values, with lowercase keys to uppercase values.
@@ -26,6 +26,7 @@ export const FishSymbolKindMap: Record<Lowercase<FishSymbolKind>, FishSymbolKind
   ['function_event']: 'FUNCTION_EVENT',
   ['export']: 'EXPORT',
   ['inline_variable']: 'INLINE_VARIABLE',
+  ['string_regex']: 'STRING_REGEX',
 };
 
 /**
@@ -46,6 +47,7 @@ export const fishSymbolKindToSymbolKind: Record<FishSymbolKind, SymbolKind> = {
   ['FUNCTION_EVENT']: SymbolKind.Event,
   ['EXPORT']: SymbolKind.Variable,
   ['INLINE_VARIABLE']: SymbolKind.Variable,
+  ['STRING_REGEX']: SymbolKind.Variable,
 } as const;
 
 /**
@@ -104,7 +106,7 @@ export const symbolKindToString = (kind: SymbolKind | FishSymbolKind): string =>
   */
 type kindGroups = 'VARIABLES' | 'FUNCTIONS' | 'EVENTS' | 'ARGPARSE' | 'OTHER';
 export const FishKindGroups: Record<kindGroups, FishSymbolKind[]> = {
-  VARIABLES: ['ARGPARSE', 'SET', 'READ', 'FOR', 'VARIABLE', 'FUNCTION_VARIABLE', 'EXPORT'],
+  VARIABLES: ['ARGPARSE', 'SET', 'READ', 'FOR', 'VARIABLE', 'FUNCTION_VARIABLE', 'EXPORT', 'STRING_REGEX'],
   FUNCTIONS: ['FUNCTION', 'ALIAS'],
   EVENTS: ['EVENT', 'FUNCTION_EVENT'],
   ARGPARSE: ['ARGPARSE'],

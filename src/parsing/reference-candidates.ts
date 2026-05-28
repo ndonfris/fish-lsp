@@ -3,7 +3,7 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
 import { FishSymbol } from './symbol';
 import { FishString } from './string';
-import  * as Locations  from '../utils/locations';
+import * as Locations from '../utils/locations';
 import { isGenericFunctionEventHandlerDefinitionName } from './emit';
 import { isArgparseVariableDefinitionName } from './argparse';
 import { isMatchingOption, isMatchingOptionOrOptionValue, Option, getLeadingDashCount } from './options';
@@ -333,7 +333,7 @@ export class FishReferenceCandidate {
       if (uri === defSymbol.uri) priority = 100;
       else if (hasCompletionPriority && (uriType === 'completions' || uri.includes('completions/'))) priority = 50;
       const uriHash = uri.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-      priority += (uriHash % 1000) / 10000;
+      priority += uriHash % 1000 / 10000;
       uriPriorityCache.set(uri, priority);
       return priority;
     };
@@ -371,7 +371,6 @@ export class FishReferenceCandidate {
 }
 
 type SortableRef = Location | FishReferenceCandidate;
-
 
 export class FishReferenceCandidateCache {
   private readonly byId = new Map<string, FishReferenceCandidate>();

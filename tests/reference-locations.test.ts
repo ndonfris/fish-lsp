@@ -50,9 +50,9 @@ const debugMatchLocations = (matchLocations: MatchLocation[], workspace: TestWor
   showDocs?: boolean;
   separator?: boolean;
 } = {
-    showDocs: false,
-    separator: false,
-  }) => {
+  showDocs: false,
+  separator: false,
+}) => {
   console.log({ totalMatchLocations: matchLocations.length - 1 });
   matchLocations.forEach(({ uri, position }, index) => {
     const doc = workspace.getDocument(uri);
@@ -158,7 +158,7 @@ describe('find reference locations of symbols', () => {
           'function __test',
           '   test --yes',
           'end',
-          'complete -c __test -l yes'
+          'complete -c __test -l yes',
         ].join('\n'),
       },
     ).initialize();
@@ -301,10 +301,13 @@ describe('find reference locations of symbols', () => {
         expect(def!.argparseFlagName).toBe('name');
         expect(def!.selectionRange.start.line).toBe(1);
 
+        const defLoc = def!.toLocation();
+        const matchDefLoc = matchLocations.at(0)!;
+
         expectFoundLocationsToEqualMatchLocations(
-          [ def?.toLocation()! ], 
-          [ matchLocations.at(0)! ]
-        )
+          [defLoc],
+          [matchDefLoc],
+        );
 
         // find-references should include: the argparse def, the `_flag_name`
         // uses inside the function body, and the call site `--name` itself.
@@ -557,7 +560,7 @@ describe('find reference locations of symbols', () => {
 
       const erefs = analyzer.getReferences(doc, getRange(editorDef!).start);
       const o_localRefs = analyzer.getReferences(doc, getRange(localDef!).start, {
-        includeDefinitions: false
+        includeDefinitions: false,
       });
 
       console.log({
