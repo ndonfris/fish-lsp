@@ -4,7 +4,7 @@ import { initializeParser } from '../src/parser';
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { analyzer, Analyzer } from '../src/analyze';
 import { getChildNodes, getRange } from '../src/utils/tree-sitter';
-import { isConcatenatedValue, isConcatenation, isFunctionDefinitionName } from '../src/utils/node-types';
+import { isConcatenation, isFunctionDefinitionName } from '../src/utils/node-types';
 import * as LSP from 'vscode-languageserver';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 /* @ts-ignore */

@@ -1,4 +1,3 @@
-// import * as fs from 'fs';
 import * as os from 'os';
 import { setLogger } from './helpers';
 import { FishUriWorkspace, getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspaces } from '../src/utils/workspace';
@@ -8,11 +7,6 @@ import { uriToPath } from '../src/utils/translation';
 import * as LSP from 'vscode-languageserver';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { TestFile, TestWorkspace } from './test-workspace-utils';
-// import { Logger } from '../src/logger';
-// import { SyncFileHelper } from '../src/utils/file-operations';
-
-// Mock the entire fs module
-// jest.mock('fs');
 
 describe('setup workspace', () => {
   setLogger();

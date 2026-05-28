@@ -1,4 +1,4 @@
-import { fail, setLogger } from './helpers';
+import { setLogger } from './helpers';
 import { initializeParser } from '../src/parser';
 import { Analyzer, analyzer } from '../src/analyze';
 import { flattenNested } from '../src/utils/flatten';
@@ -7,6 +7,7 @@ import { ErrorCodes } from '../src/diagnostics/error-codes';
 import { config } from '../src/config';
 import TestWorkspace, { TestFile } from './test-workspace-utils';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
+import { fail } from 'assert';
 
 describe('FishSymbol parsing functions tests', () => {
   setLogger();

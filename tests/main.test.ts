@@ -1,4 +1,4 @@
-import { vi, describe, it, expect, beforeEach, afterEach, beforeAll } from 'vitest';
+import { vi } from 'vitest';
 
 // Mock all the dependencies before importing main.ts
 vi.mock('../src/utils/array-polyfills', () => ({}));

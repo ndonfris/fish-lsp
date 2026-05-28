@@ -13,7 +13,7 @@ import {
   printTokens,
   type DecodedToken,
 } from './semantic-tokens-helpers';
-import { getSemanticTokensSimplest, isStructuralKeyword, semanticTokenHandler } from '../src/semantic-tokens';
+import { getSemanticTokensSimplest, semanticTokenHandler } from '../src/semantic-tokens';
 import { getRange, isNodeWithinRange, nodesGen } from '../src/utils/tree-sitter';
 import { PrebuiltDocumentationMap } from '../src/utils/snippets';
 import { CompletionItemMap } from '../src/utils/completion/startup-cache';

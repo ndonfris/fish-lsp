@@ -1,8 +1,7 @@
 import { SyncFileHelper, AsyncFileHelper } from '../src/utils/file-operations';
 import { homedir } from 'os';
 import { join } from 'path';
-import { existsSync, unlinkSync, mkdirSync, rmdirSync, readFileSync, statSync } from 'fs';
-import * as fs from 'fs';
+import { mkdirSync, rmSync } from 'fs';
 import * as fsPromises from 'fs/promises';
 import { pathToUri } from '../src/utils/translation';
 import { setLogger } from './helpers';
@@ -10,34 +9,29 @@ import { vi } from 'vitest';
 import { logger } from '../src/logger';
 
 // Define a test directory and file paths
-const testDir = join(__dirname, 'fish_files');
+const testDir = join(__dirname, 'workspaces', 'tmp-file-operations');
 const tildeTestDir = testDir.replace(process.env.HOME!, '~')!;
 const testFilePath = join(testDir, 'test_file.txt');
 const testFilePathWithTilde = `${tildeTestDir}/test_file_tilde.txt`;
 
 setLogger();
 
-// console.log({testDir, testFilePath, testFilePathWithTilde, tildeTestDir});
+const resetTestDir = () => {
+  rmSync(testDir, { recursive: true, force: true });
+  mkdirSync(testDir, { recursive: true });
+};
 
-// Helper function to clean up test files
-const cleanUpTestFile = (filePath: string) => {
-  if (existsSync(filePath)) {
-    unlinkSync(filePath);
-  }
+const cleanUpTestDir = () => {
+  rmSync(testDir, { recursive: true, force: true });
 };
 
 describe('SyncFileHelper', () => {
   beforeAll(() => {
-    // Ensure the test directory exists
-    if (!existsSync(testDir)) {
-      fsPromises.mkdir(testDir, { recursive: true });
-    }
+    resetTestDir();
   });
 
   afterAll(() => {
-    // Clean up the test files after all tests
-    cleanUpTestFile(testFilePath);
-    cleanUpTestFile(testFilePathWithTilde.replace('~', process.env.HOME!));
+    cleanUpTestDir();
   });
 
   it('should create a file if it does not exist', () => {
@@ -157,7 +151,7 @@ describe('SyncFileHelper', () => {
     const lspDoc = SyncFileHelper.toLspDocument(emptyFilePath);
     expect(lspDoc.getText()).toBe('');
     expect(lspDoc.languageId).toBe('fish'); // default language
-    cleanUpTestFile(emptyFilePath);
+    rmSync(emptyFilePath, { force: true });
   });
 
   it('should handle non-existent file when converting to LspDocument', () => {
@@ -341,15 +335,7 @@ describe('SyncFileHelper', () => {
     const recursiveTestFile = join(recursiveTestDir, 'test.fish');
 
     afterAll(() => {
-      // Clean up nested directories
-      try {
-        if (existsSync(recursiveTestFile)) unlinkSync(recursiveTestFile);
-        if (existsSync(recursiveTestDir)) rmdirSync(recursiveTestDir);
-        if (existsSync(join(testDir, 'nested', 'deep'))) rmdirSync(join(testDir, 'nested', 'deep'));
-        if (existsSync(join(testDir, 'nested'))) rmdirSync(join(testDir, 'nested'));
-      } catch (e) {
-        // Ignore cleanup errors
-      }
+      rmSync(join(testDir, 'nested'), { recursive: true, force: true });
     });
 
     it('should create directories recursively and write file', () => {
@@ -476,23 +462,14 @@ describe('SyncFileHelper', () => {
 });
 
 describe('AsyncFileHelper', () => {
-  const testDir = join(__dirname, 'fish_files');
   const testFilePath = join(testDir, 'async_test_file.txt');
 
   beforeAll(async () => {
-    if (!existsSync(testDir)) {
-      await fsPromises.mkdir(testDir, { recursive: true });
-    }
+    resetTestDir();
   });
 
   afterAll(async () => {
-    try {
-      if (existsSync(testFilePath)) {
-        await fsPromises.unlink(testFilePath);
-      }
-    } catch (e) {
-      // Ignore cleanup errors
-    }
+    cleanUpTestDir();
   });
 
   describe('isReadable', () => {

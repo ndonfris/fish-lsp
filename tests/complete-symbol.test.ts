@@ -1,11 +1,9 @@
 import { initializeParser } from '../src/parser';
-import { setLogger, locationAsString, fakeDocumentTrimUri, matchLocation } from './helpers';
-// import { isLongOption, isOption, isShortOption, NodeOptionQueryText } from '../src/utils/node-types';
+import { setLogger, locationAsString, fakeDocumentTrimUri } from './helpers';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { Range, SymbolKind } from 'vscode-languageserver';
-// import { isFunctionDefinitionName } from '../src/parsing/function';
 import { analyzer, Analyzer } from '../src/analyze';
 import { getCompletionSymbol, CompletionSymbol } from '../src/parsing/complete';
 import { LspDocument } from '../src/document';

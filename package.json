@@ -97,7 +97,9 @@
     "lint:check": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:check-fix": "eslint . --fix-dry-run",
-    "update:prerelease": "run-s lint:fix update-changelog generate:man update-codeblocks-in-docs",
+    "chore:upgrade:deps": "fish ./scripts/upgrade-dependencies",
+    "chore:upgrade:docs": "run-s lint:fix build:npm update-changelog generate:man update-codeblocks-in-docs \"show:version --is-not-published\"",
+    "chore:upgrade": "run-s -s chore:upgrade:deps chore:upgrade:docs",
     "update-codeblocks-in-docs": "tsx scripts/update-codeblocks-in-docs.ts",
     "update-changelog": "fish scripts/update-changelog.fish",
     "util:update-changelog": "conventional-changelog -i docs/CHANGELOG.md --same-file",
@@ -113,7 +115,8 @@
     "generate:man:actual": "yarn run --silent generate:man:cat > ./man/fish-lsp.1",
     "generate:man:diff": "yarn run --silent generate:man:cat | diff --color=always --unified ./man/fish-lsp.1 - && echo 'NO CHANGES TO man/fish-lsp.1' || echo 'CHANGES IN man/fish-lsp.1'",
     "generate:man:cp": "cp ./man/fish-lsp.1 ~/.local/share/man/man1/fish-lsp.1",
-    "generate:man:write-global": "run-s generate:man generate:man:cp"
+    "generate:man:write-global": "run-s generate:man generate:man:cp",
+    "show:version": "tsx scripts/show-version.mts"
   },
   "lint-staged": {
     "**/*.ts": [

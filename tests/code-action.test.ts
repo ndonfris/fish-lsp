@@ -4,26 +4,24 @@ import { containsRange, findEnclosingScope, getChildNodes, getRange } from '../s
 import { isCommandName, isCommandWithName, isComment, isFunctionDefinitionName, isIfStatement, isMatchingOption, isOption, isString, isTopLevelFunctionDefinition } from '../src/utils/node-types';
 import { Option } from '../src/parsing/options';
 import { convertIfToCombinersString } from '../src/code-actions/combiner';
-import { setLogger, fail, createMockConnection, setupStartupMock } from './helpers';
+import { setLogger, setupStartupMock } from './helpers';
 import { initializeParser } from '../src/parser';
 import { findReturnNodes, getReturnStatusValue } from '../src/inlay-hints';
-import { DidDeleteFilesNotification, TextDocumentItem } from 'vscode-languageserver';
+import { TextDocumentItem } from 'vscode-languageserver';
 import { documents, LspDocument } from '../src/document';
 import { SyntaxNode } from 'web-tree-sitter';
 import { isReservedKeyword } from '../src/utils/builtins';
 import { isAutoloadedUriLoadsFunctionName, shouldHaveAutoloadedFunction } from '../src/utils/translation';
 import { CompleteFlag, findFlagsToComplete, buildCompleteString } from '../src/code-actions/argparse-completions';
-import { Analyzer, analyzer } from '../src/analyze';
+import { analyzer } from '../src/analyze';
 import TestWorkspace, { TestFile } from './test-workspace-utils';
 import { codeActionHandlers } from '../src/code-actions/code-action-handler';
 import { testOpenDocument } from './document-test-helpers';
-import FishServer, { currentDocument } from '../src/server';
 import { connection } from '../src/utils/startup';
 import { logger } from '../src/logger';
-import { setupProcessEnvExecFile } from '../src/utils/process-env';
-import { createConnection } from 'net';
 import { Workspace } from '../src/utils/workspace';
 import { getDiagnosticsAsync } from '../src/diagnostics/validate';
+import { fail } from 'assert';
 
 let parser: Parser;
 

@@ -1,4 +1,3 @@
-import { describe, it, expect, beforeAll } from 'vitest';
 import { analyzer, Analyzer } from '../src/analyze';
 import { getSelectionRanges } from '../src/selection-range';
 import { Position } from 'vscode-languageserver';

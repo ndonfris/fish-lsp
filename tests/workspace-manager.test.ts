@@ -1,12 +1,12 @@
 import { createFakeLspDocument, fishLocations, FishLocations, setLogger } from './helpers';
-import { LspDocument, documents } from '../src/document';
 import { Analyzer } from '../src/analyze';
 import { workspaceManager } from '../src/utils/workspace-manager';
 import * as path from 'path';
 import { mkdirSync, rm, writeFileSync } from 'fs';
 import { Workspace } from '../src/utils/workspace';
 import { pathToUri } from '../src/utils/translation';
-import { testChangeDocument, testClearDocuments, testOpenDocument } from './document-test-helpers';
+import { testClearDocuments } from './document-test-helpers';
+
 let locations: FishLocations;
 describe('new-workspace-manager', () => {
   setLogger();

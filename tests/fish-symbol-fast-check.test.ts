@@ -1,17 +1,7 @@
-import { describe, it, expect, beforeAll } from 'vitest';
 import * as fc from 'fast-check';
-import { SyntaxNode, Tree } from 'web-tree-sitter';
-
-import { Analyzer } from '../src/analyze';
-import { TestWorkspace, TestFile } from './test-workspace-utils';
-import { LspDocument } from '../src/document';
+import { analyzer, Analyzer } from '../src/analyze';
+import { TestWorkspace } from './test-workspace-utils';
 import * as LSP from 'vscode-languageserver';
-
-// Tree-sitter utilities
-import {
-  getChildNodes,
-  getRange,
-} from '../src/utils/tree-sitter';
 
 // FishSymbol and related functionality
 import {
@@ -205,13 +195,14 @@ describe('FishSymbol Fast-check Property Tests', () => {
     it('should correctly identify function symbols and their properties', () => {
       fc.assert(fc.property(fishSymbolGenerators.functionDefinition, (testCase) => {
         try {
-          const testWorkspace = TestWorkspace.createSingle(testCase.code, testCase.path);
+          const testWorkspace = TestWorkspace.createSingle(testCase.code, 'custom', testCase.path);
           testWorkspace.initialize();
 
-          const doc = testWorkspace.focusedDocument;
+          const tDoc = testWorkspace.focusedDocument!;
+          const doc = analyzer.analyze(tDoc).ensureParsed();
           if (!doc || !doc.tree?.rootNode) return true;
 
-          const symbols: FishSymbol[] = processNestedTree(doc, doc.tree.rootNode);
+          const symbols: FishSymbol[] = processNestedTree(doc.document, doc.tree.rootNode);
           const flatSymbols = flattenNested(...symbols);
 
           // Property: Should have the expected number of function symbols
@@ -246,17 +237,18 @@ describe('FishSymbol Fast-check Property Tests', () => {
     it('should correctly handle function arguments and create ARGUMENT symbols', () => {
       fc.assert(fc.property(fishSymbolGenerators.functionWithArguments, (testCase) => {
         try {
-          const testWorkspace = TestWorkspace.createSingle(testCase.code, testCase.path);
+          const testWorkspace = TestWorkspace.createSingle(testCase.code, 'custom', testCase.path);
           testWorkspace.initialize();
 
-          const doc = testWorkspace.focusedDocument;
+          const tDoc = testWorkspace.focusedDocument!;
+          const doc = analyzer.analyze(tDoc).ensureParsed();
           if (!doc || !doc.tree?.rootNode) return true;
 
-          const symbols: FishSymbol[] = processNestedTree(doc, doc.tree.rootNode);
+          const symbols: FishSymbol[] = processNestedTree(doc.document, doc.tree.rootNode);
           const flatSymbols = flattenNested(...symbols);
 
           // Property: Should have ARGUMENT symbols for each argument
-          const argumentSymbols = flatSymbols.filter(s => s.fishKind === 'ARGUMENT');
+          const argumentSymbols = flatSymbols.filter(s => s.fishKind === 'FUNCTION_VARIABLE');
           expect(argumentSymbols.length).toBeGreaterThan(0);
 
           // Property: All argument symbols should be local
@@ -280,13 +272,14 @@ describe('FishSymbol Fast-check Property Tests', () => {
     it('should correctly create VARIABLE symbols from set commands', () => {
       fc.assert(fc.property(fishSymbolGenerators.setCommand, (testCase) => {
         try {
-          const testWorkspace = TestWorkspace.createSingle(testCase.code, testCase.path);
+          const testWorkspace = TestWorkspace.createSingle(testCase.code, 'custom', testCase.path);
           testWorkspace.initialize();
 
-          const doc = testWorkspace.focusedDocument;
+          const tDoc = testWorkspace.focusedDocument!;
+          const doc = analyzer.analyze(tDoc).ensureParsed();
           if (!doc || !doc.tree?.rootNode) return true;
 
-          const symbols: FishSymbol[] = processNestedTree(doc, doc.tree.rootNode);
+          const symbols: FishSymbol[] = processNestedTree(doc.document, doc.tree.rootNode);
           const flatSymbols = flattenNested(...symbols);
 
           // Property: Should have SET symbols
@@ -317,13 +310,14 @@ describe('FishSymbol Fast-check Property Tests', () => {
     it('should correctly create FOR symbols from for loops', () => {
       fc.assert(fc.property(fishSymbolGenerators.forLoop, (testCase) => {
         try {
-          const testWorkspace = TestWorkspace.createSingle(testCase.code, testCase.path);
+          const testWorkspace = TestWorkspace.createSingle(testCase.code, 'custom', testCase.path);
           testWorkspace.initialize();
 
-          const doc = testWorkspace.focusedDocument;
+          const tDoc = testWorkspace.focusedDocument!;
+          const doc = analyzer.analyze(tDoc).ensureParsed();
           if (!doc || !doc.tree?.rootNode) return true;
 
-          const symbols: FishSymbol[] = processNestedTree(doc, doc.tree.rootNode);
+          const symbols: FishSymbol[] = processNestedTree(doc.document, doc.tree.rootNode);
           const flatSymbols = flattenNested(...symbols);
 
           // Property: Should have FOR symbols
@@ -349,13 +343,14 @@ describe('FishSymbol Fast-check Property Tests', () => {
     it('should correctly create ALIAS symbols', () => {
       fc.assert(fc.property(fishSymbolGenerators.aliasDefinition, (testCase) => {
         try {
-          const testWorkspace = TestWorkspace.createSingle(testCase.code, testCase.path);
+          const testWorkspace = TestWorkspace.createSingle(testCase.code, 'custom', testCase.path);
           testWorkspace.initialize();
 
-          const doc = testWorkspace.focusedDocument;
+          const tDoc = testWorkspace.focusedDocument!;
+          const doc = analyzer.analyze(tDoc).ensureParsed();
           if (!doc || !doc.tree?.rootNode) return true;
 
-          const symbols: FishSymbol[] = processNestedTree(doc, doc.tree.rootNode);
+          const symbols: FishSymbol[] = processNestedTree(doc.document, doc.tree.rootNode);
           const flatSymbols = flattenNested(...symbols);
 
           // Property: Should have ALIAS symbols
@@ -383,13 +378,14 @@ describe('FishSymbol Fast-check Property Tests', () => {
     it('should correctly create READ symbols', () => {
       fc.assert(fc.property(fishSymbolGenerators.readCommand, (testCase) => {
         try {
-          const testWorkspace = TestWorkspace.createSingle(testCase.code, testCase.path);
+          const testWorkspace = TestWorkspace.createSingle(testCase.code, 'custom', testCase.path);
           testWorkspace.initialize();
 
-          const doc = testWorkspace.focusedDocument;
+          const tDoc = testWorkspace.focusedDocument!;
+          const doc = analyzer.analyze(tDoc).ensureParsed();
           if (!doc || !doc.tree?.rootNode) return true;
 
-          const symbols: FishSymbol[] = processNestedTree(doc, doc.tree.rootNode);
+          const symbols: FishSymbol[] = processNestedTree(doc.document, doc.tree.rootNode);
           const flatSymbols = flattenNested(...symbols);
 
           // Property: Should have READ symbols
@@ -411,13 +407,14 @@ describe('FishSymbol Fast-check Property Tests', () => {
     it('should correctly create ARGPARSE symbols', () => {
       fc.assert(fc.property(fishSymbolGenerators.argparseCommand, (testCase) => {
         try {
-          const testWorkspace = TestWorkspace.createSingle(testCase.code, testCase.path);
+          const testWorkspace = TestWorkspace.createSingle(testCase.code, 'custom', testCase.path);
           testWorkspace.initialize();
 
-          const doc = testWorkspace.focusedDocument;
+          const tDoc = testWorkspace.focusedDocument!;
+          const doc = analyzer.analyze(tDoc).ensureParsed();
           if (!doc || !doc.tree?.rootNode) return true;
 
-          const symbols: FishSymbol[] = processNestedTree(doc, doc.tree.rootNode);
+          const symbols: FishSymbol[] = processNestedTree(doc.document, doc.tree.rootNode);
           const flatSymbols = flattenNested(...symbols);
 
           // Property: Should have ARGPARSE symbols
@@ -444,14 +441,14 @@ describe('FishSymbol Fast-check Property Tests', () => {
     it('should maintain correct parent-child relationships', () => {
       fc.assert(fc.property(fishSymbolGenerators.complexNested, (testCase) => {
         try {
-          const testWorkspace = TestWorkspace.createSingle(testCase.code, testCase.path);
+          const testWorkspace = TestWorkspace.createSingle(testCase.code, 'custom', testCase.path);
           testWorkspace.initialize();
 
-          const doc = testWorkspace.focusedDocument;
+          const tDoc = testWorkspace.focusedDocument!;
+          const doc = analyzer.analyze(tDoc).ensureParsed();
           if (!doc || !doc.tree?.rootNode) return true;
 
-          const symbols: FishSymbol[] = processNestedTree(doc, doc.tree.rootNode);
-          const flatSymbols = flattenNested(...symbols);
+          const symbols: FishSymbol[] = processNestedTree(doc.document, doc.tree.rootNode);
 
           // Property: Function should have child symbols
           const functionSymbols = symbols.filter(s => s.fishKind === 'FUNCTION');
@@ -478,13 +475,14 @@ describe('FishSymbol Fast-check Property Tests', () => {
         ([testCase1, testCase2]) => {
           try {
             const combinedCode = `${testCase1.code}\n${testCase2.code}`;
-            const testWorkspace = TestWorkspace.createSingle(combinedCode, testCase1.path);
+            const testWorkspace = TestWorkspace.createSingle(combinedCode, 'custom', testCase1.path);
             testWorkspace.initialize();
 
-            const doc = testWorkspace.focusedDocument;
+            const tDoc = testWorkspace.focusedDocument!;
+            const doc = analyzer.analyze(tDoc).ensureParsed();
             if (!doc || !doc.tree?.rootNode) return true;
 
-            const symbols: FishSymbol[] = processNestedTree(doc, doc.tree.rootNode);
+            const symbols: FishSymbol[] = processNestedTree(doc.document, doc.tree.rootNode);
             const flatSymbols = flattenNested(...symbols);
 
             const aliasSymbols = flatSymbols.filter(s => s.fishKind === 'ALIAS');
@@ -509,13 +507,14 @@ describe('FishSymbol Fast-check Property Tests', () => {
     it('should correctly implement equalScopes for symbols', () => {
       fc.assert(fc.property(fishSymbolGenerators.complexNested, (testCase) => {
         try {
-          const testWorkspace = TestWorkspace.createSingle(testCase.code, testCase.path);
+          const testWorkspace = TestWorkspace.createSingle(testCase.code, 'custom', testCase.path);
           testWorkspace.initialize();
 
-          const doc = testWorkspace.focusedDocument;
+          const tDoc = testWorkspace.focusedDocument!;
+          const doc = analyzer.analyze(tDoc).ensureParsed();
           if (!doc || !doc.tree?.rootNode) return true;
 
-          const symbols: FishSymbol[] = processNestedTree(doc, doc.tree.rootNode);
+          const symbols: FishSymbol[] = processNestedTree(doc.document, doc.tree.rootNode);
           const flatSymbols = flattenNested(...symbols);
 
           // Property: Symbols in the same scope should have equal scopes
@@ -539,13 +538,14 @@ describe('FishSymbol Fast-check Property Tests', () => {
     it('should correctly identify global vs local symbols', () => {
       fc.assert(fc.property(fishSymbolGenerators.shebangScript, (testCase) => {
         try {
-          const testWorkspace = TestWorkspace.createSingle(testCase.code, testCase.path);
+          const testWorkspace = TestWorkspace.createSingle(testCase.code, 'custom', testCase.path);
           testWorkspace.initialize();
 
-          const doc = testWorkspace.focusedDocument;
+          const tDoc = testWorkspace.focusedDocument!;
+          const doc = analyzer.analyze(tDoc).ensureParsed();
           if (!doc || !doc.tree?.rootNode) return true;
 
-          const symbols: FishSymbol[] = processNestedTree(doc, doc.tree.rootNode);
+          const symbols: FishSymbol[] = processNestedTree(doc.document, doc.tree.rootNode);
           const flatSymbols = flattenNested(...symbols);
 
           // Property: Script symbols should be local for shebang scripts
@@ -578,13 +578,14 @@ describe('FishSymbol Fast-check Property Tests', () => {
 
       fc.assert(fc.property(fc.constantFrom(...testCases), (testCase) => {
         try {
-          const testWorkspace = TestWorkspace.createSingle(testCase.code, testCase.path);
+          const testWorkspace = TestWorkspace.createSingle(testCase.code, 'custom', testCase.path);
           testWorkspace.initialize();
 
-          const doc = testWorkspace.focusedDocument;
+          const tDoc = testWorkspace.focusedDocument!;
+          const doc = analyzer.analyze(tDoc).ensureParsed();
           if (!doc || !doc.tree?.rootNode) return true;
 
-          const symbols: FishSymbol[] = processNestedTree(doc, doc.tree.rootNode);
+          const symbols: FishSymbol[] = processNestedTree(doc.document, doc.tree.rootNode);
           const flatSymbols = flattenNested(...symbols);
 
           const variableSymbols = flatSymbols.filter(s => s.fishKind === 'SET');
@@ -612,20 +613,21 @@ describe('FishSymbol Fast-check Property Tests', () => {
     it('should correctly convert to LSP Location', () => {
       fc.assert(fc.property(fishSymbolGenerators.functionDefinition, (testCase) => {
         try {
-          const testWorkspace = TestWorkspace.createSingle(testCase.code, testCase.path);
+          const testWorkspace = TestWorkspace.createSingle(testCase.code, 'custom', testCase.path);
           testWorkspace.initialize();
 
-          const doc = testWorkspace.focusedDocument;
+          const tDoc = testWorkspace.focusedDocument!;
+          const doc = analyzer.analyze(tDoc).ensureParsed();
           if (!doc || !doc.tree?.rootNode) return true;
 
-          const symbols: FishSymbol[] = processNestedTree(doc, doc.tree.rootNode);
+          const symbols: FishSymbol[] = processNestedTree(doc.document, doc.tree.rootNode);
           const flatSymbols = flattenNested(...symbols);
 
           for (const symbol of flatSymbols.slice(0, 5)) {
             const location = symbol.toLocation();
 
             // Property: Location should have valid URI
-            expect(location.uri).toBe(doc.uri);
+            expect(location.uri).toBe(doc.document.uri);
 
             // Property: Location should have valid range
             expect(location.range).toBeDefined();
@@ -644,13 +646,14 @@ describe('FishSymbol Fast-check Property Tests', () => {
     it('should correctly convert to WorkspaceSymbol', () => {
       fc.assert(fc.property(fishSymbolGenerators.functionDefinition, (testCase) => {
         try {
-          const testWorkspace = TestWorkspace.createSingle(testCase.code, testCase.path);
+          const testWorkspace = TestWorkspace.createSingle(testCase.code, 'custom', testCase.path);
           testWorkspace.initialize();
 
-          const doc = testWorkspace.focusedDocument;
+          const tDoc = testWorkspace.focusedDocument!;
+          const doc = analyzer.analyze(tDoc).ensureParsed();
           if (!doc || !doc.tree?.rootNode) return true;
 
-          const symbols: FishSymbol[] = processNestedTree(doc, doc.tree.rootNode);
+          const symbols: FishSymbol[] = processNestedTree(doc.document, doc.tree.rootNode);
           const flatSymbols = flattenNested(...symbols);
 
           const globalSymbols = flatSymbols.filter(s => s.isGlobal());
@@ -660,8 +663,8 @@ describe('FishSymbol Fast-check Property Tests', () => {
             // Property: WorkspaceSymbol should have correct structure
             expect(wsSymbol.name).toBe(symbol.name);
             expect(wsSymbol.kind).toBe(symbol.kind);
-            expect(wsSymbol.location.uri).toBe(doc.uri);
-            expect(wsSymbol.location.range).toEqual(symbol.selectionRange);
+            expect(wsSymbol.location.uri).toBe(doc.document.uri);
+            expect((wsSymbol.location as LSP.Location).range).toEqual(symbol.selectionRange);
           }
 
           return true;
@@ -674,13 +677,14 @@ describe('FishSymbol Fast-check Property Tests', () => {
     it('should correctly convert to FoldingRange for functions', () => {
       fc.assert(fc.property(fishSymbolGenerators.functionDefinition, (testCase) => {
         try {
-          const testWorkspace = TestWorkspace.createSingle(testCase.code, testCase.path);
+          const testWorkspace = TestWorkspace.createSingle(testCase.code, 'custom', testCase.path);
           testWorkspace.initialize();
 
-          const doc = testWorkspace.focusedDocument;
+          const tDoc = testWorkspace.focusedDocument!;
+          const doc = analyzer.analyze(tDoc).ensureParsed();
           if (!doc || !doc.tree?.rootNode) return true;
 
-          const symbols: FishSymbol[] = processNestedTree(doc, doc.tree.rootNode);
+          const symbols: FishSymbol[] = processNestedTree(doc.document, doc.tree.rootNode);
           const flatSymbols = flattenNested(...symbols);
 
           const functionSymbols = flatSymbols.filter(s => s.fishKind === 'FUNCTION');
@@ -706,17 +710,18 @@ describe('FishSymbol Fast-check Property Tests', () => {
     it('should correctly separate global and local symbols', () => {
       fc.assert(fc.property(fishSymbolGenerators.complexNested, (testCase) => {
         try {
-          const testWorkspace = TestWorkspace.createSingle(testCase.code, testCase.path);
+          const testWorkspace = TestWorkspace.createSingle(testCase.code, 'custom', testCase.path);
           testWorkspace.initialize();
 
-          const doc = testWorkspace.focusedDocument;
+          const tDoc = testWorkspace.focusedDocument!;
+          const doc = analyzer.analyze(tDoc).ensureParsed();
           if (!doc || !doc.tree?.rootNode) return true;
 
-          const symbols: FishSymbol[] = processNestedTree(doc, doc.tree.rootNode);
+          const symbols: FishSymbol[] = processNestedTree(doc.document, doc.tree.rootNode);
           const flatSymbols = flattenNested(...symbols);
 
-          const globalSymbols = getGlobalSymbols(flatSymbols);
-          const localSymbols = getLocalSymbols(flatSymbols);
+          const globalSymbols = flatSymbols.filter((s) => s.isGlobal());
+          const localSymbols = flatSymbols.filter((s) => s.isLocal());
 
           // Property: Global and local symbols should not overlap
           const globalNames = new Set(globalSymbols.map(s => `${s.name}-${s.scopeNode.id}`));
@@ -737,15 +742,17 @@ describe('FishSymbol Fast-check Property Tests', () => {
     });
 
     it('should correctly filter symbols by type with isSymbol', () => {
+      const isSymbol = (symbols: FishSymbol[], kind: FishSymbol['fishKind']) => symbols.filter(s => s.fishKind === kind);
       fc.assert(fc.property(fishSymbolGenerators.complexNested, (testCase) => {
         try {
-          const testWorkspace = TestWorkspace.createSingle(testCase.code, testCase.path);
+          const testWorkspace = TestWorkspace.createSingle(testCase.code, 'custom', testCase.path);
           testWorkspace.initialize();
 
-          const doc = testWorkspace.focusedDocument;
+          const tDoc = testWorkspace.focusedDocument!;
+          const doc = analyzer.analyze(tDoc).ensureParsed();
           if (!doc || !doc.tree?.rootNode) return true;
 
-          const symbols: FishSymbol[] = processNestedTree(doc, doc.tree.rootNode);
+          const symbols: FishSymbol[] = processNestedTree(doc.document, doc.tree.rootNode);
           const flatSymbols = flattenNested(...symbols);
 
           // Property: isSymbol should correctly filter by fishKind
@@ -775,13 +782,14 @@ describe('FishSymbol Fast-check Property Tests', () => {
         try {
           // Create a test with function usage
           const testCode = `${testCase.code}\n${testCase.expectedSymbols[0]?.name || 'test_func'}`;
-          const testWorkspace = TestWorkspace.createSingle(testCode, testCase.path);
+          const testWorkspace = TestWorkspace.createSingle(testCode, 'custom', testCase.path);
           testWorkspace.initialize();
 
-          const doc = testWorkspace.focusedDocument;
+          const tDoc = testWorkspace.focusedDocument!;
+          const doc = analyzer.analyze(tDoc).ensureParsed();
           if (!doc || !doc.tree?.rootNode) return true;
 
-          const symbols: FishSymbol[] = processNestedTree(doc, doc.tree.rootNode);
+          const symbols: FishSymbol[] = processNestedTree(doc.document, doc.tree.rootNode);
           const flatSymbols = flattenNested(...symbols);
 
           const functionSymbols = flatSymbols.filter(s => s.fishKind === 'FUNCTION');
@@ -794,7 +802,7 @@ describe('FishSymbol Fast-check Property Tests', () => {
 
             // Property: All locations should have valid ranges
             for (const location of locations) {
-              expect(location.uri).toBe(doc.uri);
+              expect(location.uri).toBe(doc.document.uri);
               expect(location.range.start.line).toBeGreaterThanOrEqual(0);
               expect(location.range.start.character).toBeGreaterThanOrEqual(0);
             }
@@ -814,13 +822,14 @@ describe('FishSymbol Fast-check Property Tests', () => {
           try {
             // Create multiple for loops with same variable name
             const combinedCode = testCases.map(tc => tc.code).join('\n');
-            const testWorkspace = TestWorkspace.createSingle(combinedCode, testCases[0]?.path || 'config.fish');
+            const testWorkspace = TestWorkspace.createSingle(combinedCode, 'custom', testCases[0]?.path || 'config.fish');
             testWorkspace.initialize();
 
-            const doc = testWorkspace.focusedDocument;
+            const tDoc = testWorkspace.focusedDocument!;
+            const doc = analyzer.analyze(tDoc).ensureParsed();
             if (!doc || !doc.tree?.rootNode) return true;
 
-            const symbols: FishSymbol[] = processNestedTree(doc, doc.tree.rootNode);
+            const symbols: FishSymbol[] = processNestedTree(doc.document, doc.tree.rootNode);
             const flatSymbols = flattenNested(...symbols);
             const filteredSymbols = filterLastPerScopeSymbol(flatSymbols);
 
@@ -855,20 +864,20 @@ describe('FishSymbol Fast-check Property Tests', () => {
         fc.oneof(...malformedCode.map(code => fc.constant(code))),
         (code) => {
           try {
-            const testWorkspace = TestWorkspace.createSingle(code, 'config.fish');
+            const testWorkspace = TestWorkspace.createSingle(code, 'config', 'config.fish');
             testWorkspace.initialize();
 
-            const doc = testWorkspace.focusedDocument;
+            const doc = analyzer.analyze(testWorkspace.focusedDocument!).ensureParsed();
             if (!doc || !doc.tree?.rootNode) return true;
 
             // Property: Should not throw errors even with malformed code
             expect(() => {
-              const symbols: FishSymbol[] = processNestedTree(doc, doc.tree.rootNode);
+              const symbols: FishSymbol[] = processNestedTree(doc.document, doc.tree.rootNode);
               const flatSymbols = flattenNested(...symbols);
 
               // Test various operations
-              getGlobalSymbols(flatSymbols);
-              getLocalSymbols(flatSymbols);
+              // getGlobalSymbols(flatSymbols);
+              // getLocalSymbols(flatSymbols);
               filterLastPerScopeSymbol(flatSymbols);
 
               for (const symbol of flatSymbols) {
@@ -890,13 +899,13 @@ describe('FishSymbol Fast-check Property Tests', () => {
     it('should maintain symbol equality consistency', () => {
       fc.assert(fc.property(fishSymbolGenerators.functionDefinition, (testCase) => {
         try {
-          const testWorkspace = TestWorkspace.createSingle(testCase.code, testCase.path);
+          const testWorkspace = TestWorkspace.createSingle(testCase.code, 'custom', testCase.path);
           testWorkspace.initialize();
 
-          const doc = testWorkspace.focusedDocument;
+          const doc = analyzer.analyze(testWorkspace.focusedDocument!).ensureParsed();
           if (!doc || !doc.tree?.rootNode) return true;
 
-          const symbols: FishSymbol[] = processNestedTree(doc, doc.tree.rootNode);
+          const symbols: FishSymbol[] = processNestedTree(doc.document, doc.tree.rootNode);
           const flatSymbols = flattenNested(...symbols);
 
           // Property: Symbol should equal itself
@@ -927,13 +936,13 @@ describe('FishSymbol Fast-check Property Tests', () => {
             const startTime = Date.now();
 
             const combinedCode = testCases.map(tc => tc.code).join('\n\n');
-            const testWorkspace = TestWorkspace.createSingle(combinedCode, 'config.fish');
+            const testWorkspace = TestWorkspace.createSingle(combinedCode, 'config', 'config.fish');
             testWorkspace.initialize();
 
-            const doc = testWorkspace.focusedDocument;
+            const doc = analyzer.analyze(testWorkspace.focusedDocument!).ensureParsed();
             if (!doc || !doc.tree?.rootNode) return true;
 
-            const symbols: FishSymbol[] = processNestedTree(doc, doc.tree.rootNode);
+            const symbols: FishSymbol[] = processNestedTree(doc.document, doc.tree.rootNode);
             const flatSymbols = flattenNested(...symbols);
 
             const processingTime = Date.now() - startTime;
@@ -946,8 +955,8 @@ describe('FishSymbol Fast-check Property Tests', () => {
 
             // Property: Basic operations should complete without errors
             expect(() => {
-              getGlobalSymbols(flatSymbols);
-              getLocalSymbols(flatSymbols);
+              // getGlobalSymbols(flatSymbols);
+              // getLocalSymbols(flatSymbols);
               filterLastPerScopeSymbol(flatSymbols);
               formatFishSymbolTree(symbols);
             }).not.toThrow();

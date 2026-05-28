@@ -1,6 +1,6 @@
 import { analyzer, Analyzer } from '../src/analyze';
 import { workspaceManager } from '../src/utils/workspace-manager';
-import { createFakeLspDocument, expectFoundLocationsToEqualMatchLocations, matchLocation, printLocations, rangeAsString, setLogger, toMatchLocations } from './helpers';
+import { createFakeLspDocument, expectFoundLocationsToEqualMatchLocations, matchLocation, printLocations, setLogger } from './helpers';
 import { getChildNodes, getRange, pointToPosition } from '../src/utils/tree-sitter';
 import { isCompletionCommandDefinition } from '../src/parsing/complete';
 import { isArgumentThatCanContainCommandCalls, isCommand, isCommandWithName, isDefinitionName, isEndStdinCharacter, isOption, isString, isVariable, isVariableDefinitionName } from '../src/utils/node-types';
@@ -20,7 +20,6 @@ import { logger } from '../src/logger';
 import { fail } from 'assert';
 import { FunctionParser } from '../src/parsing/barrel';
 import { isAliasDefinitionName } from '../src/parsing/alias';
-import { ImplementationCanididate } from '../src/implementation';
 
 beforeEach(() => {
   logger.setSilent(); // pass in `false` to enable logs

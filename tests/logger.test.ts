@@ -1,10 +1,7 @@
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { vi } from 'vitest';
 import fs from 'fs';
-import path from 'path';
-import os from 'os';
 import * as fc from 'fast-check';
-import { Logger, logger, createServerLogger, IConsole, LOG_LEVELS, LogLevel, DEFAULT_LOG_LEVEL, now } from '../src/logger';
-import { setLogger } from './helpers';
+import { Logger, logger, createServerLogger, IConsole, LOG_LEVELS, LogLevel, now } from '../src/logger';
 
 // Mock fs module completely - no real file operations needed
 vi.mock('fs', () => ({

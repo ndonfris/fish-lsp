@@ -4,10 +4,11 @@ import { createAliasInlineAction } from '../src/code-actions/alias-wrapper';
 import { ErrorCodes } from '../src/diagnostics/error-codes';
 import { LspDocument } from '../src/document';
 import * as Parser from 'web-tree-sitter';
-import { setLogger, fail } from './helpers';
+import { setLogger } from './helpers';
 import { isCommandWithName } from '../src/utils/node-types';
 import { getChildNodes } from '../src/utils/tree-sitter';
 import { execAsyncF } from '../src/utils/exec';
+import { fail } from 'assert';
 
 setLogger();
 

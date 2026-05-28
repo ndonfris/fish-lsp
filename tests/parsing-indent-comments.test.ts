@@ -3,7 +3,6 @@ import { initializeParser } from '../src/parser';
 import * as Parser from 'web-tree-sitter';
 import { getChildNodes } from '../src/utils/tree-sitter';
 import { setLogger } from './helpers';
-import { LspDocument } from '../src/document';
 import { TestWorkspace } from './test-workspace-utils';
 
 let parser: Parser;

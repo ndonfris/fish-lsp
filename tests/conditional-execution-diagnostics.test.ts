@@ -1,4 +1,4 @@
-import { analyzer, Analyzer } from '../src/analyze';
+import { Analyzer } from '../src/analyze';
 import { initializeParser } from '../src/parser';
 import * as Parser from 'web-tree-sitter';
 import { workspaceManager } from '../src/utils/workspace-manager';

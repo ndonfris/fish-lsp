@@ -27,10 +27,6 @@ import { connection } from '../src/utils/startup';
 import TestWorkspace from './test-workspace-utils';
 import { FishSymbol } from '../src/parsing/symbol';
 import { fail } from 'assert';
-// import { isFunctionDefinitionName, isFunctionVariableDefinitionName } from '../src/parsing/function';
-// import TestWorkspace from './test-workspace-utils';
-// import { isArgparseVariableDefinitionName } from '../src/parsing/argparse';
-// import { SetParser, AliasParser, ArgparseParser, CompleteParser, ReadParser, ForParser, FunctionParser, ExportParser } from '../src/parsing/barrel';
 
 let parser: Parser;
 let diagnostics: Diagnostic[] = [];

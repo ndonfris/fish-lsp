@@ -3,7 +3,7 @@ import { CompletionItemKind } from 'vscode-languageserver';
 import path from 'path';
 import { vi } from 'vitest';
 import { analyzer } from '../src/analyze';
-import { createFakeLspDocument, createTestServer, setupStartupMock, SkipUtils, type TestServerHandle } from './helpers';
+import { createFakeLspDocument, createTestServer, setupStartupMock, TestServerHandle } from './helpers';
 import * as shellModule from '../src/utils/completion/shell';
 import * as execModule from '../src/utils/exec';
 import { FishCompletionItem } from '../src/utils/completion/types';

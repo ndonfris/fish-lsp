@@ -1,4 +1,3 @@
-import { describe, expect, test, beforeAll } from 'vitest';
 import * as Parser from 'web-tree-sitter';
 import { Analyzer } from '../src/analyze';
 import { LspDocument } from '../src/document';

@@ -1,5 +1,4 @@
 import { documents, LspDocument } from '../src/document';
-import { resolveLspDocumentForHelperTestFile } from './helpers';
 import { initializeParser } from '../src/parser';
 import { SyntaxNode } from 'web-tree-sitter';
 import TestWorkspace, { TestFile } from './test-workspace-utils';
@@ -7,20 +6,29 @@ import { Workspace } from '../src/utils/workspace';
 import { workspaceManager } from '../src/utils/workspace-manager';
 import { logger } from '../src/logger';
 
+const SET_VAR_FIXTURE = 'set var "hello world"\n';
+
 describe('LspDocument tests', () => {
   beforeAll(() => {
     logger.setSilent();
   });
 
-  describe('resolveLspDocumentForHelperTestFile() tests', () => {
+  describe('test document creation', () => {
+    const scriptWorkspace = TestWorkspace.create()
+      .addFiles(TestFile.script('set_var.fish', SET_VAR_FIXTURE))
+      .initialize();
+    const functionWorkspace = TestWorkspace.create()
+      .addFiles(TestFile.function('set_var.fish', SET_VAR_FIXTURE))
+      .initialize();
+
     it('test an document is created not in ~/.config/fish/functions/ directory', () => {
-      const doc: LspDocument = resolveLspDocumentForHelperTestFile('./fish_files/simple/set_var.fish', false);
+      const doc: LspDocument = scriptWorkspace.find('set_var.fish')!;
       expect(doc).not.toBeNull();
       expect(doc.isAutoloaded()).toBeFalsy();
     });
 
     it('test an document is created in ~/.config/fish/functions/ directory', () => {
-      const doc: LspDocument = resolveLspDocumentForHelperTestFile('./fish_files/simple/set_var.fish');
+      const doc: LspDocument = functionWorkspace.find('functions/set_var.fish')!;
       expect(doc).not.toBeNull();
       expect(doc.isAutoloaded()).toBeTruthy();
       expect(doc.uri.endsWith('functions/set_var.fish')).toBeTruthy();
@@ -28,7 +36,7 @@ describe('LspDocument tests', () => {
 
     it('testing ability to parse a document', async () => {
       const parser = await initializeParser();
-      const doc: LspDocument = resolveLspDocumentForHelperTestFile('./fish_files/simple/set_var.fish');
+      const doc: LspDocument = functionWorkspace.find('functions/set_var.fish')!;
       const root: SyntaxNode = parser.parse(doc.getText()).rootNode;
       expect(root.children).toHaveLength(2);
       expect(doc.lineCount === 2).toBeTruthy();

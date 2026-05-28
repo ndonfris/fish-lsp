@@ -1,31 +1,17 @@
-import { Parsers, Option, ParsingDefinitionNames, DefinitionNodeNames } from '../src/parsing/barrel';
-import { execAsyncF } from '../src/utils/exec';
 
 import { initializeParser } from '../src/parser';
-import { createFakeLspDocument, createTestWorkspace, setLogger } from './helpers';
+import { createFakeLspDocument, setLogger } from './helpers';
 // import { isLongOption, isOption, isShortOption, NodeOptionQueryText } from '../src/utils/node-types';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
-import { getChildNodes, getNamedChildNodes } from '../src/utils/tree-sitter';
+import { getChildNodes } from '../src/utils/tree-sitter';
 import { FishSymbol, processNestedTree } from '../src/parsing/symbol';
-import { processAliasCommand } from '../src/parsing/alias';
 import { flattenNested } from '../src/utils/flatten';
-import { isCommandWithName, isEndStdinCharacter, isFunctionDefinition } from '../src/utils/node-types';
-import { LongFlag, ShortFlag } from '../src/parsing/options';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
-import { SymbolKind } from 'vscode-languageserver';
-import { md } from '../src/utils/markdown-builder';
 // import { isFunctionDefinitionName } from '../src/parsing/function';
-import { getExpandedSourcedFilenameNode, isExistingSourceFilenameNode, isSourcedFilename, isSourceCommandName, isSourceCommandWithArgument, isSourceCommandArgumentName } from '../src/parsing/source';
-import { SyncFileHelper } from '../src/utils/file-operations';
-import * as Diagnostics from '../src/diagnostics/node-types';
 import { Analyzer } from '../src/analyze';
-import { groupCompletionSymbolsTogether, isCompletionCommandDefinition, getCompletionSymbol, processCompletion, CompletionSymbol } from '../src/parsing/complete';
-import { getGlobalArgparseLocations, isGlobalArgparseDefinition } from '../src/parsing/argparse';
-import { Workspace } from '../src/utils/workspace';
-import { workspaceManager } from '../src/utils/workspace-manager';
 import { LspDocument } from '../src/document';
-import { buildExportDetail, extractExportVariable, findVariableDefinitionNameNode, isExportDefinition, isExportVariableDefinitionName, processExportCommand } from '../src/parsing/export';
+import { extractExportVariable, isExportDefinition, isExportVariableDefinitionName, processExportCommand } from '../src/parsing/export';
 
 let analyzer: Analyzer;
 let parser: Parser;

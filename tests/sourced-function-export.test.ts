@@ -1,6 +1,5 @@
 import * as Parser from 'web-tree-sitter';
 import { analyzer, Analyzer } from '../src/analyze';
-import { LspDocument } from '../src/document';
 import { initializeParser } from '../src/parser';
 import { createSourceResources, SourceResource, symbolsFromResource } from '../src/parsing/source';
 import { FishSymbol } from '../src/parsing/symbol';

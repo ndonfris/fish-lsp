@@ -1,5 +1,5 @@
 import { LspDocument } from '../src/document';
-import { TestWorkspace, TestFile, Query, DefaultTestWorkspaces } from './test-workspace-utils';
+import { TestWorkspace, TestFile, Query } from './test-workspace-utils';
 
 describe('Comprehensive Test Workspace Utility Tests', () => {
   describe('Functionality verification', () => {

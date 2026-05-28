@@ -1,45 +1,23 @@
-import { describe, it, expect, beforeAll } from 'vitest';
 import * as fc from 'fast-check';
-import { SyntaxNode, Tree } from 'web-tree-sitter';
-
 import { Analyzer } from '../src/analyze';
-import { TestWorkspace, TestFile } from './test-workspace-utils';
-import { LspDocument } from '../src/document';
-import { analyzer } from '../src/analyze';
+import { TestWorkspace } from './test-workspace-utils';
 
 // Tree-sitter utilities to test
 import {
   getChildNodes,
-  getNamedChildNodes,
-  findChildNodes,
   getParentNodes,
-  findFirstParent,
-  getSiblingNodes,
-  findFirstNamedSibling,
-  findEnclosingScope,
   getNodeText,
   isSyntaxNode,
   TreeWalker,
-  getLeafNodes,
-  getLastLeafNode,
-  findNodeAt,
-  getNodeAt,
-  containsNode,
-  containsRange,
-  precedesRange,
-  equalRanges,
   isNodeWithinRange,
-  isNodeWithinOtherNode,
   getRange,
   positionToPoint,
   pointToPosition,
-  rangeToPoint,
 } from '../src/utils/tree-sitter';
 
 // Node type checkers to test
 import {
   isFunctionDefinition,
-  isVariableDefinition,
   isCommand,
   isCommandName,
   isProgram,
@@ -142,9 +120,7 @@ import * as OptionsModule from '../src/parsing/options';
 import * as ReadModule from '../src/parsing/read';
 import * as SetModule from '../src/parsing/set';
 import * as SourceModule from '../src/parsing/source';
-import * as SymbolModule from '../src/parsing/symbol';
 import * as UnreachableModule from '../src/parsing/unreachable';
-import * as ValuesModule from '../src/parsing/values';
 
 function shellVals() {
   const setCommand = () => fc.tuple(

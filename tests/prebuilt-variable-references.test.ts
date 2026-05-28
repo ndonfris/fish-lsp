@@ -7,7 +7,6 @@ import { Position, Location } from 'vscode-languageserver';
 import TestWorkspace from './test-workspace-utils';
 import { getRange, nodesGen } from '../src/utils/tree-sitter';
 import { isNodeExcluded, isNodeIncluded } from '../src/utils/skippable-scopes';
-import { FishSymbol } from '../src/parsing/symbol';
 
 const locationsMapUtil = (locations: Location[]) => {
   return locations.map(loc => {

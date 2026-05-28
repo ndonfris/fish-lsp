@@ -1,13 +1,14 @@
 import { findAllMissingArgparseFlags } from '../src/diagnostics/missing-completions';
 import { flattenNested } from '../src/utils/flatten';
 import { getDiagnosticsAsync } from '../src/diagnostics/validate';
-import { setLogger, fail } from './helpers';
+import { setLogger } from './helpers';
 import { Analyzer, analyzer } from '../src/analyze';
 import { logger } from '../src/logger';
 import { getGroupedCompletionSymbolsAsArgparse, groupCompletionSymbolsTogether } from '../src/parsing/complete';
 import { config } from '../src/config';
 import { ErrorCodes } from '../src/diagnostics/error-codes';
 import TestWorkspace, { TestFile } from './test-workspace-utils';
+import { fail } from 'assert';
 
 describe('diagnostics with missing completions', () => {
   setLogger();

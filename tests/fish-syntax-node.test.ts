@@ -5,10 +5,10 @@ import * as NodeTypes from '../src/utils/node-types';
 import { getChildNodes } from '../src/utils/tree-sitter';
 import {
   // logNodeSingleLine,
-  resolveLspDocumentForHelperTestFile,
   setLogger,
 } from './helpers';
 import { initializeParser } from '../src/parser';
+import TestWorkspace, { TestFile } from './test-workspace-utils';
 
 // This file will be used to display what the expected output should be for the
 // tree-sitter parses. While the AST defined for fish shell is very helpful, the token
@@ -56,8 +56,45 @@ const loggingON = () => {
   SHOULD_LOG = true;
 };
 
+const SIMPLE_VARIABLE_DEFINITIONS = 'set var "hello world"\n';
+const SIMPLE_FUNCTION = `# prints hello world twice
+function simple_function
+    printf "hello world\\n"
+    echo "hello world"
+end
+`;
+const FUNCTION_VARIABLE_DEFINITIONS = `function simple_function --argument-names hello world
+    printf "$hello $world"
+end
+`;
+const ALL_VARIABLE_DEFINITION_TYPES = `echo "hello world" | read -l a
+for i in (seq 1 10)
+    echo "hello world: $i"
+end
+function hello --description "prints hello world" -a  b c d --inherit-variable PATH
+    echo "hello world: $b $c $d"
+    echo "$argv"
+    echo "$PATH"
+end
+set --global e "$a$b"
+set --universal f "$b$c"
+`;
+
 // BEGIN TESTS
 describe('FISH web-tree-sitter SUITE', () => {
+  const simpleVariableWorkspace = TestWorkspace.create()
+    .addFiles(TestFile.function('set_var.fish', SIMPLE_VARIABLE_DEFINITIONS))
+    .initialize();
+  const simpleFunctionWorkspace = TestWorkspace.create()
+    .addFiles(TestFile.function('simple_function.fish', SIMPLE_FUNCTION))
+    .initialize();
+  const functionVariableWorkspace = TestWorkspace.create()
+    .addFiles(TestFile.function('function_variable_def.fish', FUNCTION_VARIABLE_DEFINITIONS))
+    .initialize();
+  const allVariableDefinitionsWorkspace = TestWorkspace.create()
+    .addFiles(TestFile.function('all_variable_def_types.fish', ALL_VARIABLE_DEFINITION_TYPES))
+    .initialize();
+
   beforeEach(async () => {
     parser = await initializeParser();
     global.console = require('console');
@@ -68,7 +105,7 @@ describe('FISH web-tree-sitter SUITE', () => {
   });
 
   it('test simple variable definitions', async () => {
-    const test_variable_definitions = resolveLspDocumentForHelperTestFile('fish_files/simple/set_var.fish');
+    const test_variable_definitions = simpleVariableWorkspace.find('functions/set_var.fish')!;
     const root = parser.parse(test_variable_definitions.getText()).rootNode;
 
     const defs : SyntaxNode[] = [];
@@ -90,7 +127,7 @@ describe('FISH web-tree-sitter SUITE', () => {
   });
 
   it('test defined function', async () => {
-    const test_doc = resolveLspDocumentForHelperTestFile('fish_files/simple/simple_function.fish');
+    const test_doc = simpleFunctionWorkspace.find('functions/simple_function.fish')!;
     const root = parser.parse(test_doc.getText()).rootNode;
 
     const funcs : SyntaxNode[] = [];
@@ -109,7 +146,7 @@ describe('FISH web-tree-sitter SUITE', () => {
   });
 
   it('test defined function 2', async () => {
-    const test_doc = resolveLspDocumentForHelperTestFile('fish_files/simple/function_variable_def.fish');
+    const test_doc = functionVariableWorkspace.find('functions/function_variable_def.fish')!;
     const root = parser.parse(test_doc.getText()).rootNode;
 
     const funcNames : SyntaxNode[] = [];
@@ -128,7 +165,7 @@ describe('FISH web-tree-sitter SUITE', () => {
   });
 
   it('test all variable def types ', async () => {
-    const test_doc = resolveLspDocumentForHelperTestFile('fish_files/simple/all_variable_def_types.fish');
+    const test_doc = allVariableDefinitionsWorkspace.find('functions/all_variable_def_types.fish')!;
     const parser = await initializeParser();
     const root = parser.parse(test_doc.getText()).rootNode;
 
@@ -148,28 +185,4 @@ describe('FISH web-tree-sitter SUITE', () => {
   //
   // [DEPRECATED] ... CURRENTLY UNKNOWN IMPORT CHANGES
   //
-  //it("test is func_a", async () => {
-  //    loggingON();
-  //    const parser = await initializeParser();
-  //    const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/func_a.fish", true);
-  //    const root = parser.parse(test_doc.getText()).rootNode;
-  //    const opts = getChildNodes(root)
-  //        .filter(node => NodeTypes.isDefinition(node))
-  //        .map(node => {
-  //            return node.text + ' ' + findOptionString(node)
-  //        })
-  //    console.log(opts);
-  //})
-  //it("test is function_variable_def", async () => {
-  //    loggingON();
-  //    const parser = await initializeParser();
-  //    const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/function_variable_def.fish", true);
-  //    const root = parser.parse(test_doc.getText()).rootNode;
-  //    const opts = getChildNodes(root)
-  //        .filter(node => NodeTypes.isDefinition(node))
-  //        .map(node => {
-  //            return node.text + ' ' + findOptionString(node)
-  //        })
-  //    console.log(opts);
-  //})
 });

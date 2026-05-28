@@ -1,5 +1,4 @@
 import { ReferenceParams } from 'vscode-languageserver';
-import { Analyzer } from '../src/analyze';
 import { createTestServer, setLogger, setupStartupMock, type TestServerHandle } from './helpers';
 import TestWorkspace from './test-workspace-utils';
 

@@ -1,4 +1,3 @@
-import * as os from 'os';
 /* eslint-disable @stylistic/quotes */
 
 import { initializeParser } from '../src/parser';
@@ -10,10 +9,6 @@ import { setupProcessEnvExecFile } from '../src/utils/process-env';
 // import { isFunctionDefinitionName } from '../src/parsing/function';
 import { Analyzer } from '../src/analyze';
 import { LspDocument } from '../src/document';
-// import { LocalFishLspDocumentVariable } from '../src/parsing/values';
-// import { config, ConfigSchema, Config, toBoolean, toNumber, getDefaultConfiguration, updateConfigValues } from '../src/config';
-// import { z } from 'zod';
-// import { logger } from '../src/logger';
 
 let analyzer: Analyzer;
 let parser: Parser;
@@ -21,9 +16,6 @@ let parser: Parser;
  * Symbolic workspace for testing
  */
 let docs: LspDocument[] = [];
-let doc: LspDocument;
-
-type PrintClientTreeOpts = { log: boolean; };
 
 describe('parsing $fish_lsp_* definitions & evaluating their values', () => {
   setLogger();
