@@ -247,6 +247,16 @@ describe('prebuilt/environment variable references', () => {
       const refs = getReferences(configDoc, Position.create(0, 6));
       expect(refs.length).toBeGreaterThanOrEqual(1);
     });
+
+    it('should return prebuilt variable references from analyzer.getReferences()', () => {
+      const configDoc = workspace.getDocument('config.fish')!;
+      const position = Position.create(0, 6);
+      const refs = getReferences(configDoc, position);
+      const analyzerRefs = analyzer.getReferences(configDoc, position);
+
+      expect(analyzerRefs).toEqual(refs);
+      expect(analyzerRefs.length).toBeGreaterThanOrEqual(1);
+    });
   });
 
   describe('analyzer.getScopeSpans()', () => {

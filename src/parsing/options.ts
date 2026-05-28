@@ -31,6 +31,20 @@ export const stringIsShortFlag = (str: string): str is ShortFlag => str.startsWi
 export const stringIsLongFlag = (str: string): str is LongFlag => str.startsWith('--');
 export const stringIsUnixFlag = (str: string): str is UnixFlag => str.startsWith('-') && str.length > 2 && !str.startsWith('--');
 
+/**
+ * Counts the number of leading dashes in a string. Useful for determining the type of flag (short, unix, long) based on the number of leading dashes.
+ * @param str The string to count leading dashes in.
+ * @returns The number of leading dashes in the string.
+ */
+export function getLeadingDashCount(str: string): number {
+  let count = 0;
+  for (let i = 0; i < str.length; i++) {
+    if (str[i] === '-') count++;
+    if (str[i] !== '-') break;
+  }
+  return count;
+}
+
 export class Option {
   public shortOptions: ShortFlag[] = [];
   public unixOptions: UnixFlag[] = [];

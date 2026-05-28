@@ -1,6 +1,6 @@
 import { analyzer, Analyzer } from '../src/analyze';
 import { workspaceManager } from '../src/utils/workspace-manager';
-import { createFakeLspDocument, locationAsString, printClientTree, printLocations, setLogger } from './helpers';
+import { createFakeLspDocument, locationAsString, printClientTree, printLocations, rangeAsString, setLogger } from './helpers';
 import { getChildNodes, getRange, pointToPosition } from '../src/utils/tree-sitter';
 import { isCompletionCommandDefinition } from '../src/parsing/complete';
 import { isArgumentThatCanContainCommandCalls, isCommand, isCommandWithName, isDefinitionName, isEndStdinCharacter, isOption, isString, isVariable, isVariableDefinitionName } from '../src/utils/node-types';
@@ -18,6 +18,9 @@ import { initializeParser } from '../src/parser';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import TestWorkspace from './test-workspace-utils';
 import { rangeContainsPosition } from '../src/parsing/equality-utils';
+import { logger } from '../src/logger';
+import { fail } from 'assert';
+import { FishReferenceCandidate } from '../src/parsing/reference-candidates';
 
 type MatchLocation = {
   uri: string;
@@ -36,14 +39,20 @@ const matchLocation = (uri: string, row: number, column: number): MatchLocation 
     equalsLocation,
   };
 };
+beforeAll(() => {
+  logger.setSilent(false);
+});
+afterAll(() => {
+  logger.setSilent(true);
+});
 
 const debugMatchLocations = (matchLocations: MatchLocation[], workspace: TestWorkspace, opts: {
   showDocs?: boolean;
   separator?: boolean;
 } = {
-  showDocs: false,
-  separator: false,
-}) => {
+    showDocs: false,
+    separator: false,
+  }) => {
   console.log({ totalMatchLocations: matchLocations.length - 1 });
   matchLocations.forEach(({ uri, position }, index) => {
     const doc = workspace.getDocument(uri);
@@ -79,6 +88,17 @@ const compareFoundLocationsToMatchLocations = (foundLocations: Location[], match
     totalFoundLocations: foundLocations.length - 1,
     totalMatchLocations: matchLocations.length - 1,
   });
+};
+
+/* direct compare expect(ref).toBe(matchLocation) */
+const expectFoundLocationsToEqualMatchLocations = (foundLocations: Location[], matchLocations: MatchLocation[]) => {
+  foundLocations.forEach((loc, index) => {
+    const match = matchLocations.find(ml => ml.equalsLocation(loc));
+    const matchIndex = matchLocations.findIndex(ml => ml.equalsLocation(loc));
+    expect(match).toBeDefined();
+    expect(matchIndex).toBe(index);
+  });
+  expect(foundLocations).toHaveLength(matchLocations.length);
 };
 
 describe('find reference locations of symbols', () => {
@@ -138,6 +158,7 @@ describe('find reference locations of symbols', () => {
           'function __test',
           '   test --yes',
           'end',
+          'complete -c __test -l yes'
         ].join('\n'),
       },
     ).initialize();
@@ -160,11 +181,51 @@ describe('find reference locations of symbols', () => {
     it('test _flag_help', () => {
       const functionDoc = workspace.getDocument('functions/test.fish')!;
       const found = analyzer.findNode((n, document) => {
-        return document!.uri === functionDoc.uri && n.text === '_flag_help';
+        return document!.uri === functionDoc.uri && n.text === '_flag_yes';
       })!;
       expect(found).toBeDefined();
       const result = getReferences(functionDoc, getRange(found).start);
-      expect(result).toHaveLength(3);
+      const foundSymbol = analyzer.getDefinition(functionDoc, getRange(found).start);
+      console.log(foundSymbol?.toString());
+      const sorter = FishReferenceCandidate.comparatorForSymbol(foundSymbol!);
+      const result2 = [
+        FishReferenceCandidate.fromSymbol(foundSymbol!),
+        ...analyzer.referenceCandidates.findForSymbol(foundSymbol!).filter(rc => foundSymbol?.isReference(rc.document, rc.node, true)),
+      ].sort(sorter);
+      const result3 = analyzer.getReferences(functionDoc, getRange(found).start);
+      // const result2 = analyzer.referenceCandidates.find(found.text);
+      // analyzer.symbols.allSymbolsByName.find('_flag_yes').forEach(s => {
+      //   console.log({
+      //     symbolName: s.name,
+      //     symbolKind: s.kind,
+      //   })
+      // })
+      // analyzer.referenceCandidates.findInDocument(functionDoc!.uri, '_flag_yes').forEach(({ node, document }) => {
+      //     console.log({
+      //       nodeText: node.text,
+      //       nodeType: node.type,
+      //       documentUri: document?.uri,
+      //     })
+      // })
+      console.log({
+        result: result.map(loc => locationAsString(loc)),
+        // result2: result2.map(({ node, document }) => ({
+        //   text: node.text,
+        //   uri: LspDocument.testUri(document.uri),
+        result2: result2.map((item) => {
+          const { document, name, node, range } = item;
+          return {
+            uri: LspDocument.testUri(document.uri),
+            name: name,
+            node: node.text,
+            range: rangeAsString(range),
+            loc: locationAsString(item.toLocation()),
+          };
+        }),
+        result3: result3.map(loc => locationAsString(loc)),
+      });
+
+      expect(result).toHaveLength(4);
     });
 
     it('test _flag_version', () => {
@@ -188,7 +249,77 @@ describe('find reference locations of symbols', () => {
         expect(def).toBeDefined();
       }
       const refs = getReferences(completionDoc, Position.create(0, 27));
+      const newRefs = analyzer.getReferences(completionDoc, Position.create(0, 27));
       expect(refs).toHaveLength(3);
+      expect(refs).toEqual(newRefs);
+    });
+
+    // Regression: a `cmd --flag` call inside a non-autoloaded script must still
+    // resolve to the argparse flag symbol owned by the function defined earlier
+    // in the same document — the autoload gate in getDefinition was too strict.
+    describe('non-autoloaded script', () => {
+      const scriptWorkspace = TestWorkspace.create().addFiles({
+        relativePath: 'example.fish',
+        content: [
+          'function greet -d "Greet someone by name"',
+          "    argparse 'n/name' -- $argv",
+          '    or return 1',
+          '',
+          '    not set -ql _flag_name',
+          '    and set _flag_name "world"',
+          '',
+          '    echo "Hello, $_flag_name!"',
+          'end',
+          '',
+          'greet --name "fish-lsp user"',
+        ].join('\n'),
+      }).initialize();
+
+      it('function opt: `greet --name` reference to argparse `n/name`', () => {
+        const doc = scriptWorkspace.getDocument('example.fish')!;
+
+        // Locate `--name` at the call site on the last line.
+        const callSiteNode = analyzer.getNodes(doc.uri).find(n =>
+          n.text === '--name' && isOption(n) && n.startPosition.row === 10,
+        )!;
+        expect(callSiteNode).toBeDefined();
+        const callSitePos = getRange(callSiteNode).start;
+
+        const matchLocations = [
+          matchLocation('example.fish', 1, 16),
+          matchLocation('example.fish', 4, 16),
+          matchLocation('example.fish', 5, 12),
+          matchLocation('example.fish', 7, 18),
+          matchLocation('example.fish', 10, 8),
+        ];
+
+        // go-to-definition should land on the argparse `name` symbol declared
+        // by `argparse 'n/name'` inside `greet` (line 1).
+        const def = analyzer.getDefinition(doc, callSitePos);
+        expect(def).toBeDefined();
+        expect(def!.fishKind).toBe('ARGPARSE');
+        expect(def!.argparseFlagName).toBe('name');
+        expect(def!.selectionRange.start.line).toBe(1);
+
+        expectFoundLocationsToEqualMatchLocations(
+          [ def?.toLocation()! ], 
+          [ matchLocations.at(0)! ]
+        )
+
+        // find-references should include: the argparse def, the `_flag_name`
+        // uses inside the function body, and the call site `--name` itself.
+        const refs = getReferences(doc, callSitePos);
+        // refsViaReferencesTs.forEach(loc => {
+        //   console.log(["matchLocation('example.fish'", loc.range.start.line, loc.range.start.character+')', ''].join(', '))
+        // })
+        const refLines = new Set(refs.map(loc => loc.range.start.line));
+        expect(refLines.has(1)).toBeTruthy();
+        expect(refLines.has(10)).toBeTruthy();
+
+        // compareFoundLocationsToMatchLocations(refs, matchLocations);
+        expectFoundLocationsToEqualMatchLocations(refs, matchLocations);
+        expect(refs).toHaveLength(matchLocations.length);
+      });
     });
   });
 
@@ -424,6 +555,17 @@ describe('find reference locations of symbols', () => {
       const visualRefs = getReferences(doc, getRange(visualDef!).start);
       const localRefs = getReferences(doc, getRange(localDef!).start);
 
+      const erefs = analyzer.getReferences(doc, getRange(editorDef!).start);
+      const o_localRefs = analyzer.getReferences(doc, getRange(localDef!).start, {
+        includeDefinitions: false
+      });
+
+      console.log({
+        editorRefs: editorRefs.map(loc => locationAsString(loc)),
+        erefs: erefs.map(loc => locationAsString(loc)),
+        pos: rangeAsString(getRange(editorDef!)),
+        o_localRefs: o_localRefs.map(loc => locationAsString(loc)),
+      });
       expect(editorRefs).toHaveLength(2);
       expect(editorRefs.some(loc =>
         loc.range.start.line === 0
@@ -436,6 +578,7 @@ describe('find reference locations of symbols', () => {
         && loc.range.start.character < getRange(visualDef!).start.character,
       )).toBeTruthy();
 
+      // expect(o_localRefs).toHaveLength(1);
       expect(localRefs).toHaveLength(1);
       expect(localRefs.some(loc =>
         loc.range.start.line === 3
@@ -762,7 +905,7 @@ describe('find reference locations of symbols', () => {
       expect(builtinRefs).toHaveLength(12);
     });
 
-    it.only('local alias', () => {
+    it('local alias', () => {
       const searchDoc = workspace.getDocument('functions/local-alias.fish')!;
       expect(searchDoc).toBeDefined();
       const found = analyzer.findNode((n, document) => {

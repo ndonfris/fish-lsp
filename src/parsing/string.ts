@@ -168,11 +168,6 @@ export namespace FishString {
       parenthesizedCommands.push(...parseParenthesizedExpressions(cleanedText));
       parenthesizedCommands.forEach(cmd => commands.add(cmd));
     }
-    logger.log({
-      directCommands,
-      substitutionCommands,
-      parenthesizedCommands,
-    });
 
     return Array.from(commands).filter(cmd => cmd.length > 0);
   }
@@ -261,11 +256,6 @@ function extractCommandsFromText(input: string, cleanKeywords = true): string[] 
     const filteredTokens = cleanKeywords
       ? tokens.filter(token => !FISH_KEYWORDS.has(token) && !FISH_OPERATORS.has(token))
       : tokens;
-    logger.log({
-      statement,
-      tokens,
-      filteredTokens,
-    });
 
     const command = filteredTokens.at(0);
     if (command && !isNumeric(command) && command.length > 1) {

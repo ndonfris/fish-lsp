@@ -10,10 +10,10 @@ import { logger } from './logger';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol, processCompletion } from './parsing/complete';
 import { FishSymbolCaches } from './parsing/fish-symbol-caches';
-import { FishReferenceCandidateCache } from './parsing/reference-candidates';
+import { FishReferenceCandidate, FishReferenceCandidateCache } from './parsing/reference-candidates';
 import { createSourceResources, getExpandedSourcedFilenameNode, isSourceCommandArgumentName, isSourceCommandWithArgument, symbolsFromResource } from './parsing/source';
 import { filterFirstPerScopeSymbol, FishSymbol, processNestedTree } from './parsing/symbol';
-import { getImplementation } from './references';
+import { getImplementation, getPrebuiltVariableReferences, isPrebuiltVariableReference } from './references';
 import { execCommandLocations } from './utils/exec';
 import { SyncFileHelper } from './utils/file-operations';
 import { flattenNested, iterateNested } from './utils/flatten';
@@ -671,9 +671,9 @@ export class Analyzer {
     callbackfn: (node: SyntaxNode, document: LspDocument) => boolean,
     // useCurrentWorkspace: boolean = true,
   ): {
-      uri: string;
-      nodes: SyntaxNode[];
-    }[] {
+    uri: string;
+    nodes: SyntaxNode[];
+  }[] {
     const result: { uri: string; nodes: SyntaxNode[]; }[] = [];
     for (const uri of this.getIterableUris()) {
       const root = this.cache.getRootNode(uri);
@@ -925,10 +925,15 @@ export class Analyzer {
       if (symbol) return symbol;
     }
     if (node && isOption(node)) {
+      // Resolve `cmd --flag` to the argparse symbol that owns `--flag`. Match
+      // when either the parent function is globally callable (autoloaded), or
+      // the call site is in the same document as the function definition —
+      // otherwise non-autoloaded scripts (e.g. `/tmp/foo.fish`) couldn't
+      // navigate from a `greet --name` call to greet's `argparse n/name`.
       const symbol = this.findSymbol((s) => {
         if (s.parent && s.fishKind === 'ARGPARSE') {
           return getCommandNameText(node.parent) === s.parent?.name &&
-            s.parent.isGlobal() &&
+            (s.parent.isGlobal() || s.parent.uri === document.uri) &&
             node.text.startsWith(s.argparseFlag);
         }
         return false;
@@ -1231,8 +1236,84 @@ export class Analyzer {
   ): Location[] {
     const definition = this.getDefinition(document, position);
     if (!definition) return [];
+    // const refs = analyzer.getReferences(document, position, {
+    //   includeDefinitions: true,
+    // })
+    // const uris = new Set<string>(refs.map(ref => ref.uri));
+    // if (uris.size <= 1) {
+    //   const currentRef = refs.findIndex(ref => ref.uri === definition.uri && Locations.Range.isAfter(ref.range, Locations.Range.create(position, position)));
+    //   if (currentRef === refs.length - 1) {
+    //     return  [refs.at(0)!]
+    //   }
+    //   return [refs.at(currentRef + 1)!]
+    // }
+    // const targetRefs = refs.filter(ref => {
+    //   if (ref.uri === document.uri) {
+    //     return true
+    //   }
+    //   return uris.has(ref.uri) && ref.uri !== definition.uri
+    // })
     const locations = getImplementation(document, position, opts);
     return locations;
+  }
+
+  /**
+   * TODO replace src/references.ts export getReferences() w/ cached version here
+   */
+  public getReferences(
+    document: LspDocument,
+    position: Position,
+    opts: {
+      includeDefinitions?: boolean;
+      localOnly?: boolean;
+      reporter?: WorkDoneProgressReporter;
+    } = { includeDefinitions: true },
+  ): Location[] {
+    // Prebuilt vars (PATH, HOME, status, $argv, …) have no workspace definition,
+    // so the symbol-based path can't resolve them — route them to the dedicated
+    // prebuilt search before attempting to resolve a definition symbol.
+    if (isPrebuiltVariableReference(document, position)) {
+      return getPrebuiltVariableReferences(document, position, opts.reporter);
+    }
+
+    const foundSymbol = this.getDefinition(document, position);
+    if (!foundSymbol) return [];
+
+    const includeDefs = opts.includeDefinitions !== false;
+    const keyOf = (loc: { uri: string; range: { start: { line: number; character: number; }; }; }) =>
+      `${loc.uri}:${loc.range.start.line}:${loc.range.start.character}`;
+    const seen = new Set<string>();
+    const results: FishReferenceCandidate[] = [];
+
+    // The definition's own node is also indexed in the candidate cache (the
+    // cache is name-keyed and doesn't know which match is the definition), so
+    // we have to filter it out from the candidate sweep. Comparing by
+    // location-key is unreliable because the symbol's selectionRange and the
+    // node's raw range can drift (e.g. argparse dash-stripping in rangeFromNode);
+    // identifying by node identity is robust.
+    const defNode = foundSymbol.focusedNode;
+    const defCandidate = FishReferenceCandidate.fromSymbol(foundSymbol);
+    if (includeDefs) {
+      results.push(defCandidate);
+      seen.add(keyOf(defCandidate));
+    }
+
+    for (const rc of this.referenceCandidates.findForSymbol(foundSymbol)) {
+      // The definition's own node is also indexed in the cache. Drop it whether
+      // or not we're including defs — the explicit `defCandidate` above is the
+      // canonical entry, and node-identity is more reliable than location-key
+      // comparison (selectionRange and rangeFromNode can drift).
+      if (rc.node.equals(defNode)) continue;
+      if (!foundSymbol.isReference(rc.document, rc.node, true)) continue;
+      const key = keyOf(rc);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      results.push(rc);
+    }
+
+    return results
+      .sort(FishReferenceCandidate.comparatorForSymbol(foundSymbol))
+      .map(rc => rc.toLocation());
   }
 
   /**
@@ -1627,11 +1708,11 @@ export class Analyzer {
     document: LspDocument,
     position: Position,
   ): {
-      line: string;
-      word: string;
-      lineRootNode: SyntaxNode;
-      lineLastNode: SyntaxNode;
-    } {
+    line: string;
+    word: string;
+    lineRootNode: SyntaxNode;
+    lineLastNode: SyntaxNode;
+  } {
     const line = document
       .getLineBeforeCursor(position)
       .replace(/^(.*)\n$/, '$1') || '';
