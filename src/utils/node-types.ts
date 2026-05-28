@@ -533,6 +533,13 @@ export function isAliasWithName(node: SyntaxNode, aliasName: string) {
   return false;
 }
 
+export function isAlias(node: SyntaxNode) {
+  return isCommandWithName(node, 'alias');
+}
+
+export function isExport(node: SyntaxNode) {
+  return isCommandWithName(node, 'export');
+}
 /**
  * finds the parent function of the current node
  *
@@ -779,6 +786,7 @@ export function isArgumentThatCanContainCommandCalls(node: SyntaxNode) {
           && node.text.includes(')')
 
         || isMatchingOptionValue(node, Option.create('-n', '--condition').withValue());
+    case 'export':
     case 'alias':
     case 'bind':
       return true;

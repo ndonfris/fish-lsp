@@ -1,6 +1,7 @@
 import * as LSP from 'vscode-languageserver';
 import { DocumentUri, Hover, Location, Position, SymbolKind, URI, WorkDoneProgressReporter, WorkspaceSymbol } from 'vscode-languageserver';
 import * as Parser from 'web-tree-sitter';
+import * as Locations from './utils/locations';
 import { SyntaxNode, Tree } from 'web-tree-sitter';
 import { dirname } from 'path';
 import { config } from './config';
@@ -17,7 +18,7 @@ import { execCommandLocations } from './utils/exec';
 import { SyncFileHelper } from './utils/file-operations';
 import { flattenNested, iterateNested } from './utils/flatten';
 import { findParentCommand, findParentFunction, getCommandNameNode, getCommandNameText, isAliasDefinitionName, isCommand, isCommandName, isOption, isTopLevelDefinition, isExportVariableDefinitionName, isVariableExpansion } from './utils/node-types';
-import { getNestedCommandReferenceAtPoint } from './utils/nested-command-point';
+import { getNestedCommandReferenceAtPoint, isPossibleNested } from './utils/nested-command-point';
 import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
 import { containsRange, getChildNodes, getNamedChildNodes, getRange, isPositionAfter, isPositionWithinRange, namedNodesGen, nodesGen, precedesRange } from './utils/tree-sitter';
 import { Workspace } from './utils/workspace';
@@ -58,11 +59,6 @@ export type AnalyzedDocumentType = 'partial' | 'full';
  * @see {@link AnalyzedDocument#ensureParsed()}
  */
 export type EnsuredAnalyzeDocument = Required<AnalyzedDocument> & { root: SyntaxNode; tree: Tree; type: 'full'; };
-
-type CursorReferenceAtPoint = {
-  name: string;
-  range: LSP.Range;
-};
 
 /**
  * AnalyzedDocument items are created in three public methods of the Analyzer class:
@@ -903,6 +899,10 @@ export class Analyzer {
     const symbols: FishSymbol[] = this.getDefinitionHelper(document, position);
     const word = this.wordAtPoint(document.uri, position.line, position.character);
     const node = this.nodeAtPoint(document.uri, position.line, position.character);
+    logger.log({
+      word,
+      node: node ? `text: ${node.text}, type: ${node.type}, ${Locations.Range.logString(getRange(node))}` : null,
+    });
     if (node && isExportVariableDefinitionName(node)) {
       return symbols.find(s => s.name === word) || symbols.pop()!;
     }
@@ -1648,6 +1648,7 @@ export class Analyzer {
     });
     return { line, word, lineRootNode, lineLastNode };
   }
+
   public wordAtPoint(
     uri: string,
     line: number,
@@ -1655,16 +1656,13 @@ export class Analyzer {
   ): string | null {
     const node = this.nodeAtPoint(uri, line, column);
 
-    if (!node) {
-      return null;
-    }
+    if (!node) return null;
 
     // Handle definition-name nodes like `alias foo='bar'` before nested-command
     // extraction so the cursor on `foo` keeps resolving to the alias symbol.
-    if (
-      isAliasDefinitionName(node) ||
-      isExportVariableDefinitionName(node)
-    ) return node.text.split('=')[0]!.trim();
+    if (isAliasDefinitionName(node) || isExportVariableDefinitionName(node)) {
+      return node.text.split('=')[0]?.trim() || null;
+    }
 
     // Keep direct variable tokens authoritative so `$var` inside `(math $var + 1)`
     // resolves as `var` instead of collapsing to the nested command `math`.
@@ -1675,9 +1673,18 @@ export class Analyzer {
       return node.text.trim();
     }
 
-    const nestedCommand = this.getCursorReferenceAtPoint(uri, line, column, node);
-    if (nestedCommand) {
-      return nestedCommand.name;
+    // If the cursor is on an AST-parsed command name (e.g. `no_color` in
+    // `(_fish_alt_greeting | no_color)`), trust the node directly.
+    // The nested-command path walks up to the enclosing `(...)` carrier and
+    // always returns the *first* command in the substitution, not the one
+    // under the cursor.
+    if (isCommandName(node)) {
+      return node.text.trim();
+    }
+
+    if (isPossibleNested(node)) {
+      const nestedCommand = getNestedCommandReferenceAtPoint(uri, { line, character: column }, node);
+      if (nestedCommand) return nestedCommand.command;
     }
 
     if (node.childCount > 0 || node.text.trim() === '') {
@@ -1687,23 +1694,23 @@ export class Analyzer {
     return node.text.trim();
   }
 
-  private getCursorReferenceAtPoint(
-    uri: string,
-    line: number,
-    column: number,
-    node: SyntaxNode,
-  ): CursorReferenceAtPoint | null {
-    const nestedCommand = getNestedCommandReferenceAtPoint(
-      node,
-      Position.create(line, column),
-      uri,
-    );
-    if (!nestedCommand) return null;
-    return {
-      name: nestedCommand.command,
-      range: nestedCommand.range,
-    };
-  }
+  // private getCursorReferenceAtPoint(
+  //   uri: string,
+  //   line: number,
+  //   column: number,
+  //   node: SyntaxNode,
+  // ): CursorReferenceAtPoint | null {
+  //   const nestedCommand = getNestedCommandReferenceAtPoint(
+  //     node,
+  //     Position.create(line, column),
+  //     uri,
+  //   );
+  //   if (!nestedCommand) return null;
+  //   return {
+  //     name: nestedCommand.command,
+  //     range: nestedCommand.range,
+  //   };
+  // }
   /**
    * Find the node at the given point.
    */
@@ -1747,8 +1754,18 @@ export class Analyzer {
     line: number,
     column: number,
   ): SyntaxNode | null {
+    if (!this.cache.getRootNode(uri)) return null;
     const node = this.nodeAtPoint(uri, line, column) ?? undefined;
     if (node && isCommand(node)) return node;
+    if (node && isPossibleNested(node)) {
+      const nestedCommand = getNestedCommandReferenceAtPoint(uri, { line, character: column }, node);
+      if (nestedCommand) {
+        const commandNode = this.nodeAtPoint(uri, nestedCommand.range.start.line, nestedCommand.range.start.character);
+        if (commandNode) {
+          return commandNode;
+        }
+      }
+    }
     const parentCommand = findParentCommand(node);
     return parentCommand;
   }

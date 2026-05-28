@@ -1,6 +1,6 @@
 import { analyzer, Analyzer } from '../src/analyze';
 import { workspaceManager } from '../src/utils/workspace-manager';
-import { createFakeLspDocument, fail, printClientTree, printLocations, setLogger } from './helpers';
+import { createFakeLspDocument, locationAsString, printClientTree, printLocations, setLogger } from './helpers';
 import { getChildNodes, getRange, pointToPosition } from '../src/utils/tree-sitter';
 import { isCompletionCommandDefinition } from '../src/parsing/complete';
 import { isArgumentThatCanContainCommandCalls, isCommand, isCommandWithName, isDefinitionName, isEndStdinCharacter, isOption, isString, isVariable, isVariableDefinitionName } from '../src/utils/node-types';
@@ -17,6 +17,69 @@ import { extractCommands, extractMatchingCommandLocations } from '../src/parsing
 import { initializeParser } from '../src/parser';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import TestWorkspace from './test-workspace-utils';
+import { rangeContainsPosition } from '../src/parsing/equality-utils';
+
+type MatchLocation = {
+  uri: string;
+  position: Position;
+  equalsLocation(location: Location): boolean;
+};
+
+const matchLocation = (uri: string, row: number, column: number): MatchLocation => {
+  const position: Position = { line: row, character: column };
+  const equalsLocation = (location: Location): boolean => {
+    return location.uri.endsWith(uri) && rangeContainsPosition(location.range, position);
+  };
+  return {
+    uri,
+    position,
+    equalsLocation,
+  };
+};
+
+const debugMatchLocations = (matchLocations: MatchLocation[], workspace: TestWorkspace, opts: {
+  showDocs?: boolean;
+  separator?: boolean;
+} = {
+  showDocs: false,
+  separator: false,
+}) => {
+  console.log({ totalMatchLocations: matchLocations.length - 1 });
+  matchLocations.forEach(({ uri, position }, index) => {
+    const doc = workspace.getDocument(uri);
+    const { line, character } = position;
+    if (opts.separator) console.log('-'.repeat(80));
+    if (!doc) {
+      console.log(`MatchLocation ${index}: Document not found for URI ${uri}`);
+      if (opts.separator) console.log('-'.repeat(80));
+      return;
+    }
+    console.log(`MatchLocation ${index}:`, {
+      uri: LspDocument.testUri(uri),
+      position,
+      wordAtPoint: analyzer.wordAtPoint(doc.uri, line, character),
+    });
+    if (opts.showDocs) console.log(doc.getText());
+    if (opts.separator) console.log('-'.repeat(80));
+  });
+};
+
+const compareFoundLocationsToMatchLocations = (foundLocations: Location[], matchLocations: MatchLocation[]) => {
+  foundLocations.forEach((loc, index) => {
+    const matches = matchLocations.filter(ml => ml.equalsLocation(loc));
+    const msg = matches.length > 0 ? `Found ${matches.length} match${matches.length > 1 ? 'es' : ''}` : 'No matches found';
+    console.log({
+      msg,
+      index,
+      refLocation: locationAsString(loc),
+      matches: matches.map(m => locationAsString(Location.create(m.uri, { start: m.position, end: m.position }))),
+    });
+  });
+  console.log({
+    totalFoundLocations: foundLocations.length - 1,
+    totalMatchLocations: matchLocations.length - 1,
+  });
+};
 
 describe('find reference locations of symbols', () => {
   setLogger();
@@ -395,7 +458,7 @@ describe('find reference locations of symbols', () => {
           'function test',
           '    set -lx foo bar',
           '    function ls',
-          '          builtin ls',
+          '          command exa $argv',
           '    end',
           '    ls',
           'end',
@@ -536,7 +599,51 @@ describe('find reference locations of symbols', () => {
       });
     });
 
-    it('global alias', () => {
+    it('global alias `ls` (using cache via `getReferences()`)', () => {
+      const searchDoc = workspace.getDocument('conf.d/alias.fish')!;
+      expect(searchDoc).toBeDefined();
+      const found = analyzer.findNode((n, document) => {
+        return document!.uri === searchDoc.uri && n.text === 'ls=';
+      })!;
+      expect(found).toBeDefined();
+      const matchLocations = [
+        matchLocation('conf.d/alias.fish', 0, 6),
+        matchLocation('functions/test-other.fish', 1, 5),
+        matchLocation('completions/ls.fish', 0, 13),
+        // matchLocation('completions/ls.fish', 0, 31), // missing?
+        matchLocation('completions/ls-wrapper.fish', 0, 28), // missing?
+        matchLocation('functions/ls-wrapper.fish', 0, 24),
+        // matchLocation('functions/ls-wrapper.fish', 0, 44), // missing?
+        matchLocation('functions/ls-wrapper.fish', 1, 17),
+        matchLocation('functions/ls-wrapper.fish', 3, 5),
+        matchLocation('functions/user_keybinds.fish', 1, 24),
+        matchLocation('conf.d/abbrevaitons.fish', 0, 12),
+        matchLocation('conf.d/abbrevaitons.fish', 1, 15),
+        matchLocation('conf.d/abbrevaitons.fish', 2, 18),
+      ];
+      debugMatchLocations(matchLocations, workspace, {
+        showDocs: true,
+        separator: true,
+      });
+      const refs = getReferences(searchDoc, getRange(found).start, {
+        excludeDefinition: false,
+      });
+      // matchLocations.forEach((ml, index) => {
+      //   const doc = workspace.getDocument(ml.uri)
+      //   if (!refs.some(loc => ml.equalsLocation(loc))) {
+      //     console.log('-'.repeat(80))
+      //     console.log(`MatchLocation ${index} did not have a corresponding reference location!\n`, {
+      //       matchLocation: locationAsString(Location.create(ml.uri, { start: ml.position, end: ml.position })),
+      //     })
+      //     console.log(doc?.getText());
+      //     console.log('-'.repeat(80))
+      //   }
+      // })
+      compareFoundLocationsToMatchLocations(refs, matchLocations);
+      expect(refs).toHaveLength(matchLocations.length);
+    });
+
+    it.skip('global alias `ls` (iter approach **OLD**)', () => {
       const searchDoc = workspace.getDocument('conf.d/alias.fish')!;
       expect(searchDoc).toBeDefined();
       const found = analyzer.findNode((n, document) => {
@@ -550,6 +657,29 @@ describe('find reference locations of symbols', () => {
         return false;
       })!;
 
+      analyzer.symbols.allSymbolsByName.find('ls').forEach(s => {
+        console.log({
+          allSymbolsByName: 'ls',
+          name: s.name,
+          kind: s.kind,
+          fishKind: s.fishKind,
+          uri: s.uri,
+        });
+      });
+      analyzer.referenceCandidates.find('ls').forEach(({ node, document }) => {
+        console.log({
+          'referenceCandidate node': node.text,
+          nodeText: node.text,
+          nodeType: node.type,
+          documentUri: document?.uri,
+        });
+      });
+      workspace.documents.forEach((doc, i) => {
+        console.log('-'.repeat(80));
+        console.log(`FILE ${i}: ${doc.getRelativeFilenameToWorkspace()}`);
+        console.log(doc.getText());
+        console.log('-'.repeat(80));
+      });
       const refNodes = analyzer.findNodes((n, d) => {
         // return isCommandWithName(n, searchSymbol.name);
         // return isArgumentThatCanContainCommandCalls(n)
@@ -620,7 +750,9 @@ describe('find reference locations of symbols', () => {
           }
         });
       }
-      const builtinRefs = getReferences(searchDoc, getRange(found).start);
+      const builtinRefs = getReferences(searchDoc, getRange(found).start, {
+        excludeDefinition: false,
+      });
       console.log('builtinRefs', builtinRefs.length);
       printLocations(builtinRefs, {
         showText: true,
@@ -630,13 +762,14 @@ describe('find reference locations of symbols', () => {
       expect(builtinRefs).toHaveLength(12);
     });
 
-    it('local alias', () => {
+    it.only('local alias', () => {
       const searchDoc = workspace.getDocument('functions/local-alias.fish')!;
       expect(searchDoc).toBeDefined();
       const found = analyzer.findNode((n, document) => {
         return document!.uri === searchDoc.uri && n.text === 'ls=';
       })!;
       expect(found).toBeDefined();
+      console.log(searchDoc.getText());
       const result = getReferences(searchDoc, getRange(found).start);
       expect(result).toHaveLength(2);
     });

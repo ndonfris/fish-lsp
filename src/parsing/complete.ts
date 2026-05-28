@@ -45,7 +45,10 @@ export function isMatchingCompletionFlagNodeWithFishSymbol(symbol: FishSymbol, n
       Option.create('-c', '--command'),
       Option.create('-w', '--wraps'),
     )) {
-      return symbol.name === node.text && !symbol.equalsNode(node);
+      if (symbol.equalsNode(node)) return false;
+      return isString(node)
+        ? FishString.extractCommands(node).some(cmd => cmd === symbol.name)
+        : symbol.name === node.text;
     }
 
     if (isMatchingOption(

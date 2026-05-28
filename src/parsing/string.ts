@@ -1,4 +1,5 @@
 import { SyntaxNode } from 'web-tree-sitter';
+import { logger } from '../logger';
 
 /**
  * Resolves a single fish shell escape sequence token to its character value.
@@ -155,15 +156,23 @@ export namespace FishString {
     const directCommands = parseDirectCommands(cleanedText, config);
     directCommands.forEach(cmd => commands.add(cmd));
 
+    const substitutionCommands = [];
+    const parenthesizedCommands = [];
+
     if (config.parseCommandSubstitutions) {
-      const substitutionCommands = parseCommandSubstitutions(cleanedText);
+      substitutionCommands.push(...parseCommandSubstitutions(cleanedText));
       substitutionCommands.forEach(cmd => commands.add(cmd));
     }
 
     if (config.parseParenthesized) {
-      const parenthesizedCommands = parseParenthesizedExpressions(cleanedText);
+      parenthesizedCommands.push(...parseParenthesizedExpressions(cleanedText));
       parenthesizedCommands.forEach(cmd => commands.add(cmd));
     }
+    logger.log({
+      directCommands,
+      substitutionCommands,
+      parenthesizedCommands,
+    });
 
     return Array.from(commands).filter(cmd => cmd.length > 0);
   }
@@ -177,7 +186,7 @@ const FISH_KEYWORDS = new Set([
 
 const FISH_OPERATORS = new Set([
   '&&', '||', '|', ';', '&', '>', '<', '>>', '<<', '>&', '<&',
-  '2>', '2>>', '2>&1', '1>&2', '/dev/null',
+  '2>', '2>>', '2>&1', '1>&2', '/dev/null', '$',
 ]);
 
 function parseOptionArgument(text: string): string | null {
@@ -241,24 +250,36 @@ function parseParenthesizedExpressions(input: string): string[] {
 function extractCommandsFromText(input: string, cleanKeywords = true): string[] {
   const statements = input.split(/[;&|]+/)
     .map(stmt => stmt.trim())
-    .filter(stmt => stmt.length > 0);
+    .filter(stmt => stmt.length > 0)
+    .filter(stmt => !stmt.startsWith('(') && !stmt.startsWith('$('));
 
   const commands: string[] = [];
 
-  for (const statement of statements) {
+  for (let statement of statements) {
+    if (statement.includes('=')) statement = statement.split('=').slice(1).join('=').trim();
     const tokens = tokenizeStatement(statement);
     const filteredTokens = cleanKeywords
       ? tokens.filter(token => !FISH_KEYWORDS.has(token) && !FISH_OPERATORS.has(token))
       : tokens;
+    logger.log({
+      statement,
+      tokens,
+      filteredTokens,
+    });
 
-    for (const token of filteredTokens) {
-      if (token && !isNumeric(token) && token.length > 1) {
-        commands.push(token);
-      }
+    const command = filteredTokens.at(0);
+    if (command && !isNumeric(command) && command.length > 1) {
+      commands.push(command);
     }
+    // if (filteredTokens.length > 0 && filteredTokens.at(0)) commands.push(filteredTokens.at(0))
+    // for (const token of filteredTokens) {
+    //   if (token && !isNumeric(token) && token.length > 1) {
+    //     commands.push(token);
+    //   }
+    // }
   }
 
-  return commands;
+  return commands.filter(Boolean);
 }
 
 function tokenizeStatement(statement: string): string[] {

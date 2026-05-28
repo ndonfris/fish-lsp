@@ -159,11 +159,16 @@ function addMatchingReferenceLocations(
   results: Location[],
   definitionSymbol: FishSymbol,
   matchingNodes: Record<DocumentUri, SyntaxNode[]>,
+  mergedOpts: ReferenceOptions,
 ): void {
+  const definitionLocation = mergedOpts.excludeDefinition ? definitionSymbol.toLocation() : null;
   for (const [uri, nodes] of Object.entries(matchingNodes)) {
     for (const node of nodes) {
       const locations = getLocationWrapper(definitionSymbol, node, uri)
-        .filter(loc => !results.some(location => Locations.Location.equals(loc, location)));
+        .filter(loc =>
+          !results.some(location => Locations.Location.equals(loc, location))
+          && (!definitionLocation || !Locations.Location.equals(loc, definitionLocation)),
+        );
       results.push(...locations);
     }
   }
@@ -253,9 +258,9 @@ export function getReferences(
     }
     return [];
   }
-  const { definitionSymbol, results, logCallback, searchWorkspace } = context;
+  const { definitionSymbol, mergedOpts, results, logCallback, searchWorkspace } = context;
   const matchingNodes = collectMatchingReferenceNodes(context);
-  addMatchingReferenceLocations(results, definitionSymbol, matchingNodes);
+  addMatchingReferenceLocations(results, definitionSymbol, matchingNodes, mergedOpts);
   logCallback(
     `Found ${results.length} references for symbol '${definitionSymbol.name}' in document '${searchWorkspace?.name}'`,
     'info',
@@ -272,9 +277,9 @@ export async function getIncrementalReferences(
   if (!context) {
     return getPrebuiltVariableReferencesIncremental(document, position, opts.reporter);
   }
-  const { definitionSymbol, results, logCallback, searchWorkspace } = context;
+  const { definitionSymbol, mergedOpts, results, logCallback, searchWorkspace } = context;
   const matchingNodes = await collectMatchingReferenceNodesIncrementally(context);
-  addMatchingReferenceLocations(results, definitionSymbol, matchingNodes);
+  addMatchingReferenceLocations(results, definitionSymbol, matchingNodes, mergedOpts);
 
   logCallback(
     `Found ${results.length} references for symbol '${definitionSymbol.name}' in document '${searchWorkspace?.name}'`,

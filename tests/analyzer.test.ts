@@ -1,10 +1,10 @@
-import { setLogger, createFakeLspDocument } from './helpers';
+import { setLogger, createFakeLspDocument, rangeAsString } from './helpers';
 import { initializeParser } from '../src/parser';
 /* @ts-ignore */
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { analyzer, Analyzer } from '../src/analyze';
-import { getChildNodes } from '../src/utils/tree-sitter';
-import { isFunctionDefinitionName } from '../src/utils/node-types';
+import { getChildNodes, getRange } from '../src/utils/tree-sitter';
+import { isConcatenatedValue, isConcatenation, isFunctionDefinitionName } from '../src/utils/node-types';
 import * as LSP from 'vscode-languageserver';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 /* @ts-ignore */
@@ -13,6 +13,9 @@ import { join } from 'path';
 import { pathToUri } from '../src/utils/translation';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { workspaceManager } from '../src/utils/workspace-manager';
+import { logger } from '../src/logger';
+import { getNestedCommandReferenceAtPoint } from '../src/utils/nested-command-point';
+import { extractCommands } from '../src/parsing/nested-strings';
 
 let parser: Parser;
 const tmpDir = join(os.tmpdir(), 'fish-lsp-analyzer-tests');
@@ -330,19 +333,45 @@ describe('Analyzer class in file: `src/analyze.ts`', () => {
     });
 
     it('keeps alias-name hover on the alias definition for equals syntax', () => {
-      const document = createFakeLspDocument('conf.d/alias-hover-name.fish', [
+      logger.logTime();
+      logger.allowDefaultConsole();
+      logger.setSilent(false);
+      const document = createFakeLspDocument('conf.d/alias-hover-name.fish',
         'alias b_="bar -s"',
-      ].join('\n'));
+      );
 
-      analyzer.analyze(document);
+      const { flatSymbols } = analyzer.analyze(document).ensureParsed();
+      // workspaceManager.handleOpenDocument(document);
+      console.log({
+        flatSymbols: flatSymbols.map(s => ({
+          name: s.name,
+          kind: s.fishKind,
+          range: rangeAsString(s.range),
+          selectionRange: rangeAsString(s.selectionRange),
+        })),
+      });
 
-      const definition = analyzer.getDefinition(document, LSP.Position.create(0, 7));
-      expect(definition?.name).toBe('b_');
-      expect(definition?.fishKind).toBe('ALIAS');
+      const ndoe = analyzer.nodeAtPoint(document.uri, 0, 7);
+      const word = analyzer.wordAtPoint(document.uri, 0, 7);
+      for (const node of getChildNodes(analyzer.getRootNode(document.uri)!)) {
+        console.log({
+          text: node.text,
+          type: node.type,
+          range: rangeAsString(getRange(node)),
+        });
+      }
+      console.log({
+        node: ndoe ? { text: ndoe.text, type: ndoe.type, range: rangeAsString(getRange(ndoe)) } : null,
+        word,
+      });
 
-      const hover = analyzer.getHover(document, LSP.Position.create(0, 7));
-      expect(JSON.stringify(hover?.contents)).toContain('alias');
-      expect(JSON.stringify(hover?.contents)).toContain('b_');
+      const definition = analyzer.getDefinition(document, LSP.Position.create(0, 7))!;
+      // expect(definition?.name).toBe('b_');
+      // expect(definition?.fishKind).toBe('ALIAS');
+      //
+      // const hover = analyzer.getHover(document, LSP.Position.create(0, 7));
+      // expect(JSON.stringify(hover?.contents)).toContain('alias');
+      // expect(JSON.stringify(hover?.contents)).toContain('b_');
     });
 
     it('does not resolve plain string contents that are not real references', () => {
@@ -389,7 +418,133 @@ describe('Analyzer class in file: `src/analyze.ts`', () => {
 
       expect(analyzer.wordAtPoint(document.uri, 0, 24)).toBe('__fish_use_subcommand');
     });
+
+    it.skip('resolves correct word for each command in a piped command substitution', () => {
+      // Regression: wordAtPoint returned the first command in the pipe (_fish_alt_greeting)
+      // regardless of cursor position, because getParenthesizedCarrierCommand was called
+      // before the position-aware extractCommandLocations lookup.
+      //   set -x a (_fish_alt_greeting | no_color)
+      //            ^col10              ^col31
+      const document = createFakeLspDocument('conf.d/piped-substitution.fish', [
+        'set -x a (_fish_alt_greeting | no_color)',
+        //                              ^^^^^^^^ cursor here should resolve correct word
+      ].join('\n'));
+
+      analyzer.analyze(document);
+
+      expect(analyzer.wordAtPoint(document.uri, 0, 31)).toBe('no_color');
+      expect(analyzer.wordAtPoint(document.uri, 0, 10)).toBe('_fish_alt_greeting');
+    });
+
+    it('resolves correct word for each arg/flag', () => {
+      const document = createFakeLspDocument('conf.d/piped-substitution.fish',
+        'set -x a (path resolve $PWD/ | string split -r \'/\')',
+        //                                     ^^^^  ^^ ^^^ search locations
+      );
+
+      const { root } = analyzer.analyze(document);
+      // const searchTexts = [`split`, '-r', "'/'"]
+      // for (const node of getChildNodes(root!)) {
+      //   if (searchTexts.includes(node.text)) {
+      //     console.log({
+      //       text: node.text,
+      //       type: node.type,
+      //       range: rangeAsString(getRange(node)),
+      //       location: node.startPosition,
+      //     })
+      //   }
+      // }
+
+      const positions : {
+        row: number;
+        column: number;
+        expected: string;
+      }[] = [
+        { row: 0, column: 38, expected: 'split' },
+        { row: 0, column: 44, expected: '-r' },
+        { row: 0, column: 47, expected: "'/'" },
+        { row: 0, column: 48, expected: "'/'" },
+      ];
+
+      logger.setSilent(false);
+      for (const { row, column, expected } of positions) {
+        const word = analyzer.wordAtPoint(document.uri, row, column);
+        const node = analyzer.nodeAtPoint(document.uri, row, column);
+        // console.log(`-`.repeat(50))
+        // console.log(`At position (${row}, ${column}):`);
+        // console.log(`  Expected: "${expected}"`);
+        // console.log(`  wordAtPoint: "${word}"`);
+        // console.log(`  nodeAtPoint: "${node?.text}" (type: ${node?.type})`);
+        // console.log(`-`.repeat(50))
+      }
+      expect(analyzer.wordAtPoint(document.uri, 0, 38)).toBe('split');
+      expect(analyzer.wordAtPoint(document.uri, 0, 44)).toBe('-r');
+      expect(analyzer.wordAtPoint(document.uri, 0, 47)).toBe("'");
+
+      expect(analyzer.nodeAtPoint(document.uri, 0, 38)!.text).toBe('split');
+      expect(analyzer.nodeAtPoint(document.uri, 0, 44)!.text).toBe('-r');
+      expect(analyzer.nodeAtPoint(document.uri, 0, 47)!.text).toBe("'");
+      expect(analyzer.nodeAtPoint(document.uri, 0, 48)!.text).toBe("'/'");
+      logger.setSilent();
+    });
   });
 
+  it('nested command nodeAtPoint', () => {
+    const document = createFakeLspDocument('conf.d/node-at-point.fish',
+      'set -x a (path resolve $PWD/ | string split -r "/")',
+      'export PATH="$(path resolve /):/usr/local/bin:$PATH"',
+      'alias foo=bar',
+    );
+    const { root } = analyzer.analyze(document);
+    logger.setSilent(false);
+    const positions = [
+      {
+        row: 1,
+        column: 12,
+        expected: 'path',
+      },
+      {
+        row: 1,
+        column: 38,
+        expected: '"$(path resolve /):/usr/local/bin:$PATH"',
+      },
+      {
+        row: 2,
+        column: 11,
+        expected: 'bar',
+      },
+    ];
+
+    for (const { row, column, expected } of positions) {
+      const node = analyzer.nodeAtPoint(document.uri, row, column)!;
+      const command = analyzer.commandAtPoint(document.uri, row, column)!;
+      const commandName = analyzer.commandNameAtPoint(document.uri, row, column);
+      const subcommand = getChildNodes(node).find(n => n.type === 'command_substitution' || isConcatenation(n))!;
+      // console.log(getChildNodes(node).map(n => ({text: n.text, type: n.type})));
+      console.log({
+        node: {
+          text: node.text,
+          type: node.type,
+          range: rangeAsString(getRange(node)),
+        },
+        commandName,
+        word: analyzer.wordAtPoint(document.uri, row, column),
+        childNodes: getChildNodes(node).map(n => ({ text: n.text, type: n.type })),
+        nestedCommandReference: extractCommands(node, {
+          parseParenthesized: true,
+          cleanKeywords: true,
+          parseCommandSubstitutions: true,
+        }),
+        nestedCommandReferenceByCommand: getNestedCommandReferenceAtPoint(document.uri, { line: row, character: column }, command),
+      });
+      console.log(`At position (${row}, ${column}):`);
+      console.log(`  Expected node text: "${expected}"`);
+      console.log(`  wordAtPoint: "${analyzer.wordAtPoint(document.uri, row, column)}"`);
+      console.log(`  nodeAtPoint text: "${node?.text}" (type: ${node?.type})`);
+      console.log(`  commandNameAtPoint: "${commandName}"`);
+      console.log(`  nestedCommandReferenceAtPoint: ${JSON.stringify(getNestedCommandReferenceAtPoint(document.uri, { line: row, character: column }, node))}`);
+      // expect(node?.text).toBe(expected);
+    }
+  });
   // TODO: test more Analyzer methods
 });

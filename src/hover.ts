@@ -103,7 +103,7 @@ function getNestedHoverCommandAtPoint(
   position: LSP.Position,
   documentUri: string,
 ): { command: string; } | null {
-  const nestedCommand = getNestedCommandReferenceAtPoint(node, position, documentUri, {
+  const nestedCommand = getNestedCommandReferenceAtPoint(documentUri, position, node, {
     allowCarrierRangeFallback: true,
   });
   if (!nestedCommand) return null;
