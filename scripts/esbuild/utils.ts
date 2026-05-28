@@ -1,7 +1,7 @@
 // Build utility functions
 import fs from 'fs-extra';
 import { existsSync, statSync, unlinkSync } from 'fs';
-import { execSync, spawnSync } from 'child_process';
+import { execSync } from 'child_process';
 import { logger, toRelativePath } from './colors';
 
 
@@ -189,7 +189,7 @@ export function generateTypeDeclarations(): void {
     };
 
     fs.writeFileSync('dts-bundle.config.json', JSON.stringify(dtsConfig, null, 2));
-    execSync('yarn dts-bundle-generator --silent --config dts-bundle.config.json --external-inlines=web-tree-sitter --external-types=web-tree-sitter --disable-symlinks-following', { stdio: 'ignore' });
+    execSync('yarn dts-bundle-generator --config dts-bundle.config.json --external-inlines=web-tree-sitter --external-types=web-tree-sitter --disable-symlinks-following', { stdio: 'inherit' });
 
     console.log(logger.generated('Successfully generated bundled type declarations'));
 

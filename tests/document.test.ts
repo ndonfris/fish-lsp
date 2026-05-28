@@ -218,6 +218,19 @@ complete -c complex_function -s h -l help    -d "show help message"`),
         expect(func_doc.offsetAt({ line: 3, character: 11 })).toBe(100);
       });
 
+      it('getEOLCharacters()', () => {
+        const doc = LspDocument.createTextDocumentItem(
+          'file:///mixed-eol.fish',
+          'echo one\r\necho two\necho three',
+        );
+
+        expect(doc.getEOLCharacters(0)).toBe('\r\n');
+        expect(doc.getEOLCharacters(1)).toBe('\n');
+        expect(doc.getEOLCharacters(2)).toBe('');
+        expect(doc.getEOLCharacters(-1)).toBe('');
+        expect(doc.getEOLCharacters(3)).toBe('');
+      });
+
       it('getRelativeFilenameToWorkspace()', () => {
         expect(config_doc.getRelativeFilenameToWorkspace()).toBe('config.fish');
         expect(confd_doc.getRelativeFilenameToWorkspace()).toBe('conf.d/say_hello.fish');

@@ -1,4 +1,4 @@
-.TH "FISH\-LSP" "1" "May 2026" "1.1.4-pre.1" "fish-lsp"
+.TH "FISH\-LSP" "1" "May 2026" "1.1.4-pre.2" "fish-lsp"
 .SH "NAME"
 \fBfish-lsp\fR \- A language server for the fish shell
 .SH SYNOPSIS
@@ -29,7 +29,7 @@ Documentation below shows usage of the \fBfish\-lsp\fP command, including its su
 .SH SUBCOMMANDS
 .SS \fBstart\fP
 .P
-Start the language server\.
+start the language server
 .P
 \fB\-\-enable\fP                       enable the language server features
 .br
@@ -96,6 +96,8 @@ show the build info of fish\-lsp
 \fB\-\-show\fP                         show the man/log file contents (needs to be paired with \fB\-\-log\-file\fP or \fB\-\-man\-file\fP)
 .br
 \fB\-\-short\fP                        display small amount of info (alias for \fB\-\-version \-\-build\-type \-\-build\-time \-\-lsp\-version\fP)
+.br
+\fB\-\-json\fP                         display the info as JSON (e\.g\., \fBfish\-lsp info \-\-short \-\-json\fP)
 .br
 \fB\-\-extra\fP                        show debugging server info (capabilities, paths, version, etc\.)
 .br
@@ -230,6 +232,13 @@ Preform a health check on the \fBfish\-lsp\fP language server:
 .fi
 .RE
 .IP \(bu 2
+Show the tree\-sitter\-fish parse tree for the input:
+.RS 2
+.nf
+>_ cat ~/\.config/fish/config\.fish | fish\-lsp info \-\-dump\-parse\-tree
+.fi
+.RE
+.IP \(bu 2
 Show the definition symbol tree for a specific file:
 .RS 2
 .nf
@@ -270,11 +279,11 @@ Get sources related to the \fBfish\-lsp\fP language server's development:
 
 .RS 1
 .IP \(bu 2
-\fBwebsite:\fR \fIhttps://fish-lsp.dev/\fR
+\fBwebsite:\fR https://fish-lsp.dev
 .IP \(bu 2
-\fBrepo:\fR \fIhttps://github.com/ndonfris/fish-lsp\fR
+\fBrepo:\fR https://github.com/ndonfris/fish-lsp
 .IP \(bu 2
-\fBfish website:\fR \fIhttps://fishshell.com/\fR
+\fBfish website:\fR https://fishshell.com
 
 .RE
 .SH AUTHOR

@@ -170,6 +170,10 @@ export class LspDocument implements TextDocument {
     return this.document.offsetAt(position);
   }
 
+  getEOLCharacters(line: number): string {
+    return this.document.getEOLCharacters(line);
+  }
+
   get lineCount(): number {
     return this.document.lineCount;
   }

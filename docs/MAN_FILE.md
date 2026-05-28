@@ -27,7 +27,7 @@ Documentation below shows usage of the `fish-lsp` command, including its subcomm
 
 ### `start`
 
-Start the language server.  
+start the language server  
   
   `--enable`                       enable the language server features  
   `--disable`                      disable the language server features  
@@ -69,6 +69,7 @@ show the build info of fish-lsp
   `--log-file`                     show the log file path  
   `--show`                         show the man/log file contents (needs to be paired with `--log-file` or `--man-file`)  
   `--short`                        display small amount of info (alias for `--version --build-type --build-time --lsp-version`)  
+  `--json`                         display the info as JSON (e.g., `fish-lsp info --short --json`)
   `--extra`                        show debugging server info (capabilities, paths, version, etc.)  
   `--verbose`                      show debugging server info (capabilities, paths, version, etc.)  
   `--check-health`                 run diagnostics and report health status  
@@ -164,6 +165,12 @@ Provide completions for the `fish-lsp`
   >_ fish-lsp info --check-health
   ```
 
+- Show the tree-sitter-fish parse tree for the input:
+
+  ```fish
+  >_ cat ~/.config/fish/config.fish | fish-lsp info --dump-parse-tree
+  ```
+
 - Show the definition symbol tree for a specific file:
 
   ```fish
@@ -196,9 +203,9 @@ Provide completions for the `fish-lsp`
 
 ## SEE ALSO
 
-- __website:__ _https://fish-lsp.dev/_
-- __repo:__ _https://github.com/ndonfris/fish-lsp_
-- __fish website:__ _https://fishshell.com/_
+- **website:** <https://fish-lsp.dev>
+- **repo:** <https://github.com/ndonfris/fish-lsp>
+- **fish website:** <https://fishshell.com>
 
 ## AUTHOR
 
