@@ -1,6 +1,6 @@
 import { analyzer, Analyzer } from '../src/analyze';
 import { workspaceManager } from '../src/utils/workspace-manager';
-import { createFakeLspDocument, locationAsString, printClientTree, printLocations, rangeAsString, setLogger } from './helpers';
+import { createFakeLspDocument, locationAsString, printClientTree, printLocations, rangeAsString, setLogger, matchLocation, toMatchLocations, expectFoundLocationsToEqualMatchLocations, debugMatchLocations, compareFoundLocationsToMatchLocations } from './helpers';
 import { getChildNodes, getRange, pointToPosition } from '../src/utils/tree-sitter';
 import { isCompletionCommandDefinition } from '../src/parsing/complete';
 import { isArgumentThatCanContainCommandCalls, isCommand, isCommandWithName, isDefinitionName, isEndStdinCharacter, isOption, isString, isVariable, isVariableDefinitionName } from '../src/utils/node-types';
@@ -16,133 +16,16 @@ import { extractCommands, extractMatchingCommandLocations } from '../src/parsing
 import { initializeParser } from '../src/parser';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import TestWorkspace from './test-workspace-utils';
-import { rangeContainsPosition } from '../src/parsing/equality-utils';
 import { logger } from '../src/logger';
 import { fail } from 'assert';
 import { FishReferenceCandidate } from '../src/parsing/reference-candidates';
-import path from 'path';
 
-type MatchLocation = {
-  uri: string;
-  position: Position;
-  equalsLocation(location: Location): boolean;
-};
-
-const matchLocation = (uri: string, row: number, column: number): MatchLocation => {
-  const position: Position = { line: row, character: column };
-  const equalsLocation = (location: Location): boolean => {
-    return location.uri.endsWith(uri) && rangeContainsPosition(location.range, position);
-  };
-  return {
-    uri,
-    position,
-    equalsLocation,
-  };
-};
 beforeAll(() => {
   logger.setSilent(false);
 });
 afterAll(() => {
   logger.setSilent(true);
 });
-
-const debugMatchLocations = (matchLocations: MatchLocation[], workspace: TestWorkspace, opts: {
-  showDocs?: boolean;
-  separator?: boolean;
-} = {
-  showDocs: false,
-  separator: false,
-}) => {
-  console.log({ totalMatchLocations: matchLocations.length - 1 });
-  matchLocations.forEach(({ uri, position }, index) => {
-    const doc = workspace.getDocument(uri);
-    const { line, character } = position;
-    if (opts.separator) console.log('-'.repeat(80));
-    if (!doc) {
-      console.log(`MatchLocation ${index}: Document not found for URI ${uri}`);
-      if (opts.separator) console.log('-'.repeat(80));
-      return;
-    }
-    console.log(`MatchLocation ${index}:`, {
-      uri: LspDocument.testUri(uri),
-      position,
-      wordAtPoint: analyzer.wordAtPoint(doc.uri, line, character),
-    });
-    if (opts.showDocs) console.log(doc.getText());
-    if (opts.separator) console.log('-'.repeat(80));
-  });
-};
-
-const asMatchLocation = (loc: Location) => {
-  let path = LspDocument.createFromUri(loc.uri).getRelativeFilenameToWorkspace();
-  if (path.includes('file://')) path = path.slice(path.indexOf('file://') + 'file://'.length);
-  return `matchLocation('${path}', ${loc.range.start.line}, ${loc.range.start.character})`;
-};
-
-const toMatchLocations = (locs: Location[]) => {
-  console.log('='.repeat(80));
-  const { currentTestName, testPath } = expect.getState();
-  const rel = testPath ? path.relative(process.cwd(), testPath) : '<unknown>';
-  console.log(`[${rel}] ${currentTestName}`);
-  console.log('');
-  const output: string[] = [];
-  locs.forEach((l, i) => {
-    let line = '';
-    if (i === 0) {
-      line += '[';
-      if (locs.length - 1 > 0) {
-        line += '\n';
-      } else {
-        line += ' ';
-      }
-    }
-    if (locs.length - 1 > 0) line += '\t';
-    line += asMatchLocation(l);
-    if (i < locs.length - 1 && locs.length - 1 > 0) {
-      line += ',\n';
-    } else {
-      line += ' ';
-    }
-    if (i === locs.length - 1) {
-      line += ']';
-    }
-    output.push(line);
-  });
-  console.log([
-    'const matchLocations = ' + output.join('') + ';',
-    'expectFoundLocationsToEqualMatchLocations(impls, matchLocations);',
-  ].join('\n'));
-  console.log('');
-  console.log('='.repeat(80));
-};
-
-const compareFoundLocationsToMatchLocations = (foundLocations: Location[], matchLocations: MatchLocation[]) => {
-  foundLocations.forEach((loc, index) => {
-    const matches = matchLocations.filter(ml => ml.equalsLocation(loc));
-    const msg = matches.length > 0 ? `Found ${matches.length} match${matches.length > 1 ? 'es' : ''}` : 'No matches found';
-    console.log({
-      msg,
-      index,
-      refLocation: locationAsString(loc),
-      matches: matches.map(m => locationAsString(Location.create(m.uri, { start: m.position, end: m.position }))),
-    });
-  });
-  console.log({
-    totalFoundLocations: foundLocations.length - 1,
-    totalMatchLocations: matchLocations.length - 1,
-  });
-};
-
-/* direct compare expect(ref).toBe(matchLocation) */
-const expectFoundLocationsToEqualMatchLocations = (foundLocations: Location[], matchLocations: MatchLocation[]) => {
-  foundLocations.forEach((loc, index) => {
-    const match = matchLocations.find(ml => ml.equalsLocation(loc));
-    const matchIndex = matchLocations.findIndex(ml => ml.equalsLocation(loc));
-    expect(match).toBeDefined();
-    expect(matchIndex).toBe(index);
-  });
-  expect(foundLocations).toHaveLength(matchLocations.length);
-};
 
 function getNodeOrPostion(arg: SyntaxNode | Position): Position {
   if (Position.is(arg)) {
@@ -340,7 +223,7 @@ describe('find reference locations of symbols', () => {
         expect(def).toBeDefined();
       }
       const refs = analyzer.getReferences(completionDoc, Position.create(0, 27));
-      const newRefs = analyzer.getReferences(completionDoc, Position.create(0, 27));
+      // const newRefs = analyzer.getReferences(completionDoc, Position.create(0, 27));
       compareReferences(completionDoc, Position.create(0, 27), 3);
       expect(refs).toHaveLength(3);
       // expect(refs).toEqual(newRefs);
@@ -2058,6 +1941,33 @@ describe('find reference locations of symbols', () => {
       // Load-bearing assertion for the refactor: whatever set is picked up,
       // both impls must agree on count + ordering.
       compareReferences(aliasDoc, defPos, refs.length);
+    });
+  });
+
+  // Regression: in `for file in …; source $file; end`, goto-definition on
+  // the `$file` argument to `source` returned [] because `getDefinitionLocation`
+  // unconditionally took the source-argument fast path and tried to resolve
+  // `$file` as a literal path. With the fix it falls through to symbol
+  // resolution when the source-path resolution finds nothing, so the cursor
+  // jumps to the `for file` loop variable.
+  describe('source $var goto-definition', () => {
+    const workspace = TestWorkspace.create().addFiles({
+      relativePath: 'config.fish',
+      content: [
+        'for file in *.fish',
+        '    test -f $file',
+        '    and source $file',
+        'end',
+      ].join('\n'),
+    }).initialize();
+
+    it('goto-definition on `$file` in `source $file` resolves to the loop variable', () => {
+      const doc = workspace.getDocument('config.fish')!;
+      // `$file` text spans cols 15..20 on line 1; cursor in the middle of `file`
+      const defs = analyzer.getDefinitionLocation(doc, Position.create(2, 18));
+      expect(defs.length).toBeGreaterThan(0);
+      expect(defs[0]!.uri).toBe(doc.uri);
+      expect(defs[0]!.range.start.line).toBe(0);
     });
   });
 

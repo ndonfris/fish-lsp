@@ -1,6 +1,6 @@
 import { analyzer, Analyzer } from '../src/analyze';
 import { workspaceManager } from '../src/utils/workspace-manager';
-import { createFakeLspDocument, locationAsString, printClientTree, printLocations, rangeAsString, setLogger } from './helpers';
+import { createFakeLspDocument, expectFoundLocationsToEqualMatchLocations, matchLocation, printLocations, setLogger } from './helpers';
 import { getChildNodes, getRange, pointToPosition } from '../src/utils/tree-sitter';
 import { isCompletionCommandDefinition } from '../src/parsing/complete';
 import { isArgumentThatCanContainCommandCalls, isCommand, isCommandWithName, isDefinitionName, isEndStdinCharacter, isOption, isString, isVariable, isVariableDefinitionName } from '../src/utils/node-types';
@@ -16,89 +16,17 @@ import { extractCommands, extractMatchingCommandLocations } from '../src/parsing
 import { initializeParser } from '../src/parser';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import TestWorkspace from './test-workspace-utils';
-import { rangeContainsPosition } from '../src/parsing/equality-utils';
 import { logger } from '../src/logger';
 import { fail } from 'assert';
-import { FishReferenceCandidate } from '../src/parsing/reference-candidates';
+import { FunctionParser } from '../src/parsing/barrel';
+import { isAliasDefinitionName } from '../src/parsing/alias';
 
-type MatchLocation = {
-  uri: string;
-  position: Position;
-  equalsLocation(location: Location): boolean;
-};
-
-const matchLocation = (uri: string, row: number, column: number): MatchLocation => {
-  const position: Position = { line: row, character: column };
-  const equalsLocation = (location: Location): boolean => {
-    return location.uri.endsWith(uri) && rangeContainsPosition(location.range, position);
-  };
-  return {
-    uri,
-    position,
-    equalsLocation,
-  };
-};
-beforeAll(() => {
-  logger.setSilent(false);
+beforeEach(() => {
+  logger.setSilent(); // pass in `false` to enable logs
 });
-afterAll(() => {
+afterEach(() => {
   logger.setSilent(true);
 });
-
-const debugMatchLocations = (matchLocations: MatchLocation[], workspace: TestWorkspace, opts: {
-  showDocs?: boolean;
-  separator?: boolean;
-} = {
-  showDocs: false,
-  separator: false,
-}) => {
-  console.log({ totalMatchLocations: matchLocations.length - 1 });
-  matchLocations.forEach(({ uri, position }, index) => {
-    const doc = workspace.getDocument(uri);
-    const { line, character } = position;
-    if (opts.separator) console.log('-'.repeat(80));
-    if (!doc) {
-      console.log(`MatchLocation ${index}: Document not found for URI ${uri}`);
-      if (opts.separator) console.log('-'.repeat(80));
-      return;
-    }
-    console.log(`MatchLocation ${index}:`, {
-      uri: LspDocument.testUri(uri),
-      position,
-      wordAtPoint: analyzer.wordAtPoint(doc.uri, line, character),
-    });
-    if (opts.showDocs) console.log(doc.getText());
-    if (opts.separator) console.log('-'.repeat(80));
-  });
-};
-
-const compareFoundLocationsToMatchLocations = (foundLocations: Location[], matchLocations: MatchLocation[]) => {
-  foundLocations.forEach((loc, index) => {
-    const matches = matchLocations.filter(ml => ml.equalsLocation(loc));
-    const msg = matches.length > 0 ? `Found ${matches.length} match${matches.length > 1 ? 'es' : ''}` : 'No matches found';
-    console.log({
-      msg,
-      index,
-      refLocation: locationAsString(loc),
-      matches: matches.map(m => locationAsString(Location.create(m.uri, { start: m.position, end: m.position }))),
-    });
-  });
-  console.log({
-    totalFoundLocations: foundLocations.length - 1,
-    totalMatchLocations: matchLocations.length - 1,
-  });
-};
-
-/* direct compare expect(ref).toBe(matchLocation) */
-const expectFoundLocationsToEqualMatchLocations = (foundLocations: Location[], matchLocations: MatchLocation[]) => {
-  foundLocations.forEach((loc, index) => {
-    const match = matchLocations.find(ml => ml.equalsLocation(loc));
-    const matchIndex = matchLocations.findIndex(ml => ml.equalsLocation(loc));
-    expect(match).toBeDefined();
-    expect(matchIndex).toBe(index);
-  });
-  expect(foundLocations).toHaveLength(matchLocations.length);
-};
 
 describe('find reference locations of symbols', () => {
   setLogger();
@@ -185,15 +113,14 @@ describe('find reference locations of symbols', () => {
       })!;
       expect(found).toBeDefined();
       const result = analyzer.getReferences(functionDoc, getRange(found).start);
-      const foundSymbol = analyzer.getDefinition(functionDoc, getRange(found).start);
-      console.log(foundSymbol?.toString());
-      const sorter = FishReferenceCandidate.comparatorForSymbol(foundSymbol!);
-      const result2 = [
-        FishReferenceCandidate.fromSymbol(foundSymbol!),
-        ...analyzer.referenceCandidates.findForSymbol(foundSymbol!).filter(rc => foundSymbol?.isReference(rc.document, rc.node, true)),
-      ].sort(sorter);
-      const result3 = analyzer.getReferences(functionDoc, getRange(found).start);
-      // const result2 = analyzer.referenceCandidates.find(found.text);
+      // const foundSymbol = analyzer.getDefinition(functionDoc, getRange(found).start);
+      // // console.log(foundSymbol?.toString());
+      // const sorter = FishReferenceCandidate.comparatorForSymbol(foundSymbol!);
+      // const result2 = [
+      //   FishReferenceCandidate.fromSymbol(foundSymbol!),
+      //   ...analyzer.referenceCandidates.findForSymbol(foundSymbol!).filter(rc => foundSymbol?.isReference(rc.document, rc.node, true)),
+      // ].sort(sorter);
+      // const result3 = analyzer.getReferences(functionDoc, getRange(found).start);
       // analyzer.symbols.allSymbolsByName.find('_flag_yes').forEach(s => {
       //   console.log({
       //     symbolName: s.name,
@@ -207,23 +134,23 @@ describe('find reference locations of symbols', () => {
       //       documentUri: document?.uri,
       //     })
       // })
-      console.log({
-        result: result.map(loc => locationAsString(loc)),
-        // result2: result2.map(({ node, document }) => ({
-        //   text: node.text,
-        //   uri: LspDocument.testUri(document.uri),
-        result2: result2.map((item) => {
-          const { document, name, node, range } = item;
-          return {
-            uri: LspDocument.testUri(document.uri),
-            name: name,
-            node: node.text,
-            range: rangeAsString(range),
-            loc: locationAsString(item.toLocation()),
-          };
-        }),
-        result3: result3.map(loc => locationAsString(loc)),
-      });
+      // console.log({
+      //   result: result.map(loc => locationAsString(loc)),
+      //   // result2: result2.map(({ node, document }) => ({
+      //   //   text: node.text,
+      //   //   uri: LspDocument.testUri(document.uri),
+      //   result2: result2.map((item) => {
+      //     const { document, name, node, range } = item;
+      //     return {
+      //       uri: LspDocument.testUri(document.uri),
+      //       name: name,
+      //       node: node.text,
+      //       range: rangeAsString(range),
+      //       loc: locationAsString(item.toLocation()),
+      //     };
+      //   }),
+      //   result3: result3.map(loc => locationAsString(loc)),
+      // });
 
       expect(result).toHaveLength(4);
     });
@@ -389,9 +316,9 @@ describe('find reference locations of symbols', () => {
       })!;
       expect(found).toBeDefined();
       const result = analyzer.getReferences(confdDoc, getRange(found).start);
-      printLocations(result, {
-        showLineText: true,
-      });
+      // printLocations(result, {
+      //   showLineText: true,
+      // });
       expect(result).toHaveLength(2);
     });
 
@@ -400,20 +327,20 @@ describe('find reference locations of symbols', () => {
       const node = analyzer.getNodes(functionDoc.uri).find((n) => n.text === 'foo' && isVariableDefinitionName(n))!;
       expect(node).toBeDefined();
       const result = analyzer.getReferences(functionDoc, getRange(node).start);
-      printLocations(result, {
-        showText: true,
-        showLineText: true,
-        showIndex: true,
-        rangeVerbose: true,
-      });
-      for (const loc of result) {
-        console.log({
-          uri: LspDocument.testUri(loc.uri),
-          text: analyzer.getTextAtLocation(loc),
-          node: analyzer.nodeAtPoint(loc.uri, loc.range.start.line, loc.range.start.character)?.text,
-          symbol: analyzer.getFlatDocumentSymbols(loc.uri).find(s => s.equalsLocation(loc))?.toString(),
-        });
-      }
+      // printLocations(result, {
+      //   showText: true,
+      //   showLineText: true,
+      //   showIndex: true,
+      //   rangeVerbose: true,
+      // });
+      // for (const loc of result) {
+      //   console.log({
+      //     uri: LspDocument.testUri(loc.uri),
+      //     text: analyzer.getTextAtLocation(loc),
+      //     node: analyzer.nodeAtPoint(loc.uri, loc.range.start.line, loc.range.start.character)?.text,
+      //     symbol: analyzer.getFlatDocumentSymbols(loc.uri).find(s => s.equalsLocation(loc))?.toString(),
+      //   });
+      // }
       expect(result).toHaveLength(5);
     });
 
@@ -422,10 +349,10 @@ describe('find reference locations of symbols', () => {
       const node = analyzer.getNodes(globalTestDoc.uri).find((n) => n.text === 'foo' && isVariableDefinitionName(n))!;
       expect(node).toBeDefined();
       const result = analyzer.getReferences(globalTestDoc, getRange(node).start);
-      printLocations(result, {
-        showText: true,
-        showLineText: true,
-      });
+      // printLocations(result, {
+      //   showText: true,
+      //   showLineText: true,
+      // });
       expect(result).toHaveLength(3);
       expect(result.map(loc => loc.uri).some(uri => uri.includes('functions/test-other.fish'))).toBeTruthy();
       expect(result.map(loc => loc.uri).some(uri => uri.includes('conf.d/global_test.fish'))).toBeTruthy();
@@ -558,17 +485,17 @@ describe('find reference locations of symbols', () => {
       const visualRefs = analyzer.getReferences(doc, getRange(visualDef!).start);
       const localRefs = analyzer.getReferences(doc, getRange(localDef!).start);
 
-      const erefs = analyzer.getReferences(doc, getRange(editorDef!).start);
-      const o_localRefs = analyzer.getReferences(doc, getRange(localDef!).start, {
-        includeDefinitions: false,
-      });
+      // const erefs = analyzer.getReferences(doc, getRange(editorDef!).start);
+      // const o_localRefs = analyzer.getReferences(doc, getRange(localDef!).start, {
+      //   includeDefinitions: false,
+      // });
 
-      console.log({
-        editorRefs: editorRefs.map(loc => locationAsString(loc)),
-        erefs: erefs.map(loc => locationAsString(loc)),
-        pos: rangeAsString(getRange(editorDef!)),
-        o_localRefs: o_localRefs.map(loc => locationAsString(loc)),
-      });
+      // console.log({
+      //   editorRefs: editorRefs.map(loc => locationAsString(loc)),
+      //   erefs: erefs.map(loc => locationAsString(loc)),
+      //   pos: rangeAsString(getRange(editorDef!)),
+      //   o_localRefs: o_localRefs.map(loc => locationAsString(loc)),
+      // });
       expect(editorRefs).toHaveLength(2);
       expect(editorRefs.some(loc =>
         loc.range.start.line === 0
@@ -681,12 +608,12 @@ describe('find reference locations of symbols', () => {
 
       const commandCalls = analyzer.findNodes((n, d) => {
         if (symbol.equalsNode(n, { strict: true })) {
-          console.log({
-            symbol: symbol.toString(),
-            node: n.text,
-            uri: d?.uri,
-            range: getRange(n),
-          });
+          // console.log({
+          //   symbol: symbol.toString(),
+          //   node: n.text,
+          //   uri: d?.uri,
+          //   range: getRange(n),
+          // });
         }
         const flatSymbols = analyzer.getFlatDocumentSymbols(d.uri).filter(s =>
           s.isLocal()
@@ -732,46 +659,67 @@ describe('find reference locations of symbols', () => {
 
         return false;
       });
-      commandCalls.forEach(({ uri, nodes }, index) => {
-        console.log(`commandCall ${index}`, {
-          uri: LspDocument.testUri(uri),
-          nodes: nodes.map(n => ({
-            text: n.text,
-            type: n.type,
-            startPosition: `{ row: ${n.startPosition.row}, column: ${n.startPosition.column} }`,
-            endPosition: `{ row: ${n.endPosition.row}, column: ${n.endPosition.column} }`,
-          })),
-        });
-      });
+      // commandCalls.forEach(({ uri, nodes }, index) => {
+      //   console.log(`commandCall ${index}`, {
+      //     uri: LspDocument.testUri(uri),
+      //     nodes: nodes.map(n => ({
+      //       text: n.text,
+      //       type: n.type,
+      //       startPosition: `{ row: ${n.startPosition.row}, column: ${n.startPosition.column} }`,
+      //       endPosition: `{ row: ${n.endPosition.row}, column: ${n.endPosition.column} }`,
+      //     })),
+      //   });
+      // });
     });
 
     it('global alias `ls` (using cache via `getReferences()`)', () => {
       const searchDoc = workspace.getDocument('conf.d/alias.fish')!;
       expect(searchDoc).toBeDefined();
       const found = analyzer.findNode((n, document) => {
-        return document!.uri === searchDoc.uri && n.text.startsWith('ls');
+        return document!.uri === searchDoc.uri
+          && n.text.startsWith('ls')
+          && isAliasDefinitionName(n);
       })!;
       expect(found).toBeDefined();
+      workspace.documents.forEach((doc) => analyzer.ensureCachedDocument(doc));
+      // Order reflects the comparator: def URI (100) → autoloaded completion
+      // for THIS symbol (75) → other completions/* (50) → regular workspace
+      // files (10). Within a band, URIs are sorted lexically (stable
+      // regardless of the randomized TestWorkspace directory name).
       const matchLocations = [
         matchLocation('conf.d/alias.fish', 0, 6),
-        matchLocation('functions/test-other.fish', 1, 5),
-        matchLocation('completions/ls.fish', 0, 13),
-        // matchLocation('completions/ls.fish', 0, 31), // missing?
-        matchLocation('completions/ls-wrapper.fish', 0, 28), // missing?
-        matchLocation('functions/ls-wrapper.fish', 0, 24),
-        // matchLocation('functions/ls-wrapper.fish', 0, 44), // missing?
-        matchLocation('functions/ls-wrapper.fish', 1, 17),
-        matchLocation('functions/ls-wrapper.fish', 3, 5),
-        matchLocation('functions/user_keybinds.fish', 1, 24),
-        matchLocation('conf.d/abbrevaitons.fish', 0, 12),
-        matchLocation('conf.d/abbrevaitons.fish', 1, 15),
+        matchLocation('completions/ls.fish', 0, 12),
+        matchLocation('completions/ls-wrapper.fish', 0, 27),
+        matchLocation('conf.d/abbrevaitons.fish', 0, 11),
+        matchLocation('conf.d/abbrevaitons.fish', 1, 14),
         matchLocation('conf.d/abbrevaitons.fish', 2, 18),
+        matchLocation('functions/ls-wrapper.fish', 0, 23),
+        matchLocation('functions/ls-wrapper.fish', 1, 16),
+        matchLocation('functions/ls-wrapper.fish', 3, 4),
+        matchLocation('functions/test-other.fish', 1, 4),
+        matchLocation('functions/user_keybinds.fish', 1, 24),
       ];
-      debugMatchLocations(matchLocations, workspace, {
-        showDocs: true,
-        separator: true,
-      });
+      // const matchLocations = [
+      //   matchLocation('conf.d/alias.fish', 0, 6),
+      //   matchLocation('completions/ls.fish', 0, 13),
+      //   matchLocation('functions/test-other.fish', 1, 5),
+      //   // matchLocation('completions/ls.fish', 0, 31), // missing?
+      //   matchLocation('completions/ls-wrapper.fish', 0, 28), // missing?
+      //   matchLocation('functions/ls-wrapper.fish', 0, 24),
+      //   // matchLocation('functions/ls-wrapper.fish', 0, 44), // missing?
+      //   matchLocation('functions/ls-wrapper.fish', 1, 17),
+      //   matchLocation('functions/ls-wrapper.fish', 3, 5),
+      //   matchLocation('functions/user_keybinds.fish', 1, 24),
+      //   matchLocation('conf.d/abbrevaitons.fish', 0, 12),
+      //   matchLocation('conf.d/abbrevaitons.fish', 1, 15),
+      //   matchLocation('conf.d/abbrevaitons.fish', 2, 18),
+      // ];
+      // debugMatchLocations(matchLocations, workspace, {
+      //   showDocs: true,
+      //   separator: true,
+      // });
       const refs = analyzer.getReferences(searchDoc, getRange(found).start);
+      // toMatchLocations(refs)
       // matchLocations.forEach((ml, index) => {
       //   const doc = workspace.getDocument(ml.uri)
       //   if (!refs.some(loc => ml.equalsLocation(loc))) {
@@ -783,7 +731,8 @@ describe('find reference locations of symbols', () => {
       //     console.log('-'.repeat(80))
       //   }
       // })
-      compareFoundLocationsToMatchLocations(refs, matchLocations);
+      // compareFoundLocationsToMatchLocations(refs, matchLocations);
+      expectFoundLocationsToEqualMatchLocations(refs, matchLocations);
       expect(refs).toHaveLength(matchLocations.length);
     });
 
@@ -911,7 +860,7 @@ describe('find reference locations of symbols', () => {
         return document!.uri === searchDoc.uri && n.text === 'ls=';
       })!;
       expect(found).toBeDefined();
-      console.log(searchDoc.getText());
+      // console.log(searchDoc.getText());
       const result = analyzer.getReferences(searchDoc, getRange(found).start);
       expect(result).toHaveLength(2);
     });
@@ -965,7 +914,7 @@ describe('find reference locations of symbols', () => {
       const result = analyzer.getReferences(searchDoc, getRange(found).start);
       expect(result).toHaveLength(3);
       const uris = new Set(result.map(loc => LspDocument.createFromUri(loc.uri).getRelativeFilenameToWorkspace()));
-      console.log(uris);
+      // console.log(uris);
       expect(uris.has('functions/test.fish')).toBeTruthy();
       expect(uris.has('functions/test-other.fish')).toBeFalsy();
       expect(uris.has('completions/foo.fish')).toBeTruthy();
@@ -1004,7 +953,7 @@ describe('find reference locations of symbols', () => {
         const document = workspace.getDocument('conf.d/test.fish')!;
         const cached = analyzer.analyze(document).ensureParsed();
         const nodeAtPoint = analyzer.nodeAtPoint(document.uri, 1, 32);
-        console.log(nodeAtPoint?.text);
+        // console.log(nodeAtPoint?.text);
         expect(nodeAtPoint).toBeDefined();
         const results: SyntaxNode[] = [];
         getChildNodes(cached.tree.rootNode).forEach(node => {
@@ -1022,7 +971,7 @@ describe('find reference locations of symbols', () => {
         const document = workspace.getDocument('conf.d/test.fish')!;
         const cached = analyzer.analyze(document).ensureParsed();
         const nodeAtPoint = analyzer.nodeAtPoint(document.uri, 1, 32);
-        console.log(nodeAtPoint?.text);
+        // console.log(nodeAtPoint?.text);
         expect(nodeAtPoint).toBeDefined();
         const refs = analyzer.getReferences(cached.document, Position.create(1, 31));
         const resultTexts: string[] = [];
@@ -1112,19 +1061,20 @@ describe('find reference locations of symbols', () => {
         const functionDoc = workspace.getDocument('functions/foo_test.fish')!;
         const nodeAtPoint = analyzer.nodeAtPoint(functionDoc.uri, 1, 49)!;
         expect(nodeAtPoint).toBeDefined();
-        console.debug(1, nodeAtPoint?.text);
+        // console.debug(1, nodeAtPoint?.text);
         const defSymbol = analyzer.getDefinition(functionDoc, Position.create(1, 49));
+        expect(defSymbol).toBeDefined();
         const refs = analyzer.getReferences(functionDoc, Position.create(1, 49));
-        console.log('def', {
-          defSymbol,
-          uri: defSymbol?.uri,
-          rangeStart: defSymbol?.selectionRange.start,
-          rangeEnd: defSymbol?.selectionRange.end,
-          text: defSymbol?.name,
-        });
-        printLocations(refs, {
-          verbose: true,
-        });
+        // console.log('def', {
+        //   defSymbol,
+        //   uri: defSymbol?.uri,
+        //   rangeStart: defSymbol?.selectionRange.start,
+        //   rangeEnd: defSymbol?.selectionRange.end,
+        //   text: defSymbol?.name,
+        // });
+        // printLocations(refs, {
+        //   verbose: true,
+        // });
 
         const renames = getRenames(functionDoc, Position.create(1, 49), 'na');
         const newTexts: Set<string> = new Set();
@@ -1140,7 +1090,7 @@ describe('find reference locations of symbols', () => {
         const nodeAtPoint = analyzer.nodeAtPoint(functionDoc.uri, 1, 27);
         expect(nodeAtPoint).toBeDefined();
         expect(nodeAtPoint!.text).toBe('special-option');
-        console.log(2, nodeAtPoint?.text);
+        // console.log(2, nodeAtPoint?.text);
         const renames = getRenames(functionDoc, Position.create(1, 27), 'special-name');
         const newTexts: Set<string> = new Set();
         const uris: Set<string> = new Set();
@@ -1168,14 +1118,14 @@ describe('find reference locations of symbols', () => {
         const refUris: Set<string> = new Set();
         const countPerUri: Map<string, number> = new Map();
         refs.forEach(loc => {
-          console.log('location ref', {
-            uri: loc.uri,
-            rangeStart: loc.range.start,
-            rangeEnd: loc.range.end,
-            docText: analyzer.getTextAtLocation(loc),
-            docLine: analyzer.getDocument(loc.uri)!.getLine(loc.range.start.line),
-            text: loc.newText,
-          });
+          // console.log('location ref', {
+          //   uri: loc.uri,
+          //   rangeStart: loc.range.start,
+          //   rangeEnd: loc.range.end,
+          //   docText: analyzer.getTextAtLocation(loc),
+          //   docLine: analyzer.getDocument(loc.uri)!.getLine(loc.range.start.line),
+          //   text: loc.newText,
+          // });
           const count = countPerUri.get(loc.uri) || 0;
           countPerUri.set(loc.uri, count + 1);
           newTexts.add(loc.newText);
@@ -1206,19 +1156,19 @@ describe('find reference locations of symbols', () => {
         const configDoc = workspace.getDocument('config.fish')!;
         const argvNode = analyzer.getNodes(configDoc.uri)
           .find(n => n.text === '$argv' && n.parent && isCommand(n.parent))!;
-        console.log({
-          argvNode: {
-            text: argvNode.text,
-            type: argvNode.type,
-            startPosition: argvNode.startPosition,
-            endPosition: argvNode.endPosition,
-          },
-          parent: {
-            type: argvNode.parent?.type,
-            text: argvNode.parent?.text,
-          },
-          uri: configDoc.uri,
-        });
+        // console.log({
+        //   argvNode: {
+        //     text: argvNode.text,
+        //     type: argvNode.type,
+        //     startPosition: argvNode.startPosition,
+        //     endPosition: argvNode.endPosition,
+        //   },
+        //   parent: {
+        //     type: argvNode.parent?.type,
+        //     text: argvNode.parent?.text,
+        //   },
+        //   uri: configDoc.uri,
+        // });
         const pos = pointToPosition(argvNode!.startPosition);
         const renames = getRenames(configDoc, pos, 'test-argv');
         expect(renames.length === 0).toBeTruthy();
@@ -1228,14 +1178,14 @@ describe('find reference locations of symbols', () => {
         const configDoc = workspace.getDocument('config.fish')!;
         const bazNode = analyzer.getFlatDocumentSymbols(configDoc.uri)
           .find(s => s.name === 'baz' && s.fishKind === 'ALIAS')!;
-        console.log({
-          bazNode: {
-            name: bazNode.name,
-            uri: bazNode.uri,
-            range: bazNode.range,
-            selectionRange: bazNode.selectionRange,
-          },
-        });
+        // console.log({
+        //   bazNode: {
+        //     name: bazNode.name,
+        //     uri: bazNode.uri,
+        //     range: bazNode.range,
+        //     selectionRange: bazNode.selectionRange,
+        //   },
+        // });
         const bazLocation = bazNode.toLocation();
         const refs = analyzer.getReferences(configDoc, bazLocation.range.start);
         const renames = getRenames(configDoc, bazLocation.range.start, 'baz_test');
@@ -1377,28 +1327,28 @@ describe('find reference locations of symbols', () => {
       it('other_event_test.fish', () => {
         const focusedDoc = workspace.getDocument('other_event_test.fish')!;
         const symbols = filterFirstPerScopeSymbol(focusedDoc);
-        printClientTree({ log: true }, ...symbols);
+        // printClientTree({ log: true }, ...symbols);
         const unusedRefs = analyzer.allUnusedLocalReferences(focusedDoc);
-        console.log('unused references', unusedRefs.length);
-        printLocations(unusedRefs, {
-          showIndex: true,
-          showText: true,
-          showLineText: true,
-        });
+        // console.log('unused references', unusedRefs.length);
+        // printLocations(unusedRefs, {
+        //   showIndex: true,
+        //   showText: true,
+        //   showLineText: true,
+        // });
         expect(unusedRefs).toHaveLength(0);
       });
 
       it('event_without_emit.fish', () => {
         const focusedDoc = workspace.getDocument('event_without_emit.fish')!;
         const symbols = filterFirstPerScopeSymbol(focusedDoc);
-        printClientTree({ log: true }, ...symbols);
+        // printClientTree({ log: true }, ...symbols);
         const unusedRefs = analyzer.allUnusedLocalReferences(focusedDoc);
-        console.log('unused references', unusedRefs.length);
-        printLocations(unusedRefs, {
-          showIndex: true,
-          showText: true,
-          showLineText: true,
-        });
+        // console.log('unused references', unusedRefs.length);
+        // printLocations(unusedRefs, {
+        //   showIndex: true,
+        //   showText: true,
+        //   showLineText: true,
+        // });
         expect(unusedRefs).toHaveLength(2);
       });
 
@@ -1434,12 +1384,12 @@ describe('find reference locations of symbols', () => {
         const focusedDoc = workspace.getDocument('config.fish')!;
         const focusedSymbol = analyzer.getFlatDocumentSymbols(focusedDoc.uri).find(s => s.isEmittedEvent() && s.name === 'reset_fish_prompt')!;
         const impls = analyzer.getImplementation(focusedDoc, focusedSymbol.toPosition());
-        printLocations(impls, {
-          showIndex: true,
-          showText: true,
-          showLineText: true,
-          verbose: true,
-        });
+        // printLocations(impls, {
+        //   showIndex: true,
+        //   showText: true,
+        //   showLineText: true,
+        //   verbose: true,
+        // });
         expect(impls).toHaveLength(1);
       });
 
@@ -1545,15 +1495,15 @@ describe('find reference locations of symbols', () => {
       const focusedSymbol = analyzer.getFlatDocumentSymbols(doc.uri).find(s => s.name === 'test_var')!;
 
       const refs = analyzer.getReferences(doc, focusedSymbol.toPosition());
-      console.log({
-        date: new Date().toISOString(),
-        refs: refs.length,
-      });
-      printLocations(refs, {
-        showText: true,
-        showLineText: true,
-        showIndex: true,
-      });
+      // console.log({
+      //   date: new Date().toISOString(),
+      //   refs: refs.length,
+      // });
+      // printLocations(refs, {
+      //   showText: true,
+      //   showLineText: true,
+      //   showIndex: true,
+      // });
       expect(refs).toHaveLength(6);
     });
 
@@ -1561,18 +1511,18 @@ describe('find reference locations of symbols', () => {
       const doc = workspace.getDocument('functions/local_test_var.fish')!;
       expect(doc).toBeDefined();
       const focusedSymbol = analyzer.getFlatDocumentSymbols(doc.uri).find(s => s.name === 'test_var' && s.parent?.name === 'local_test_var')!;
-      console.log('focusedSymbol', focusedSymbol.toString());
+      // console.log('focusedSymbol', focusedSymbol.toString());
       const def = analyzer.getDefinition(doc, focusedSymbol.toPosition());
-      console.log('definition', def?.toString());
+      // console.log('definition', def?.toString());
 
       const refs = analyzer.getReferences(doc, focusedSymbol.toPosition());
       const matchSymbols = refs.map(loc => analyzer.getSymbolAtLocation(loc));
-      console.log('matchSymbols', matchSymbols.map(s => s?.toString()));
-      printLocations(refs, {
-        showText: true,
-        showLineText: true,
-        showIndex: true,
-      });
+      // console.log('matchSymbols', matchSymbols.map(s => s?.toString()));
+      // printLocations(refs, {
+      //   showText: true,
+      //   showLineText: true,
+      //   showIndex: true,
+      // });
       expect(refs).toHaveLength(4);
     });
 
@@ -1580,19 +1530,155 @@ describe('find reference locations of symbols', () => {
       const doc = workspace.getDocument('functions/local_test_var.fish')!;
       expect(doc).toBeDefined();
       const focusedSymbol = analyzer.getFlatDocumentSymbols(doc.uri).find(s => s.name === 'test_var' && s.parent?.name === 'local_test_var')!;
-      console.log('focusedSymbol', focusedSymbol.toString());
+      // console.log('focusedSymbol', focusedSymbol.toString());
       const def = analyzer.getDefinition(doc, focusedSymbol.toPosition());
-      console.log('definition', def?.toString());
+      // console.log('definition', def?.toString());
 
       const refs = analyzer.getReferences(doc, focusedSymbol.toPosition(), { localOnly: true });
       const matchSymbols = refs.map(loc => analyzer.getSymbolAtLocation(loc));
-      console.log('matchSymbols', matchSymbols.map(s => s?.toString()));
-      printLocations(refs, {
-        showText: true,
-        showLineText: true,
-        showIndex: true,
-      });
+      // console.log('matchSymbols', matchSymbols.map(s => s?.toString()));
+      // printLocations(refs, {
+      //   showText: true,
+      //   showLineText: true,
+      //   showIndex: true,
+      // });
       expect(refs).toHaveLength(4);
+    });
+  });
+
+  describe('functions', () => {
+    const workspace = TestWorkspace.create().addFiles(
+      {
+        relativePath: 'config.fish',
+        content: [
+          'function foo',
+          '    echo \'inside foo\'',
+          'end',
+          'functions -a foo',
+          'functions -aq foo',
+          'functions --color always foo',
+          'functions --copy foo bar',
+          'functions --no-details --verbose -a foo',
+          'functions -Dva foo',
+          'functions -e foo',
+        ].join('\n'),
+      },
+    ).initialize();
+
+    it('ensure all isFunctionsReference(node) === `foo` | `bar`', () => {
+      const doc = workspace.getDocument('config.fish')!;
+
+      const refNodes = analyzer.getNodes(doc.uri)
+        .filter(n => FunctionParser.isFunctionsReference(n));
+
+      const refText = new Set(refNodes.map(refNode => refNode.text));
+      expect(refText.size).toBe(2);
+      expect(refText).toContain('foo');
+      expect(refText).toContain('bar');
+    });
+
+    it('def: foo', () => {
+      const doc = workspace.getDocument('config.fish')!;
+      const pos = Position.create(7, 36);
+
+      const matchLocations = [
+        matchLocation('config.fish', 0, 9),
+        matchLocation('config.fish', 3, 13),
+        matchLocation('config.fish', 4, 14),
+        matchLocation('config.fish', 5, 25),
+        matchLocation('config.fish', 6, 17),
+        matchLocation('config.fish', 7, 36),
+        matchLocation('config.fish', 8, 15),
+        matchLocation('config.fish', 9, 13),
+      ];
+
+      const def = analyzer.getDefinition(doc, pos);
+      expect(def).toBeDefined();
+
+      const defMatch = matchLocations[0]!;
+      expect(defMatch.equalsLocation(def!)).toBeTruthy();
+
+      const refs = analyzer.getReferences(doc, pos);
+      expectFoundLocationsToEqualMatchLocations(refs, matchLocations);
+    });
+
+    it('ref: foo', () => {
+      const doc = workspace.getDocument('config.fish')!;
+      const pos = Position.create(0, 9);
+
+      const matchLocations = [
+        matchLocation('config.fish', 0, 9),
+        matchLocation('config.fish', 3, 13),
+        matchLocation('config.fish', 4, 14),
+        matchLocation('config.fish', 5, 25),
+        matchLocation('config.fish', 6, 17),
+        matchLocation('config.fish', 7, 36),
+        matchLocation('config.fish', 8, 15),
+        matchLocation('config.fish', 9, 13),
+      ];
+
+      const def = analyzer.getDefinition(doc, pos);
+      expect(def).toBeDefined();
+
+      const defMatch = matchLocations[0]!;
+      expect(defMatch.equalsLocation(def!)).toBeTruthy();
+
+      // const refNodes = analyzer.getNodes(doc.uri).filter(n => {
+      //   return FunctionParser.isFunctionsReference(n);
+      // })!.forEach(refNode => {
+      //   console.log({
+      //     isFunctionsReference: FunctionParser.isFunctionsReference(refNode),
+      //     node: {
+      //       text: refNode.text,
+      //       type: refNode.type,
+      //       range: rangeAsString(getRange(refNode)),
+      //     }
+      //   });
+      // })
+
+      const refs = analyzer.getReferences(doc, pos);
+      // toMatchLocations(refs)
+      expectFoundLocationsToEqualMatchLocations(refs, matchLocations);
+    });
+  });
+
+  // Regression: tree-sitter parses `alias foo=ref_cmd` as a single bare `word`
+  // node `foo=ref_cmd` (no concatenation). Three paths needed updates to keep
+  // working in that shape:
+  //   1) `wordAtPoint` was always returning the part before `=`, so cursor on
+  //      `ref_cmd` looked up the alias name instead.
+  //   2) The reference-candidate cache only indexed `foo=ref_cmd` under that
+  //      literal name, missing `ref_cmd` lookups.
+  //   3) `extractMatchingCommandLocations` (via `findDirectCommandOffsets`)
+  //      returned the whole token as the command, so the precise inner
+  //      location filter never matched `ref_cmd`.
+  describe('alias unquoted `foo=ref_cmd` references', () => {
+    const workspace = TestWorkspace.create().addFiles({
+      relativePath: 'config.fish',
+      content: [
+        'function ref_cmd; end',
+        'alias foo=ref_cmd',
+      ].join('\n'),
+    }).initialize();
+
+    it('getDefinition with cursor on `ref_cmd` value resolves to the function', () => {
+      const doc = workspace.getDocument('config.fish')!;
+      // `foo=ref_cmd` spans cols 6..17; `ref_cmd` starts at col 10
+      const def = analyzer.getDefinition(doc, Position.create(1, 12));
+      expect(def).toBeDefined();
+      expect(def!.name).toBe('ref_cmd');
+      expect(def!.selectionRange.start.line).toBe(0);
+    });
+
+    it('getReferences from the function definition includes the alias-value usage', () => {
+      const doc = workspace.getDocument('config.fish')!;
+      // Cursor on the function-definition `ref_cmd` (line 0, col 9..16)
+      const refs = analyzer.getReferences(doc, Position.create(0, 12));
+      const matchLocations = [
+        matchLocation('config.fish', 0, 9),  // definition itself
+        matchLocation('config.fish', 1, 10), // `ref_cmd` half of `foo=ref_cmd`
+      ];
+      expectFoundLocationsToEqualMatchLocations(refs, matchLocations);
     });
   });
 });

@@ -132,11 +132,17 @@ export function isPotentialReferenceNode(symbol: FishSymbol, node: SyntaxNode): 
 
   if (symbol.isFunction()) {
     if (isDefinition(node)) return false;
-    return node.text === symbol.name
-      || isCommandName(node)
-      || isString(node)
-      || isOption(node)
-      || isCompleteDefinitionNode(node);
+    if (node.text === symbol.name) return true;
+    if (isCommandName(node)) return true;
+    if (isString(node)) return true;
+    if (isOption(node)) return true;
+    if (isCompleteDefinitionNode(node)) return true;
+    // Bare `name=value` words (e.g. `alias foo=ref_cmd`) — a single `word`
+    // node that nonetheless contains a command-name reference after `=`.
+    if (node.type === 'word' && node.text.includes('=') && !node.text.startsWith('-')) {
+      return FishString.extractCommands(node).includes(symbol.name);
+    }
+    return false;
   }
 
   return node.text === symbol.name || isString(node);
@@ -183,7 +189,16 @@ export function extractReferenceCandidateNames(node: SyntaxNode): string[] {
     || isEmittedEventDefinitionName(node)
     || isGenericFunctionEventHandlerDefinitionName(node)
   ) {
-    return [node.text];
+    const names = new Set<string>([node.text]);
+    // Tree-sitter parses `alias foo=ref_cmd` as a single bare-word
+    // `foo=ref_cmd` (no concatenation, no children). Without this we'd
+    // only index it under `foo=ref_cmd`, so a lookup for `ref_cmd`
+    // would miss the alias usage. The `!startsWith('-')` guard leaves
+    // options like `--foo=bar` to the `isOption` branch above.
+    if (node.text.includes('=') && !node.text.startsWith('-')) {
+      FishString.extractCommands(node).forEach(cmd => names.add(cmd));
+    }
+    return [...names];
   }
 
   return [];
@@ -408,14 +423,24 @@ export class FishReferenceCandidate {
     const defParentName = defSymbol.parent?.name ?? null;
     const uriPriorityCache = new Map<DocumentUri, number>();
 
+    // Band ordering: def URI > autoloaded completion for THIS symbol > other
+    // completion files > regular workspace files. Within a band, URIs are
+    // compared lexically below — stable regardless of the workspace dir name.
+    const autoloadCompletionSuffix = `/completions/${defSymbol.name}.fish`;
     const uriPriorityFor = (uri: DocumentUri, uriType: string | null | undefined): number => {
       const cached = uriPriorityCache.get(uri);
       if (cached !== undefined) return cached;
       let priority = 10;
-      if (uri === defSymbol.uri) priority = 100;
-      else if (hasCompletionPriority && (uriType === 'completions' || uri.includes('completions/'))) priority = 50;
-      const uriHash = uri.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-      priority += uriHash % 1000 / 10000;
+      if (uri === defSymbol.uri) {
+        priority = 100;
+      } else if (hasCompletionPriority && uri.endsWith(autoloadCompletionSuffix)) {
+        // e.g. for symbol `ls`, `…/completions/ls.fish` is THE autoloaded
+        // companion file — surface it before unrelated completions that
+        // merely mention `ls` (like `ls-wrapper.fish`'s `-w 'ls'`).
+        priority = 75;
+      } else if (hasCompletionPriority && (uriType === 'completions' || uri.includes('completions/'))) {
+        priority = 50;
+      }
       uriPriorityCache.set(uri, priority);
       return priority;
     };
@@ -443,6 +468,11 @@ export class FishReferenceCandidate {
       const ap = uriPriorityFor(a.uri, ainfo?.uriType);
       const bp = uriPriorityFor(b.uri, binfo?.uriType);
       if (ap !== bp) return bp - ap;
+      // Tiebreak by URI lexically (ascending). This is workspace-prefix
+      // independent — when two URIs share the same workspace root, the
+      // compare resolves on the suffix — so reference order is stable across
+      // test runs that randomize the workspace directory name.
+      if (a.uri !== b.uri) return a.uri < b.uri ? -1 : 1;
       const aw = weightFor(ainfo);
       const bw = weightFor(binfo);
       if (aw !== bw) return bw - aw;

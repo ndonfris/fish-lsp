@@ -71,7 +71,17 @@ export function lineSignatureBuilder(lineRootNode: SyntaxNode, lineCurrentNode: 
 
 export function getPipes(rootNode: SyntaxNode): ExtendedBaseJson[] {
   return TreeSitter.getChildNodes(rootNode).reduce((acc: ExtendedBaseJson[], node) => {
-    const pipe = findPrebuiltDoc(node.text, 'pipe');
+    // Children of a redirect (e.g. `direction`, `word`) would otherwise match
+    // partial operators — `<` inside `<?` — so we let the redirect node above
+    // them resolve the full operator text via getRedirectOperatorText.
+    if (node.parent && (node.parent.type === 'file_redirect' || node.parent.type === 'stream_redirect')) {
+      return acc;
+    }
+    const lookupText = NodeTypes.isRedirect(node)
+      ? NodeTypes.getRedirectOperatorText(node) ?? node.text
+      : node.text;
+    if (!lookupText) return acc;
+    const pipe = findPrebuiltDoc(lookupText, 'pipe');
     if (pipe) acc.push(pipe);
     return acc;
   }, []);

@@ -1,8 +1,8 @@
 import { SyntaxNode } from 'web-tree-sitter';
-import { findOptionsSet, Option, OptionValueMatch } from './options';
+import { findOptionsSet, isMatchingOption, isMatchingOptionValue, Option, OptionValueMatch } from './options';
 import { FishSymbol } from './symbol';
 import { LspDocument } from '../document';
-import { findParentWithFallback, isEscapeSequence, isNewline, isString } from '../utils/node-types';
+import { findParentCommand, findParentWithFallback, isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isEscapeSequence, isNewline, isOption, isString } from '../utils/node-types';
 import { PrebuiltDocumentationMap } from '../utils/snippets';
 import { DefinitionScope } from '../utils/definition-scope';
 import { isAutoloadedUriLoadsFunctionName } from '../utils/translation';
@@ -30,6 +30,90 @@ export const FunctionEventOptions = [
   Option.create('-p', '--on-process-exit').withValue(),
   Option.create('-s', '--on-signal').withValue(),
 ];
+
+export const FunctionsOptions = [
+  Option.create('-a', '--all'),
+  Option.create('-c', '--copy'),
+  Option.create('-q', '--query').withValue(),
+  Option.create('-e', '--erase').withValue(),
+  Option.create('-D', '--details'),
+  Option.create('', '--no-details'),
+  Option.create('-v', '--verbose'),
+  Option.create('-t', '--handlers-type').withValue(),
+  Option.create('', '--color').withValue(),
+  Option.create('-d', '--description').withValue(),
+];
+
+export const FunctionsValuesCouldContainCommand = [
+  Option.create('-q', '--query').withValue(),
+  Option.create('-e', '--erase').withValue(),
+];
+
+const FunctionsValuesCantContainCommand = [
+  Option.create('', '--color').withValue(),
+  Option.create('-d', '--description').withValue(),
+];
+
+/**
+ * `type`/`functions` support
+ */
+export function isFunctionsReference(node: SyntaxNode) {
+  // skip anything that is not a argument to `type`/`functions` commands
+  if (isCommandName(node) || isCommand(node)) return false;
+  const command = findParentCommand(node);
+  if (!command || !isCommandWithName(command, 'functions', 'type')) return false;
+
+  // skip any nodes that aren't a tokenized `SyntaxNode.type === 'word'`
+  // this removes `$var` and other incorrect types possible to match in checkers
+  // possibly expand this for `isString(node)`
+  if (node.type !== 'word') return false;
+
+  // skip `--` nodes
+  if (isEndStdinCharacter(node)) return false;
+
+  // handle functions arguments checks
+  const functionsChecker = () => {
+    if (isOption(node)) {
+      return isMatchingOptionValue(node, ...FunctionsValuesCouldContainCommand);
+    }
+    const prev = node.previousSibling;
+    if (prev && isOption(prev)) {
+      if (isMatchingOptionValue(prev, ...FunctionsValuesCouldContainCommand)) return true;
+      if (isMatchingOptionValue(prev, ...FunctionsValuesCantContainCommand)) return false;
+    }
+    if (!isOption(node)) {
+      if (isMatchingOptionValue(node, ...FunctionsValuesCantContainCommand)) return false;
+      return true;
+    }
+    return false;
+  };
+
+  // handle type arguments checks
+  const typeChecker = () => {
+    if (isOption(node)) return false;
+    if (isMatchingOptionValue(node, Option.fromRaw('--color').withValue())) return false;
+    const options = command.childrenForFieldName('argument').filter(n => isOption(n));
+    if (options.some(optNode => isMatchingOption(optNode, Option.create('-f', '--no-functions')))) {
+      return false;
+    }
+    return true;
+  };
+
+  return functionsChecker() || typeChecker();
+}
+
+export function isFunctionsErase(node: SyntaxNode) {
+  if (node.type === 'word' || !node.parent) return false;
+  const command = findParentCommand(node);
+  if (!command || isCommandName(node) || !isCommandWithName(command, 'functions')) return false;
+
+  if (isOption(node)) return false;
+
+  if (!isFunctionsReference(node)) return false;
+
+  const options = command.childrenForFieldName('argument').filter(n => isOption(n));
+  return options.some(optNode => isMatchingOption(optNode, Option.create('-e', '--erase')));
+}
 
 export const FunctionVariableOptions = FunctionOptions.filter(option => option.equalsRawOption('-a', '--argument-names', '-V', '--inherit-variable', '-v', '--on-variable'));
 

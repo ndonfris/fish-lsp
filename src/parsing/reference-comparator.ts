@@ -14,6 +14,7 @@ import { FishString } from './string';
 import { isAbbrDefinitionName, isMatchingAbbrFunction } from '../diagnostics/node-types';
 import { isBindFunctionCall } from './bind';
 import { isAliasDefinitionValue } from './alias';
+import { isFunctionsReference } from './function';
 
 type ReferenceContext = {
   symbol: FishSymbol;
@@ -139,7 +140,17 @@ const isInValidScope: ReferenceCheck = ({ symbol, document, node }) => {
 const matchesFunctionName: ReferenceCheck = ({ symbol, node }) => {
   if (symbol.isFunction()) {
     if (isArgumentThatCanContainCommandCalls(node)) return true;
+    if (isFunctionsReference(node)) return true;
     if (symbol.name !== node.text && !isString(node)) {
+      // Bare-word alias `foo=ref_cmd`: tree-sitter parses the whole `foo=ref_cmd`
+      // as one `word` node, which counts as the alias name in
+      // `isAliasDefinitionName` and so trips `isArgumentThatCanContainCommandCalls`
+      // (it rejects definition names). Accept it here when the value portion
+      // matches the symbol.
+      if (node.type === 'word' && node.text.includes('=') && !node.text.startsWith('-')
+        && FishString.extractCommands(node).includes(symbol.name)) {
+        return true;
+      }
       return false;
     }
   }
@@ -224,6 +235,8 @@ const checkFunctionReference: ReferenceCheck = ({ symbol, node }) => {
 
   // Command with name
   if (isCommandWithName(node, symbol.name)) return true;
+
+  if (isFunctionsReference(node) && symbol.name === node.text) return true;
 
   // function calls that are strings
   if (isArgumentThatCanContainCommandCalls(node)) {

@@ -138,18 +138,39 @@ export class FishSymbol {
     return this;
   }
 
-  private resolveVariableLifetimeEndPosition(): Position | undefined {
+  /**
+   * The command whose `-e`/`--erase` form ends this symbol's lifetime, or null
+   * if the symbol's category doesn't support an explicit erase boundary.
+   *
+   * - Global variables: bounded by `set -e <name>` in the same lexical scope.
+   * - Local functions:  bounded by `functions -e <name>` in the same lexical
+   *   scope, which lets a local shadow stop covering call sites once it's
+   *   explicitly torn down (e.g. `function ls; ...; end; ls; functions -e ls;
+   *   ls` — the second `ls` should resolve outward, not to the local shadow).
+   *
+   * Cross-document and other-shape symbols (aliases, argparse, exported vars,
+   * etc.) don't get a lifetime guard; call order across files can't be
+   * inferred statically.
+   */
+  private lifetimeEraseCommand(): 'set' | 'functions' | null {
+    if (this.isVariable() && this.isGlobal()) return 'set';
+    if (this.isFunction() && !this.isGlobal()) return 'functions';
+    return null;
+  }
+
+  private resolveLifetimeEndPosition(): Position | undefined {
     if (typeof this._lifetimeEndPosition !== 'undefined') {
       return this._lifetimeEndPosition || undefined;
     }
-    if (!this.isVariable() || !this.isGlobal()) {
+    const eraseCommand = this.lifetimeEraseCommand();
+    if (!eraseCommand) {
       this._lifetimeEndPosition = null;
       return undefined;
     }
 
     const eraseOption = Option.create('-e', '--erase');
     for (const node of nodesGen(this.scopeNode)) {
-      if (!isCommandWithName(node, 'set')) continue;
+      if (!isCommandWithName(node, eraseCommand)) continue;
       if (node.startIndex <= this.node.startIndex) continue;
 
       // The erase must occur in the same nearest lexical scope as the definition.
@@ -180,23 +201,32 @@ export class FishSymbol {
   }
 
   /**
-   * Global variable lifetime is constrained by its definition position and the first
-   * matching `set -e* <name>` in the same lexical scope.
+   * Symbol lifetime is constrained by its definition position and the first
+   * matching erase command (`set -e* <name>` for global vars, `functions -e
+   * <name>` for local functions) in the same lexical scope.
    *
    * Cross-document checks intentionally skip this guard because call-order across
    * documents cannot be inferred statically.
    */
   public isWithinDefinitionLifetime(position: Position, uri: DocumentUri = this.uri): boolean {
     if (uri !== this.uri) return true;
-    if (!this.isVariable() || !this.isGlobal()) return true;
+    const eraseCommand = this.lifetimeEraseCommand();
+    if (!eraseCommand) return true;
 
-    const start = this.selectionRange.start;
-    const startsBeforeDefinition =
-      position.line < start.line ||
-      position.line === start.line && position.character < start.character;
-    if (startsBeforeDefinition) return false;
+    // Variables don't exist before their `set` command runs, so a pre-def
+    // reference is invalid. Functions are effectively hoisted within a file
+    // — `function bar; baz; end; function baz; end; bar` is valid fish, so
+    // the call to `baz` from inside `bar` resolves correctly even though it
+    // appears before `baz`'s definition line.
+    if (eraseCommand === 'set') {
+      const start = this.selectionRange.start;
+      const startsBeforeDefinition =
+        position.line < start.line ||
+        position.line === start.line && position.character < start.character;
+      if (startsBeforeDefinition) return false;
+    }
 
-    const end = this.resolveVariableLifetimeEndPosition();
+    const end = this.resolveLifetimeEndPosition();
     if (!end) return true;
 
     const isAfterErase =
@@ -756,7 +786,10 @@ export class FishSymbol {
     if (!inScope) return false;
 
     // Only constrain lifetime for references in the same parsed document.
-    if (this.isVariable() && this.isGlobal() && node.tree === this.node.tree) {
+    // `isWithinDefinitionLifetime` is a no-op for symbol categories without a
+    // tracked erase boundary (everything except global vars and local funcs),
+    // so this single call covers both lifetime-aware shapes.
+    if (node.tree === this.node.tree) {
       return this.isWithinDefinitionLifetime(getRange(node).start, this.uri);
     }
     return inScope;

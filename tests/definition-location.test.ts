@@ -89,6 +89,220 @@ describe('find definition locations of symbols', () => {
       expect(afterErase).toBeNull();
     });
 
+    // Mirrors the `set -e` lifetime guard above for the function side: a local
+    // function shadowing should stop covering call sites once it's torn down
+    // with `functions -e`.
+    it('local function should not resolve after matching functions -e in same scope', () => {
+      const doc = createFakeLspDocument(
+        '/tmp/fish-lsp-functions-lifetime-program.fish',
+        [
+          'function ls; command ls --color $argv; end',
+          'ls before',
+          'functions -e ls',
+          'ls after',
+        ].join('\n'),
+      );
+      analyzer.analyze(doc);
+
+      const beforeErase = analyzer.getDefinition(doc, { line: 1, character: 0 });
+      expect(beforeErase).toBeDefined();
+      expect(beforeErase?.name).toBe('ls');
+      expect(beforeErase?.selectionRange.start.line).toBe(0);
+
+      const afterErase = analyzer.getDefinition(doc, { line: 3, character: 0 });
+      // No global `ls` exists in the test analyzer state, so the only
+      // candidate is the local shadow — which is now out of lifetime.
+      expect(afterErase).toBeNull();
+    });
+
+    it('local function shadow inside another function respects functions -e boundary', () => {
+      const doc = createFakeLspDocument(
+        '/tmp/fish-lsp-functions-lifetime-nested.fish',
+        [
+          'function outer',
+          '    function ls; command ls --color $argv; end',
+          '    ls before',
+          '    functions -e ls',
+          '    ls after',
+          'end',
+        ].join('\n'),
+      );
+      analyzer.analyze(doc);
+
+      const beforeErase = analyzer.getDefinition(doc, { line: 2, character: 4 });
+      expect(beforeErase).toBeDefined();
+      expect(beforeErase?.name).toBe('ls');
+      expect(beforeErase?.selectionRange.start.line).toBe(1);
+
+      const afterErase = analyzer.getDefinition(doc, { line: 4, character: 4 });
+      expect(afterErase).toBeNull();
+    });
+
+    it('getReferences from a local function excludes call sites past its functions -e boundary', () => {
+      const doc = createFakeLspDocument(
+        '/tmp/fish-lsp-functions-lifetime-refs.fish',
+        [
+          'function ls; command ls --color $argv; end',
+          'ls one',
+          'ls two',
+          'functions -e ls',
+          'ls three',
+        ].join('\n'),
+      );
+      analyzer.analyze(doc);
+
+      const refs = analyzer.getReferences(doc, { line: 0, character: 9 });
+      const lines = refs.map(r => r.range.start.line);
+      // Pre-erase call sites must be present.
+      expect(lines).toContain(1);
+      expect(lines).toContain(2);
+      // The post-erase call must NOT be present — the lifetime ends at the
+      // `functions -e ls` command on line 3.
+      expect(lines).not.toContain(4);
+    });
+
+    // Combined scenario: a top-level `_foo` is referenced by an alias body and
+    // then explicitly erased with `functions -e _foo`. After the erase, a new
+    // `_foo` is defined inside `main` (an independent symbol) and a `_bar -S`
+    // (--no-scope-shadowing) reads/writes `argv`. Verifies:
+    //   1. The top-level `_foo`'s references include the alias-body usages
+    //      and the erase target, but stop at the `functions -e _foo` line.
+    //   2. The nested `_foo` (inside `main`) is its own symbol whose refs
+    //      do not bleed back to the top-level def.
+    //   3. `argv` inside `set -f argv 1` (the `_bar -S` body) must NOT
+    //      resolve to the erased top-level `_foo`'s implicit argv.
+    describe('functions -e _foo across an alias and a nested shadow', () => {
+      const SOURCE = [
+        'function _foo',          // 0
+        'end',                    // 1
+        '',                       // 2
+        "alias b='_foo _foo'",    // 3
+        '',                       // 4
+        'functions -e _foo',      // 5
+        '',                       // 6
+        'function main',          // 7
+        '    function _foo',      // 8
+        '        _bar',           // 9
+        '        set --show argv', // 10
+        '',                       // 11
+        '    end',                // 12
+        '',                       // 13
+        '    function _bar -S',   // 14
+        '        set -f argv 1',  // 15
+        '    end',                // 16
+        '',                       // 17
+        '    _foo',               // 18
+        'end',                    // 19
+        'main',                   // 20
+      ].join('\n');
+
+      it('refs from top-level _foo include alias body + erase, exclude nested + post-erase usages', () => {
+        const doc = createFakeLspDocument(
+          '/tmp/fish-lsp-foo-lifetime-toplevel.fish',
+          SOURCE,
+        );
+        analyzer.analyze(doc);
+
+        const topFoo = analyzer.getFlatDocumentSymbols(doc.uri).find(s =>
+          s.name === '_foo' && s.isFunction() && !s.parent,
+        );
+        expect(topFoo).toBeDefined();
+
+        const refs = analyzer.getReferences(doc, topFoo!.selectionRange.start);
+        const lines = refs.map(r => r.range.start.line);
+
+        // Def itself + alias body reference + the `functions -e _foo` target.
+        expect(lines).toContain(0);
+        expect(lines).toContain(3);
+        expect(lines).toContain(5);
+
+        // Must NOT include the nested `function _foo` (line 8) — that's its
+        // own symbol — or the call to it (line 18), which is past the erase.
+        expect(lines).not.toContain(8);
+        expect(lines).not.toContain(18);
+      });
+
+      it('the nested _foo inside main is an independent symbol with its own refs', () => {
+        const doc = createFakeLspDocument(
+          '/tmp/fish-lsp-foo-lifetime-nested.fish',
+          SOURCE,
+        );
+        analyzer.analyze(doc);
+
+        const nestedFoo = analyzer.getFlatDocumentSymbols(doc.uri).find(s =>
+          s.name === '_foo' && s.isFunction() && s.parent?.name === 'main',
+        );
+        expect(nestedFoo).toBeDefined();
+        expect(nestedFoo!.selectionRange.start.line).toBe(8);
+
+        const refs = analyzer.getReferences(doc, nestedFoo!.selectionRange.start);
+        const lines = refs.map(r => r.range.start.line);
+
+        // Def at line 8 + the call at line 18 — and nothing from the erased
+        // top-level `_foo`'s sphere (line 0/3/5).
+        expect(lines).toContain(8);
+        expect(lines).toContain(18);
+        expect(lines).not.toContain(0);
+        expect(lines).not.toContain(3);
+        expect(lines).not.toContain(5);
+      });
+
+      it('goto-definition on the top-level _foo line works pre-erase', () => {
+        const doc = createFakeLspDocument(
+          '/tmp/fish-lsp-foo-lifetime-pre.fish',
+          SOURCE,
+        );
+        analyzer.analyze(doc);
+
+        // `alias b='_foo _foo'` — cursor on the first `_foo` (col 10 inside the string)
+        const def = analyzer.getDefinition(doc, { line: 3, character: 10 });
+        expect(def).toBeDefined();
+        expect(def!.name).toBe('_foo');
+        expect(def!.selectionRange.start.line).toBe(0);
+      });
+
+      it('goto-definition on the post-erase `_foo` call resolves to the nested def, not the erased top-level one', () => {
+        const doc = createFakeLspDocument(
+          '/tmp/fish-lsp-foo-lifetime-post.fish',
+          SOURCE,
+        );
+        analyzer.analyze(doc);
+
+        // `    _foo` at line 18 — cursor on `_foo` (col 4-7)
+        const def = analyzer.getDefinition(doc, { line: 18, character: 5 });
+        expect(def).toBeDefined();
+        expect(def!.name).toBe('_foo');
+        // Must be the nested def at line 8, not the erased top-level def at line 0.
+        expect(def!.selectionRange.start.line).toBe(8);
+      });
+
+      // Documents the argv-resolution bug the user flagged:
+      //   `set -f argv 1` inside `function _bar -S` (no-scope-shadowing)
+      //   should NOT resolve `argv` to the erased top-level `_foo`'s
+      //   implicit `argv`. The expected target is either the SET's own
+      //   `argv` selection range or — via the no-scope-shadowing walk —
+      //   the caller's implicit `argv` (nested `_foo` at line 8).
+      it('argv inside `_bar -S` does not resolve to the erased _foo`s implicit argv', () => {
+        const doc = createFakeLspDocument(
+          '/tmp/fish-lsp-foo-lifetime-argv.fish',
+          SOURCE,
+        );
+        analyzer.analyze(doc);
+
+        // `        set -f argv 1` — `argv` spans cols 15..18 on line 15
+        const def = analyzer.getDefinition(doc, { line: 15, character: 16 });
+        expect(def).toBeDefined();
+        expect(def!.name).toBe('argv');
+        // The forbidden answer is the erased top-level `_foo`'s implicit
+        // argv (selRange line 0, parent=`_foo`, no further parent).
+        const isErasedFooArgv =
+          def!.selectionRange.start.line === 0
+          && def!.parent?.name === '_foo'
+          && !def!.parent?.parent;
+        expect(isErasedFooArgv).toBe(false);
+      });
+    });
+
     it('falls back to indexed paths when workspace-local definition is missing and single-workspace mode is disabled', () => {
       const prevSingleWorkspace = config.fish_lsp_single_workspace_support;
       const prevIndexedPaths = [...config.fish_lsp_all_indexed_paths];

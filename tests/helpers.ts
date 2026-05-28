@@ -25,6 +25,8 @@ import { Workspace } from '../src/utils/workspace';
 import { workspaceManager } from '../src/utils/workspace-manager';
 import { testOpenDocument } from './document-test-helpers';
 import { execAsync } from '../src/utils/exec';
+import { rangeContainsPosition } from '../src/parsing/equality-utils';
+import TestWorkspace from './test-workspace-utils';
 
 /**
  * Sets up mock for the startup module.
@@ -1073,4 +1075,127 @@ export namespace SkipUtils {
   export function commandsSucceed(...cmds: string[]): boolean {
     return cmds.every(cmd => commandSucceeds(cmd));
   }
+}
+
+export type MatchLocation = {
+  uri: string;
+  position: LSP.Position;
+  equalsLocation(location: Location): boolean;
+};
+
+export const matchLocation = (uri: string, row: number, column: number): MatchLocation => {
+  const position: LSP.Position = { line: row, character: column };
+  const equalsLocation = (location: Location): boolean => {
+    return location.uri.endsWith(uri) && rangeContainsPosition(location.range, position);
+  };
+  return {
+    uri,
+    position,
+    equalsLocation,
+  };
+};
+
+export const debugMatchLocations = (matchLocations: MatchLocation[], workspace: TestWorkspace, opts: {
+  showDocs?: boolean;
+  separator?: boolean;
+} = {
+  showDocs: false,
+  separator: false,
+}) => {
+  console.log({ totalMatchLocations: matchLocations.length - 1 });
+  matchLocations.forEach(({ uri, position }, index) => {
+    const doc = workspace.getDocument(uri);
+    const { line, character } = position;
+    if (opts.separator) console.log('-'.repeat(80));
+    if (!doc) {
+      console.log(`MatchLocation ${index}: Document not found for URI ${uri}`);
+      if (opts.separator) console.log('-'.repeat(80));
+      return;
+    }
+    console.log(`MatchLocation ${index}:`, {
+      uri: LspDocument.testUri(uri),
+      position,
+      wordAtPoint: analyzer.wordAtPoint(doc.uri, line, character),
+    });
+    if (opts.showDocs) console.log(doc.getText());
+    if (opts.separator) console.log('-'.repeat(80));
+  });
+};
+
+export const asMatchLocation = (loc: Location) => {
+  let path = LspDocument.createFromUri(loc.uri).getRelativeFilenameToWorkspace();
+  if (path.includes('file://')) path = path.slice(path.indexOf('file://') + 'file://'.length);
+  return `matchLocation('${path}', ${loc.range.start.line}, ${loc.range.start.character})`;
+};
+
+export const toMatchLocations = (locs: Location[]) => {
+  console.log('='.repeat(80));
+  const { currentTestName, testPath } = expect.getState();
+  const rel = testPath ? path.relative(process.cwd(), testPath) : '<unknown>';
+  console.log(`[${rel}] ${currentTestName}`);
+  console.log('');
+  const output: string[] = [];
+  locs.forEach((l, i) => {
+    let line = '';
+    if (i === 0) {
+      line += '[';
+      if (locs.length - 1 > 0) {
+        line += '\n';
+      } else {
+        line += ' ';
+      }
+    }
+    if (locs.length - 1 > 0) line += '\t';
+    line += asMatchLocation(l);
+    if (i <= locs.length - 1 && locs.length - 1 > 0) {
+      line += ',\n';
+    } else {
+      line += ' ';
+    }
+    if (i === locs.length - 1) {
+      line += ']';
+    }
+    output.push(line);
+  });
+  console.log([
+    'const matchLocations = ' + output.join('') + ';',
+    'expectFoundLocationsToEqualMatchLocations(foundLocs, matchLocations);',
+  ].join('\n'));
+  console.log('');
+  console.log('='.repeat(80));
+};
+
+export const compareFoundLocationsToMatchLocations = (foundLocations: Location[], matchLocations: MatchLocation[]) => {
+  foundLocations.forEach((loc, index) => {
+    const matches = matchLocations.filter(ml => ml.equalsLocation(loc));
+    const msg = matches.length > 0 ? `Found ${matches.length} match${matches.length > 1 ? 'es' : ''}` : 'No matches found';
+    console.log({
+      msg,
+      index,
+      refLocation: locationAsString(loc),
+      matches: matches.map(m => locationAsString(Location.create(m.uri, { start: m.position, end: m.position }))),
+    });
+  });
+  console.log({
+    totalFoundLocations: foundLocations.length - 1,
+    totalMatchLocations: matchLocations.length - 1,
+  });
+};
+
+/* direct compare expect(ref).toBe(matchLocation) */
+export const expectFoundLocationsToEqualMatchLocations = (foundLocations: Location[], matchLocations: MatchLocation[]) => {
+  foundLocations.forEach((loc, index) => {
+    const match = matchLocations.find(ml => ml.equalsLocation(loc));
+    const matchIndex = matchLocations.findIndex(ml => ml.equalsLocation(loc));
+    expect(match).toBeDefined();
+    expect(matchIndex).toBe(index);
+  });
+  expect(foundLocations).toHaveLength(matchLocations.length);
+};
+
+function getNodeOrPostion(arg: SyntaxNode | LSP.Position): LSP.Position {
+  if (LSP.Position.is(arg)) {
+    return arg;
+  }
+  return getRange(arg).start;
 }

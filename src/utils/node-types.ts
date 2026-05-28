@@ -999,3 +999,36 @@ export function getRedirectOperatorNode(n: SyntaxNode): SyntaxNode | null {
 
   return null;
 }
+
+/**
+ * Returns the full operator text for a redirect, handling the `<?` edge case.
+ *
+ * Tree-sitter fish parses `<?` as `direction('<') + word('?')` and treats the
+ * `?` as the (possibly-empty) destination — so `getRedirectOperatorNode` only
+ * returns `<`. This helper looks for that pattern and yields `<?` instead.
+ *
+ * Accepts the redirect node itself OR any child of one; returns null otherwise.
+ */
+export function getRedirectOperatorText(n: SyntaxNode): string | null {
+  const redirectNode =
+    n.type === 'file_redirect' || n.type === 'stream_redirect'
+      ? n
+      : n.parent && (n.parent.type === 'file_redirect' || n.parent.type === 'stream_redirect')
+        ? n.parent
+        : null;
+
+  if (!redirectNode) return null;
+
+  if (redirectNode.type === 'stream_redirect') return redirectNode.text;
+
+  const direction = redirectNode.namedChildren.find((c) => c.type === 'direction');
+  if (!direction) return null;
+
+  // `<?` edge case: parser splits into direction('<') + word('?')
+  if (direction.text === '<') {
+    const next = direction.nextNamedSibling;
+    if (next && next.type === 'word' && next.text === '?') return '<?';
+  }
+
+  return direction.text;
+}

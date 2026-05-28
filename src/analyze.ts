@@ -943,8 +943,12 @@ export class Analyzer {
             document.uri,
           );
           if (caller) {
+            // Compare parent by identity, not just by name: two functions
+            // with the same name (e.g. an erased top-level `_foo` and a
+            // nested `_foo`) would otherwise be indistinguishable here and
+            // the first matching parent — typically the erased one — wins.
             const callerVar = this.symbols.findDocumentVariables(caller.uri, word).find(s =>
-              s.parent?.name === caller.name,
+              !!s.parent && s.parent.equals(caller),
             );
             if (callerVar) {
               symbols.push(callerVar);
@@ -1133,9 +1137,12 @@ export class Analyzer {
       const caller = this.findCallerFunction(currentFunc, visited, varSymbol.uri);
       if (!caller) break;
 
-      // Check if the caller also defines the same variable
+      // Check if the caller also defines the same variable. Compare parent
+      // by identity rather than name so two functions sharing a name (e.g.
+      // an erased top-level `_foo` and a nested `_foo`) don't collide on
+      // their implicit `argv` children.
       const callerVar = this.symbols.findDocumentVariables(caller.uri, varSymbol.name).find(s =>
-        s.parent?.name === caller.name,
+        !!s.parent && s.parent.equals(caller),
       );
       if (!callerVar) break;
 
@@ -1266,12 +1273,17 @@ export class Analyzer {
     // handle source argument definition location
     const node = this.nodeAtPoint(document.uri, position.line, position.character);
 
-    // check that the node (or its parent) is a `source` command argument
+    // Check that the node (or its parent) is a `source` command argument.
+    // Returning early here would break `source $file` where the argument is a
+    // variable: the path won't resolve, so we'd return [] without ever asking
+    // whether `$file` itself has a definition. Only short-circuit when the
+    // source-path branch actually found a target.
     if (node && isSourceCommandArgumentName(node)) {
-      return this.getSourceDefinitionLocation(node, document);
-    }
-    if (node && node.parent && isSourceCommandArgumentName(node.parent)) {
-      return this.getSourceDefinitionLocation(node.parent, document);
+      const sourceLoc = this.getSourceDefinitionLocation(node, document);
+      if (sourceLoc.length > 0) return sourceLoc;
+    } else if (node && node.parent && isSourceCommandArgumentName(node.parent)) {
+      const sourceLoc = this.getSourceDefinitionLocation(node.parent, document);
+      if (sourceLoc.length > 0) return sourceLoc;
     }
 
     // check if we have a symbol defined at the position
@@ -1741,7 +1753,10 @@ export class Analyzer {
       const fromPath = uriToPath(document.uri);
       const baseDir = dirname(fromPath);
 
-      const expanded = getExpandedSourcedFilenameNode(node, baseDir) as string;
+      const expanded = getExpandedSourcedFilenameNode(node, baseDir);
+      // `source $file` (and other non-literal arguments) can't be expanded to
+      // a real path — bail so the caller can fall back to symbol resolution.
+      if (!expanded) return [];
       let sourceDoc = this.getDocumentFromPath(expanded);
       if (!sourceDoc) {
         this.analyzePath(expanded); // find the filepath & analyze it
@@ -2157,8 +2172,20 @@ export class Analyzer {
 
     // Handle definition-name nodes like `alias foo='bar'` before nested-command
     // extraction so the cursor on `foo` keeps resolving to the alias symbol.
+    // For the bare-word form `alias foo=ref_cmd` (tree-sitter keeps it as a
+    // single `word` node) the cursor position decides which half is returned:
+    // before/on `=` → the alias name, after `=` → the value command.
     if (isAliasDefinitionName(node) || isExportVariableDefinitionName(node)) {
-      return node.text.split('=')[0]?.trim() || null;
+      const text = node.text;
+      const eqIdx = text.indexOf('=');
+      if (eqIdx < 0) return text.trim() || null;
+      const colInNode = node.startPosition.row === line
+        ? column - node.startPosition.column
+        : -1;
+      if (colInNode > eqIdx) {
+        return text.slice(eqIdx + 1).trim() || null;
+      }
+      return text.slice(0, eqIdx).trim() || null;
     }
 
     // Keep direct variable tokens authoritative so `$var` inside `(math $var + 1)`

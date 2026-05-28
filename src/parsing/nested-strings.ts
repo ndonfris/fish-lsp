@@ -253,6 +253,22 @@ function findDirectCommandOffsets(
               command: token,
               offset: statementStart + tokenOffset,
             });
+            // For bare `name=value` tokens (alias-style — tree-sitter keeps
+            // `foo=ref_cmd` as a single `word`), also surface the value half
+            // at its precise offset so `extractMatchingCommandLocations` can
+            // point a reference at `ref_cmd` rather than the whole token.
+            if (!token.startsWith('-')) {
+              const eqIdx = token.indexOf('=');
+              if (eqIdx > 0) {
+                const after = token.slice(eqIdx + 1);
+                if (after && !isNumeric(after) && after.length > 1) {
+                  results.push({
+                    command: after,
+                    offset: statementStart + tokenOffset + eqIdx + 1,
+                  });
+                }
+              }
+            }
           }
         }
       }

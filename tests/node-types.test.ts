@@ -1286,5 +1286,49 @@ complete -c foo -s d -l describe -d 'describe'`);
       }
       expect(results.length).toBe(1);
     });
+
+    // Regression: tree-sitter parses `<?` as `direction('<') + word('?')`
+    // (with the `?` treated as a destination word), so a naive lookup on the
+    // child `direction` node would resolve to the `<` prebuilt doc instead of
+    // the `<?` entry. `getRedirectOperatorText` must reconstruct the full
+    // operator text from either the redirect node or any of its children.
+    describe('getRedirectOperatorText', () => {
+      const operatorText = (input: string): string | null => {
+        const { rootNode } = parser.parse(input);
+        const redirect = getChildNodes(rootNode).find(NodeTypes.isRedirect);
+        return redirect ? NodeTypes.getRedirectOperatorText(redirect) : null;
+      };
+
+      it('resolves `<?` from a file_redirect with separate direction + word(?)', () => {
+        expect(operatorText('string split : <? $path_file')).toBe('<?');
+        expect(operatorText('cat <? foo.txt')).toBe('<?');
+      });
+
+      it('resolves operator text for ordinary redirects', () => {
+        expect(operatorText('cat < foo.txt')).toBe('<');
+        expect(operatorText('echo > foo.txt')).toBe('>');
+        expect(operatorText('echo >? foo.txt')).toBe('>?');
+        expect(operatorText('echo >> foo.txt')).toBe('>>');
+        expect(operatorText('cmd >&2')).toBe('>&2');
+      });
+
+      it('returns the operator when called on a child of the redirect', () => {
+        const { rootNode } = parser.parse('cat <? foo.txt');
+        // The `direction('<')` child — naive `node.text` would give `<`.
+        const direction = getChildNodes(rootNode).find(
+          (n) => n.type === 'direction' && n.text === '<',
+        );
+        expect(direction).toBeDefined();
+        expect(NodeTypes.getRedirectOperatorText(direction!)).toBe('<?');
+      });
+
+      it('the resolved `<?` text matches the `<?` prebuilt pipe doc', () => {
+        const text = operatorText('cat <? foo.txt');
+        expect(text).toBe('<?');
+        const docs = PrebuiltDocumentationMap.getByType('pipe').find((d) => d.name === text);
+        expect(docs).toBeDefined();
+        expect(docs!.description).toMatch(/dev\/null/);
+      });
+    });
   });
 });

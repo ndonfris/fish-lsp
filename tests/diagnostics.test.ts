@@ -3,7 +3,7 @@ import { homedir } from 'os';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode, Tree } from 'web-tree-sitter';
 import { findChildNodes, getChildNodes, getNodeAtRange, nodesGen } from '../src/utils/tree-sitter';
-import { Diagnostic, DiagnosticSeverity, InitializedParams, InitializeParams, TextDocumentItem } from 'vscode-languageserver';
+import { Diagnostic, DiagnosticSeverity, InitializeParams, TextDocumentItem } from 'vscode-languageserver';
 import { initializeParser } from '../src/parser';
 import { ErrorCodes } from '../src/diagnostics/error-codes';
 // import { fishNoExecuteDiagnostic } from '../src/diagnostics/no-execute-diagnostic';
@@ -11,7 +11,7 @@ import { isCommand, isComment, isDefinitionName } from '../src/utils/node-types'
 // import { ScopeStack, isReference } from '../src/diagnostics/scope';
 import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isArgparseWithoutEndStdin } from '../src/diagnostics/node-types';
 import { LspDocument } from '../src/document';
-import { createFakeLspDocument, setLogger, fail, createMockConnection } from './helpers';
+import { createFakeLspDocument, setLogger, createMockConnection } from './helpers';
 import { getDiagnosticsAsync } from '../src/diagnostics/validate';
 import { DiagnosticComment, DiagnosticCommentsHandler, isDiagnosticComment, parseDiagnosticComment } from '../src/diagnostics/comments-handler';
 import { withTempFishFile } from './temp';
@@ -22,14 +22,11 @@ import { analyzer, Analyzer } from '../src/analyze';
 import { config } from '../src/config';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { logger } from '../src/logger';
-import { testOpenDocument } from './document-test-helpers';
-import { PrebuiltDocumentationMap } from '../src/utils/snippets';
-import { CompletionItemMap } from '../src/utils/completion/startup-cache';
-import { Server } from 'http';
 import FishServer from '../src/server';
-import { connection, startServer } from '../src/utils/startup';
+import { connection } from '../src/utils/startup';
 import TestWorkspace from './test-workspace-utils';
 import { FishSymbol } from '../src/parsing/symbol';
+import { fail } from 'assert';
 // import { isFunctionDefinitionName, isFunctionVariableDefinitionName } from '../src/parsing/function';
 // import TestWorkspace from './test-workspace-utils';
 // import { isArgparseVariableDefinitionName } from '../src/parsing/argparse';
@@ -1230,6 +1227,42 @@ function foo
       expect(mapped).not.toContainEqual({ code: 4004, text: 'bb' });
       expect(mapped).not.toContainEqual({ code: 4004, text: 'b_' });
       expect(mapped).not.toContainEqual({ code: 4004, text: 'bx' });
+    });
+
+    // Regression: `alias foo=ref_cmd` (unquoted `=` form) was not counted as a
+    // reference to the local `ref_cmd` function, so it was reported unused.
+    // The quoted form `alias foo='ref_cmd'` already worked because the value
+    // arrives as a string node and the reference-candidate path indexes the
+    // commands extracted from string content.
+    it('VALIDATE: unquoted `alias foo=ref_cmd` counts as a reference to `ref_cmd`', async () => {
+      const input = [
+        '# @fish-lsp-disable 2002',
+        'function ref_cmd; end',
+        'alias foo=ref_cmd',
+      ].join('\n');
+      const { root, document } = analyzer.ensureCachedDocument(
+        createFakeLspDocument('file:///tmp/test-unquoted-alias-ref.fish', input),
+      ).ensureParsed();
+      const diagnostics = await getDiagnosticsAsync(root, document);
+      const mapped = diagnostics.map(mapDiagnostics);
+
+      expect(mapped).not.toContainEqual({ code: 4004, text: 'ref_cmd' });
+    });
+
+    // Sanity check companion: the quoted form should already be fine.
+    it('VALIDATE: quoted `alias foo=\'ref_cmd\'` counts as a reference', async () => {
+      const input = [
+        '# @fish-lsp-disable 2002',
+        'function ref_cmd; end',
+        "alias foo='ref_cmd'",
+      ].join('\n');
+      const { root, document } = analyzer.ensureCachedDocument(
+        createFakeLspDocument('file:///tmp/test-quoted-alias-ref.fish', input),
+      ).ensureParsed();
+      const diagnostics = await getDiagnosticsAsync(root, document);
+      const mapped = diagnostics.map(mapDiagnostics);
+
+      expect(mapped).not.toContainEqual({ code: 4004, text: 'ref_cmd' });
     });
 
     it('VALIDATE: variable values should not suppress unknown command diagnostics', async () => {

@@ -20,6 +20,10 @@
     "description": "To write standard input from a file, use <SOURCE_FILE"
   },
   {
+    "name": "<?",
+    "description": "To read standard input from a file or /dev/null if it can’t be read, use <?SOURCE_FILE"
+  },
+  {
     "name": ">?",
     "description": "To not overwrite (“clobber”) an existing file, use >?DESTINATION or 2>?DESTINATION. This is known as the “noclobber” redirection."
   },
@@ -46,6 +50,10 @@
   {
     "name": "&>",
     "description": "the redirection &> can be used to direct both stdout and stderr to the same destination"
+  },
+  {
+    "name": "&>>",
+    "description": "use &>> to append both stdout and stderr to the same destination"
   },
   {
     "name": "2>|",

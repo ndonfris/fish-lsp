@@ -21,7 +21,7 @@ import { CompletionPager, initializeCompletionPager, isInVariableExpansionContex
 import { FishCompletionList } from './utils/completion/list';
 import { resolveCompletionItemDocumentation } from './utils/completion/resolve-item';
 import { PrebuiltDocumentationMap, formatPrebuiltDocMarkdown } from './utils/snippets';
-import { findParent, findParentCommand, isAliasDefinitionName, isBraceExpansion, isCommand, isCommandName, isConcatenatedValue, isConcatenation, isEndStdinCharacter, isOption, isPathNode, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
+import { findParent, findParentCommand, getRedirectOperatorText, isAliasDefinitionName, isBraceExpansion, isCommand, isCommandName, isConcatenatedValue, isConcatenation, isEndStdinCharacter, isOption, isPathNode, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
 import { config, Config } from './config';
 import { enrichToMarkdown, handleBraceExpansionHover, handleEndStdinHover, handleSourceArgumentHover } from './documentation';
 import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getDefaultSignatures, getFunctionSignatureHelp, isRegexStringSignature } from './signature';
@@ -908,10 +908,11 @@ export default class FishServer {
     const { kindType, kindString } = symbolKindsFromNode(current);
     logger.log({ currentText: current.text, currentType: current.type, symbolKind: kindString });
 
+    const pipeLookupText = getRedirectOperatorText(current) ?? current.text;
     const prebuiltSkipType = [
       ...PrebuiltDocumentationMap.getByType('pipe'),
       ...isReturnStatusNumber(current) ? PrebuiltDocumentationMap.getByType('status') : [],
-    ].find(obj => obj.name === current.text);
+    ].find(obj => obj.name === pipeLookupText);
 
     // documentation for prebuilt variables without definition's
     // including $status, $pipestatus, $fish_pid, etc.

@@ -226,6 +226,12 @@ const Pipes: FishCompletionItem[] = [
     documentation: 'To read standard input from a file, use <SOURCE_FILE',
   },
   {
+    label: '<?',
+    detail: 'READ <?SOURCE_FILE # if exists',
+    insertText: '<?',
+    documentation: 'To read standard input from a file or /dev/null if it can’t be read, use <?SOURCE_FILE',
+  },
+  {
     label: '>',
     detail: 'WRITE >DESTINATION',
     insertText: '>',
@@ -290,6 +296,12 @@ const Pipes: FishCompletionItem[] = [
     detail: 'STDOUT_AND_STDERR &>',
     insertText: '&>',
     documentation: 'the redirection &> can be used to direct both stdout and stderr to the same destination',
+  },
+  {
+    label: '&>>',
+    detail: 'STDOUT_AND_STDERR &>> APPEND_DESTINATION',
+    insertText: '&>>',
+    documentation: 'Use &>> to append both stdout and stderr to the same destination.',
   },
   {
     label: '&|',
