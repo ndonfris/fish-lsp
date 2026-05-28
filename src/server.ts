@@ -36,7 +36,7 @@ import { setupProcessEnvExecFile } from './utils/process-env';
 import { flattenNested } from './utils/flatten';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { isSourceCommandArgumentName } from './parsing/source';
-import { getIncrementalRenames } from './renames';
+import { getRenames } from './renames';
 import { getReferenceCountCodeLenses } from './code-lens';
 import { getSelectionRanges } from './selection-range';
 import { PkgJson } from './utils/commander-cli-subcommands';
@@ -993,7 +993,49 @@ export default class FishServer {
      * We don't return the `{ defaultBehavior: true }` PrepareRenameResult possible return value
      * because certain clients (e.g., coc.nvim don't support it and will incorrectly treat is as a failed prepareRename response)
      */
+    // For argparse symbols, expose the flag name (e.g. `name`) rather than the
+    // `_flag_name` variable form. The rename pipeline (see `fixNewText` /
+    // `buildRenameLocations` in `src/renames.ts`) already normalizes user
+    // input across the `_flag_x` / `--x` / `x` forms, so `name` is the
+    // canonical placeholder. We also recompute the range from the cursor's
+    // token so the editor highlights the renameable portion of the token at
+    // the click site (e.g. just `name` inside `--name=` or `_flag_name`),
+    // rather than always pointing back at the `argparse` definition line.
+    if (definition.fishKind === 'ARGPARSE') {
+      const range = this.computeArgparseRenameRange(doc, params.position)
+        ?? definition.selectionRange;
+      return { range, placeholder: definition.argparseFlagName };
+    }
     return { range: definition.selectionRange, placeholder: definition.name };
+  }
+
+  private computeArgparseRenameRange(doc: LspDocument, position: LSP.Position): LSP.Range | null {
+    const node = analyzer.nodeAtPoint(doc.uri, position.line, position.character);
+    if (!node) return null;
+    const text = node.text;
+    const startCol = node.startPosition.column;
+    const line = node.startPosition.row;
+    // `_flag_name` — trim the `_flag_` prefix.
+    if (text.startsWith('_flag_')) {
+      return {
+        start: { line, character: startCol + '_flag_'.length },
+        end: { line, character: startCol + text.length },
+      };
+    }
+    // `--name` or `--name=value` — trim leading dashes and clip at `=`.
+    if (text.startsWith('-')) {
+      let dashCount = 0;
+      while (dashCount < text.length && text[dashCount] === '-') {
+        dashCount += 1;
+      }
+      const eqIdx = text.indexOf('=');
+      const endOffset = eqIdx > 0 ? eqIdx : text.length;
+      return {
+        start: { line, character: startCol + dashCount },
+        end: { line, character: startCol + endOffset },
+      };
+    }
+    return null;
   }
 
   async onRename(params: RenameParams, token?: CancellationToken): Promise<WorkspaceEdit | null> {
@@ -1026,55 +1068,16 @@ export default class FishServer {
       this.throwResponseError('The symbol at the given position cannot be renamed');
     }
 
-    const progress = await connection.window.createWorkDoneProgress();
-    progress.begin('[fish-lsp] renaming symbol', 0, 'Resolving symbol...', true);
-    await new Promise(resolve => setImmediate(resolve));
-    try {
-      const references = analyzer.getReferences(
-        doc,
-        params.position,
-        { reporter: progress },
-      );
-      if (token?.isCancellationRequested) return null;
+    const locations = getRenames(doc, params.position, params.newName);
+    if (token?.isCancellationRequested) return null;
 
-      const locations = await getIncrementalRenames(
-        doc,
-        params.position,
-        params.newName,
-        {
-          symbol: definition,
-          references,
-        },
-      );
-      if (token?.isCancellationRequested) return null;
-
-      const changes: { [uri: string]: TextEdit[]; } = {};
-      for (let index = 0; index < locations.length; index++) {
-        if (token?.isCancellationRequested) return null;
-        const location = locations[index]!;
-        const range = location.range;
-        const uri = location.uri;
-        const edits = changes[uri] || [];
-        edits.push(TextEdit.replace(range, location.newText));
-        changes[uri] = edits;
-
-        if (locations.length > 1) {
-          const prog = Math.ceil((index + 1) / locations.length * 100);
-          progress.report(prog, `Building edits ${index + 1}/${locations.length}`);
-          if ((index + 1) % 50 === 0 || index === 0) {
-            await new Promise(resolve => setImmediate(resolve));
-          }
-        }
-      }
-
-      progress.report(100, `Prepared ${locations.length} edit${locations.length === 1 ? '' : 's'}`);
-      const workspaceEdit: WorkspaceEdit = {
-        changes,
-      };
-      return workspaceEdit;
-    } finally {
-      progress.done();
+    const changes: { [uri: string]: TextEdit[]; } = {};
+    for (const location of locations) {
+      const edits = changes[location.uri] || [];
+      edits.push(TextEdit.replace(location.range, location.newText));
+      changes[location.uri] = edits;
     }
+    return { changes };
   }
 
   async onDocumentFormatting(params: DocumentFormattingParams): Promise<TextEdit[]> {

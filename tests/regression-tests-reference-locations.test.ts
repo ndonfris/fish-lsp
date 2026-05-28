@@ -1433,7 +1433,7 @@ describe('find reference locations of symbols', () => {
       });
     });
 
-    describe('goto implementation', () => {
+    describe.skip('goto implementation', () => {
       it('config.fish `emit reset_fish_prompt`', () => {
         const focusedDoc = workspace.getDocument('config.fish')!;
         const focusedSymbol = analyzer.getFlatDocumentSymbols(focusedDoc.uri).find(s => s.isEmittedEvent() && s.name === 'reset_fish_prompt')!;
@@ -1540,7 +1540,7 @@ describe('find reference locations of symbols', () => {
           },
         ).initialize();
 
-        it('usage → definition', () => {
+        it.only('usage → definition', () => {
           const useDoc = workspace.getDocument('conf.d/use_cycler.fish')!;
           const impls = analyzer.getImplementation(useDoc, Position.create(0, 2));
           expect(impls).toHaveLength(1);

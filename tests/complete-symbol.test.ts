@@ -1,5 +1,5 @@
 import { initializeParser } from '../src/parser';
-import { setLogger, locationAsString, fakeDocumentTrimUri } from './helpers';
+import { setLogger, locationAsString, fakeDocumentTrimUri, matchLocation } from './helpers';
 // import { isLongOption, isOption, isShortOption, NodeOptionQueryText } from '../src/utils/node-types';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
@@ -171,39 +171,49 @@ describe('parsing symbols', () => {
           'conf.d/baz.fish',
         ].includes(uri)).toBeTruthy();
       }
-      expect(
-        refLocations.map(l => {
-          const doc = analyzer.getDocument(l.uri)!;
-          return {
-            uri: fakeDocumentTrimUri(doc),
-            range: l.range,
-            text: analyzer.getTextAtLocation(l),
-          };
-        }).every((location) => {
-          return [
-            {
-              uri: 'functions/foo.fish',
-              range: Range.create(1, 18, 1, 22),
-              text: 'help',
-            },
-            {
-              uri: 'completions/foo.fish',
-              range: Range.create(1, 24, 1, 28),
-              text: 'help',
-            },
-            {
-              uri: 'conf.d/baz.fish',
-              range: Range.create(11, 11, 11, 16),
-              text: 'help',
-            },
-          ].some(loc => loc.uri === location.uri &&
-            loc.range.start.line === location.range.start.line &&
-            loc.range.start.character === location.range.start.character &&
-            loc.range.end.line === location.range.end.line &&
-            loc.range.end.character === location.range.end.character &&
-            loc.text === location.text);
-        }),
-      ).toBeTruthy();
+      const refMap = refLocations.map(l => {
+        const doc = analyzer.getDocument(l.uri)!;
+        return {
+          uri: fakeDocumentTrimUri(doc),
+          range: l.range,
+          text: analyzer.getTextAtLocation(l),
+        };
+      });
+      const matchLocations = [
+        {
+          uri: 'functions/foo.fish',
+          range: {
+            start: { line: 1, character: 18 },
+            end: { line: 1, character: 22 },
+          },
+          text: 'help',
+        },
+        {
+          uri: 'completions/foo.fish',
+          range: {
+            start: { line: 1, character: 24 },
+            end: { line: 1, character: 28 },
+          },
+          text: 'help',
+        },
+        {
+          uri: 'conf.d/baz.fish',
+          range: {
+            start: { line: 11, character: 11 },
+            end: { line: 11, character: 15 },
+          },
+          text: 'help',
+        },
+      ];
+      for (let i = 0; i < refMap.length; i++) {
+        const ref = refMap[i];
+        const match = matchLocations[i];
+        if (!match || !ref) fail();
+        expect(ref.uri.endsWith(match.uri)).toBeTruthy();
+        expect(ref.range).toEqual(match.range);
+        expect(ref.text).toBe(match.text);
+        expect(matchLocations[i]);
+      }
     });
 
     it.skip('argparse simple => `argparse h/help -- $argv` -> `complete -c foo -l help`', () => {

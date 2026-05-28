@@ -1,6 +1,6 @@
 import { analyzer, Analyzer } from '../src/analyze';
 import { workspaceManager } from '../src/utils/workspace-manager';
-import { createFakeLspDocument, expectFoundLocationsToEqualMatchLocations, matchLocation, printLocations, setLogger } from './helpers';
+import { createFakeLspDocument, expectFoundLocationsToEqualMatchLocations, matchLocation, printLocations, rangeAsString, setLogger, toMatchLocations } from './helpers';
 import { getChildNodes, getRange, pointToPosition } from '../src/utils/tree-sitter';
 import { isCompletionCommandDefinition } from '../src/parsing/complete';
 import { isArgumentThatCanContainCommandCalls, isCommand, isCommandWithName, isDefinitionName, isEndStdinCharacter, isOption, isString, isVariable, isVariableDefinitionName } from '../src/utils/node-types';
@@ -9,7 +9,7 @@ import { getRenames } from '../src/renames';
 import { Position, Location } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../src/document';
-import { filterFirstPerScopeSymbol } from '../src/parsing/symbol';
+import { filterFirstPerScopeSymbol, FishSymbol } from '../src/parsing/symbol';
 import { isMatchingOptionValue } from '../src/parsing/options';
 import { Option } from '../src/parsing/options';
 import { extractCommands, extractMatchingCommandLocations } from '../src/parsing/nested-strings';
@@ -20,6 +20,7 @@ import { logger } from '../src/logger';
 import { fail } from 'assert';
 import { FunctionParser } from '../src/parsing/barrel';
 import { isAliasDefinitionName } from '../src/parsing/alias';
+import { ImplementationCanididate } from '../src/implementation';
 
 beforeEach(() => {
   logger.setSilent(); // pass in `false` to enable logs
@@ -844,7 +845,7 @@ describe('find reference locations of symbols', () => {
         });
       }
       const builtinRefs = analyzer.getReferences(searchDoc, getRange(found).start);
-      console.log('builtinRefs', builtinRefs.length);
+      // console.log('builtinRefs', builtinRefs.length);
       printLocations(builtinRefs, {
         showText: true,
         showLineText: true,
@@ -1397,6 +1398,12 @@ describe('find reference locations of symbols', () => {
         const focusedDoc = workspace.getDocument('functions/custom_fish_prompt.fish')!;
         const focusedSymbol = analyzer.getFlatDocumentSymbols(focusedDoc.uri).find(s => s.isEventHook() && s.name === 'reset_fish_prompt')!;
         const impls = analyzer.getImplementation(focusedDoc, focusedSymbol.toPosition());
+        // printLocations(impls, {
+        //   showIndex: true,
+        //   showText: true,
+        //   showLineText: true,
+        //   verbose: true,
+        // });
         expect(impls).toHaveLength(1);
       });
 
@@ -1424,21 +1431,22 @@ describe('find reference locations of symbols', () => {
         ].join('\n'));
 
         analyzer.analyze(focusedDoc);
-        const impls = analyzer.getImplementation(focusedDoc, Position.create(0, 10));
-        // impls
-        // .map(({ uri, range }) => ({ uri, range, text: analyzer.getDocument(uri)?.getText(range) }))
-        // .forEach(impl => {
-        //   console.log({
-        //     uri: impl.uri,
-        //     range: rangeAsString(impl.range),
-        //     text: impl.text,
-        //   });
-        // })
-        const matchLocations = [
-          matchLocation('/tmp/test-alias-implementation-cycle.fish', 0, 9),
-          matchLocation('/tmp/test-alias-implementation-cycle.fish', 3, 10),
-        ];
-        expectFoundLocationsToEqualMatchLocations(impls, matchLocations);
+        [
+          {
+            impls: analyzer.getImplementation(focusedDoc, Position.create(0, 10)),
+            matchImpls: [
+              matchLocation('/tmp/test-alias-implementation-cycle.fish', 3, 10),
+            ],
+          },
+          {
+            impls: analyzer.getImplementation(focusedDoc, Position.create(3, 10)),
+            matchImpls: [
+              matchLocation('/tmp/test-alias-implementation-cycle.fish', 0, 10),
+            ],
+          },
+        ].forEach(({ impls, matchImpls }) => {
+          expectFoundLocationsToEqualMatchLocations(impls, matchImpls);
+        });
       });
     });
   });
@@ -1512,11 +1520,11 @@ describe('find reference locations of symbols', () => {
       expect(doc).toBeDefined();
       const focusedSymbol = analyzer.getFlatDocumentSymbols(doc.uri).find(s => s.name === 'test_var' && s.parent?.name === 'local_test_var')!;
       // console.log('focusedSymbol', focusedSymbol.toString());
-      const def = analyzer.getDefinition(doc, focusedSymbol.toPosition());
+      // const def = analyzer.getDefinition(doc, focusedSymbol.toPosition());
       // console.log('definition', def?.toString());
 
       const refs = analyzer.getReferences(doc, focusedSymbol.toPosition());
-      const matchSymbols = refs.map(loc => analyzer.getSymbolAtLocation(loc));
+      // const matchSymbols = refs.map(loc => analyzer.getSymbolAtLocation(loc));
       // console.log('matchSymbols', matchSymbols.map(s => s?.toString()));
       // printLocations(refs, {
       //   showText: true,
@@ -1531,11 +1539,11 @@ describe('find reference locations of symbols', () => {
       expect(doc).toBeDefined();
       const focusedSymbol = analyzer.getFlatDocumentSymbols(doc.uri).find(s => s.name === 'test_var' && s.parent?.name === 'local_test_var')!;
       // console.log('focusedSymbol', focusedSymbol.toString());
-      const def = analyzer.getDefinition(doc, focusedSymbol.toPosition());
+      // const def = analyzer.getDefinition(doc, focusedSymbol.toPosition());
       // console.log('definition', def?.toString());
 
       const refs = analyzer.getReferences(doc, focusedSymbol.toPosition(), { localOnly: true });
-      const matchSymbols = refs.map(loc => analyzer.getSymbolAtLocation(loc));
+      // const matchSymbols = refs.map(loc => analyzer.getSymbolAtLocation(loc));
       // console.log('matchSymbols', matchSymbols.map(s => s?.toString()));
       // printLocations(refs, {
       //   showText: true,
@@ -1679,6 +1687,57 @@ describe('find reference locations of symbols', () => {
         matchLocation('config.fish', 1, 10), // `ref_cmd` half of `foo=ref_cmd`
       ];
       expectFoundLocationsToEqualMatchLocations(refs, matchLocations);
+    });
+  });
+
+  describe('argparse symbol', () => {
+    const testWorkspace = TestWorkspace.create().addFiles({
+      relativePath: 'playground.fish',
+      content: [
+        'function greet -d "Greet someone by name"',          // 0
+        "    argparse 'n/name=' -- $argv",                    // 1
+        '    or return 1',                                    // 2
+        '',                                                   // 3
+        '    not set -ql _flag_name',                         // 4
+        '    and set _flag_name "world"',                     // 5
+        '',                                                   // 6
+        '    echo "Hello, $_flag_name!"',                     // 7
+        'end',                                                // 8
+        '',                                                   // 9
+        'greet --name="fish-lsp user"',                       // 10  bug case
+        'greet --name "fish-lsp user"',                       // 11  works
+      ].join('\n'),
+    }).initialize();
+
+    it('--name= vs --name', () => {
+      const doc = testWorkspace.getDocument('playground.fish')!;
+      const focused = analyzer.getNodes(doc.uri).filter(node => {
+        return node.type === 'word' && node.text.startsWith('--name');
+      });
+      expect(focused).toHaveLength(2);
+
+      const defs: FishSymbol[] = [];
+      for (const node of focused) {
+        const def = analyzer.getDefinition(doc, pointToPosition(node.startPosition));
+        if (def) defs.push(def);
+      }
+      expect(defs).toHaveLength(2);
+
+      const matchLocations = [
+        matchLocation('playground.fish', 1, 16),
+        matchLocation('playground.fish', 4, 16),
+        matchLocation('playground.fish', 5, 12),
+        matchLocation('playground.fish', 7, 18),
+        matchLocation('playground.fish', 10, 8),
+        matchLocation('playground.fish', 11, 8),
+      ];
+
+      for (const def of defs) {
+        const refs = analyzer.getReferences(doc, def.selectionRange.start);
+        // console.log(`refs for def ${def.toString()}:`, refs.map(r => rangeAsString(r.range)).join(', '));
+        expect(refs).toHaveLength(6);
+        expectFoundLocationsToEqualMatchLocations(refs, matchLocations);
+      }
     });
   });
 });

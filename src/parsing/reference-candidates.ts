@@ -261,9 +261,32 @@ function rangeFromNode(node: SyntaxNode): Range {
 // individually, and `alias`/`bind`/`complete -n` extract the command within the string).
 export function getLocationWrapper(symbol: FishSymbol, node: SyntaxNode, uri: DocumentUri): Location[] {
   if (symbol.fishKind === 'ARGPARSE' && isOption(node)) {
-    const range = getRange(node);
-    range.start.character += getLeadingDashCount(node.text);
-    range.end.character += 1;
+    // For `--flag="value"`, tree-sitter wraps the flag + string in a
+    // `concatenation` whose first child is the `--flag=` word. The
+    // concatenation's text starts with `--`, so `isOption` matches it — but
+    // its range covers the entire `--flag="value"`. Descend to the inner
+    // option-shaped child so the location reports just the flag itself.
+    let optionNode: SyntaxNode = node;
+    if (node.type === 'concatenation') {
+      const inner = node.namedChildren.find(c => c.text.startsWith('-'));
+      if (inner) optionNode = inner;
+    }
+    const range = getRange(optionNode);
+    const text = optionNode.text;
+    const eqIdx = text.indexOf('=');
+    range.start.character += getLeadingDashCount(text);
+    if (eqIdx > 0) {
+      // `--name=` (or `--name=value` single-word) — clip the range at the
+      // `=` so it only covers the flag name, not the attached value.
+      range.end = {
+        line: range.start.line,
+        character: optionNode.startPosition.column + eqIdx,
+      };
+    }
+    // For `--name` (no `=`), the node range already ends at the last char
+    // of the flag name — `getRange` returns half-open [start, end), so the
+    // range covers exactly `name`. (The old `+= 1` was an off-by-one that
+    // ate the trailing space during rename of the space-form usage.)
     return [Locations.Location.create(uri, range)];
   }
   if (isAliasDefinitionValue(node) || isBindCall(symbol, node) || isCompleteConditionCall(symbol, node)) {

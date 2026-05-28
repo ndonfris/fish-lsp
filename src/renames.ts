@@ -1,9 +1,9 @@
 import { analyzer, Analyzer } from './analyze';
-import { Location, Position, Range, WorkDoneProgressReporter } from 'vscode-languageserver';
+import { Location, Position, Range } from 'vscode-languageserver';
 import { LspDocument } from './document';
 import { FishSymbol } from './parsing/symbol';
 import { logger } from './logger';
-import { config } from './config';
+// import { config } from './config';
 
 export type FishRenameLocationType = 'variable' | 'function' | 'command' | 'argparse' | 'flag';
 
@@ -14,45 +14,22 @@ export interface FishRenameLocation {
   newText: string;
 }
 
-type RenameOptions = {
-  symbol?: FishSymbol;
-  references?: Location[];
-};
-
-type IncrementalRenameOptions = RenameOptions & {
-  reporter?: WorkDoneProgressReporter;
-};
+// type RenameOptions = {
+//   symbol?: FishSymbol;
+//   references?: Location[];
+// };
 
 export function getRenames(
   doc: LspDocument,
   position: Position,
   newText: string,
-  opts: RenameOptions = {},
+  // opts: RenameOptions = {},
 ): FishRenameLocation[] {
-  const symbol = opts.symbol ?? analyzer.getDefinition(doc, position);
+  const symbol = analyzer.getDefinition(doc, position);
   if (!symbol || !newText) return [];
   if (!canRenameWithNewText(analyzer, doc, position, newText)) return [];
   newText = fixNewText(symbol, position, newText);
-  const locs = opts.references ?? analyzer.getReferences(doc, position, {
-    allWorkspaces: !config.fish_lsp_single_workspace_support,
-  });
-  return buildRenameLocations(symbol, locs, newText);
-}
-
-export async function getIncrementalRenames(
-  doc: LspDocument,
-  position: Position,
-  newText: string,
-  opts: IncrementalRenameOptions = {},
-): Promise<FishRenameLocation[]> {
-  const symbol = opts.symbol ?? analyzer.getDefinition(doc, position);
-  if (!symbol || !newText) return [];
-  if (!canRenameWithNewText(analyzer, doc, position, newText)) return [];
-  newText = fixNewText(symbol, position, newText);
-  const locs = opts.references ?? analyzer.getReferences(doc, position, {
-    reporter: opts.reporter,
-    allWorkspaces: !config.fish_lsp_single_workspace_support,
-  });
+  const locs = analyzer.getReferences(doc, position);
   return buildRenameLocations(symbol, locs, newText);
 }
 
@@ -150,6 +127,14 @@ function canRenameWithNewText(analyzer: Analyzer, doc: LspDocument, position: Po
     oldText,
     newText,
   });
+  // For argparse symbols, the rename pipeline (`fixNewText` +
+  // `buildRenameLocations` below) normalizes any input form — bare `name`,
+  // `--name`, `_flag_name` — and applies the right per-site transformation.
+  // So we don't need the cursor's flag form to match the new text's flag
+  // form; rejecting bare names from a `--name`/`_flag_name` cursor (the old
+  // behavior) just blocked the legitimate cases.
+  const symbol = analyzer.getDefinition(doc, position);
+  if (symbol?.fishKind === 'ARGPARSE') return true;
   if (oldText && isFlag(oldText) && !isEqualFlags(oldText, newText)) return false;
   return true;
 }

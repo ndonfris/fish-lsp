@@ -446,8 +446,8 @@ complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_o
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt dump-symbol-tree; and not __fish_contains_opt no-icons'         -l no-icons        -d 'use plain text tags (f/v/e) instead of nerdfont icons'
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt no-icons; and not __fish_contains_opt dump-symbol-tree'         -l dump-symbol-tree -d 'dump the symbol tree of a file'               -k -xa '(__fish_complete_suffix "*.fish" --description="path to show symbol tree" | string match -rei -- ".*\\.fish|.*/")'
 complete -c fish-lsp -n '__fish_lsp_info_complete_opt short'                                                                                       -l short           -d 'show "short" info (alias of "--bin --build-time --version --log-file")'
-complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_lsp_last_switch --short;'                                                    -l json            -d 'output "--short" info as json'
-complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_lsp_last_switch --short;'                                                    -l no-color        -d 'do not colorize the output of "--short"'
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt short; and not __fish_contains_opt json'                        -l json            -d 'output "--short" info as json'
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt short; and not __fish_contains_opt no-color'                    -l no-color        -d 'do not colorize the output of "--short"'
 `;
 
 const envCompletions: string = `## fish-lsp env --<TAB>

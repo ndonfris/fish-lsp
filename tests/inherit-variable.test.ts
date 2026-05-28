@@ -1,5 +1,5 @@
 import { initializeParser } from '../src/parser';
-import { setLogger } from './helpers';
+import { printLocations, setLogger } from './helpers';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { analyzer, Analyzer } from '../src/analyze';
 import { getRenames } from '../src/renames';

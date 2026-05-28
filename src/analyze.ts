@@ -36,6 +36,7 @@ import { buildScopeSpans, isNodeExcluded, ScopeSpan } from './utils/skippable-sc
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { FishServer } from './server'; // @ts-ignore
 import { captureNameAtPosition } from './parsing/string-regex';
+import { getImplementationLocations } from './implementation';
 
 /*************************************************************/
 
@@ -912,7 +913,11 @@ export class Analyzer {
         || isPositionWithinRange(position, s.selectionRange);
     });
     if (localSymbol) {
-      symbols.push(localSymbol);
+      // A `set _flag_*` after `argparse 'n/name=' -- $argv` is a write to the
+      // same variable argparse defined — treat it as the argparse symbol so
+      // rename/refs cover the full identifier (def + `--flag` call sites +
+      // every `_flag_*` read).
+      symbols.push(localSymbol.canonicalArgparseRedefinition());
     } else {
       const toAdd: FishSymbol[] = localNamedSymbols.filter((s) => {
         const variableBefore = s.kind === SymbolKind.Variable ? precedesRange(s.selectionRange, getRange(node)) : true;
@@ -923,7 +928,7 @@ export class Analyzer {
           && inLifetime
         );
       });
-      symbols.push(...toAdd);
+      symbols.push(...toAdd.map(s => s.canonicalArgparseRedefinition()));
     }
 
     // If no local symbols found but we're inside a --no-scope-shadowing function,
@@ -1036,11 +1041,18 @@ export class Analyzer {
       // the call site is in the same document as the function definition —
       // otherwise non-autoloaded scripts (e.g. `/tmp/foo.fish`) couldn't
       // navigate from a `greet --name` call to greet's `argparse n/name`.
+      // Use `findParentCommand` rather than `node.parent` because tree-sitter
+      // wraps `--flag="value"` in a `concatenation` node — so `node.parent`
+      // would be that concatenation, not the enclosing `command`.
+      const enclosingCommandName = getCommandNameText(findParentCommand(node));
+      const flagText = node.text.includes('=')
+        ? node.text.slice(0, node.text.indexOf('='))
+        : node.text;
       const symbol = this.findSymbol((s) => {
         if (s.parent && s.fishKind === 'ARGPARSE') {
-          return getCommandNameText(node.parent) === s.parent?.name &&
+          return enclosingCommandName === s.parent?.name &&
             (s.parent.isGlobal() || s.parent.uri === document.uri) &&
-            node.text.startsWith(s.argparseFlag);
+            flagText === s.argparseFlag;
         }
         return false;
       });
@@ -1376,9 +1388,6 @@ export class Analyzer {
       return [symbol.toLocation()];
     }
 
-    const notAtCursor = (loc: Location): boolean =>
-      loc.uri !== document.uri || !isPositionWithinRange(position, loc.range);
-
     // --no-scope-shadowing function definition cycles to a call site (any
     // reference that isn't the definition itself). The plain cycle would stop
     // at the definition because no `complete -c` entry typically exists for
@@ -1390,96 +1399,90 @@ export class Analyzer {
       if (callSites.length > 0) return callSites;
     }
 
-    // Variables shared via --no-scope-shadowing cross function boundaries.
-    // Bidirectional cycle between the caller's `set var` and the callee's
-    // `$var` reference — neither shows up in the standard cycle because
-    // they live in different scope chains.
-    if (symbol.isVariable()) {
-      const enclosingFunc = findParentFunction(cursorNode);
-      const enclosingFuncName = enclosingFunc?.childForFieldName('name')?.text;
-
-      // From $var inside a --no-scope-shadowing function → caller's definition
-      if (enclosingFuncName && this.symbols.noScopeShadowing.has(enclosingFuncName)) {
-        const enclosingFuncSymbol = this.getEnclosingFunctionSymbol(document.uri, cursorNode);
-        if (!enclosingFuncSymbol || this.isFunctionVisibleFrom(enclosingFuncSymbol, symbol.parent, document.uri)) {
-          if (symbol.parent?.name !== enclosingFuncName) {
-            return [symbol.toLocation()];
-          }
-        }
-      }
-
-      // From caller's `set var` → $var usage inside a --no-scope-shadowing callee
-      if (symbol.parent?.isFunction() && !symbol.parent.isFunctionWithNoScopeShadowing()) {
-        const allRefs = this.getReferences(document, position);
-        const calleeRefs = allRefs.filter(loc => {
-          if (loc.uri !== document.uri) return false;
-          const refNode = this.nodeAtPoint(loc.uri, loc.range.start.line, loc.range.start.character);
-          if (!refNode) return false;
-          const refFunc = findParentFunction(refNode);
-          const refFuncName = refFunc?.childForFieldName('name')?.text;
-          const refFuncSymbol = refFunc ? this.getEnclosingFunctionSymbol(loc.uri, refNode) : null;
-          return !!(
-            refFuncName
-            && refFuncName !== symbol.parent?.name
-            && refFuncSymbol?.isFunctionWithNoScopeShadowing()
-            && this.isFunctionVisibleFrom(refFuncSymbol, symbol.parent, loc.uri)
-          );
-        });
-        if (calleeRefs.length > 0) return calleeRefs.filter(notAtCursor);
-      }
-    }
+    // Note: the no-scope-shadowing / inherit-variable cross-function cycle
+    // is now handled inside `getImplementationLocations` (src/implementation.ts).
+    // The old short-circuits here would `return` before the new logic could
+    // run, which broke the cursor-on-callee-usage → caller-def direction
+    // (the cursor's own location got filtered, leaving an empty result).
 
     // For globals, collect every same-name same-kind def across the workspace
     // so multi-def cycles return all of them. For locals, only the resolved
     // symbol's own def matters.
-    const allDefs: FishSymbol[] = symbol.isGlobal()
-      ? this.symbols.allSymbolsByName.find(symbol.name).filter(s =>
-        s.isGlobal() && s.kind === symbol.kind,
-      )
-      : [symbol];
-    if (!allDefs.some(s => s.equals(symbol))) allDefs.push(symbol);
+    // const allDefs: FishSymbol[] = symbol.isGlobal()
+    //   ? this.symbols.allSymbolsByName.find(symbol.name).filter(s =>
+    //     s.isGlobal() && s.kind === symbol.kind,
+    //   )
+    //   : [symbol];
+    // if (!allDefs.some(s => s.equals(symbol))) allDefs.push(symbol);
 
-    const candidates = this.referenceCandidates.findForSymbol(symbol);
+    // Filter raw candidates through `isReference` so we drop name-matched
+    // hits that belong to other symbols (e.g. an `argparse 'name=...'` in
+    // an unrelated file: its `_flag_name` shares the candidate name with
+    // ours but lives under a different parent command, so it must not be
+    // surfaced as an "implementation" of our symbol). `excludeEqualNode`
+    // is false here because we want the def's own node to remain in the
 
-    // Classify the cursor by building an ephemeral candidate at the cursor
-    // node and asking it which kind it is. Using FishReferenceCandidate for
-    // the cursor too keeps the classification logic in one place.
-    const cursorCandidate = new FishReferenceCandidate(document, cursorNode, symbol.name);
-    const cursorKind = cursorCandidate.classifyImplementationKind(allDefs);
+    // const candidates = implementationCandidates(document, position)
+    // // candidate set — `classifyImplementationKind` distinguishes it as
+    // // 'definition' and the usage→def cycle relies on that classification.
+    // // Classify the cursor by building an ephemeral candidate at the cursor
+    // // node and asking it which kind it is. Using FishReferenceCandidate for
+    // // the cursor too keeps the classification logic in one place.
+    // // const cursorCandidate = new FishReferenceCandidate(document, cursorNode, symbol.name);
+    // const cursorKind = candidates.find(s => s.uri === document.uri && isPositionWithinRange(position, s.range))?.kind
+    // || 'unknown';
+    // // logger.log('cursor candidate', { cursorKind });
+    // // logger.log('all candidates', candidates.map(c => ImplementationCanididate.toLoggable(c)));
+    //
+    // const isAtCursor = ImplementationCanididate.atLocation(document, position);
+    //
+    // const candidatesOfKind = ImplementationCanididate.ofKind(candidates.filter(c => !isAtCursor(c)));
+    //
+    // const found = implementationCycleLogic(cursorKind)
+    // return found(symbol, candidatesOfKind, document, position);
+    return getImplementationLocations(document, position);
 
-    const isAtCursor = (c: FishReferenceCandidate) =>
-      c.uri === document.uri && c.node.equals(cursorNode);
-    const candidatesOfKind = (kind: 'definition' | 'completion' | 'usage') =>
-      candidates
-        .filter(c => !isAtCursor(c))
-        .filter(c => c.classifyImplementationKind(allDefs) === kind);
-
-    if (cursorKind === 'usage') {
-      const defs = candidatesOfKind('definition');
-      if (defs.length > 0) return defs.map(c => c.toLocation());
-      // Multi-def globals may not all be in the cache; fall back to symbol
-      // table.
-      const allDefLocs = allDefs.map(s => s.toLocation());
-      if (allDefLocs.length > 0) return allDefLocs;
-      return [symbol.toLocation()];
-    }
-
-    if (cursorKind === 'definition') {
-      const completions = candidatesOfKind('completion');
-      if (completions.length > 0) return completions.map(c => c.toLocation());
-      // No completion — fall back to getReferences so the cycle can still
-      // move (e.g., `function bar` + `alias bb 'bar'`: cycle from the def
-      // returns both the def and the alias body usage). When no usages exist
-      // either (a truly lonely function), getReferences returns just the def.
-      return this.getReferences(document, position);
-    }
-
-    // cursorKind === 'completion'
-    const usages = candidatesOfKind('usage');
-    if (usages.length > 0) return usages.map(c => c.toLocation());
-    const allDefLocs = allDefs.map(s => s.toLocation());
-    if (allDefLocs.length > 0) return allDefLocs;
-    return [symbol.toLocation()];
+    // if (cursorKind === 'usage') {
+    //   const completions = candidatesOfKind('completion');
+    //   if (completions.length > 0) return completions.map(c => Locations.Location.create(c.uri, c.range));
+    //   // // Multi-def globals may not all be in the cache; fall back to symbol
+    //   // // table.
+    //   // const allDefLocs = allDefs.map(s => s.toLocation());
+    //   // if (allDefLocs.length > 0) return allDefLocs;
+    //   return [symbol.toLocation()];
+    // }
+    //
+    // if (cursorKind === 'definition') {
+    //   if (symbol.isArgparse() || symbol.isFunction()) {
+    //     const usages = candidatesOfKind('completion');
+    //     if (usages.length > 0) return usages.map(c => Locations.Location.create(c.uri, c.range));
+    //   }
+    //
+    //   const usages = candidatesOfKind('usage');
+    //   if (usages.length > 0) return usages.map(c => Locations.Location.create(c.uri, c.range));
+    //   // No completion — fall back to getReferences so the cycle can still
+    //   // move (e.g., `function bar` + `alias bb 'bar'`: cycle from the def
+    //   // returns both the def and the alias body usage). When no usages exist
+    //   // either (a truly lonely function), getReferences returns just the def.
+    //   return this.getReferences(document, position);
+    // }
+    //
+    // if (cursorKind === 'completion') {
+    //   // const usages = candidatesOfKind('definition');
+    //   // if (usages.length > 0) return usages.map(c => Locations.Location.create(c.uri, c.range));
+    //   // No usage — fall back to getReferences so the cycle can still move
+    //   // (e.g., `alias bb 'bar'` + `function bar`: cycle from the alias body
+    //   // returns both the alias body usage and the def). When no defs exist
+    //   // either (e.g., an alias for an external command), getReferences returns
+    //   // just the completion.
+    //   return [symbol.toLocation()];
+    // }
+    //
+    // const usages = candidatesOfKind('usage');
+    // if (usages.length > 0) return usages.map(c => Locations.Location.create(c.uri, c.range));
+    // const allDefLocs = allDefs.map(s => s.toLocation());
+    // if (allDefLocs.length > 0) return allDefLocs;
+    // return [symbol.toLocation()];
   }
 
   /**

@@ -17,7 +17,6 @@ import { isCommandWithName, isOption } from '../src/utils/node-types';
 import { isArgparseVariableDefinitionName } from '../src/parsing/argparse';
 import { config } from '../src/config';
 import TestWorkspace, { TestFile } from './test-workspace-utils';
-import FishServer from '../src/server';
 
 let parser: Parser;
 // let currentWorkspace: CurrentWorkspace = new CurrentWorkspace();
@@ -300,6 +299,128 @@ describe('find definition locations of symbols', () => {
           && def!.parent?.name === '_foo'
           && !def!.parent?.parent;
         expect(isErasedFooArgv).toBe(false);
+      });
+    });
+
+    // Same shape as above, but the no-scope-shadowing chain is two hops deep:
+    //   nested `_foo` → `_bar -S` → `_baz -S` → `set -la argv 2`.
+    // The erased top-level `_foo` shares a name with the nested `_foo`, so a
+    // by-name caller match would land on the wrong (erased) implicit `argv`.
+    // The walk must use parent-identity, ending at the nearest non-`-S`
+    // ancestor (nested `_foo` at line 8).
+    describe('argv via two-hop -S chain with name-shadowed parent', () => {
+      const SOURCE = [
+        'function _foo',           // 0
+        'end',                     // 1
+        '',                        // 2
+        "alias b='_foo _foo'",     // 3
+        '',                        // 4
+        'functions -e _foo',       // 5
+        '',                        // 6
+        'function main',           // 7
+        '    function _foo',       // 8
+        '        _bar',            // 9
+        '        set --show argv', // 10
+        '',                        // 11
+        '    end',                 // 12
+        '',                        // 13
+        '    function _bar -S',    // 14
+        '        _baz',            // 15
+        '',                        // 16
+        '    end',                 // 17
+        '',                        // 18
+        '    function _baz -S',    // 19
+        '        set -la argv 2',  // 20
+        '    end',                 // 21
+        '',                        // 22
+        '    _foo',                // 23
+        'end',                     // 24
+        'main',                    // 25
+      ].join('\n');
+
+      it('goto-def on `argv` inside `_baz -S` walks through `_bar -S` to the nested `_foo`s implicit argv', () => {
+        const doc = createFakeLspDocument(
+          '/tmp/fish-lsp-foo-lifetime-baz-argv.fish',
+          SOURCE,
+        );
+        analyzer.analyze(doc);
+
+        // `        set -la argv 2` — `argv` spans cols 16..19 on line 20
+        for (const character of [16, 17, 18, 19]) {
+          const def = analyzer.getDefinition(doc, { line: 20, character });
+          expect(def).toBeDefined();
+          expect(def!.name).toBe('argv');
+
+          // Must NOT resolve to the erased top-level `_foo`'s implicit argv.
+          const isErasedFooArgv =
+            def!.selectionRange.start.line === 0
+            && def!.parent?.name === '_foo'
+            && !def!.parent?.parent;
+          expect(isErasedFooArgv).toBe(false);
+
+          // Should resolve to the nested `_foo`'s implicit argv (selRange on
+          // the nested `function _foo` header, line 8). The nested `_foo`'s
+          // parent is `main`, which disambiguates it from the erased top-level
+          // `_foo` (which has no parent).
+          expect(def!.selectionRange.start.line).toBe(8);
+          expect(def!.parent?.name).toBe('_foo');
+          expect(def!.parent?.parent?.name).toBe('main');
+        }
+      });
+    });
+
+    // Regression: tree-sitter parses `cmd --flag="value"` as a `concatenation`
+    // wrapping a `word("--flag=")` + the quoted string. The flag is a `word`
+    // (not an `option`), and `node.parent` is the concatenation rather than
+    // the enclosing `command`, so the previous goto-def code (which used
+    // `node.parent` + a `text.startsWith(s.argparseFlag)` match) failed to
+    // resolve the argparse symbol. The bare-space form `cmd --flag "value"`
+    // wasn't affected because tree-sitter emits the flag directly under the
+    // `command` node.
+    describe('argparse `--flag="value"` (single-token equals form)', () => {
+      const testWorkspace = TestWorkspace.create().addFiles({
+        relativePath: 'argparse-flag-equals.fish',
+        content: [
+          'function greet -d "Greet someone by name"',          // 0
+          "    argparse 'n/name=' -- $argv",                    // 1
+          '    or return 1',                                    // 2
+          '',                                                   // 3
+          '    not set -ql _flag_name',                         // 4
+          '    and set _flag_name "world"',                     // 5
+          '',                                                   // 6
+          '    echo "Hello, $_flag_name!"',                     // 7
+          'end',                                                // 8
+          '',                                                   // 9
+          'greet --name="fish-lsp user"',                       // 10  equals form
+          'greet --name "fish-lsp user"',                       // 11  control: space form
+        ].join('\n'),
+      }).initialize();
+
+      it('resolves cursor on `--name=` to the argparse `_flag_name` symbol', () => {
+        const doc = testWorkspace.getDocument('argparse-flag-equals.fish')!;
+        analyzer.analyze(doc);
+
+        // `--name=` spans cols 6..12 (`--name`) + `=` at col 12 (within the
+        // word `--name=`, cols 6..13). Every cursor position over those cols
+        // should land on `_flag_name`.
+        for (const character of [6, 7, 8, 9, 10, 11, 12]) {
+          const def = analyzer.getDefinition(doc, { line: 10, character });
+          expect(def).toBeDefined();
+          expect(def!.name).toBe('_flag_name');
+          expect(def!.fishKind).toBe('ARGPARSE');
+        }
+      });
+
+      it('still resolves cursor on `--name` (space form) — regression guard', () => {
+        const doc = testWorkspace.getDocument('argparse-flag-equals.fish')!;
+        analyzer.analyze(doc);
+
+        for (const character of [6, 7, 8, 9, 10, 11]) {
+          const def = analyzer.getDefinition(doc, { line: 11, character });
+          expect(def).toBeDefined();
+          expect(def!.name).toBe('_flag_name');
+          expect(def!.fishKind).toBe('ARGPARSE');
+        }
       });
     });
 

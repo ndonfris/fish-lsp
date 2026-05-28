@@ -250,6 +250,30 @@ export class FishSymbol {
   }
 
   /**
+   * If this symbol is a `set _flag_*` redefinition of an argparse-injected
+   * variable in the same function scope (e.g. the `and set _flag_name "world"`
+   * fallback after `argparse 'n/name=' -- $argv`), resolve to the underlying
+   * ARGPARSE sibling. Otherwise returns `this`.
+   *
+   * In fish, `argparse` creates `_flag_*` variables and a subsequent
+   * `set _flag_*` writes to that same variable — they are one logical
+   * identifier. The symbol model treats the `set` as a separate SET symbol,
+   * which breaks rename/refs from the redefinition site (it only sees its
+   * own narrow lexical scope, missing the argparse def, the `--flag` call
+   * sites, and other `_flag_*` reads).
+   */
+  public canonicalArgparseRedefinition(): FishSymbol {
+    if (this.fishKind !== 'SET') return this;
+    if (!this.name.startsWith('_flag_')) return this;
+    const parentFn = this.parent;
+    if (!parentFn || !parentFn.isFunction()) return this;
+    const argparseSibling = parentFn.children.find(c =>
+      c.fishKind === 'ARGPARSE' && c.name === this.name,
+    );
+    return argparseSibling ?? this;
+  }
+
+  /**
    * Checks if the symbol is a function definition with the `--no-scope-shadowing` option, which means that
    * the function does not create a new scope and can be shadowed by variables in the same scope. This is used
    * to determine if a function symbol should be considered a match for a variable reference in the same scope.
