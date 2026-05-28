@@ -8,7 +8,6 @@ import { LspDocument } from '../document';
 import { DiagnosticCommentsHandler } from './comments-handler';
 import { FishSymbol } from '../parsing/symbol';
 import { ErrorCodes } from './error-codes';
-import { getReferences } from '../references';
 import { config, Config } from '../config';
 import { isBuiltin } from '../utils/builtins';
 import { server } from '../server';
@@ -554,7 +553,7 @@ export function isFunctionWithEventHookCallback(doc: LspDocument, handler: Diagn
     if (docType === 'functions' && handler.isCodeEnabledAtNode(ErrorCodes.autoloadedFunctionWithEventHookUnused, node)) {
       const funcSymbol = allFunctions.find(symbol => symbol.name === node.text);
       if (funcSymbol && funcSymbol.hasEventHook()) {
-        const refs = getReferences(doc, funcSymbol.toPosition()).filter(ref =>
+        const refs = analyzer.getReferences(doc, funcSymbol.toPosition()).filter(ref =>
           !funcSymbol.equalsLocation(ref) &&
           !ref.uri.includes('completions/') &&
           ref.uri !== doc.uri,

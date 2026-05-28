@@ -17,7 +17,6 @@ import { checkForInvalidDiagnosticCodes } from './invalid-error-code';
 import { analyzer } from '../analyze';
 import { FishSymbol } from '../parsing/symbol';
 import { findUnreachableCode, sequenceTerminatesAllPaths } from '../parsing/unreachable';
-import { allUnusedLocalReferences } from '../references';
 import { FishDiagnostic } from './types';
 import { server } from '../server';
 import { FishCompletionItemKind } from '../utils/completion/types';
@@ -562,7 +561,7 @@ export async function getDiagnosticsAsync(
 
   // 4004 -> unused local function/variable definitions
   if (handler.isRootEnabled(ErrorCodes.unusedLocalDefinition)) {
-    const unusedLocalDefinitions = allUnusedLocalReferences(doc);
+    const unusedLocalDefinitions = analyzer.allUnusedLocalReferences(doc);
     for (const unusedLocalDefinition of unusedLocalDefinitions) {
       // skip definitions that do not need local references
       if (!unusedLocalDefinition.needsLocalReferences()) {

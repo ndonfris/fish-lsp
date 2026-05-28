@@ -14,12 +14,15 @@ import {
   isDefinition,
   isEmittedEventDefinitionName,
   isOption,
+  isProgram,
   isString,
   isVariable,
   isVariableDefinitionName,
   isVariableExpansion,
 } from '../utils/node-types';
 import { getRange } from '../utils/tree-sitter';
+import { isAliasDefinitionValue } from './alias';
+import { extractCommandLocations, extractMatchingCommandLocations } from './nested-strings';
 
 export const REFERENCE_CANDIDATE_NODE_TYPES = [
   'word',
@@ -44,6 +47,7 @@ export function isCompleteDefinitionNode(node: SyntaxNode): boolean {
     Option.create('-s', '--short-option'),
     Option.create('-l', '--long-option'),
     Option.create('-o', '--old-option'),
+    Option.create('-w', '--wraps'),
   );
 }
 
@@ -237,6 +241,43 @@ function rangeFromNode(node: SyntaxNode): Range {
   return getRange(node);
 }
 
+// Resolves a node to one or more Location ranges, narrowing the range when tree-sitter
+// tokenizes multiple references together (e.g. `argparse h/help` returns 'h' or 'help'
+// individually, and `alias`/`bind`/`complete -n` extract the command within the string).
+export function getLocationWrapper(symbol: FishSymbol, node: SyntaxNode, uri: DocumentUri): Location[] {
+  if (symbol.fishKind === 'ARGPARSE' && isOption(node)) {
+    const range = getRange(node);
+    range.start.character += getLeadingDashCount(node.text);
+    range.end.character += 1;
+    return [Locations.Location.create(uri, range)];
+  }
+  if (isAliasDefinitionValue(node) || isBindCall(symbol, node) || isCompleteConditionCall(symbol, node)) {
+    return extractMatchingCommandLocations(symbol, node, uri);
+  }
+  if (symbol.isFunction() && (isString(node) || isOption(node))) {
+    return extractCommandLocations(node, uri)
+      .filter(loc => loc.command === symbol.name)
+      .map(loc => loc.location);
+  }
+  return [Locations.Location.create(uri, getRange(node))];
+}
+
+function isBindCall(definitionSymbol: FishSymbol, node: SyntaxNode): boolean {
+  if (!node?.parent || isOption(node)) return false;
+  const parent = findParentCommand(node);
+  if (!parent || !isCommandWithName(parent, 'bind')) return false;
+  const subcommands = parent.children.slice(2).filter(c => !isOption(c));
+  if (!subcommands.some(c => c.equals(node))) return false;
+  return FishString.extractCommands(node).some(cmd => cmd === definitionSymbol.name);
+}
+
+function isCompleteConditionCall(definitionSymbol: FishSymbol, node: SyntaxNode): boolean {
+  if (isOption(node) || !node.isNamed || isProgram(node)) return false;
+  if (!node.parent || !isCommandWithName(node.parent, 'complete')) return false;
+  if (!node.previousSibling || !isMatchingOption(node.previousSibling, Option.fromRaw('-n', '--condition'))) return false;
+  return FishString.extractCommands(node).some(cmd => cmd.trim() === definitionSymbol.name);
+}
+
 export class FishReferenceCandidate {
   constructor(
     public readonly document: LspDocument,
@@ -274,6 +315,13 @@ export class FishReferenceCandidate {
     return Locations.Location.create(this.uri, this.range);
   }
 
+  // Returns the precise locations this candidate represents *for the given
+  // definition symbol* — handles argparse dash-stripping, and pulls inner
+  // command positions out of alias/bind/complete-condition string bodies.
+  toLocationsFor(symbol: FishSymbol): Location[] {
+    return getLocationWrapper(symbol, this.node, this.uri);
+  }
+
   /**
    * Walks up to the nearest enclosing `command` node — possibly several ancestors
    * away (e.g. a node nested inside a string that is itself a `complete -n`
@@ -283,6 +331,40 @@ export class FishReferenceCandidate {
   get parentCommandName(): string | null {
     const cmd = findParentCommand(this.node);
     return cmd?.firstNamedChild?.text ?? null;
+  }
+
+  /**
+   * Classifies this candidate as one of the three implementation kinds used by
+   * the cycle logic in `analyzer.getImplementation`:
+   *
+   *   - 'definition' — node is the selection range of any symbol in `allDefs`.
+   *     Passing the full set of same-named global defs (not just the one the
+   *     cursor resolves to) is what lets a global function defined in multiple
+   *     places report all its defs as part of the same cycle step.
+   *   - 'completion' — node's ancestor is a `complete` command. This is the
+   *     `complete -c X -l flag` and friends.
+   *   - 'usage'      — anything else (call sites, `--flag` argparse usages, etc.)
+   */
+  classifyImplementationKind(allDefs: FishSymbol[]): 'definition' | 'completion' | 'usage' {
+    for (const def of allDefs) {
+      if (this.uri !== def.uri) continue;
+      const focused = def.focusedNode;
+      if (!focused) continue;
+      if (this.node.equals(focused)) return 'definition';
+      const r = this.range;
+      const fr = def.selectionRange;
+      if (
+        r.start.line === fr.start.line
+        && r.start.character === fr.start.character
+        && r.end.line === fr.end.line
+        && r.end.character === fr.end.character
+      ) {
+        return 'definition';
+      }
+    }
+    const cmd = findParentCommand(this.node);
+    if (cmd && isCommandWithName(cmd, 'complete')) return 'completion';
+    return 'usage';
   }
 
   classifyLocationType(): {
@@ -372,12 +454,77 @@ export class FishReferenceCandidate {
 
 type SortableRef = Location | FishReferenceCandidate;
 
+// const sorter = (defSymbol: FishSymbol) => {
+//
+//   type RefKind = 'definition' | 'same-uri' | 'complete' | 'option' | 'usage';
+//
+//   function refKind(ref: FishReferenceCandidate): RefKind {
+//     const { node, uri } = ref;
+//
+//     if (node.id === defSymbol.node.id || defSymbol.equalsNode(node)) {
+//       return 'definition';
+//     }
+//
+//     if (uri === defSymbol.uri) {
+//       return 'same-uri';
+//     }
+//
+//     const parentCommand = findParentCommand(node);
+//     if (parentCommand && isCommandWithName(parentCommand, 'complete')) {
+//       return 'complete';
+//     }
+//     if (defSymbol.isArgparse() || defSymbol.isFunction()) {
+//       if (uri.endsWith(`/completions/${defSymbol.name}.fish`)) {
+//         return 'complete';
+//       }
+//     }
+//
+//     if (isOption(node)) {
+//       return 'option';
+//     }
+//
+//     return 'usage';
+//   }
+//
+//   const kindWeight: Record<RefKind, number> = {
+//     definition: 0,
+//     'same-uri': 1,
+//     complete: 2,
+//     option: 3,
+//     usage: 4,
+//   };
+//
+//   return (a: FishReferenceCandidate, b: FishReferenceCandidate): number => {
+//     const ak = refKind(a);
+//     const bk = refKind(b);
+//
+//     const kindDiff = kindWeight[ak] - kindWeight[bk];
+//     if (kindDiff !== 0) return kindDiff;
+//
+//     // For usages, group by URI first.
+//     if (ak === 'usage' && bk === 'usage') {
+//       const uriDiff = a.uri.localeCompare(b.uri);
+//       if (uriDiff !== 0) return uriDiff;
+//     }
+//
+//     // For all same-bucket refs, sort by source position.
+//     const rowDiff = a.node.startPosition.row - b.node.startPosition.row;
+//     if (rowDiff !== 0) return rowDiff;
+//
+//     return a.node.startPosition.column - b.node.startPosition.column;
+//   }
+// }
+
 export class FishReferenceCandidateCache {
   private readonly byId = new Map<string, FishReferenceCandidate>();
   private readonly idsByName = new Map<string, Set<string>>();
   private readonly idsByUri = new Map<DocumentUri, Set<string>>();
   private readonly idsByUriAndName = new Map<DocumentUri, Map<string, Set<string>>>();
   private readonly initializedUris = new Set<DocumentUri>();
+
+  hasIndexed(uri: DocumentUri): boolean {
+    return this.initializedUris.has(uri);
+  }
 
   find(name: string): FishReferenceCandidate[] {
     const ids = this.idsByName.get(name);

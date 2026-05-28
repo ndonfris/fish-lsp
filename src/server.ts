@@ -16,7 +16,7 @@ import { getVariableExpansionDocs, handleHover } from './hover';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentation-cache';
 import { getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspaces } from './utils/workspace';
 import { workspaceManager } from './utils/workspace-manager';
-import { formatFishSymbolTree, filterLastPerScopeSymbol, FishSymbol } from './parsing/symbol';
+import { filterLastPerScopeSymbol, FishSymbol } from './parsing/symbol';
 import { CompletionPager, initializeCompletionPager, isInVariableExpansionContext, SetupData } from './utils/completion/pager';
 import { FishCompletionList } from './utils/completion/list';
 import { resolveCompletionItemDocumentation } from './utils/completion/resolve-item';
@@ -36,7 +36,6 @@ import { setupProcessEnvExecFile } from './utils/process-env';
 import { flattenNested } from './utils/flatten';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { isSourceCommandArgumentName } from './parsing/source';
-import { getIncrementalReferences } from './references';
 import { getIncrementalRenames } from './renames';
 import { getReferenceCountCodeLenses } from './code-lens';
 import { getSelectionRanges } from './selection-range';
@@ -682,53 +681,55 @@ export default class FishServer {
     const { doc } = this.getDefaults(params);
     if (!doc) return [];
 
-    const progress = await connection.window.createWorkDoneProgress();
-    progress.begin('[fish-lsp] finding references', 0, 'Resolving symbol...', true);
-    await new Promise(resolve => setImmediate(resolve));
+    return analyzer.getReferences(doc, params.position);
 
-    try {
-      const defSymbol = analyzer.getDefinition(doc, params.position);
-
-      // Use the original request position; re-targeting through defSymbol.toPosition()
-      // can break synthetic symbols (e.g. function argv focused on function name).
-      let results = await getIncrementalReferences(doc, params.position, { reporter: progress });
-
-      const retryTarget = await this.getExternalDefinitionRetryTarget(doc, params.position);
-      if (retryTarget) {
-        progress.report(0, 'Retrying from external definition...');
-        const retriedResults = await getIncrementalReferences(retryTarget.doc, retryTarget.position, { reporter: progress });
-        const unique = new Map<string, Location>();
-        for (const location of [...results, ...retriedResults]) {
-          const key = [
-            location.uri,
-            location.range.start.line,
-            location.range.start.character,
-            location.range.end.line,
-            location.range.end.character,
-          ].join(':');
-          unique.set(key, location);
-        }
-        results = [...unique.values()];
-      }
-
-      progress.report(100, `Found ${results.length} reference${results.length === 1 ? '' : 's'}`);
-
-      logger.info({
-        onReferences: 'found references',
-        uri: defSymbol?.uri ?? doc.uri,
-        count: results.length,
-        position: params.position,
-        symbol: defSymbol?.name ?? 'prebuilt',
-      });
-
-      if (results.length === 0) {
-        logger.warning('onReferences: no references found', { uri: params.textDocument.uri, position: params.position });
-        return [];
-      }
-      return results;
-    } finally {
-      progress.done();
-    }
+    // const progress = await connection.window.createWorkDoneProgress();
+    // progress.begin('[fish-lsp] finding references', 0, 'Resolving symbol...', true);
+    // await new Promise(resolve => setImmediate(resolve));
+    //
+    // try {
+    //   const defSymbol = analyzer.getDefinition(doc, params.position);
+    //
+    //   // Use the original request position; re-targeting through defSymbol.toPosition()
+    //   // can break synthetic symbols (e.g. function argv focused on function name).
+    //   let results = analyzer.getReferences(doc, params.position, { reporter: progress });
+    //
+    //   const retryTarget = await this.getExternalDefinitionRetryTarget(doc, params.position);
+    //   if (retryTarget) {
+    //     progress.report(0, 'Retrying from external definition...');
+    //     const retriedResults = analyzer.getReferences(retryTarget.doc, retryTarget.position, { reporter: progress });
+    //     const unique = new Map<string, Location>();
+    //     for (const location of [...results, ...retriedResults]) {
+    //       const key = [
+    //         location.uri,
+    //         location.range.start.line,
+    //         location.range.start.character,
+    //         location.range.end.line,
+    //         location.range.end.character,
+    //       ].join(':');
+    //       unique.set(key, location);
+    //     }
+    //     results = [...unique.values()];
+    //   }
+    //
+    //   progress.report(100, `Found ${results.length} reference${results.length === 1 ? '' : 's'}`);
+    //
+    //   logger.info({
+    //     onReferences: 'found references',
+    //     uri: defSymbol?.uri ?? doc.uri,
+    //     count: results.length,
+    //     position: params.position,
+    //     symbol: defSymbol?.name ?? 'prebuilt',
+    //   });
+    //
+    //   if (results.length === 0) {
+    //     logger.warning('onReferences: no references found', { uri: params.textDocument.uri, position: params.position });
+    //     return [];
+    //   }
+    //   return results;
+    // } finally {
+    //   progress.done();
+    // }
   }
 
   /**
@@ -738,41 +739,43 @@ export default class FishServer {
     this.logParams('onImplementation', params);
     const { doc } = this.getDefaults(params);
     if (!doc) return [];
-    const symbols = analyzer.cache.getDocumentSymbols(doc.uri);
-    const lastSymbols = filterLastPerScopeSymbol(symbols);
-    logger.log('symbols', formatFishSymbolTree(lastSymbols));
-    const progress = await connection.window.createWorkDoneProgress();
-    progress.begin('[fish-lsp] finding implementations', 0, 'Resolving symbol...', true);
-    await new Promise(resolve => setImmediate(resolve));
-    try {
-      let result = analyzer.getImplementation(doc, params.position, { reporter: progress });
-      const retryTarget = await this.getExternalDefinitionRetryTarget(doc, params.position);
-      if (retryTarget) {
-        progress.report(0, 'Retrying from external definition...');
-        const retried = analyzer.getImplementation(retryTarget.doc, retryTarget.position, { reporter: progress });
-        if (result.length === 0) {
-          result = retried;
-        } else if (retried.length > 0) {
-          const unique = new Map<string, Location>();
-          for (const location of [...result, ...retried]) {
-            const key = [
-              location.uri,
-              location.range.start.line,
-              location.range.start.character,
-              location.range.end.line,
-              location.range.end.character,
-            ].join(':');
-            unique.set(key, location);
-          }
-          result = [...unique.values()];
-        }
-      }
-      progress.report(100, `Found ${result.length} implementation${result.length === 1 ? '' : 's'}`);
-      logger.log('implementationResult', { result });
-      return result;
-    } finally {
-      progress.done();
-    }
+
+    return analyzer.getImplementation(doc, params.position);
+    // const symbols = analyzer.cache.getDocumentSymbols(doc.uri);
+    // const lastSymbols = filterLastPerScopeSymbol(symbols);
+    // logger.log('symbols', formatFishSymbolTree(lastSymbols));
+    // const progress = await connection.window.createWorkDoneProgress();
+    // progress.begin('[fish-lsp] finding implementations', 0, 'Resolving symbol...', true);
+    // await new Promise(resolve => setImmediate(resolve));
+    // try {
+    //   let result = analyzer.getImplementation(doc, params.position, { reporter: progress });
+    //   const retryTarget = await this.getExternalDefinitionRetryTarget(doc, params.position);
+    //   if (retryTarget) {
+    //     progress.report(0, 'Retrying from external definition...');
+    //     const retried = analyzer.getImplementation(retryTarget.doc, retryTarget.position, { reporter: progress });
+    //     if (result.length === 0) {
+    //       result = retried;
+    //     } else if (retried.length > 0) {
+    //       const unique = new Map<string, Location>();
+    //       for (const location of [...result, ...retried]) {
+    //         const key = [
+    //           location.uri,
+    //           location.range.start.line,
+    //           location.range.start.character,
+    //           location.range.end.line,
+    //           location.range.end.character,
+    //         ].join(':');
+    //         unique.set(key, location);
+    //       }
+    //       result = [...unique.values()];
+    //     }
+    //   }
+    //   progress.report(100, `Found ${result.length} implementation${result.length === 1 ? '' : 's'}`);
+    //   logger.log('implementationResult', { result });
+    //   return result;
+    // } finally {
+    //   progress.done();
+    // }
   }
 
   private async getExternalDefinitionRetryTarget(
@@ -1026,7 +1029,7 @@ export default class FishServer {
     progress.begin('[fish-lsp] renaming symbol', 0, 'Resolving symbol...', true);
     await new Promise(resolve => setImmediate(resolve));
     try {
-      const references = await getIncrementalReferences(
+      const references = analyzer.getReferences(
         doc,
         params.position,
         { reporter: progress },

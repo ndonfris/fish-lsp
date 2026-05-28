@@ -15,7 +15,6 @@ import { isMatchingOption, Option } from '../src/parsing/options';
 import { isCompletionCommandDefinition, isCompletionDefinitionWithName, isCompletionSymbol } from '../src/parsing/complete';
 import { isCommandWithName, isOption } from '../src/utils/node-types';
 import { isArgparseVariableDefinitionName } from '../src/parsing/argparse';
-import { getReferences } from '../src/references';
 import { config } from '../src/config';
 import TestWorkspace, { TestFile } from './test-workspace-utils';
 import FishServer from '../src/server';
@@ -364,7 +363,7 @@ describe('find definition locations of symbols', () => {
         },
         );
         if (nodeAtPoint && isOption(nodeAtPoint)) {
-          const result = getReferences(confdDoc, getRange(nodeAtPoint).start);
+          const result = analyzer.getReferences(confdDoc, getRange(nodeAtPoint).start);
           result.forEach(loc => {
             console.log('location', {
               uri: loc.uri,

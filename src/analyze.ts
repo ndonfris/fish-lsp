@@ -10,14 +10,15 @@ import { logger } from './logger';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol, processCompletion } from './parsing/complete';
 import { FishSymbolCaches } from './parsing/fish-symbol-caches';
-import { FishReferenceCandidate, FishReferenceCandidateCache } from './parsing/reference-candidates';
+import { FishReferenceCandidate, FishReferenceCandidateCache, isPotentialReferenceNode } from './parsing/reference-candidates';
 import { createSourceResources, getExpandedSourcedFilenameNode, isSourceCommandArgumentName, isSourceCommandWithArgument, symbolsFromResource } from './parsing/source';
 import { filterFirstPerScopeSymbol, FishSymbol, processNestedTree } from './parsing/symbol';
-import { getImplementation, getPrebuiltVariableReferences, isPrebuiltVariableReference } from './references';
+import { isSetVariableDefinitionName } from './parsing/set';
+import { PrebuiltDocumentationMap } from './utils/snippets';
 import { execCommandLocations } from './utils/exec';
 import { SyncFileHelper } from './utils/file-operations';
 import { flattenNested, iterateNested } from './utils/flatten';
-import { findParentCommand, findParentFunction, getCommandNameNode, getCommandNameText, isAliasDefinitionName, isCommand, isCommandName, isOption, isTopLevelDefinition, isExportVariableDefinitionName, isVariableExpansion } from './utils/node-types';
+import { findParentCommand, findParentFunction, getCommandNameNode, getCommandNameText, isAliasDefinitionName, isCommand, isCommandName, isCommandWithName, isOption, isTopLevelDefinition, isExportVariableDefinitionName, isVariable, isVariableDefinitionName, isVariableExpansion, isVariableExpansionWithName } from './utils/node-types';
 import { getNestedCommandReferenceAtPoint, isPossibleNested } from './utils/nested-command-point';
 import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
 import { containsRange, getChildNodes, getNamedChildNodes, getRange, isPositionAfter, isPositionWithinRange, namedNodesGen, nodesGen, precedesRange } from './utils/tree-sitter';
@@ -26,7 +27,7 @@ import { workspaceManager } from './utils/workspace-manager';
 import { initializeParser } from './parser';
 import { BufferedAsyncDiagnosticCache } from './diagnostics/buffered-async-cache';
 import { env } from 'src/utils/env-manager';
-import { buildScopeSpans, ScopeSpan } from './utils/skippable-scopes';
+import { buildScopeSpans, isNodeExcluded, ScopeSpan } from './utils/skippable-scopes';
 
 /*************************************************************/
 /*     ts-doc type imports for links to other files here     */
@@ -375,6 +376,9 @@ export class Analyzer {
       iterateNested(...analyzedDocument.documentSymbols),
     );
     this.referenceCandidates.removeByUri(document.uri);
+    if (analyzedDocument.root) {
+      this.referenceCandidates.ensureDocument(document, analyzedDocument.root);
+    }
     return analyzedDocument;
   }
 
@@ -447,6 +451,96 @@ export class Analyzer {
     const analyzedDocument = AnalyzedDocument.createPartial(document);
     this.cache.setDocument(document.uri, analyzedDocument);
     return analyzedDocument;
+  }
+
+  // Completion files are stored as partial AnalyzedDocuments (no tree),
+  // which means their `complete -l flag` nodes aren't in the reference
+  // candidate cache. Promote them on demand here so getReferences() can
+  // surface argparse cross-file flag matches.
+  private ensureReferenceCandidatesForUri(uri: DocumentUri): void {
+    if (this.referenceCandidates.hasIndexed(uri)) return;
+    const analyzed = this.cache.getDocument(uri);
+    if (!analyzed) {
+      this.analyzeUri(uri);
+      return;
+    }
+    if (analyzed.isPartial()) analyzed.ensureParsed();
+    if (analyzed.root) {
+      this.referenceCandidates.ensureDocument(analyzed.document, analyzed.root);
+    }
+  }
+
+  // Prebuilt variables (PATH, HOME, status, $argv, …) don't have workspace
+  // definitions, so `getDefinition` returns null for them. This walks the
+  // workspace and matches by name + scope, the same way symbol-based search
+  // would for a normal variable.
+  private getPrebuiltVariableReferences(
+    document: LspDocument,
+    position: Position,
+  ): Location[] {
+    const context = this.getPrebuiltVariableReferenceContext(document, position);
+    if (!context) return [];
+    const { varName, documentsToSearch } = context;
+    const results: Location[] = [];
+    for (const doc of documentsToSearch) {
+      results.push(...this.collectPrebuiltVariableReferenceLocations(doc, varName));
+    }
+    return results;
+  }
+
+  private getPrebuiltVariableReferenceContext(
+    document: LspDocument,
+    position: Position,
+  ): { varName: string; documentsToSearch: LspDocument[]; } | null {
+    const node = this.nodeAtPoint(document.uri, position.line, position.character);
+    if (!node) return null;
+
+    const varName = isVariableExpansion(node) ? node.text.slice(1)
+      : isVariableDefinitionName(node) || isSetVariableDefinitionName(node, false) ? node.text
+        : isVariable(node) && node.type === 'variable_name' ? node.text
+          : null;
+    if (!varName) return null;
+
+    const prebuilt = PrebuiltDocumentationMap.getByName('$' + varName) || PrebuiltDocumentationMap.getByName(varName);
+    if (!prebuilt) return null;
+
+    const currentWorkspace = workspaceManager.findContainingWorkspace(document.uri) || workspaceManager.current;
+    if (!currentWorkspace) return null;
+
+    return {
+      varName,
+      documentsToSearch: currentWorkspace.allDocuments(),
+    };
+  }
+
+  private collectPrebuiltVariableReferenceLocations(
+    doc: LspDocument,
+    varName: string,
+  ): Location[] {
+    this.ensureReferenceCandidatesForUri(doc.uri);
+    const scopeSpans = this.getScopeSpans(doc, varName);
+    const candidates = this.referenceCandidates.findInDocument(doc.uri, varName);
+    const locations: Location[] = [];
+
+    for (const { node } of candidates) {
+      // skip nodes inside local redefinitions, but allow self-referencing
+      // expansions (e.g. $PATH in `set -lx PATH $PATH:/opt/bin`) since those
+      // read the pre-existing global value before the local is created
+      if (scopeSpans.length > 0 && isNodeExcluded(node, scopeSpans)) {
+        continue;
+      }
+      if (isVariableExpansionWithName(node, varName)) {
+        const focusedNode = node.firstNamedChild;
+        if (!focusedNode || focusedNode.text !== varName) continue;
+        locations.push(Location.create(doc.uri, getRange(focusedNode)));
+      } else if (isVariableDefinitionName(node) && node.text === varName) {
+        locations.push(Location.create(doc.uri, getRange(node)));
+      } else if (!isVariableDefinitionName(node) && isSetVariableDefinitionName(node, false) && node.text === varName) {
+        locations.push(Location.create(doc.uri, getRange(node)));
+      }
+    }
+
+    return locations;
   }
 
   /**
@@ -1235,38 +1329,152 @@ export class Analyzer {
   }
 
   /**
-   * Here we can allow the user to use completion locations for the implementation.
+   * Cycles between three reference kinds — definition, completion, usage —
+   * based on what the cursor is currently on:
+   *
+   *   - usage      → all definition locations (multiple for global symbols
+   *                  defined in several places)
+   *   - definition → completion locations; stays on the definition if none
+   *                  exist (no-op move)
+   *   - completion → usage locations; falls back to the definition if no
+   *                  usages exist
+   *
+   * Event symbols (`emit foo` ↔ `function _ --on-event foo`) skip the cycle
+   * and return ALL matching counterparts — every emit site from a hook, or
+   * every hook from an emit.
    */
   public getImplementation(
     document: LspDocument,
     position: Position,
-    opts: { reporter?: WorkDoneProgressReporter; } = {},
+    _opts: { reporter?: WorkDoneProgressReporter; } = {},
   ): Location[] {
-    const definition = this.getDefinition(document, position);
-    if (!definition) return [];
-    // const refs = analyzer.getReferences(document, position, {
-    //   includeDefinitions: true,
-    // })
-    // const uris = new Set<string>(refs.map(ref => ref.uri));
-    // if (uris.size <= 1) {
-    //   const currentRef = refs.findIndex(ref => ref.uri === definition.uri && Locations.Range.isAfter(ref.range, Locations.Range.create(position, position)));
-    //   if (currentRef === refs.length - 1) {
-    //     return  [refs.at(0)!]
-    //   }
-    //   return [refs.at(currentRef + 1)!]
-    // }
-    // const targetRefs = refs.filter(ref => {
-    //   if (ref.uri === document.uri) {
-    //     return true
-    //   }
-    //   return uris.has(ref.uri) && ref.uri !== definition.uri
-    // })
-    const locations = getImplementation(document, position, opts);
-    return locations;
+    const cursorNode = this.nodeAtPoint(document.uri, position.line, position.character);
+    if (!cursorNode) return [];
+    const symbol = this.getDefinition(document, position);
+    if (!symbol) return [];
+
+    // Event symbols cycle between emit and --on-event handlers, returning ALL
+    // matches (a single emit can fire multiple handlers).
+    if (symbol.isEmittedEvent() || symbol.isEventHook()) {
+      const matchOther = symbol.isEmittedEvent()
+        ? (m: FishSymbol) => m.isEventHook()
+        : (m: FishSymbol) => m.isEmittedEvent();
+      const others = this.symbols.eventsByName.find(symbol.name).filter(matchOther);
+      if (others.length > 0) return others.map(s => s.toLocation());
+      return [symbol.toLocation()];
+    }
+
+    const notAtCursor = (loc: Location): boolean =>
+      loc.uri !== document.uri || !isPositionWithinRange(position, loc.range);
+
+    // --no-scope-shadowing function definition cycles to a call site (any
+    // reference that isn't the definition itself). The plain cycle would stop
+    // at the definition because no `complete -c` entry typically exists for
+    // these helper functions, so we elevate "usage" before falling through.
+    if (symbol.isFunction() && symbol.isFunctionWithNoScopeShadowing()) {
+      const def = symbol.selectionRange.start;
+      const callSites = this.getReferences(document, position, { localOnly: true })
+        .filter(loc => loc.range.start.line !== def.line || loc.range.start.character !== def.character);
+      if (callSites.length > 0) return callSites;
+    }
+
+    // Variables shared via --no-scope-shadowing cross function boundaries.
+    // Bidirectional cycle between the caller's `set var` and the callee's
+    // `$var` reference — neither shows up in the standard cycle because
+    // they live in different scope chains.
+    if (symbol.isVariable()) {
+      const enclosingFunc = findParentFunction(cursorNode);
+      const enclosingFuncName = enclosingFunc?.childForFieldName('name')?.text;
+
+      // From $var inside a --no-scope-shadowing function → caller's definition
+      if (enclosingFuncName && this.symbols.noScopeShadowing.has(enclosingFuncName)) {
+        const enclosingFuncSymbol = this.getEnclosingFunctionSymbol(document.uri, cursorNode);
+        if (!enclosingFuncSymbol || this.isFunctionVisibleFrom(enclosingFuncSymbol, symbol.parent, document.uri)) {
+          if (symbol.parent?.name !== enclosingFuncName) {
+            return [symbol.toLocation()];
+          }
+        }
+      }
+
+      // From caller's `set var` → $var usage inside a --no-scope-shadowing callee
+      if (symbol.parent?.isFunction() && !symbol.parent.isFunctionWithNoScopeShadowing()) {
+        const allRefs = this.getReferences(document, position);
+        const calleeRefs = allRefs.filter(loc => {
+          if (loc.uri !== document.uri) return false;
+          const refNode = this.nodeAtPoint(loc.uri, loc.range.start.line, loc.range.start.character);
+          if (!refNode) return false;
+          const refFunc = findParentFunction(refNode);
+          const refFuncName = refFunc?.childForFieldName('name')?.text;
+          const refFuncSymbol = refFunc ? this.getEnclosingFunctionSymbol(loc.uri, refNode) : null;
+          return !!(
+            refFuncName
+            && refFuncName !== symbol.parent?.name
+            && refFuncSymbol?.isFunctionWithNoScopeShadowing()
+            && this.isFunctionVisibleFrom(refFuncSymbol, symbol.parent, loc.uri)
+          );
+        });
+        if (calleeRefs.length > 0) return calleeRefs.filter(notAtCursor);
+      }
+    }
+
+    // For globals, collect every same-name same-kind def across the workspace
+    // so multi-def cycles return all of them. For locals, only the resolved
+    // symbol's own def matters.
+    const allDefs: FishSymbol[] = symbol.isGlobal()
+      ? this.symbols.allSymbolsByName.find(symbol.name).filter(s =>
+        s.isGlobal() && s.kind === symbol.kind,
+      )
+      : [symbol];
+    if (!allDefs.some(s => s.equals(symbol))) allDefs.push(symbol);
+
+    const candidates = this.referenceCandidates.findForSymbol(symbol);
+
+    // Classify the cursor by building an ephemeral candidate at the cursor
+    // node and asking it which kind it is. Using FishReferenceCandidate for
+    // the cursor too keeps the classification logic in one place.
+    const cursorCandidate = new FishReferenceCandidate(document, cursorNode, symbol.name);
+    const cursorKind = cursorCandidate.classifyImplementationKind(allDefs);
+
+    const isAtCursor = (c: FishReferenceCandidate) =>
+      c.uri === document.uri && c.node.equals(cursorNode);
+    const candidatesOfKind = (kind: 'definition' | 'completion' | 'usage') =>
+      candidates
+        .filter(c => !isAtCursor(c))
+        .filter(c => c.classifyImplementationKind(allDefs) === kind);
+
+    if (cursorKind === 'usage') {
+      const defs = candidatesOfKind('definition');
+      if (defs.length > 0) return defs.map(c => c.toLocation());
+      // Multi-def globals may not all be in the cache; fall back to symbol
+      // table.
+      const allDefLocs = allDefs.map(s => s.toLocation());
+      if (allDefLocs.length > 0) return allDefLocs;
+      return [symbol.toLocation()];
+    }
+
+    if (cursorKind === 'definition') {
+      const completions = candidatesOfKind('completion');
+      if (completions.length > 0) return completions.map(c => c.toLocation());
+      // No completion — fall back to getReferences so the cycle can still
+      // move (e.g., `function bar` + `alias bb 'bar'`: cycle from the def
+      // returns both the def and the alias body usage). When no usages exist
+      // either (a truly lonely function), getReferences returns just the def.
+      return this.getReferences(document, position);
+    }
+
+    // cursorKind === 'completion'
+    const usages = candidatesOfKind('usage');
+    if (usages.length > 0) return usages.map(c => c.toLocation());
+    const allDefLocs = allDefs.map(s => s.toLocation());
+    if (allDefLocs.length > 0) return allDefLocs;
+    return [symbol.toLocation()];
   }
 
   /**
-   * TODO replace src/references.ts export getReferences() w/ cached version here
+   * Cache-driven reference search. Resolves the symbol at `position`, scopes
+   * the search to the containing workspace (unless `allWorkspaces`), and
+   * iterates the precomputed reference-candidate cache rather than walking
+   * each document's AST.
    */
   public getReferences(
     document: LspDocument,
@@ -1274,54 +1482,254 @@ export class Analyzer {
     opts: {
       includeDefinitions?: boolean;
       localOnly?: boolean;
+      allWorkspaces?: boolean;
       reporter?: WorkDoneProgressReporter;
-    } = { includeDefinitions: true },
+    } = {},
   ): Location[] {
-    // Prebuilt vars (PATH, HOME, status, $argv, …) have no workspace definition,
-    // so the symbol-based path can't resolve them — route them to the dedicated
-    // prebuilt search before attempting to resolve a definition symbol.
-    if (isPrebuiltVariableReference(document, position)) {
-      return getPrebuiltVariableReferences(document, position, opts.reporter);
-    }
-
+    const includeDefinitions = opts.includeDefinitions ?? true;
     const foundSymbol = this.getDefinition(document, position);
-    if (!foundSymbol) return [];
+    // Prebuilt vars (PATH, HOME, status, $argv, …) typically have no workspace
+    // definition, so fall back to the dedicated prebuilt search only when the
+    // symbol-based path can't resolve a definition.
+    if (!foundSymbol) {
+      return this.getPrebuiltVariableReferences(document, position);
+    }
 
-    const includeDefs = opts.includeDefinitions !== false;
-    const keyOf = (loc: { uri: string; range: { start: { line: number; character: number; }; }; }) =>
-      `${loc.uri}:${loc.range.start.line}:${loc.range.start.character}`;
+    // Scope candidates to the workspace that contains the searched document.
+    // The reference-candidate cache spans every indexed file across every
+    // workspace, so without this filter a `set foo` definition inside the
+    // user's workspace would surface hits from fish-lsp's own bundled files
+    // (or any other indexed workspace). When allWorkspaces is on, skip the
+    // filter entirely.
+    const searchWorkspace =
+      workspaceManager.findContainingWorkspace(document.uri) || workspaceManager.current;
+    const searchableUris = opts.allWorkspaces
+      ? null
+      : searchWorkspace?.allUris ?? null;
+
+    // Ensure every document in scope is fully parsed and indexed in the
+    // reference-candidate cache before lookup. Completion files are stored
+    // as partial AnalyzedDocuments (see workspaceManager.analyzePendingDocuments),
+    // so without this they wouldn't surface `complete -l flag` matches.
+    if (opts.localOnly) {
+      this.ensureReferenceCandidatesForUri(document.uri);
+    } else if (searchableUris) {
+      for (const uri of searchableUris) this.ensureReferenceCandidatesForUri(uri);
+    }
+
+    // Group cache hits by URI so we can apply per-document shadowing filters
+    // without iterating workspace documents that have no matching candidates.
+    const candidatesByUri = new Map<string, FishReferenceCandidate[]>();
+    for (const candidate of this.referenceCandidates.findForSymbol(foundSymbol)) {
+      if (opts.localOnly && candidate.uri !== document.uri) continue;
+      if (!opts.localOnly && searchableUris && !searchableUris.has(candidate.uri)) continue;
+      const bucket = candidatesByUri.get(candidate.uri);
+      if (bucket) bucket.push(candidate);
+      else candidatesByUri.set(candidate.uri, [candidate]);
+    }
+
+    const results: Location[] = [];
     const seen = new Set<string>();
-    const results: FishReferenceCandidate[] = [];
-
-    // The definition's own node is also indexed in the candidate cache (the
-    // cache is name-keyed and doesn't know which match is the definition), so
-    // we have to filter it out from the candidate sweep. Comparing by
-    // location-key is unreliable because the symbol's selectionRange and the
-    // node's raw range can drift (e.g. argparse dash-stripping in rangeFromNode);
-    // identifying by node identity is robust.
-    const defNode = foundSymbol.focusedNode;
-    const defCandidate = FishReferenceCandidate.fromSymbol(foundSymbol);
-    if (includeDefs) {
-      results.push(defCandidate);
-      seen.add(keyOf(defCandidate));
-    }
-
-    for (const rc of this.referenceCandidates.findForSymbol(foundSymbol)) {
-      // The definition's own node is also indexed in the cache. Drop it whether
-      // or not we're including defs — the explicit `defCandidate` above is the
-      // canonical entry, and node-identity is more reliable than location-key
-      // comparison (selectionRange and rangeFromNode can drift).
-      if (rc.node.equals(defNode)) continue;
-      if (!foundSymbol.isReference(rc.document, rc.node, true)) continue;
-      const key = keyOf(rc);
-      if (seen.has(key)) continue;
+    const locationKey = (loc: Location): string =>
+      `${loc.uri}:${loc.range.start.line}:${loc.range.start.character}`;
+    const addLocation = (loc: Location): void => {
+      const key = locationKey(loc);
+      if (seen.has(key)) return;
       seen.add(key);
-      results.push(rc);
+      results.push(loc);
+    };
+
+    if (includeDefinitions) addLocation(foundSymbol.toLocation());
+
+    for (const [uri, candidates] of candidatesByUri) {
+      const searchDoc = this.getDocument(uri);
+      if (!searchDoc) continue;
+
+      const shadowing = this.getShadowingLocalSymbols(foundSymbol, searchDoc);
+      for (const candidate of candidates) {
+        if (shadowing.some(s =>
+          s.containsNode(candidate.node)
+          || s.scopeNode.equals(candidate.node)
+          || s.scopeContainsNode(candidate.node),
+        )) continue;
+        if (!foundSymbol.isReference(candidate.document, candidate.node, true)) continue;
+        // toLocationsFor handles argparse dash-stripping and extracts inner
+        // command positions out of alias/bind/complete-condition string nodes —
+        // candidate.toLocation() would point at the option's bare range instead.
+        for (const loc of candidate.toLocationsFor(foundSymbol)) {
+          addLocation(loc);
+        }
+      }
     }
 
-    return results
-      .sort(FishReferenceCandidate.comparatorForSymbol(foundSymbol))
-      .map(rc => rc.toLocation());
+    return results.sort(FishReferenceCandidate.comparatorForSymbol(foundSymbol));
+  }
+
+  /**
+   * Returns all local symbols in `doc` the analyzer cannot prove are used —
+   * the underlying "unused local reference" report consumed by diagnostics.
+   *
+   * Two passes:
+   *   1. First-pass name-matched scan via the per-doc reference-candidate
+   *      cache, with shadowing-local filtering (same logic that drops
+   *      `argparse h/help`'s own definition node from its own reference
+   *      sweep). A symbol is "used" if any non-shadowed candidate passes
+   *      `symbol.isReference(...)`.
+   *   2. Rescue pass on the otherwise-unused set, dropping symbols that
+   *      are indirectly referenced — argparse alias equivalence, root
+   *      defs of --no-scope-shadowing variables, --inherit-variable
+   *      callers, --no-scope-shadowing callees, and event-hook globals /
+   *      autoload pairs.
+   */
+  public allUnusedLocalReferences(document: LspDocument): FishSymbol[] {
+    const symbols = filterFirstPerScopeSymbol(document).filter(s =>
+      s.isLocal()
+      && (s.needsLocalReferences() || s.isEmittedEvent())
+      && !s.isEventHook()
+      && !s.isExported(),
+    );
+
+    const usedSymbols: FishSymbol[] = [];
+    const unusedSymbols: FishSymbol[] = [];
+
+    for (const symbol of symbols) {
+      const shadowing = this.getShadowingLocalSymbols(symbol, document);
+      let found = false;
+      for (const candidate of this.referenceCandidates.findInDocumentForSymbol(document.uri, symbol)) {
+        const node = candidate.node;
+        // isPotentialReferenceNode is stricter than the cache's broad index —
+        // rejects e.g. `bar` in `set foo bar` from being treated as a ref to `bar`.
+        if (!isPotentialReferenceNode(symbol, node)) continue;
+        if (shadowing.some(s => s.scopeContainsNode(node))) continue;
+        if (symbol.isReference(document, node, true)) {
+          found = true;
+          usedSymbols.push(symbol);
+          break;
+        }
+      }
+      if (!found) unusedSymbols.push(symbol);
+    }
+
+    return unusedSymbols.filter(symbol => {
+      // A variable in a --no-scope-shadowing function may be backed by a
+      // definition in the calling scope; treat references to the root as
+      // usage of this local rebinding.
+      if (this.isUsedViaNoScopeShadowingRoot(symbol)) return false;
+
+      // argparse aliases: `argparse h/help`, `_flag_h`, `_flag_help`,
+      // `complete -s h -l help`, `--help` all map to the same logical
+      // flag — if any equivalent symbol was found used, this one is too.
+      if (symbol.isArgparse() && usedSymbols.some(s => s.equalArgparse(symbol))) {
+        return false;
+      }
+
+      // A local variable counts as used if a --no-scope-shadowing function
+      // visible from the caller is invoked inside the variable's scope and
+      // references the variable's name (either as a child symbol or as a
+      // `$var` expansion in the function body).
+      if (symbol.isVariable() && this.symbols.noScopeShadowing.allSymbols.length > 0) {
+        const scopeNode = symbol.scope.scopeNode;
+        if (scopeNode) {
+          const noScopeFuncs = this.symbols.noScopeShadowing.allSymbols.filter(f => {
+            if (!this.isFunctionVisibleFrom(f, symbol.parent, symbol.uri)) return false;
+            if (f.children.some(c => c.isVariable() && c.name === symbol.name)) return true;
+            for (const n of nodesGen(f.scopeNode)) {
+              if (isVariableExpansionWithName(n, symbol.name)) return true;
+            }
+            return false;
+          });
+          if (noScopeFuncs.length > 0) {
+            for (const n of nodesGen(scopeNode)) {
+              if (isCommandWithName(n, ...noScopeFuncs.map(f => f.name))) {
+                return false;
+              }
+            }
+          }
+        }
+      }
+
+      // --inherit-variable: a local var counts as used if a function that
+      // inherits it via `--inherit-variable name` is called inside the var's
+      // scope.
+      if (symbol.isVariable() && this.symbols.inheritedVariables.has(symbol.name)) {
+        const inheritingFuncs = this.getCallableInheritingFunctions(symbol.name, symbol.parent, symbol.uri);
+        const scopeNode = symbol.scope.scopeNode;
+        if (scopeNode) {
+          for (const n of nodesGen(scopeNode)) {
+            if (isCommandWithName(n, ...inheritingFuncs.map(f => f.name))) {
+              return false;
+            }
+          }
+        }
+      }
+
+      // Event hooks: global functions with --on-event are conservatively kept;
+      // local hooks are kept when there's a matching emit either inside the
+      // same symbol's children (locally emitted) or anywhere in the workspace
+      // for autoloaded functions.
+      if (symbol.hasEventHook()) {
+        if (symbol.isGlobal()) return false;
+        if (
+          symbol.isLocal()
+          && symbol.children.some(c => c.fishKind === 'FUNCTION_EVENT' && usedSymbols.some(s => s.isEmittedEvent() && c.name === s.name))
+        ) {
+          return false;
+        }
+        if (symbol.document.isAutoloaded() && symbol.isFunction()) {
+          for (const event of symbol.children.filter(c => c.isEventHook())) {
+            if (this.symbols.eventsByName.find(event.name).some(m => m.isEmittedEvent())) {
+              return false;
+            }
+          }
+        }
+      }
+      return true;
+    });
+  }
+
+  /**
+   * A variable inside a --no-scope-shadowing function shares the calling
+   * scope's namespace, so a write to it is "used" when the caller has a
+   * defining reference to the same name. Returns true if the root symbol
+   * (resolved via [[resolveNoScopeShadowingDefinition]]) has any ref other
+   * than its own definition.
+   */
+  private isUsedViaNoScopeShadowingRoot(symbol: FishSymbol): boolean {
+    if (!symbol.isVariable() || !symbol.parent?.isFunctionWithNoScopeShadowing()) {
+      return false;
+    }
+    const rootSymbol = this.resolveNoScopeShadowingDefinition(symbol);
+    const rootRefs = this.getReferences(rootSymbol.document, rootSymbol.selectionRange.start);
+    return rootRefs.some(loc =>
+      loc.uri !== rootSymbol.uri
+      || loc.range.start.line !== rootSymbol.selectionRange.start.line
+      || loc.range.start.character !== rootSymbol.selectionRange.start.character,
+    );
+  }
+
+  /**
+   * Local symbols in `doc` that shadow `definitionSymbol` — references whose node
+   * falls inside any of these symbols' scopes should be excluded when collecting
+   * references for `definitionSymbol`.
+   */
+  private getShadowingLocalSymbols(definitionSymbol: FishSymbol, doc: LspDocument): FishSymbol[] {
+    if (definitionSymbol.isVariable() && !definitionSymbol.isArgparse()) {
+      return this.symbols.findDocumentVariables(doc.uri, definitionSymbol.name).filter(s =>
+        s.isLocal()
+        && !s.equals(definitionSymbol)
+        && !definitionSymbol.equalScopes(s)
+        && s.name === definitionSymbol.name
+        && s.kind === definitionSymbol.kind
+        && !s.parent?.isFunctionWithNoScopeShadowing()
+        && !s.isInheritVariable(),
+      );
+    }
+    if (doc.uri === definitionSymbol.uri) return [];
+    return this.symbols.findDocumentNamedSymbols(doc.uri, definitionSymbol.name).filter(s =>
+      s.isLocal()
+      && s.kind === definitionSymbol.kind
+      && !s.equals(definitionSymbol),
+    );
   }
 
   /**
@@ -1791,23 +2199,6 @@ export class Analyzer {
     return node.text.trim();
   }
 
-  // private getCursorReferenceAtPoint(
-  //   uri: string,
-  //   line: number,
-  //   column: number,
-  //   node: SyntaxNode,
-  // ): CursorReferenceAtPoint | null {
-  //   const nestedCommand = getNestedCommandReferenceAtPoint(
-  //     node,
-  //     Position.create(line, column),
-  //     uri,
-  //   );
-  //   if (!nestedCommand) return null;
-  //   return {
-  //     name: nestedCommand.command,
-  //     range: nestedCommand.range,
-  //   };
-  // }
   /**
    * Find the node at the given point.
    */

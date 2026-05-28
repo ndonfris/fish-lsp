@@ -3,7 +3,6 @@ import { getRange } from './utils/tree-sitter';
 import { DocumentHighlight, DocumentHighlightKind, DocumentHighlightParams, Location } from 'vscode-languageserver';
 import { isCommandName } from './utils/node-types';
 import { LspDocument } from './document';
-import { getReferences } from './references';
 import { isBuiltin } from './utils/builtins';
 
 /**
@@ -64,7 +63,7 @@ export function getDocumentHighlights(analyzer: Analyzer) {
 
     // use local symbol reference locations
     if (symbol) {
-      const refLocations = getReferences(doc, symbol.selectionRange.start, { localOnly: true });
+      const refLocations = analyzer.getReferences(doc, symbol.selectionRange.start, { localOnly: true });
       if (!refLocations) return [];
       return convertSymbolLocationsToHighlights(doc, refLocations);
     }

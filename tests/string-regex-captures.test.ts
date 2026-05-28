@@ -27,7 +27,6 @@ import TestWorkspace, { TestFile } from './test-workspace-utils';
 import { getChildNodes } from '../src/utils/tree-sitter';
 import { isCommandWithName } from '../src/utils/node-types';
 import { processNestedTree } from '../src/parsing/symbol';
-import { getReferences, allUnusedLocalReferences } from '../src/references';
 import { getRenames } from '../src/renames';
 import { createTestServer, TestServerHandle } from './helpers';
 
@@ -318,7 +317,7 @@ describe('string -r named-capture variables', () => {
       const doc = workspace.getDocument('functions/parse_date.fish')!;
       analyzer.analyze(doc);
 
-      const refs = getReferences(doc, YEAR_USAGE);
+      const refs = analyzer.getReferences(doc, YEAR_USAGE);
       expect(refs.length).toBeGreaterThanOrEqual(2);
       // Def on line 1 + at least one $year expansion on line 2.
       const lines = refs.map(r => r.range.start.line);
@@ -580,7 +579,7 @@ describe('string -r named-capture variables', () => {
       );
       analyzer.analyze(doc);
 
-      const unused = allUnusedLocalReferences(doc);
+      const unused = analyzer.allUnusedLocalReferences(doc);
       expect(unused.some((s: FishSymbol) => s.name === 'dead' && s.fishKind === 'STRING_REGEX')).toBe(true);
     });
 
@@ -596,7 +595,7 @@ describe('string -r named-capture variables', () => {
       );
       analyzer.analyze(doc);
 
-      const unused = allUnusedLocalReferences(doc);
+      const unused = analyzer.allUnusedLocalReferences(doc);
       expect(unused.find((s: FishSymbol) => s.name === 'alive')).toBeUndefined();
     });
   });

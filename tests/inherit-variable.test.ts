@@ -2,7 +2,6 @@ import { initializeParser } from '../src/parser';
 import { setLogger } from './helpers';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { analyzer, Analyzer } from '../src/analyze';
-import { getReferences, getImplementation, allUnusedLocalReferences } from '../src/references';
 import { getRenames } from '../src/renames';
 // import { FishSymbol } from '../src/parsing/symbol';
 import TestWorkspace from './test-workspace-utils';
@@ -72,7 +71,7 @@ describe('--inherit-variable', () => {
       const symbolsA = analyzer.getFlatDocumentSymbols(docA.uri);
 
       const varInA = symbolsA.find(s => s.name === 'VAR' && s.isVariable())!;
-      const refs = getReferences(docA, varInA.selectionRange.start);
+      const refs = analyzer.getReferences(docA, varInA.selectionRange.start);
       const refUris = refs.map(loc => loc.uri);
 
       // VAR is defined in A and inherited by B — references should span both files
@@ -86,7 +85,7 @@ describe('--inherit-variable', () => {
       const symbolsB = analyzer.getFlatDocumentSymbols(docB.uri);
 
       const varInB = symbolsB.find(s => s.name === 'VAR' && s.isVariable())!;
-      const refs = getReferences(docB, varInB.selectionRange.start);
+      const refs = analyzer.getReferences(docB, varInB.selectionRange.start);
       const refUris = refs.map(loc => loc.uri);
 
       // VAR is inherited from A — references should span both files
@@ -118,7 +117,7 @@ describe('--inherit-variable', () => {
       const symbolsB = analyzer.getFlatDocumentSymbols(docB.uri);
       const varInB = symbolsB.find(s => s.name === 'VAR' && s.isVariable())!;
 
-      const impls = getImplementation(docB, varInB.selectionRange.start);
+      const impls = analyzer.getImplementation(docB, varInB.selectionRange.start);
 
       // Implementation should resolve to A.fish (the caller that defines VAR)
       expect(impls).toHaveLength(1);
@@ -131,7 +130,7 @@ describe('--inherit-variable', () => {
       const symbolsB = analyzer.getFlatDocumentSymbols(docB.uri);
       const varInB = symbolsB.find(s => s.name === 'VAR' && s.isVariable())!;
 
-      const impls = getImplementation(docB, varInB.selectionRange.start);
+      const impls = analyzer.getImplementation(docB, varInB.selectionRange.start);
 
       // Implementation filters to external URIs — should not return B itself
       expect(impls.every(loc => loc.uri !== docB.uri)).toBe(true);
@@ -185,8 +184,8 @@ describe('--inherit-variable', () => {
       const docA = workspace.getDocument('functions/A.fish')!;
       const docB = workspace.getDocument('functions/B.fish')!;
 
-      const unusedA = allUnusedLocalReferences(docA);
-      const unusedB = allUnusedLocalReferences(docB);
+      const unusedA = analyzer.allUnusedLocalReferences(docA);
+      const unusedB = analyzer.allUnusedLocalReferences(docB);
 
       // VAR is used across files via --inherit-variable — should not appear as unused
       expect(unusedA.find(s => s.name === 'VAR')).toBeUndefined();
@@ -238,7 +237,7 @@ describe('--inherit-variable', () => {
       const symbolsA = analyzer.getFlatDocumentSymbols(docA.uri);
 
       const varInA = symbolsA.find(s => s.name === 'VAR' && s.isVariable())!;
-      const refs = getReferences(docA, varInA.selectionRange.start);
+      const refs = analyzer.getReferences(docA, varInA.selectionRange.start);
       const refUris = refs.map(loc => loc.uri);
 
       expect(refUris).toContain(docA.uri);
@@ -316,7 +315,7 @@ describe('--inherit-variable', () => {
         const docDuplicate = workspace.getDocument('functions/B_duplicate.fish')!;
         const symbolsA = analyzer.getFlatDocumentSymbols(docA.uri);
         const varInA = symbolsA.find(s => s.name === 'VAR' && s.isVariable())!;
-        const refs = getReferences(docA, varInA.selectionRange.start);
+        const refs = analyzer.getReferences(docA, varInA.selectionRange.start);
         const refUris = refs.map(loc => loc.uri);
 
         expect(refUris).toContain(docA.uri);
@@ -360,7 +359,7 @@ describe('--inherit-variable', () => {
         const docDuplicate = workspace.getDocument('conf.d/B_duplicate.fish')!;
         const symbolsA = analyzer.getFlatDocumentSymbols(docA.uri);
         const varInA = symbolsA.find(s => s.name === 'VAR' && s.isVariable())!;
-        const refs = getReferences(docA, varInA.selectionRange.start);
+        const refs = analyzer.getReferences(docA, varInA.selectionRange.start);
         const refUris = refs.map(loc => loc.uri);
 
         expect(refUris).toContain(docA.uri);
@@ -405,7 +404,7 @@ describe('--inherit-variable', () => {
       const symbolsA = analyzer.getFlatDocumentSymbols(docA.uri);
 
       const varInA = symbolsA.find(s => s.name === 'VAR' && s.isVariable())!;
-      const refs = getReferences(docA, varInA.selectionRange.start);
+      const refs = analyzer.getReferences(docA, varInA.selectionRange.start);
       const refUris = refs.map(loc => loc.uri);
 
       // Without --inherit-variable, VAR in A is isolated from VAR in B
@@ -419,7 +418,7 @@ describe('--inherit-variable', () => {
       const symbolsB = analyzer.getFlatDocumentSymbols(docB.uri);
 
       const varInB = symbolsB.find(s => s.name === 'VAR' && s.isVariable())!;
-      const refs = getReferences(docB, varInB.selectionRange.start);
+      const refs = analyzer.getReferences(docB, varInB.selectionRange.start);
       const refUris = refs.map(loc => loc.uri);
 
       // B's VAR is its own local — no connection to A's VAR
@@ -481,7 +480,7 @@ describe('--inherit-variable', () => {
       const symbolsA = analyzer.getFlatDocumentSymbols(docA.uri);
 
       const var1InA = symbolsA.find(s => s.name === 'VAR1' && s.isVariable())!;
-      const refs = getReferences(docA, var1InA.selectionRange.start);
+      const refs = analyzer.getReferences(docA, var1InA.selectionRange.start);
       const refUris = refs.map(loc => loc.uri);
 
       // VAR1 is inherited by B — references should span both files
@@ -495,7 +494,7 @@ describe('--inherit-variable', () => {
       const symbolsA = analyzer.getFlatDocumentSymbols(docA.uri);
 
       const var2InA = symbolsA.find(s => s.name === 'VAR2' && s.isVariable())!;
-      const refs = getReferences(docA, var2InA.selectionRange.start);
+      const refs = analyzer.getReferences(docA, var2InA.selectionRange.start);
       const refUris = refs.map(loc => loc.uri);
 
       // VAR2 is NOT inherited by B — references stay in A.fish only
@@ -587,7 +586,7 @@ describe('--inherit-variable', () => {
       )!;
       expect(varDef).toBeDefined();
 
-      const refs = getReferences(docFoo, varDef.selectionRange.start);
+      const refs = analyzer.getReferences(docFoo, varDef.selectionRange.start);
 
       // Should find: `set -l VAR 1`, `--inherit-variable VAR`, `echo $VAR`
       // Should NOT include `set VAR 2` from globals.fish
@@ -606,7 +605,7 @@ describe('--inherit-variable', () => {
       )!;
       expect(globalVar).toBeDefined();
 
-      const refs = getReferences(docGlobals, globalVar.selectionRange.start);
+      const refs = analyzer.getReferences(docGlobals, globalVar.selectionRange.start);
       const refUris = refs.map(loc => loc.uri);
 
       // Global VAR should only find itself — outer_fn's local VAR is a different scope
@@ -657,7 +656,7 @@ describe('--inherit-variable', () => {
       const globalVar = symbolsInit.find(s =>
         s.name === 'VAR' && s.isVariable(),
       )!;
-      const refs = getReferences(docInit, globalVar.selectionRange.start);
+      const refs = analyzer.getReferences(docInit, globalVar.selectionRange.start);
 
       // Global VAR should find at least itself
       expect(refs.length).toBeGreaterThanOrEqual(1);
@@ -706,7 +705,7 @@ describe('--inherit-variable', () => {
       const globalVar = symbolsSetup.find(s =>
         s.name === 'VAR' && s.isVariable(),
       )!;
-      const refs = getReferences(docSetup, globalVar.selectionRange.start);
+      const refs = analyzer.getReferences(docSetup, globalVar.selectionRange.start);
       const refUris = refs.map(r => r.uri);
 
       // Global VAR + baz's inherited usage
@@ -750,7 +749,7 @@ describe('--inherit-variable', () => {
       const inheritVar = symbolsFoo.find(s => s.name === 'VAR' && s.isInheritVariable())!;
       expect(inheritVar).toBeDefined();
 
-      const refs = getReferences(docFoo, inheritVar.selectionRange.start);
+      const refs = analyzer.getReferences(docFoo, inheritVar.selectionRange.start);
 
       // Should find: `--inherit-variable VAR` declaration + `echo $VAR` usage
       expect(refs).toHaveLength(2);

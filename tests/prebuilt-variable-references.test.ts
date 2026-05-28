@@ -2,7 +2,6 @@ import { initializeParser } from '../src/parser';
 import { setLogger } from './helpers';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { analyzer, Analyzer } from '../src/analyze';
-import { getReferences, getImplementation } from '../src/references';
 import { getRenames } from '../src/renames';
 import { Position, Location } from 'vscode-languageserver';
 import TestWorkspace from './test-workspace-utils';
@@ -103,7 +102,7 @@ describe('prebuilt/environment variable references', () => {
     it('should find $PATH references across multiple files', () => {
       const fooDoc = workspace.getDocument('functions/foo.fish')!;
       // $PATH at line 1, char 10 in foo.fish ("    echo $PATH")
-      const pathRefs = getReferences(fooDoc, Position.create(1, 10));
+      const pathRefs = analyzer.getReferences(fooDoc, Position.create(1, 10));
       // Should find $PATH in foo.fish (line 1) and bar.fish (line 1)
       expect(pathRefs.length).toBeGreaterThanOrEqual(2);
 
@@ -156,7 +155,7 @@ describe('prebuilt/environment variable references', () => {
     it('should find $status references across multiple files', () => {
       const barDoc = workspace.getDocument('functions/bar.fish')!;
       // $status at line 2, char 14 in bar.fish ("    if test $status -ne 0")
-      const refs = getReferences(barDoc, Position.create(2, 17));
+      const refs = analyzer.getReferences(barDoc, Position.create(2, 17));
       expect(refs.length).toBeGreaterThanOrEqual(1);
 
       const texts = refs.map(loc => analyzer.getTextAtLocation(loc));
@@ -170,7 +169,7 @@ describe('prebuilt/environment variable references', () => {
     it('should find $HOME references across multiple files', () => {
       const bazDoc = workspace.getDocument('functions/baz.fish')!;
       // $PATH at line 1, char 10 in foo.fish ("    echo $PATH")
-      const pathRefs = getReferences(bazDoc, Position.create(1, 10));
+      const pathRefs = analyzer.getReferences(bazDoc, Position.create(1, 10));
       // Should find $PATH in foo.fish (line 1) and bar.fish (line 1)
       expect(pathRefs.length).toBeGreaterThanOrEqual(2);
       console.log('Found $HOME references at:', locationsMapUtil(pathRefs));
@@ -202,7 +201,7 @@ describe('prebuilt/environment variable references', () => {
     it('should find $HOME references in a single file', () => {
       const fooDoc = workspace.getDocument('functions/foo.fish')!;
       // $HOME at line 2, char 18 in foo.fish ("    set -l x $HOME/.config")
-      const refs = getReferences(fooDoc, Position.create(2, 15));
+      const refs = analyzer.getReferences(fooDoc, Position.create(2, 15));
       expect(refs.length).toBeGreaterThanOrEqual(1);
 
       const texts = refs.map(loc => analyzer.getTextAtLocation(loc));
@@ -244,18 +243,15 @@ describe('prebuilt/environment variable references', () => {
     it('should find $USER references', () => {
       const configDoc = workspace.getDocument('config.fish')!;
       // $USER at line 0, char 6
-      const refs = getReferences(configDoc, Position.create(0, 6));
+      const refs = analyzer.getReferences(configDoc, Position.create(0, 6));
       expect(refs.length).toBeGreaterThanOrEqual(1);
     });
 
     it('should return prebuilt variable references from analyzer.getReferences()', () => {
       const configDoc = workspace.getDocument('config.fish')!;
       const position = Position.create(0, 6);
-      const refs = getReferences(configDoc, position);
-      const analyzerRefs = analyzer.getReferences(configDoc, position);
-
-      expect(analyzerRefs).toEqual(refs);
-      expect(analyzerRefs.length).toBeGreaterThanOrEqual(1);
+      const refs = analyzer.getReferences(configDoc, position);
+      expect(refs.length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -571,7 +567,7 @@ describe('prebuilt/environment variable references', () => {
     });
   });
 
-  describe('getImplementation() returns empty for prebuilt variables', () => {
+  describe('analyzer.getImplementation() returns empty for prebuilt variables', () => {
     const workspace = TestWorkspace.create().addFiles(
       {
         relativePath: 'functions/foo.fish',
@@ -585,7 +581,7 @@ describe('prebuilt/environment variable references', () => {
 
     it('should return empty array for $PATH implementation', () => {
       const fooDoc = workspace.getDocument('functions/foo.fish')!;
-      const impls = getImplementation(fooDoc, Position.create(1, 10));
+      const impls = analyzer.getImplementation(fooDoc, Position.create(1, 10));
       expect(impls).toEqual([]);
     });
   });

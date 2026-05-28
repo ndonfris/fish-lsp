@@ -1,5 +1,5 @@
 import { initializeParser } from '../src/parser';
-import { createTestWorkspace, setLogger, locationAsString, fakeDocumentTrimUri } from './helpers';
+import { setLogger, locationAsString, fakeDocumentTrimUri } from './helpers';
 // import { isLongOption, isOption, isShortOption, NodeOptionQueryText } from '../src/utils/node-types';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
@@ -9,7 +9,6 @@ import { Range, SymbolKind } from 'vscode-languageserver';
 import { analyzer, Analyzer } from '../src/analyze';
 import { getCompletionSymbol, CompletionSymbol } from '../src/parsing/complete';
 import { LspDocument } from '../src/document';
-import { getReferences } from '../src/references';
 import { fail } from 'assert';
 import TestWorkspace from './test-workspace-utils';
 
@@ -153,7 +152,7 @@ describe('parsing symbols', () => {
         parentName: 'foo',
       });
 
-      const refLocations = getReferences(searchDoc, defSymbol.selectionRange.start);
+      const refLocations = analyzer.getReferences(searchDoc, defSymbol.selectionRange.start);
       // console.log(JSON.stringify({
       //   refLocations: refLocations.map(r => ({
       //     location: locationAsString(r),
@@ -221,7 +220,7 @@ describe('parsing symbols', () => {
       if (!defSymbol) {
         fail();
       }
-      const refLocations = getReferences(searchDoc, defSymbol.selectionRange.start);
+      const refLocations = analyzer.getReferences(searchDoc, defSymbol.selectionRange.start);
       expect(refLocations.map(l => {
         const doc = analyzer.getDocument(l.uri)!;
         return {
@@ -281,8 +280,8 @@ describe('parsing symbols', () => {
        * Confirm that getReferences works when passing in both:
        * a reference and a definition Location
        */
-      const foundRef = getReferences(foundDefDoc, foundDef.selectionRange.start);
-      const foundRefOg = getReferences(searchDoc, foundOpt.getRange().start);
+      const foundRef = analyzer.getReferences(foundDefDoc, foundDef.selectionRange.start);
+      const foundRefOg = analyzer.getReferences(searchDoc, foundOpt.getRange().start);
       // console.log(JSON.stringify({
       //   foundRef: foundRef.map(r => ({ uri: r.uri, range: r.range })),
       //   foundRefOg: foundRefOg.map(r => ({ uri: r.uri, range: r.range })),
@@ -317,7 +316,7 @@ describe('parsing symbols', () => {
       if (!searchSymbol) {
         fail();
       }
-      const refLocations = getReferences(searchDoc, searchSymbol.selectionRange.start);
+      const refLocations = analyzer.getReferences(searchDoc, searchSymbol.selectionRange.start);
       refLocations.forEach(l => {
         console.log({
           location: locationAsString(l),

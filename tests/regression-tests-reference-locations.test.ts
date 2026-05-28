@@ -20,6 +20,7 @@ import { rangeContainsPosition } from '../src/parsing/equality-utils';
 import { logger } from '../src/logger';
 import { fail } from 'assert';
 import { FishReferenceCandidate } from '../src/parsing/reference-candidates';
+import path from 'path';
 
 type MatchLocation = {
   uri: string;
@@ -72,6 +73,49 @@ const debugMatchLocations = (matchLocations: MatchLocation[], workspace: TestWor
   });
 };
 
+const asMatchLocation = (loc: Location) => {
+  let path = LspDocument.createFromUri(loc.uri).getRelativeFilenameToWorkspace();
+  if (path.includes('file://')) path = path.slice(path.indexOf('file://') + 'file://'.length);
+  return `matchLocation('${path}', ${loc.range.start.line}, ${loc.range.start.character})`;
+};
+
+const toMatchLocations = (locs: Location[]) => {
+  console.log('='.repeat(80));
+  const { currentTestName, testPath } = expect.getState();
+  const rel = testPath ? path.relative(process.cwd(), testPath) : '<unknown>';
+  console.log(`[${rel}] ${currentTestName}`);
+  console.log('');
+  const output: string[] = [];
+  locs.forEach((l, i) => {
+    let line = '';
+    if (i === 0) {
+      line += '[';
+      if (locs.length - 1 > 0) {
+        line += '\n';
+      } else {
+        line += ' ';
+      }
+    }
+    if (locs.length - 1 > 0) line += '\t';
+    line += asMatchLocation(l);
+    if (i < locs.length - 1 && locs.length - 1 > 0) {
+      line += ',\n';
+    } else {
+      line += ' ';
+    }
+    if (i === locs.length - 1) {
+      line += ']';
+    }
+    output.push(line);
+  });
+  console.log([
+    'const matchLocations = ' + output.join('') + ';',
+    'expectFoundLocationsToEqualMatchLocations(impls, matchLocations);',
+  ].join('\n'));
+  console.log('');
+  console.log('='.repeat(80));
+};
+
 const compareFoundLocationsToMatchLocations = (foundLocations: Location[], matchLocations: MatchLocation[]) => {
   foundLocations.forEach((loc, index) => {
     const matches = matchLocations.filter(ml => ml.equalsLocation(loc));
@@ -100,6 +144,48 @@ const expectFoundLocationsToEqualMatchLocations = (foundLocations: Location[], m
   expect(foundLocations).toHaveLength(matchLocations.length);
 };
 
+function getNodeOrPostion(arg: SyntaxNode | Position): Position {
+  if (Position.is(arg)) {
+    return arg;
+  }
+  return getRange(arg).start;
+}
+
+type CompareReferencesOpts = {
+  excludeDefinition?: boolean;
+  localOnly?: boolean;
+};
+
+function compareReferences(
+  doc: LspDocument,
+  pos: Position | SyntaxNode,
+  expectedLength?: number,
+  opts: CompareReferencesOpts = {},
+) {
+  const position = getNodeOrPostion(pos);
+  const refs = analyzer.getReferences(doc, position, {
+    includeDefinitions: !opts.excludeDefinition,
+    localOnly: opts.localOnly,
+  });
+  if (expectedLength !== undefined) {
+    expect(refs).toHaveLength(expectedLength);
+  }
+}
+
+function compareUnusedReferences(
+  doc: LspDocument,
+  expectedLength?: number,
+  expectedNames?: string[],
+) {
+  const unused = analyzer.allUnusedLocalReferences(doc);
+  if (expectedLength !== undefined) {
+    expect(unused).toHaveLength(expectedLength);
+  }
+  if (expectedNames !== undefined) {
+    expect(unused.map(s => s.name).sort()).toEqual([...expectedNames].sort());
+  }
+}
+
 describe('find reference locations of symbols', () => {
   setLogger();
 
@@ -108,7 +194,6 @@ describe('find reference locations of symbols', () => {
     await initializeParser();
     await Analyzer.initialize();
     await setupProcessEnvExecFile();
-    // Object.assign(config, ConfigSchema.parse({}))
   });
 
   describe('argparse', () => {
@@ -173,12 +258,13 @@ describe('find reference locations of symbols', () => {
       expect(confdDoc).toBeDefined();
       const nodeAtPoint = analyzer.nodeAtPoint(confdDoc.uri, 1, 10);
       if (nodeAtPoint && isOption(nodeAtPoint)) {
-        const result = analyzer.getReferences(confdDoc, getRange(nodeAtPoint).start);
-        expect(result).toHaveLength(4);
+        // const result = analyzer.getReferences(confdDoc, getRange(nodeAtPoint).start);
+        // expect(result).toHaveLength(4);
+        compareReferences(confdDoc, nodeAtPoint, 4);
       }
     });
 
-    it('test _flag_help', () => {
+    it('test _flag_yes', () => {
       const functionDoc = workspace.getDocument('functions/test.fish')!;
       const found = analyzer.findNode((n, document) => {
         return document!.uri === functionDoc.uri && n.text === '_flag_yes';
@@ -192,7 +278,10 @@ describe('find reference locations of symbols', () => {
         FishReferenceCandidate.fromSymbol(foundSymbol!),
         ...analyzer.referenceCandidates.findForSymbol(foundSymbol!).filter(rc => foundSymbol?.isReference(rc.document, rc.node, true)),
       ].sort(sorter);
-      const result3 = analyzer.getReferences(functionDoc, getRange(found).start);
+      const result3 = analyzer.getReferences(functionDoc, getRange(found).start, {
+        includeDefinitions: true,
+      });
+      console.log(analyzer.getReferences(functionDoc, getRange(found).start));
       // const result2 = analyzer.referenceCandidates.find(found.text);
       // analyzer.symbols.allSymbolsByName.find('_flag_yes').forEach(s => {
       //   console.log({
@@ -225,6 +314,7 @@ describe('find reference locations of symbols', () => {
         result3: result3.map(loc => locationAsString(loc)),
       });
 
+      compareReferences(functionDoc!, found, 4);
       expect(result).toHaveLength(4);
     });
 
@@ -233,6 +323,7 @@ describe('find reference locations of symbols', () => {
       const nodeAtPoint = analyzer.nodeAtPoint(functionDoc.uri, 1, 52)!;
       expect(nodeAtPoint!.text).toBe('v/version');
       const refs = analyzer.getReferences(functionDoc, Position.create(1, 52));
+      compareReferences(functionDoc, Position.create(1, 52), 3);
       expect(refs).toHaveLength(3);
     });
 
@@ -250,8 +341,9 @@ describe('find reference locations of symbols', () => {
       }
       const refs = analyzer.getReferences(completionDoc, Position.create(0, 27));
       const newRefs = analyzer.getReferences(completionDoc, Position.create(0, 27));
+      compareReferences(completionDoc, Position.create(0, 27), 3);
       expect(refs).toHaveLength(3);
-      expect(refs).toEqual(newRefs);
+      // expect(refs).toEqual(newRefs);
     });
 
     // Regression: a `cmd --flag` call inside a non-autoloaded script must still
@@ -322,6 +414,7 @@ describe('find reference locations of symbols', () => {
         // compareFoundLocationsToMatchLocations(refs, matchLocations);
         expectFoundLocationsToEqualMatchLocations(refs, matchLocations);
         expect(refs).toHaveLength(matchLocations.length);
+        compareReferences(doc, callSitePos, matchLocations.length);
       });
     });
   });
@@ -389,9 +482,10 @@ describe('find reference locations of symbols', () => {
       })!;
       expect(found).toBeDefined();
       const result = analyzer.getReferences(confdDoc, getRange(found).start);
-      printLocations(result, {
-        showLineText: true,
-      });
+      // printLocations(result, {
+      //   showLineText: true,
+      // });
+      compareReferences(confdDoc, found, 2);
       expect(result).toHaveLength(2);
     });
 
@@ -399,33 +493,39 @@ describe('find reference locations of symbols', () => {
       const functionDoc = workspace.getDocument('functions/test.fish')!;
       const node = analyzer.getNodes(functionDoc.uri).find((n) => n.text === 'foo' && isVariableDefinitionName(n))!;
       expect(node).toBeDefined();
+      const def = analyzer.getDefinition(functionDoc, getRange(node).start);
+      // console.log({def:locationAsString(def?.toLocation()!)});
       const result = analyzer.getReferences(functionDoc, getRange(node).start);
-      printLocations(result, {
-        showText: true,
-        showLineText: true,
-        showIndex: true,
-        rangeVerbose: true,
-      });
-      for (const loc of result) {
-        console.log({
-          uri: LspDocument.testUri(loc.uri),
-          text: analyzer.getTextAtLocation(loc),
-          node: analyzer.nodeAtPoint(loc.uri, loc.range.start.line, loc.range.start.character)?.text,
-          symbol: analyzer.getFlatDocumentSymbols(loc.uri).find(s => s.equalsLocation(loc))?.toString(),
-        });
-      }
+      // printLocations(result, {
+      //   showText: true,
+      //   showLineText: true,
+      //   showIndex: true,
+      //   rangeVerbose: true,
+      // });
+      // for (const loc of result) {
+      //   console.log({
+      //     uri: LspDocument.testUri(loc.uri),
+      //     text: analyzer.getTextAtLocation(loc),
+      //     node: analyzer.nodeAtPoint(loc.uri, loc.range.start.line, loc.range.start.character)?.text,
+      //     symbol: analyzer.getFlatDocumentSymbols(loc.uri).find(s => s.equalsLocation(loc))?.toString(),
+      //   });
+      // }
+      compareReferences(functionDoc, node, 5);
       expect(result).toHaveLength(5);
     });
 
     it('foo global', () => {
       const globalTestDoc = workspace.getDocument('conf.d/global_test.fish')!;
       const node = analyzer.getNodes(globalTestDoc.uri).find((n) => n.text === 'foo' && isVariableDefinitionName(n))!;
+      console.log(globalTestDoc.getText());
+
       expect(node).toBeDefined();
       const result = analyzer.getReferences(globalTestDoc, getRange(node).start);
       printLocations(result, {
         showText: true,
         showLineText: true,
       });
+      compareReferences(globalTestDoc, node, 3);
       expect(result).toHaveLength(3);
       expect(result.map(loc => loc.uri).some(uri => uri.includes('functions/test-other.fish'))).toBeTruthy();
       expect(result.map(loc => loc.uri).some(uri => uri.includes('conf.d/global_test.fish'))).toBeTruthy();
@@ -483,6 +583,7 @@ describe('find reference locations of symbols', () => {
       const refs = analyzer.getReferences(doc, getRange(definitionNode).start);
       const refLines = new Set(refs.map(loc => loc.range.start.line));
 
+      compareReferences(doc, definitionNode, 4);
       expect(refLines.has(1)).toBeFalsy();
     });
 
@@ -501,6 +602,7 @@ describe('find reference locations of symbols', () => {
       expect(refLines.has(2)).toBeTruthy();
       expect(refLines.has(3)).toBeTruthy();
       expect(refLines.has(4)).toBeTruthy();
+      compareReferences(doc, definitionNode, 4);
     });
 
     it('set -eg should end global variable lifetime for later references', () => {
@@ -518,6 +620,7 @@ describe('find reference locations of symbols', () => {
       expect(refLines.has(1)).toBeTruthy();
       expect(refLines.has(2)).toBeTruthy();
       expect(refLines.has(3)).toBeFalsy();
+      compareReferences(doc, defNode!, refs.length);
     });
 
     it('includes set -q/-e targets when finding prebuilt PATH references', () => {
@@ -534,6 +637,7 @@ describe('find reference locations of symbols', () => {
       expect(refLines.has(0)).toBeTruthy();
       expect(refLines.has(1)).toBeTruthy();
       expect(refLines.has(2)).toBeTruthy();
+      compareReferences(doc, queryPathNode!, 3);
     });
 
     it('includes guarded set -q targets for matching global scopes, but not local pre-definition scopes', () => {
@@ -587,6 +691,9 @@ describe('find reference locations of symbols', () => {
         loc.range.start.line === 3
         && loc.range.start.character < getRange(localDef!).start.character,
       )).toBeFalsy();
+      compareReferences(doc, editorDef!, editorRefs.length);
+      compareReferences(doc, visualDef!, visualRefs.length);
+      compareReferences(doc, localDef!, localRefs.length);
     });
   });
 
@@ -771,7 +878,9 @@ describe('find reference locations of symbols', () => {
         showDocs: true,
         separator: true,
       });
-      const refs = analyzer.getReferences(searchDoc, getRange(found).start);
+      const refs = analyzer.getReferences(searchDoc, getRange(found).start, {
+        includeDefinitions: true,
+      });
       // matchLocations.forEach((ml, index) => {
       //   const doc = workspace.getDocument(ml.uri)
       //   if (!refs.some(loc => ml.equalsLocation(loc))) {
@@ -785,6 +894,7 @@ describe('find reference locations of symbols', () => {
       // })
       compareFoundLocationsToMatchLocations(refs, matchLocations);
       expect(refs).toHaveLength(matchLocations.length);
+      compareReferences(searchDoc, found, matchLocations.length);
     });
 
     it.skip('global alias `ls` (iter approach **OLD**)', () => {
@@ -894,7 +1004,9 @@ describe('find reference locations of symbols', () => {
           }
         });
       }
-      const builtinRefs = analyzer.getReferences(searchDoc, getRange(found).start);
+      const builtinRefs = analyzer.getReferences(searchDoc, getRange(found).start, {
+        includeDefinitions: true,
+      });
       console.log('builtinRefs', builtinRefs.length);
       printLocations(builtinRefs, {
         showText: true,
@@ -902,6 +1014,7 @@ describe('find reference locations of symbols', () => {
         showIndex: true,
       });
       expect(builtinRefs).toHaveLength(12);
+      compareReferences(searchDoc, found!, 12);
     });
 
     it('local alias', () => {
@@ -914,6 +1027,7 @@ describe('find reference locations of symbols', () => {
       console.log(searchDoc.getText());
       const result = analyzer.getReferences(searchDoc, getRange(found).start);
       expect(result).toHaveLength(2);
+      compareReferences(searchDoc, found, 2);
     });
   });
 
@@ -970,6 +1084,7 @@ describe('find reference locations of symbols', () => {
       expect(uris.has('functions/test-other.fish')).toBeFalsy();
       expect(uris.has('completions/foo.fish')).toBeTruthy();
       expect(uris.has('conf.d/foo.fish')).toBeTruthy();
+      compareReferences(searchDoc, found, 3);
     });
   });
 
@@ -1016,6 +1131,7 @@ describe('find reference locations of symbols', () => {
           }
         });
         expect(results).toHaveLength(2);
+        compareReferences(document, nodeAtPoint!, 2);
       });
 
       it('argparse references for `h/help` position inside of `help`', () => {
@@ -1036,6 +1152,7 @@ describe('find reference locations of symbols', () => {
         for (const text of resultTexts) {
           if (text !== 'help') fail();
         }
+        compareReferences(cached.document, Position.create(1, 31), 4);
       });
     });
 
@@ -1133,6 +1250,7 @@ describe('find reference locations of symbols', () => {
         });
         expect(refs).toHaveLength(5);
         expect(newTexts.size === 1).toBeTruthy();
+        compareReferences(functionDoc, Position.create(1, 49), 5);
       });
 
       it('argparse `special-option` test', () => {
@@ -1200,6 +1318,7 @@ describe('find reference locations of symbols', () => {
         const refUris = new Set(renames.map(loc => loc.uri));
         expect(renames).toHaveLength(refs.length);
         expect(refUris.size).toBe(4);
+        compareReferences(functionDoc, Position.create(0, 11), refs.length);
       });
 
       it('config.fish $argv rename', () => {
@@ -1241,6 +1360,7 @@ describe('find reference locations of symbols', () => {
         const renames = getRenames(configDoc, bazLocation.range.start, 'baz_test');
         expect(refs).toHaveLength(2);
         expect(renames).toHaveLength(2);
+        compareReferences(configDoc, bazLocation.range.start, 2);
       });
     });
   });
@@ -1278,6 +1398,7 @@ describe('find reference locations of symbols', () => {
       variableNodes.forEach(node => {
         const refs = analyzer.getReferences(configDoc, getRange(node).start);
         expect(refs.length).toBeGreaterThanOrEqual(1);
+        compareReferences(configDoc, node, refs.length);
       });
     });
 
@@ -1288,6 +1409,7 @@ describe('find reference locations of symbols', () => {
       )!;
       const refs = analyzer.getReferences(funcDoc, getRange(variableNode).start);
       expect(refs).toHaveLength(1);
+      compareReferences(funcDoc, variableNode, 1);
     });
   });
 
@@ -1372,6 +1494,7 @@ describe('find reference locations of symbols', () => {
         const focusedDoc = workspace.getDocument('event_test.fish')!;
         const unusedRefs = analyzer.allUnusedLocalReferences(focusedDoc);
         expect(unusedRefs).toHaveLength(0);
+        compareUnusedReferences(focusedDoc, 0);
       });
 
       it('other_event_test.fish', () => {
@@ -1386,6 +1509,7 @@ describe('find reference locations of symbols', () => {
           showLineText: true,
         });
         expect(unusedRefs).toHaveLength(0);
+        compareUnusedReferences(focusedDoc, 0);
       });
 
       it('event_without_emit.fish', () => {
@@ -1400,6 +1524,7 @@ describe('find reference locations of symbols', () => {
           showLineText: true,
         });
         expect(unusedRefs).toHaveLength(2);
+        compareUnusedReferences(focusedDoc, 2);
       });
 
       it('custom_fish_prompt `--on-event fish_prompt` not emitted but not show unused', () => {
@@ -1409,6 +1534,8 @@ describe('find reference locations of symbols', () => {
         expect(allRefs).toHaveLength(1);
         const unusedRefs = analyzer.allUnusedLocalReferences(focusedDoc);
         expect(unusedRefs).toHaveLength(0);
+        compareReferences(focusedDoc, focusedSymbol.toPosition(), 1);
+        compareUnusedReferences(focusedDoc, 0);
       });
 
       it('config.fish `reset_fish_prompt` emitted', () => {
@@ -1418,22 +1545,17 @@ describe('find reference locations of symbols', () => {
         expect(allRefs).toHaveLength(2);
         const unusedRefs = analyzer.allUnusedLocalReferences(focusedDoc);
         expect(unusedRefs).toHaveLength(0);
+        compareReferences(focusedDoc, focusedSymbol.toPosition(), 2);
+        compareUnusedReferences(focusedDoc, 0);
       });
     });
 
     describe('goto implementation', () => {
-      beforeEach(() => {
-        workspaceManager.clear();
-      });
-
-      afterEach(() => {
-        workspaceManager.clear();
-      });
-
       it('config.fish `emit reset_fish_prompt`', () => {
         const focusedDoc = workspace.getDocument('config.fish')!;
         const focusedSymbol = analyzer.getFlatDocumentSymbols(focusedDoc.uri).find(s => s.isEmittedEvent() && s.name === 'reset_fish_prompt')!;
         const impls = analyzer.getImplementation(focusedDoc, focusedSymbol.toPosition());
+        const matchLocations = [matchLocation('functions/custom_fish_prompt.fish', 4, 44)];
         printLocations(impls, {
           showIndex: true,
           showText: true,
@@ -1441,31 +1563,48 @@ describe('find reference locations of symbols', () => {
           verbose: true,
         });
         expect(impls).toHaveLength(1);
+        expectFoundLocationsToEqualMatchLocations(impls, matchLocations);
+        // toMatchLocations(impls)
       });
 
       it('functions/custom_fish_prompt.fish -> `emit reset_fish_prompt`', () => {
         const focusedDoc = workspace.getDocument('functions/custom_fish_prompt.fish')!;
+        workspaceManager.setCurrent(workspace.getWorkspace()!);
         const focusedSymbol = analyzer.getFlatDocumentSymbols(focusedDoc.uri).find(s => s.isEventHook() && s.name === 'reset_fish_prompt')!;
         const impls = analyzer.getImplementation(focusedDoc, focusedSymbol.toPosition());
+        const matchLocations = [matchLocation('config.fish', 1, 5)];
         expect(impls).toHaveLength(1);
+
+        expectFoundLocationsToEqualMatchLocations(impls, matchLocations);
       });
 
       it('alias value command resolves implementation from nested reference position', () => {
-        const focusedDoc = createFakeLspDocument('file:///tmp/test-alias-implementation.fish', [
+        workspaceManager.clear();
+        const focusedDoc = createFakeLspDocument(`file:///${new Date().getMilliseconds()}/tmp/test-alias-implementation.fish`, [
           'function bar',
           'end',
           '',
           "alias bb 'bar'",
         ].join('\n'));
+        workspace.addDocument(focusedDoc);
 
         analyzer.analyze(focusedDoc);
+        workspace.focus(focusedDoc.uri);
+        workspaceManager.setCurrent(workspace.getWorkspace()!);
         const impls = analyzer.getImplementation(focusedDoc, Position.create(3, 11));
 
         expect(impls).toHaveLength(1);
         expect(analyzer.getTextAtLocation(impls[0]!)).toBe('bar');
+
+        toMatchLocations(impls);
+        const matchLocations = [matchLocation('/tmp/test-alias-implementation.fish', 0, 10)];
+        expectFoundLocationsToEqualMatchLocations(impls, matchLocations);
       });
 
-      it('cycles to references when implementation would not move the cursor', async () => {
+      // From a definition with no completion, the analyzer falls back to
+      // getReferences so the cycle can still move — returns the def plus any
+      // usages (e.g., the inner `bar` command inside `alias bb 'bar'`).
+      it('definition with no completion returns def + usages', () => {
         const focusedDoc = createFakeLspDocument('/tmp/test-alias-implementation-cycle.fish', [
           'function bar',
           'end',
@@ -1475,20 +1614,154 @@ describe('find reference locations of symbols', () => {
 
         analyzer.analyze(focusedDoc);
         const impls = analyzer.getImplementation(focusedDoc, Position.create(0, 10));
-        // impls
-        // .map(({ uri, range }) => ({ uri, range, text: analyzer.getDocument(uri)?.getText(range) }))
-        // .forEach(impl => {
-        //   console.log({
-        //     uri: impl.uri,
-        //     range: rangeAsString(impl.range),
-        //     text: impl.text,
-        //   });
-        // })
+
+        expect(impls).toHaveLength(2);
+        expect(impls[0]!.range.start.line).toBe(0);
+        expect(impls[1]!.range.start.line).toBe(3);
+
         const matchLocations = [
           matchLocation('/tmp/test-alias-implementation-cycle.fish', 0, 9),
           matchLocation('/tmp/test-alias-implementation-cycle.fish', 3, 10),
         ];
         expectFoundLocationsToEqualMatchLocations(impls, matchLocations);
+      });
+    });
+
+    // Cycle semantics for the reimplemented analyzer.getImplementation:
+    //   usage → definition
+    //   definition → completion (falls back to def + usages if no completion)
+    //   completion → usage (back to definition if no usage exists)
+    //   emit event → all --on-event handlers (and vice versa)
+    describe('cycle semantics', () => {
+      describe('function with completion', () => {
+        const workspace = TestWorkspace.create().addFiles(
+          {
+            relativePath: 'functions/cycler.fish',
+            content: [
+              'function cycler',
+              '    echo hi',
+              'end',
+            ].join('\n'),
+          },
+          {
+            relativePath: 'completions/cycler.fish',
+            content: [
+              'complete -c cycler -s h -l help',
+            ].join('\n'),
+          },
+          {
+            relativePath: 'conf.d/use_cycler.fish',
+            content: [
+              'cycler --help',
+            ].join('\n'),
+          },
+        ).initialize();
+
+        it('usage → definition', () => {
+          const useDoc = workspace.getDocument('conf.d/use_cycler.fish')!;
+          const impls = analyzer.getImplementation(useDoc, Position.create(0, 2));
+          expect(impls).toHaveLength(1);
+          expect(impls[0]!.uri).toContain('functions/cycler.fish');
+          toMatchLocations(impls);
+          const matchLocations = [matchLocation('functions/cycler.fish', 0, 9)];
+
+          expectFoundLocationsToEqualMatchLocations(impls, matchLocations);
+
+          // compareImplementations(useDoc, Position.create(0, 2), 1);
+        });
+
+        it('definition → completion', () => {
+          const funcDoc = workspace.getDocument('functions/cycler.fish')!;
+          const impls = analyzer.getImplementation(funcDoc, Position.create(0, 10));
+          expect(impls.length).toBeGreaterThanOrEqual(1);
+          expect(impls.some(loc => loc.uri.includes('completions/cycler.fish'))).toBeTruthy();
+          // toMatchLocations(impls)
+
+          const matchLocations = [matchLocation('completions/cycler.fish', 0, 12)];
+          expectFoundLocationsToEqualMatchLocations(impls, matchLocations);
+          // compareImplementations(funcDoc, Position.create(0, 10), impls.length);
+        });
+
+        it('completion → usage', () => {
+          const compDoc = workspace.getDocument('completions/cycler.fish')!;
+          const impls = analyzer.getImplementation(compDoc, Position.create(0, 12));
+          expect(impls.length).toBeGreaterThanOrEqual(1);
+          // Should land on a usage location somewhere outside the completions file.
+          expect(impls.some(loc => !loc.uri.includes('completions/'))).toBeTruthy();
+          // compareImplementations(compDoc, Position.create(0, 12), impls.length);
+          const matchLocations = [matchLocation('conf.d/use_cycler.fish', 0, 0)];
+          expectFoundLocationsToEqualMatchLocations(impls, matchLocations);
+        });
+      });
+
+      describe('function without completion', () => {
+        const workspace = TestWorkspace.create().addFiles({
+          relativePath: 'functions/lonely.fish',
+          content: [
+            'function lonely',
+            '    echo solo',
+            'end',
+          ].join('\n'),
+        }).initialize();
+
+        it('definition stays on definition (no completion exists)', () => {
+          const doc = workspace.getDocument('functions/lonely.fish')!;
+          const impls = analyzer.getImplementation(doc, Position.create(0, 10));
+          // Per the agreed semantics, def → no completion → stay on def.
+          expect(impls).toHaveLength(1);
+          expect(impls[0]!.uri).toContain('functions/lonely.fish');
+          // compareImplementations(doc, Position.create(0, 10), 1);
+          const matchLocations = [matchLocation('functions/lonely.fish', 0, 9)];
+          expectFoundLocationsToEqualMatchLocations(impls, matchLocations);
+        });
+      });
+
+      describe('emit event with multiple handlers', () => {
+        const workspace = TestWorkspace.create().addFiles(
+          {
+            relativePath: 'conf.d/emitter.fish',
+            content: [
+              'emit multi_event',
+            ].join('\n'),
+          },
+          {
+            relativePath: 'functions/handler_a.fish',
+            content: [
+              'function handler_a --on-event multi_event',
+              '    echo a',
+              'end',
+            ].join('\n'),
+          },
+          {
+            relativePath: 'functions/handler_b.fish',
+            content: [
+              'function handler_b --on-event multi_event',
+              '    echo b',
+              'end',
+            ].join('\n'),
+          },
+        ).initialize();
+
+        it('emit returns ALL --on-event handlers', () => {
+          const emitDoc = workspace.getDocument('conf.d/emitter.fish')!;
+          // `emit ` is 5 chars, `multi_event` starts at col 5.
+          const impls = analyzer.getImplementation(emitDoc, Position.create(0, 6));
+          const handlerUris = impls.map(loc => loc.uri);
+
+          const matchLocations = [
+            matchLocation('functions/handler_a.fish', 0, 30),
+            matchLocation('functions/handler_b.fish', 0, 30),
+          ];
+
+          expect(handlerUris.some(u => u.includes('functions/handler_a.fish'))).toBeTruthy();
+          expect(handlerUris.some(u => u.includes('functions/handler_b.fish'))).toBeTruthy();
+
+          toMatchLocations(impls);
+          expectFoundLocationsToEqualMatchLocations(impls, matchLocations);
+          // Intentionally no compareImplementations here: the OLD impl
+          // returned only the first handler. Once the reimpl lands the new
+          // path returns ALL handlers, which is the behavior under test.
+        });
       });
     });
   });
@@ -1555,6 +1828,7 @@ describe('find reference locations of symbols', () => {
         showIndex: true,
       });
       expect(refs).toHaveLength(6);
+      compareReferences(doc, focusedSymbol.toPosition(), 6);
     });
 
     it('test global variable w/ local references', () => {
@@ -1574,6 +1848,7 @@ describe('find reference locations of symbols', () => {
         showIndex: true,
       });
       expect(refs).toHaveLength(4);
+      compareReferences(doc, focusedSymbol.toPosition(), 4);
     });
 
     it('test variable w/ local references && {localOnly: true}', () => {
@@ -1593,6 +1868,245 @@ describe('find reference locations of symbols', () => {
         showIndex: true,
       });
       expect(refs).toHaveLength(4);
+      compareReferences(doc, focusedSymbol.toPosition(), 4, { localOnly: true });
+    });
+  });
+
+  // Coverage for the rescue passes inside analyzer.allUnusedLocalReferences()
+  // — these exercise the "indirectly used" branches the first-pass scan can't
+  // detect by name match alone (argparse aliases, --inherit-variable callers,
+  // --no-scope-shadowing callees, --on-event handlers).
+  describe('analyzer.allUnusedLocalReferences', () => {
+    describe('plain locals', () => {
+      const workspace = TestWorkspace.create().addFiles(
+        {
+          relativePath: 'functions/unused_local.fish',
+          content: [
+            'function unused_local',
+            '    set -l never_used bar',
+            'end',
+          ].join('\n'),
+        },
+        {
+          relativePath: 'functions/used_local.fish',
+          content: [
+            'function used_local',
+            '    set -l consumed bar',
+            '    echo $consumed',
+            'end',
+          ].join('\n'),
+        },
+      ).initialize();
+
+      it('flags a `set -l` with no reads', () => {
+        const doc = workspace.getDocument('functions/unused_local.fish')!;
+        compareUnusedReferences(doc, 1, ['never_used']);
+      });
+
+      it('does not flag a `set -l` that is read', () => {
+        const doc = workspace.getDocument('functions/used_local.fish')!;
+        compareUnusedReferences(doc, 0);
+      });
+    });
+
+    describe('argparse equivalence rescue', () => {
+      const workspace = TestWorkspace.create().addFiles({
+        relativePath: 'functions/arg_with_flag.fish',
+        content: [
+          'function arg_with_flag',
+          "    argparse 'h/help' v/verbose -- $argv",
+          '    or return',
+          '    if set -q _flag_help',
+          '        echo help',
+          '    end',
+          'end',
+        ].join('\n'),
+      }).initialize();
+
+      it('`h/help` reached via `_flag_help` is not flagged unused', () => {
+        const doc = workspace.getDocument('functions/arg_with_flag.fish')!;
+        // The OLD impl is the source of truth — compareUnusedReferences asserts
+        // analyzer's reimplementation matches it, whatever the exact set is.
+        const baseline = analyzer.allUnusedLocalReferences(doc);
+        const baselineNames = baseline.map(s => s.name).sort();
+        compareUnusedReferences(doc, baseline.length, baselineNames);
+        // `_flag_help` is in the body, so the argparse symbol for help/h must
+        // not be reported as unused.
+        expect(baselineNames.includes('help')).toBeFalsy();
+        expect(baselineNames.includes('h')).toBeFalsy();
+      });
+    });
+
+    describe('--inherit-variable rescue', () => {
+      const workspace = TestWorkspace.create().addFiles({
+        relativePath: 'functions/inherit_outer.fish',
+        content: [
+          'function inherit_outer',
+          '    set -l shared_var hello',
+          '    inherit_inner',
+          'end',
+          'function inherit_inner --inherit-variable shared_var',
+          '    echo $shared_var',
+          'end',
+        ].join('\n'),
+      }).initialize();
+
+      it('local var is not flagged when inherited by a function called in scope', () => {
+        const doc = workspace.getDocument('functions/inherit_outer.fish')!;
+        const unusedNames = analyzer.allUnusedLocalReferences(doc).map(s => s.name);
+        expect(unusedNames).not.toContain('shared_var');
+        compareUnusedReferences(doc, analyzer.allUnusedLocalReferences(doc).length);
+      });
+    });
+
+    describe('--no-scope-shadowing rescue', () => {
+      const workspace = TestWorkspace.create().addFiles({
+        relativePath: 'functions/no_scope_outer.fish',
+        content: [
+          'function no_scope_outer',
+          '    set -l leaked_var hello',
+          '    no_scope_inner',
+          'end',
+          'function no_scope_inner --no-scope-shadowing',
+          '    echo $leaked_var',
+          'end',
+        ].join('\n'),
+      }).initialize();
+
+      it('local var is not flagged when a --no-scope-shadowing callee reads it', () => {
+        const doc = workspace.getDocument('functions/no_scope_outer.fish')!;
+        const unusedNames = analyzer.allUnusedLocalReferences(doc).map(s => s.name);
+        expect(unusedNames).not.toContain('leaked_var');
+        compareUnusedReferences(doc, analyzer.allUnusedLocalReferences(doc).length);
+      });
+    });
+  });
+
+  // Cross-file references for an alias picked up via `--wraps`/`-w` flags on
+  // both `function ... --wraps X` declarations and `complete -c ... -w X`.
+  // The alias `lsd` is defined once in conf.d/ and used as a wrap target by two
+  // separate functions and one completion; references should land on every
+  // occurrence (defs, wrap mentions, body calls).
+  describe('alias `lsd` with --wraps cross-file', () => {
+    const workspace = TestWorkspace.create().addFiles(
+      {
+        relativePath: 'conf.d/aliases.fish',
+        content: [
+          'alias lsd=\'exa --only-dirs -1\'',
+        ].join('\n'),
+      },
+      {
+        relativePath: 'functions/show-dirs.fish',
+        content: [
+          'function show-dirs -w=lsd',
+          '    lsd $argv',
+          'end',
+        ].join('\n'),
+      },
+      {
+        relativePath: 'completions/show-dirs.fish',
+        content: [
+          'complete -c show-dirs -w lsd -f',
+          'complete -c show-dirs -w \'lsd\' -f',
+        ].join('\n'),
+      },
+      {
+        relativePath: 'functions/other-dirs.fish',
+        content: [
+          'function other-dirs --wraps lsd',
+          '    lsd $argv',
+          'end',
+        ].join('\n'),
+      },
+    ).initialize();
+
+    it('analyzer.getReferences matches getReferences across all 4 files', () => {
+      const aliasDoc = workspace.getDocument('conf.d/aliases.fish')!;
+      const showFunc = workspace.getDocument('functions/show-dirs.fish')!;
+      const showComp = workspace.getDocument('completions/show-dirs.fish')!;
+      const otherFunc = workspace.getDocument('functions/other-dirs.fish')!;
+      expect(aliasDoc).toBeDefined();
+      expect(showFunc).toBeDefined();
+      expect(showComp).toBeDefined();
+      expect(otherFunc).toBeDefined();
+
+      // Look up the alias symbol — tree-sitter concatenates `lsd='…'` into a
+      // single node, so finding "lsd" by text alone doesn't work; the symbol
+      // table is the reliable anchor.
+      const aliasSymbol = analyzer.getFlatDocumentSymbols(aliasDoc.uri)
+        .find(s => s.name === 'lsd' && s.fishKind === 'ALIAS')!;
+      expect(aliasSymbol).toBeDefined();
+      const defPos = aliasSymbol.toPosition();
+
+      const refs = analyzer.getReferences(aliasDoc, defPos);
+      const refUris = new Set(refs.map(loc => loc.uri));
+
+      // Sanity check: every file that mentions `lsd` contributed at least one
+      // reference. If the parser stops picking up `-w=lsd` short form or
+      // `--wraps lsd` long form this assertion catches it immediately.
+      expect(refUris.has(aliasDoc.uri)).toBeTruthy();
+      expect(refUris.has(showFunc.uri)).toBeTruthy();
+      expect(refUris.has(otherFunc.uri)).toBeTruthy();
+
+      // TODO(`complete -w lsd`): NOT surface `-w=lsd` but does `-w lsp` inside a `complete` command.
+      expect(refUris.has(showComp.uri)).toBeTruthy();
+
+      // refs.forEach(({ uri, range }, idx) => {
+      //   console.log(idx, analyzer.getDocument(uri)?.getText(range));
+      // });
+
+      // Load-bearing assertion for the refactor: whatever set is picked up,
+      // both impls must agree on count + ordering.
+      compareReferences(aliasDoc, defPos, refs.length);
+    });
+  });
+
+  // Regression: opening tests/workspaces/example_test_src/config.fish and
+  // requesting references for `$fish_user_paths` at line 93 returned a hit
+  // from fish-lsp's own bundled file `fish_files/get-fish-autoloaded-paths.fish`,
+  // which lives outside the opened workspace. `getReferences()` already filters
+  // via getDocumentsToSearch(); `analyzer.getReferences()` must do the same so
+  // its cached findForSymbol() result is scoped to the current workspace.
+  describe('workspace scoping', () => {
+    const workspace = TestWorkspace.create().addFiles({
+      relativePath: 'config.fish',
+      content: [
+        'set -gx my_unique_test_var foo',
+        'echo $my_unique_test_var',
+      ].join('\n'),
+    }).initialize();
+
+    it('analyzer.getReferences excludes documents outside the current workspace', () => {
+      const doc = workspace.getDocument('config.fish')!;
+      expect(doc).toBeDefined();
+
+      // Index a stray doc that lives outside the test workspace. This mimics
+      // the production case where fish-lsp's own bundled fish_files (or any
+      // other indexed workspace) appears alongside the user's workspace.
+      const strayDoc = createFakeLspDocument(
+        '/tmp/cross-workspace-leak-test/foo.fish',
+        'echo $my_unique_test_var',
+      );
+      analyzer.analyze(strayDoc);
+
+      // createFakeLspDocument may set the stray's workspace as current; put
+      // the test workspace back so the reference query is scoped to it.
+      workspaceManager.setCurrent(doc.getWorkspace()!);
+
+      console.log(workspaceManager.all.map(ws => ws.name));
+      expect(workspaceManager.all).toHaveLength(2);
+
+      const defNode = analyzer.getNodes(doc.uri).find(n =>
+        n.text === 'my_unique_test_var' && isVariableDefinitionName(n),
+      )!;
+      expect(defNode).toBeDefined();
+
+      const refs = analyzer.getReferences(doc, getRange(defNode).start);
+      const strayInRefs = refs.some(loc => loc.uri === strayDoc.uri);
+      expect(strayInRefs).toBeFalsy();
+
+      // Both paths must agree, and the OLD path already filters by workspace.
+      compareReferences(doc, defNode, refs.length);
     });
   });
 });

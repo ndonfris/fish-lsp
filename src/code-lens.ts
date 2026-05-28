@@ -1,7 +1,6 @@
 import { CodeLens } from 'vscode-languageserver';
 import { Analyzer } from './analyze';
 import { LspDocument } from './document';
-import { getReferences } from './references';
 import { uriToPath } from './utils/translation';
 
 export function getReferenceCountCodeLenses(analyzer: Analyzer, document: LspDocument): CodeLens[] {
@@ -14,7 +13,7 @@ export function getReferenceCountCodeLenses(analyzer: Analyzer, document: LspDoc
   // Create a code lens for each global symbol
   for (const symbol of globalSymbols) {
     // Get reference count
-    const references = getReferences(document, symbol.selectionRange.start) || [];
+    const references = analyzer.getReferences(document, symbol.selectionRange.start) || [];
     const referencesCount = references.length;
     codeLenses.push({
       range: symbol.range,

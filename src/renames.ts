@@ -1,4 +1,3 @@
-import { getIncrementalReferences, getReferences } from './references';
 import { analyzer, Analyzer } from './analyze';
 import { Location, Position, Range, WorkDoneProgressReporter } from 'vscode-languageserver';
 import { LspDocument } from './document';
@@ -34,7 +33,7 @@ export function getRenames(
   if (!symbol || !newText) return [];
   if (!canRenameWithNewText(analyzer, doc, position, newText)) return [];
   newText = fixNewText(symbol, position, newText);
-  const locs = opts.references ?? getReferences(doc, position, {
+  const locs = opts.references ?? analyzer.getReferences(doc, position, {
     allWorkspaces: !config.fish_lsp_single_workspace_support,
   });
   return buildRenameLocations(symbol, locs, newText);
@@ -50,7 +49,7 @@ export async function getIncrementalRenames(
   if (!symbol || !newText) return [];
   if (!canRenameWithNewText(analyzer, doc, position, newText)) return [];
   newText = fixNewText(symbol, position, newText);
-  const locs = opts.references ?? await getIncrementalReferences(doc, position, {
+  const locs = opts.references ?? analyzer.getReferences(doc, position, {
     reporter: opts.reporter,
     allWorkspaces: !config.fish_lsp_single_workspace_support,
   });

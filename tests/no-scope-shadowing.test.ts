@@ -2,7 +2,6 @@ import { initializeParser } from '../src/parser';
 import { setLogger } from './helpers';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { analyzer, Analyzer } from '../src/analyze';
-import { getReferences, getImplementation, allUnusedLocalReferences } from '../src/references';
 import { getRenames } from '../src/renames';
 import TestWorkspace from './test-workspace-utils';
 
@@ -140,7 +139,7 @@ describe('--no-scope-shadowing', () => {
       const varInA = symbolsA.find(s => s.name === 'var' && s.isVariable())!;
       const varPosition = varInA.selectionRange.start;
 
-      const refs = getReferences(docA, varPosition);
+      const refs = analyzer.getReferences(docA, varPosition);
       const refUris = refs.map(loc => loc.uri);
 
       // References should span across all three files
@@ -164,7 +163,7 @@ describe('--no-scope-shadowing', () => {
       expect(varInB.parent?.isFunctionWithNoScopeShadowing()).toBe(true);
 
       const varPosition = varInB.selectionRange.start;
-      const refs = getReferences(docB, varPosition);
+      const refs = analyzer.getReferences(docB, varPosition);
       const refUris = refs.map(loc => loc.uri);
 
       // References should span across all three files (same as querying from A)
@@ -209,7 +208,7 @@ describe('--no-scope-shadowing', () => {
       // B.fish line 1: `    set var (math $var + 1)`
       //                     ^^^ col 8 (definition name)
       const varDefPos = { line: 1, character: 8 };
-      const impls = getImplementation(docB, varDefPos);
+      const impls = analyzer.getImplementation(docB, varDefPos);
 
       // Implementation should resolve to A.fish (the root caller)
       expect(impls).toHaveLength(1);
@@ -220,7 +219,7 @@ describe('--no-scope-shadowing', () => {
       const docC = workspace.getDocument('functions/C.fish')!;
 
       const varDefPos = { line: 1, character: 8 };
-      const impls = getImplementation(docC, varDefPos);
+      const impls = analyzer.getImplementation(docC, varDefPos);
 
       // Implementation filters to external URIs — should not return C itself
       expect(impls.every(loc => loc.uri !== docC.uri)).toBe(true);
@@ -272,9 +271,9 @@ describe('--no-scope-shadowing', () => {
       const docB = workspace.getDocument('functions/B.fish')!;
       const docC = workspace.getDocument('functions/C.fish')!;
 
-      const unusedA = allUnusedLocalReferences(docA);
-      const unusedB = allUnusedLocalReferences(docB);
-      const unusedC = allUnusedLocalReferences(docC);
+      const unusedA = analyzer.allUnusedLocalReferences(docA);
+      const unusedB = analyzer.allUnusedLocalReferences(docB);
+      const unusedC = analyzer.allUnusedLocalReferences(docC);
 
       // `var` is used across files — should not appear as unused in any file
       expect(unusedA.find(s => s.name === 'var')).toBeUndefined();
@@ -321,7 +320,7 @@ describe('--no-scope-shadowing', () => {
       const symbolsA = analyzer.getFlatDocumentSymbols(docA.uri);
 
       const varInA = symbolsA.find(s => s.name === 'v' && s.isVariable())!;
-      const refs = getReferences(docA, varInA.selectionRange.start);
+      const refs = analyzer.getReferences(docA, varInA.selectionRange.start);
       const refUris = refs.map(loc => loc.uri);
 
       expect(refUris).toContain(docA.uri);
@@ -334,9 +333,9 @@ describe('--no-scope-shadowing', () => {
       const docB = workspace.getDocument('functions/B.fish')!;
       const docC = workspace.getDocument('functions/C.fish')!;
 
-      expect(allUnusedLocalReferences(docA).find(s => s.name === 'v')).toBeUndefined();
-      expect(allUnusedLocalReferences(docB).find(s => s.name === 'v')).toBeUndefined();
-      expect(allUnusedLocalReferences(docC).find(s => s.name === 'v')).toBeUndefined();
+      expect(analyzer.allUnusedLocalReferences(docA).find(s => s.name === 'v')).toBeUndefined();
+      expect(analyzer.allUnusedLocalReferences(docB).find(s => s.name === 'v')).toBeUndefined();
+      expect(analyzer.allUnusedLocalReferences(docC).find(s => s.name === 'v')).toBeUndefined();
     });
   });
 
@@ -396,7 +395,7 @@ describe('--no-scope-shadowing', () => {
       const varInD = symbolsD.find(s => s.name === 'var' && s.isVariable())!;
       expect(varInD).toBeDefined();
 
-      const refs = getReferences(docD, varInD.selectionRange.start);
+      const refs = analyzer.getReferences(docD, varInD.selectionRange.start);
       const refUris = refs.map(loc => loc.uri);
 
       // D/E/F all have --no-scope-shadowing, so var references span all three
@@ -421,7 +420,7 @@ describe('--no-scope-shadowing', () => {
       const varInConfig = symbolsConfig.find(s => s.name === 'var' && s.isVariable())!;
       expect(varInConfig).toBeDefined();
 
-      const refs = getReferences(docConfig, varInConfig.selectionRange.start);
+      const refs = analyzer.getReferences(docConfig, varInConfig.selectionRange.start);
       const refUris = refs.map(loc => loc.uri);
 
       // config.fish `set -g var 10` is global; D/E/F use --no-scope-shadowing
@@ -508,7 +507,7 @@ describe('--no-scope-shadowing', () => {
       const varInG = symbolsG.find(s => s.name === 'var' && s.isVariable())!;
       expect(varInG).toBeDefined();
 
-      const refs = getReferences(docG, varInG.selectionRange.start);
+      const refs = analyzer.getReferences(docG, varInG.selectionRange.start);
       const refUris = refs.map(loc => loc.uri);
 
       // All three files share the same `var` via --no-scope-shadowing
@@ -530,7 +529,7 @@ describe('--no-scope-shadowing', () => {
       expect(varInH.isLocal()).toBe(true);
       expect(varInH.parent?.isFunctionWithNoScopeShadowing()).toBe(true);
 
-      const refs = getReferences(docH, varInH.selectionRange.start);
+      const refs = analyzer.getReferences(docH, varInH.selectionRange.start);
       const refUris = refs.map(loc => loc.uri);
 
       // Despite -l flag, --no-scope-shadowing means var is shared across G/H/I
@@ -552,7 +551,7 @@ describe('--no-scope-shadowing', () => {
       expect(varInI.isLocal()).toBe(true);
       expect(varInI.parent?.isFunctionWithNoScopeShadowing()).toBe(true);
 
-      const refs = getReferences(docI, varInI.selectionRange.start);
+      const refs = analyzer.getReferences(docI, varInI.selectionRange.start);
       const refUris = refs.map(loc => loc.uri);
 
       // Despite -f flag, --no-scope-shadowing means var is shared across G/H/I
@@ -642,7 +641,7 @@ describe('--no-scope-shadowing', () => {
       const varInJ = symbolsJ.find(s => s.name === 'var' && s.isVariable())!;
       expect(varInJ).toBeDefined();
 
-      const refs = getReferences(docJ, varInJ.selectionRange.start);
+      const refs = analyzer.getReferences(docJ, varInJ.selectionRange.start);
       const refUris = refs.map(loc => loc.uri);
 
       // J and K share scope via --no-scope-shadowing
@@ -662,7 +661,7 @@ describe('--no-scope-shadowing', () => {
       const varInK = symbolsK.find(s => s.name === 'var' && s.isVariable())!;
       expect(varInK).toBeDefined();
 
-      const refs = getReferences(docK, varInK.selectionRange.start);
+      const refs = analyzer.getReferences(docK, varInK.selectionRange.start);
       const refUris = refs.map(loc => loc.uri);
 
       expect(refUris).toContain(docJ.uri);
@@ -682,7 +681,7 @@ describe('--no-scope-shadowing', () => {
       expect(varInL.isLocal()).toBe(true);
       expect(varInL.parent?.isFunctionWithNoScopeShadowing()).toBe(false);
 
-      const refs = getReferences(docL, varInL.selectionRange.start);
+      const refs = analyzer.getReferences(docL, varInL.selectionRange.start);
       const refUris = refs.map(loc => loc.uri);
 
       // L has normal scoping — var is local to L.fish only
@@ -789,7 +788,7 @@ describe('--no-scope-shadowing', () => {
       )!;
       expect(varInBar).toBeDefined();
 
-      const refs = getReferences(doc, varInBar.selectionRange.start);
+      const refs = analyzer.getReferences(doc, varInBar.selectionRange.start);
 
       // Should find at least:
       // 1. `set var 1 2 3` definition in bar (line 2)
@@ -803,7 +802,7 @@ describe('--no-scope-shadowing', () => {
 
     it('var in bar should NOT be flagged as unused (4004)', () => {
       const doc = workspace.getDocument('functions/foo.fish')!;
-      const unused = allUnusedLocalReferences(doc);
+      const unused = analyzer.allUnusedLocalReferences(doc);
       expect(unused.find(s => s.name === 'var')).toBeUndefined();
     });
 
@@ -816,7 +815,7 @@ describe('--no-scope-shadowing', () => {
       )!;
       expect(varInBar).toBeDefined();
 
-      const impl = getImplementation(doc, varInBar.selectionRange.start);
+      const impl = analyzer.getImplementation(doc, varInBar.selectionRange.start);
       // Should jump to $var usage in baz (line 8)
       expect(impl.length).toBeGreaterThanOrEqual(1);
       expect(impl.some(loc => loc.range.start.line === 8)).toBe(true);
@@ -832,7 +831,7 @@ describe('--no-scope-shadowing', () => {
 
       // $var in baz: line 8, col 11
       const varUsagePos = { line: 8, character: 11 };
-      const impl = getImplementation(doc, varUsagePos);
+      const impl = analyzer.getImplementation(doc, varUsagePos);
 
       // Should jump to bar's `set var` definition
       expect(impl).toHaveLength(1);
@@ -847,7 +846,7 @@ describe('--no-scope-shadowing', () => {
       const bazFunc = symbols.find(s => s.name === 'baz' && s.isFunction())!;
       expect(bazFunc).toBeDefined();
 
-      const impl = getImplementation(doc, bazFunc.selectionRange.start);
+      const impl = analyzer.getImplementation(doc, bazFunc.selectionRange.start);
 
       // Should jump to the `baz` call in bar (line 3)
       expect(impl.length).toBeGreaterThanOrEqual(1);
@@ -892,7 +891,7 @@ describe('--no-scope-shadowing', () => {
         const docDuplicate = workspace.getDocument('functions/stdin_to_argv2.fish')!;
         const symbolsMain = analyzer.getFlatDocumentSymbols(docMain.uri);
         const sharedSymbol = symbolsMain.find(s => s.name === 'shared' && s.isVariable())!;
-        const refs = getReferences(docMain, sharedSymbol.selectionRange.start);
+        const refs = analyzer.getReferences(docMain, sharedSymbol.selectionRange.start);
         const refUris = refs.map(loc => loc.uri);
 
         expect(refUris).toContain(docMain.uri);
@@ -937,7 +936,7 @@ describe('--no-scope-shadowing', () => {
         const docDuplicate = workspace.getDocument('conf.d/stdin_to_argv_duplicate.fish')!;
         const symbolsMain = analyzer.getFlatDocumentSymbols(docMain.uri);
         const sharedSymbol = symbolsMain.find(s => s.name === 'shared' && s.isVariable())!;
-        const refs = getReferences(docMain, sharedSymbol.selectionRange.start);
+        const refs = analyzer.getReferences(docMain, sharedSymbol.selectionRange.start);
         const refUris = refs.map(loc => loc.uri);
 
         expect(refUris).toContain(docMain.uri);
