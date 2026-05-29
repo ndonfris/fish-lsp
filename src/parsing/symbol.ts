@@ -41,7 +41,9 @@ export interface FishSymbol extends DocumentSymbol {
   focusedNode: SyntaxNode;
   scope: DefinitionScope;
   children: FishSymbol[];
-  detail: string;
+  // `detail` is intentionally NOT declared here: the class provides it as a lazy
+  // get/set accessor, and declaring it in this merged interface too would be a
+  // duplicate (`detail?: string` is still inherited from DocumentSymbol).
   options: Option[];
   parent: FishSymbol | undefined;
 }
@@ -52,6 +54,10 @@ export class FishSymbol {
   public document: LspDocument;
   public options: Option[] = [];
   private _lifetimeEndPosition: Position | null | undefined = undefined;
+  /** lazily-built hover markdown (cache); see the `detail` accessor */
+  private _detail: string | undefined = undefined;
+  /** raw input detail; `createDetail` reads it back for EXPORT/fallback kinds */
+  private _rawDetail: string = '';
 
   constructor(obj: FishSymbolInput) {
     this.name = obj.name || obj.focusedNode.text;
@@ -69,12 +75,37 @@ export class FishSymbol {
       child.parent = this;
     });
     this.options = obj.options || [];
-    this.detail = obj.detail;
-    this.setupDetail();
+    // `detail` (hover markdown) is computed lazily — see the accessor below. It is
+    // only read on request paths (hover, completion, signature, documentSymbol),
+    // never during bulk background analysis, so eagerly building it here for every
+    // symbol of every indexed file was wasted work. We keep the raw input because
+    // `createDetail` reads `symbol.detail` back for EXPORT/fallback kinds.
+    this._rawDetail = obj.detail;
   }
 
+  /**
+   * Hover markdown for this symbol, built on first access and cached. Depends only
+   * on construction-time data (createDetail reads no post-construction mutable
+   * fields), so deferring it yields an identical string.
+   */
+  get detail(): string {
+    if (this._detail === undefined) {
+      // Seed with the raw input first so `createDetail`'s own `symbol.detail`
+      // reads (EXPORT / empty-kind / fallback) resolve without re-entering here.
+      this._detail = this._rawDetail;
+      this._detail = createDetail(this);
+    }
+    return this._detail;
+  }
+
+  set detail(value: string) {
+    this._detail = value;
+  }
+
+  /** Force-recompute the cached `detail` (e.g. after the symbol is mutated). */
   setupDetail() {
-    this.detail = createDetail(this);
+    this._detail = this._rawDetail;
+    this._detail = createDetail(this);
   }
 
   static create(
@@ -1029,7 +1060,7 @@ export function formatFishSymbolTree(symbols: FishSymbol[], indentLevel: number 
   return result;
 }
 
-function buildNested(document: LspDocument, node: SyntaxNode, ...children: FishSymbol[]): FishSymbol[] {
+function buildNested(document: LspDocument, node: SyntaxNode, children: FishSymbol[]): FishSymbol[] {
   const newSymbols: FishSymbol[] = [];
 
   switch (node.type) {
@@ -1084,28 +1115,42 @@ export type FlatFishSymbolTree = FishSymbol[];
 export function processNestedTree(document: LspDocument, ...nodes: SyntaxNode[]): NestedFishSymbolTree {
   const symbols: FishSymbol[] = [];
 
-  /** add argv to script files */
+  /**
+   * add argv to script files. Hoisted out of the recursion: the `program` node
+   * only ever appears at the top level, so the old per-node `nodes.find(... 'program')`
+   * scanned the whole tree for nothing on every recursive call.
+   */
   if (!document.isAutoloadedUri()) {
     const programNode = nodes.find(node => node.type === 'program');
     if (programNode) symbols.push(...processArgvDefinition(document, programNode));
   }
 
+  processNodes(document, nodes, symbols);
+  return symbols;
+}
+
+/**
+ * Array-based recursive core of {@link processNestedTree}. Kept separate from the
+ * varargs public entry so the hot recursion never spreads `...node.children` /
+ * `...childSymbols` into fresh arrays at every node (a measurable allocation cost
+ * across the whole AST during background analysis). Appends into `out`.
+ */
+function processNodes(document: LspDocument, nodes: SyntaxNode[], out: FishSymbol[]): void {
   for (const node of nodes) {
     // Process children first (bottom-up approach)
-    const childSymbols = processNestedTree(document, ...node.children);
+    const childSymbols: FishSymbol[] = [];
+    processNodes(document, node.children, childSymbols);
 
     // Process the current node and integrate children
-    const newSymbols = buildNested(document, node, ...childSymbols);
+    const newSymbols = buildNested(document, node, childSymbols);
 
     if (newSymbols.length > 0) {
       // If we created symbols for this node, add them (they should contain children)
-      symbols.push(...newSymbols);
+      for (const s of newSymbols) out.push(s);
     } else if (childSymbols.length > 0) {
       // If no new symbols from this node but we have child symbols, bubble them up
-      symbols.push(...childSymbols);
+      for (const s of childSymbols) out.push(s);
     }
     // If neither condition is met, we add nothing
   }
-
-  return symbols;
 }

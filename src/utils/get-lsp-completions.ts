@@ -119,7 +119,7 @@ function __fish_lsp_get_env_variables -d 'print all fish_lsp_* env variables, no
     set -l env_names ${Config.allKeys?.map(k => `"${k}"`).join(' \\\n\t\t')}
 
     # every completion argument \`name\\t'description'\`, only unused env variables will be printed
-    set -l env_names_with_descriptions ${Object.entries(Config.envDocs).map(([k, v]) => `"${k}\\t'${v}'"`).join(' \\\n\t\t')}
+    set -l env_names_with_descriptions ${Object.entries(Config.envDocs()).map(([k, v]) => `"${k}\\t'${v}'"`).join(' \\\n\t\t')}
 
     # get the current command line token (for comma separated options)
     set -l current (commandline -ct)

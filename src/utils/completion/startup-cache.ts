@@ -1,12 +1,13 @@
 import { FishCompletionItem, FishCompletionItemKind, getCompletionDocumentationValue } from './types';
 import { StaticItems } from './static-items';
-import { runSetupItems, SetupItemsFromCommandConfig } from './startup-config';
+import { runSetupItems, SetupItemsFromCommandConfig, SetupResult } from './startup-config';
 import { md } from '../markdown-builder';
 import {
   JsonType,
   applyPrebuiltDescription,
   getHydratedPrebuiltDescription,
   getSpecialVariableHoverDoc,
+  warmPrebuiltCommandDescriptions,
 } from '../snippets';
 
 export type ItemMapRecord = Record<FishCompletionItemKind, FishCompletionItem[]>;
@@ -59,10 +60,15 @@ export class CompletionItemMap {
     private _skippedMatches: Set<string> = new Set(),
   ) { }
 
-  static async initialize(): Promise<CompletionItemMap> {
+  static async initialize(setupResults?: SetupResult[]): Promise<CompletionItemMap> {
     const result: ItemMapRecord = {} as ItemMapRecord;
     const skippedMatches: Set<string> = new Set();
-    await CompletionItemMap.collectSetupItems(result, skippedMatches);
+    await CompletionItemMap.collectSetupItems(result, skippedMatches, setupResults);
+    // Ensure command descriptions are loaded before the (synchronous) enrichment
+    // below reads them. Pre-warmed concurrently in FishServer.create, so this await
+    // is normally already resolved — it just prevents the blocking execFileSync
+    // fallback from running on the critical path.
+    await warmPrebuiltCommandDescriptions();
     CompletionItemMap.mergeStaticItems(result);
     CompletionItemMap.enrichCacheItems(result);
     return new CompletionItemMap(result, skippedMatches);
@@ -71,10 +77,12 @@ export class CompletionItemMap {
   private static async collectSetupItems(
     result: ItemMapRecord,
     skippedMatches: Set<string>,
+    /** pre-fetched results from a shared `runSetupItems()` call; fetched if omitted */
+    preFetched?: SetupResult[],
   ): Promise<void> {
     const cmdOutputs: Map<FishCompletionItemKind, string[]> = new Map();
     const topLevelLabels: Set<string> = new Set();
-    const setupResults = await runSetupItems();
+    const setupResults = preFetched ?? await runSetupItems();
 
     for (const item of setupResults) {
       cmdOutputs.set(item.fishKind, item.results);

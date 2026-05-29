@@ -194,29 +194,33 @@ const EscapedChars: FishCompletionItem[] = [
   },
 ] as FishCompletionItem[];
 
-const PrebuiltVars: FishCompletionItem[] = [
-  ...PrebuiltDocumentationMap.getByType('variable').map((item) => {
-    return {
-      label: item.name,
-      detail: 'variable',
-      kind: CompletionItemKind.Variable,
-      documentation: item.description,
-      useDocAsDetail: true,
-    };
-  }) as FishCompletionItem[],
-];
+// Built lazily (memoized) instead of at module-eval. These read
+// `PrebuiltDocumentationMap` from ./snippets, and computing them at load time
+// forced snippets to be fully evaluated *before* this module — a fragile ordering
+// that any import cycle through snippets/config breaks (e.g. snippets needing
+// config.fish_lsp_fish_path). Deferring to first access (via the `StaticItems`
+// getters below, all of which run after module load) keeps evaluation cycle-safe.
+let _prebuiltVars: FishCompletionItem[] | undefined;
+function prebuiltVars(): FishCompletionItem[] {
+  return _prebuiltVars ??= PrebuiltDocumentationMap.getByType('variable').map((item) => ({
+    label: item.name,
+    detail: 'variable',
+    kind: CompletionItemKind.Variable,
+    documentation: item.description,
+    useDocAsDetail: true,
+  })) as FishCompletionItem[];
+}
 
-const PrebuiltFuncs: FishCompletionItem[] = [
-  ...PrebuiltDocumentationMap.getByType('command').map((item) => {
-    return {
-      label: item.name,
-      detail: 'function',
-      kind: CompletionItemKind.Function,
-      documentation: item.description,
-      useDocAsDetail: true,
-    };
-  }) as FishCompletionItem[],
-];
+let _prebuiltFuncs: FishCompletionItem[] | undefined;
+function prebuiltFuncs(): FishCompletionItem[] {
+  return _prebuiltFuncs ??= PrebuiltDocumentationMap.getByType('command').map((item) => ({
+    label: item.name,
+    detail: 'function',
+    kind: CompletionItemKind.Function,
+    documentation: item.description,
+    useDocAsDetail: true,
+  })) as FishCompletionItem[];
+}
 
 const Pipes: FishCompletionItem[] = [
   {
@@ -323,7 +327,7 @@ const Pipes: FishCompletionItem[] = [
   },
 ] as FishCompletionItem[];
 
-const StatusNumbers: FishCompletionItem[] = [
+const statusNumbersRaw = [
   {
     label: '0',
     detail: 'Status Success',
@@ -425,24 +429,32 @@ const StatusNumbers: FishCompletionItem[] = [
       ),
     ],
   },
-].map(item => {
-  const prebuiltDoc = findPrebuiltDoc(item.label, 'status');
-  if (!prebuiltDoc) {
-    item.documentation = `${md.bold(item.label)} - ${item.documentation}`;
-    return item;
-  }
-  item.documentation = formatPrebuiltDocMarkdown(prebuiltDoc);
+];
 
-  if (item.examples && item.examples.length > 0) {
-    item.documentation += [
-      '',
-      md.separator(),
-      md.boldItalic('Examples:'),
-      ...item.examples.map(example => CompletionExample.toMarkedString(example)),
-    ].join(md.newline());
-  }
-  return item;
-}) as FishCompletionItem[];
+// Lazy + memoized: the per-item enrichment calls findPrebuiltDoc (→
+// PrebuiltDocumentationMap), so deferring it keeps module-eval free of any
+// snippets dependency (see prebuiltVars()/prebuiltFuncs()).
+let _statusNumbers: FishCompletionItem[] | undefined;
+function statusNumbers(): FishCompletionItem[] {
+  return _statusNumbers ??= statusNumbersRaw.map(item => {
+    const prebuiltDoc = findPrebuiltDoc(item.label, 'status');
+    if (!prebuiltDoc) {
+      item.documentation = `${md.bold(item.label)} - ${item.documentation}`;
+      return item;
+    }
+    item.documentation = formatPrebuiltDocMarkdown(prebuiltDoc);
+
+    if (item.examples && item.examples.length > 0) {
+      item.documentation += [
+        '',
+        md.separator(),
+        md.boldItalic('Examples:'),
+        ...item.examples.map(example => CompletionExample.toMarkedString(example)),
+      ].join(md.newline());
+    }
+    return item;
+  }) as FishCompletionItem[];
+}
 
 const StringRegex: FishCompletionItem[] = [
   {
@@ -984,10 +996,12 @@ const comments = [
   },
 ] as FishCompletionItem[];
 
-export const StaticItems = {
+export const StaticItems: Record<string, FishCompletionItem[]> = {
   [FishCompletionItemKind.ESC_CHARS]: EscapedChars,
   [FishCompletionItemKind.PIPE]: Pipes,
-  [FishCompletionItemKind.STATUS]: StatusNumbers,
+  get [FishCompletionItemKind.STATUS]() {
+    return statusNumbers();
+  },
   [FishCompletionItemKind.REGEX]: StringRegex,
   [FishCompletionItemKind.FORMAT_STR]: FormatStrings,
   [FishCompletionItemKind.COMBINER]: Combiners,
@@ -995,6 +1009,12 @@ export const StaticItems = {
   [FishCompletionItemKind.SHEBANG]: shebangs,
   [FishCompletionItemKind.COMMENT]: comments,
   [FishCompletionItemKind.DIAGNOSTIC]: disableDiagnostics,
-  [FishCompletionItemKind.VARIABLE]: PrebuiltVars,
-  [FishCompletionItemKind.FUNCTION]: PrebuiltFuncs,
+  // lazy: see prebuiltVars()/prebuiltFuncs() — avoids an eval-time read of
+  // PrebuiltDocumentationMap so the snippets/config module graph stays cycle-safe.
+  get [FishCompletionItemKind.VARIABLE]() {
+    return prebuiltVars();
+  },
+  get [FishCompletionItemKind.FUNCTION]() {
+    return prebuiltFuncs();
+  },
 };

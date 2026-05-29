@@ -20,12 +20,13 @@ import { filterLastPerScopeSymbol, FishSymbol } from './parsing/symbol';
 import { CompletionPager, initializeCompletionPager, isInVariableExpansionContext, SetupData } from './utils/completion/pager';
 import { FishCompletionList } from './utils/completion/list';
 import { resolveCompletionItemDocumentation } from './utils/completion/resolve-item';
-import { PrebuiltDocumentationMap, formatPrebuiltDocMarkdown } from './utils/snippets';
+import { PrebuiltDocumentationMap, formatPrebuiltDocMarkdown, warmPrebuiltCommandDescriptions } from './utils/snippets';
 import { findParent, findParentCommand, getRedirectOperatorText, isAliasDefinitionName, isBraceExpansion, isCommand, isCommandName, isConcatenatedValue, isConcatenation, isEndStdinCharacter, isOption, isPathNode, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
 import { config, Config } from './config';
 import { enrichToMarkdown, handleBraceExpansionHover, handleEndStdinHover, handleSourceArgumentHover } from './documentation';
 import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getDefaultSignatures, getFunctionSignatureHelp, isRegexStringSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
+import { runSetupItems } from './utils/completion/startup-config';
 import { getDocumentHighlights } from './document-highlight';
 import { semanticTokenHandler } from './semantic-tokens';
 import { buildCommentCompletions } from './utils/completion/comment-completions';
@@ -121,9 +122,28 @@ export default class FishServer {
     params: InitializeParams,
   ): Promise<{ server: FishServer; initializeResult: InitializeResult; }> {
     setExternalConnection(connection);
-    await setupProcessEnvExecFile();
     const capabilities = params.capabilities;
+    // Run Config.initialize first: it's synchronous, env-independent, and sets
+    // `config` (incl. fish_lsp_fish_path) that the fish-spawning initializers below read.
     const initializeResult = Config.initialize(params, connection);
+
+    // Pre-warm the `__fish_describe_command` command-description cache asynchronously
+    // so its ~500ms fish spawn overlaps the spawns below instead of running as a
+    // blocking execFileSync during completion-map enrichment (the old hidden cost).
+    void warmPrebuiltCommandDescriptions();
+
+    // A single `runSetupItems()` fish spawn collects builtins/functions/aliases/
+    // vars/events (+ the native PATH command scan); its result is shared by BOTH
+    // the completion map and the documentation cache, which previously spawned fish
+    // 1 + 3 times. Kicked off here so it overlaps the autoloaded-env probe.
+    const setupResultsPromise = runSetupItems();
+    const completionsMapPromise = setupResultsPromise.then((r) => CompletionItemMap.initialize(r));
+    const docCachePromise = setupResultsPromise.then((r) => initializeDocumentationCache(r));
+
+    // Autoloaded fish vars ($__fish_config_dir, …) are required to expand the
+    // workspace index paths, so this must finish before workspace discovery.
+    await setupProcessEnvExecFile();
+
     // rootUri/rootPath are deprecated in LSP, but we still log/support them for older clients.
     const legacyRoots = params as unknown as { rootUri?: string | null; rootPath?: string | null; };
     logger.log({
@@ -142,15 +162,12 @@ export default class FishServer {
     const initializeUris = getWorkspacePathsFromInitializationParams(params);
     logger.info('initializeUris', initializeUris);
 
-    // Run these operations in parallel rather than sequentially
-    const [
-      cache,
-      _workspaces,
-      completionsMap,
-    ] = await Promise.all([
-      initializeDocumentationCache(),
+    // Await the in-flight initializers alongside workspace discovery (which needed
+    // the autoloaded env). The two fish spawns above have been running meanwhile.
+    const [cache, _workspaces, completionsMap] = await Promise.all([
+      docCachePromise,
       initializeDefaultFishWorkspaces(...initializeUris),
-      CompletionItemMap.initialize(),
+      completionsMapPromise,
     ]);
 
     cachedDocumentation = cache;
@@ -367,6 +384,7 @@ export default class FishServer {
    */
   async onShutdown() {
     this.dispose();
+    analyzer.cancelReferenceWarm();
     analyzer.diagnostics.clear();
     workspaceManager.clear();
     currentDocument = null;
@@ -445,6 +463,12 @@ export default class FishServer {
       this.backgroundAnalysisComplete = true;
       this.backgroundAnalysisInProgress = false;
       logger.info('Background analysis complete');
+
+      // Warm the reference-candidate index off the critical path so startup
+      // stays fast while cross-file references/rename become ready without a
+      // cold stall. Anything not yet warmed is filled lazily on first lookup.
+      analyzer.warmReferenceCandidates(workspaceManager.allUrisInAllWorkspaces);
+
       if (currentDocument) {
         this.analyzeDocument(currentDocument);
         analyzer.diagnostics.requestUpdate(currentDocument.uri, true); // full diagnostics pass after analysis

@@ -3,6 +3,8 @@ import { execCmd, execCommandDocs, execEscapedCommand } from './exec';
 import { isBuiltin } from './builtins';
 import { md } from './markdown-builder';
 import { convertTitleOperatorToToken } from './completion/documentation';
+import { runSetupItems, SetupResult } from './completion/startup-config';
+import { FishCompletionItemKind } from './completion/types';
 
 /****************************************************************************************
  *                                                                                      *
@@ -202,17 +204,22 @@ export class DocumentationCache {
     ];
   }
 
-  async parse(uri?: string) {
+  async parse(setupResults?: SetupResult[], uri?: string) {
     this._unknowns = initializeMap([], SymbolKind.Null, uri);
-    await Promise.all([
-      execEscapedCommand('set -n'),
-      execEscapedCommand('functions -an | string collect'),
-      execEscapedCommand('builtin -n'),
-    ]).then(([vars, funcs, builtins]) => {
-      this._variables = initializeMap(vars, SymbolKind.Variable, uri);
-      this._functions = initializeMap(funcs, SymbolKind.Function, uri);
-      this._builtins = initializeMap(builtins, SymbolKind.Class, uri);
-    });
+
+    // Reuse the single `runSetupItems()` fish spawn shared with CompletionItemMap
+    // (passed in from FishServer.create) instead of spawning fish three more times.
+    // `builtin --names` / `functions --all --names` / `set --names` produce the same
+    // lists the old `builtin -n` / `functions -an` / `set -n` did, and `runSetupItems`
+    // returns them raw (pre-dedup), which is exactly what this cache wants.
+    const results = setupResults ?? await runSetupItems();
+    const byKind = (kind: FishCompletionItemKind): string[] =>
+      results.find((r) => r.fishKind === kind)?.results ?? [];
+
+    this._variables = initializeMap(byKind(FishCompletionItemKind.VARIABLE), SymbolKind.Variable, uri);
+    this._functions = initializeMap(byKind(FishCompletionItemKind.FUNCTION), SymbolKind.Function, uri);
+    this._builtins = initializeMap(byKind(FishCompletionItemKind.BUILTIN), SymbolKind.Class, uri);
+
     // add the extra builtins
     extraBuiltins.forEach((builtin) => {
       this._builtins.set(builtin, createCachedItem(SymbolKind.Class));
@@ -311,8 +318,8 @@ export class DocumentationCache {
  * Function to be called when the server is initialized, so that the DocumentationCache
  * can be populated.
  */
-export async function initializeDocumentationCache() {
+export async function initializeDocumentationCache(setupResults?: SetupResult[]) {
   const cache = new DocumentationCache();
-  await cache.parse();
+  await cache.parse(setupResults);
   return cache;
 }

@@ -224,6 +224,33 @@ export function isReferenceCandidateNode(node: SyntaxNode): boolean {
   return false;
 }
 
+/**
+ * Single-pass equivalent of
+ * `isReferenceCandidateNode(node) ? extractReferenceCandidateNames(node) : []`.
+ *
+ * For string/concatenation nodes the previous two-call form parsed embedded
+ * commands twice (`FishString.extractCommands` ran in the gate *and* in the
+ * extractor); this computes them once. Non-string nodes reuse the existing
+ * gate + extractor, which don't double-parse. Returns `[]` for non-candidates.
+ */
+export function referenceCandidateNamesFor(node: SyntaxNode): string[] {
+  if (!node || !node.isNamed || !node.text?.trim()) return [];
+
+  if (isString(node) || node.type === 'concatenation') {
+    const cmds = FishString.extractCommands(node);
+    if (cmds.length === 0) return []; // gate: not a reference candidate
+    const names = new Set<string>(cmds);
+    if (node.text.startsWith('-')) {
+      const equalsIndex = node.text.indexOf('=');
+      if (equalsIndex > 0) names.add(node.text.slice(0, equalsIndex));
+    }
+    return [...names];
+  }
+
+  if (!isReferenceCandidateNode(node)) return [];
+  return extractReferenceCandidateNames(node);
+}
+
 function isCompletionArgparseFlagWithCommandName(node: SyntaxNode, commandName: string, flagName: string): boolean {
   const parent = node.parent;
   if (!parent || !isCommandWithName(parent, 'complete')) return false;
@@ -322,8 +349,15 @@ export class FishReferenceCandidate {
     public readonly node: SyntaxNode,
     public readonly name: string,
     public readonly range: Range = rangeFromNode(node),
-    public readonly location: Location = Locations.Location.create(document.uri, rangeFromNode(node)),
   ) {}
+
+  // Computed lazily. During bulk indexing almost no candidate is ever asked for
+  // its raw `location` (consumers use `toLocationsFor`/`toLocation`), so the old
+  // eager constructor default allocated a Location AND computed `rangeFromNode`
+  // a second time for every indexed candidate — pure waste on the hot path.
+  get location(): Location {
+    return Locations.Location.create(this.uri, this.range);
+  }
 
   static fromSymbol(symbol: FishSymbol) {
     return new FishReferenceCandidate(symbol.document, symbol.focusedNode, symbol.name, symbol.selectionRange);

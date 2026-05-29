@@ -26,6 +26,7 @@ import { Workspace } from '../src/utils/workspace';
 import { workspaceManager } from '../src/utils/workspace-manager';
 import { LspDocument } from '../src/document';
 import TestWorkspace, { TestFile } from './test-workspace-utils';
+import { fail } from 'assert';
 
 let analyzer: Analyzer;
 let parser: Parser;
@@ -736,14 +737,14 @@ describe('parsing symbols', () => {
       it('set', () => {
         const source = 'set -U foo (echo \'universal var\')';
         const { rootNode } = parser.parse(source);
-        const foundNode = getChildNodes(rootNode).find(ParsingDefinitionNames.isSetVariableDefinitionName)!;
+        const foundNode = getChildNodes(rootNode).find(n => ParsingDefinitionNames.isSetVariableDefinitionName(n))!;
         expect(foundNode).toBeDefined();
         expect(foundNode.text).toBe('foo');
       });
       it('set -q', () => {
         const source = 'set -ql foo (echo \'universal var\')';
         const { rootNode } = parser.parse(source);
-        const foundNode = getChildNodes(rootNode).find(ParsingDefinitionNames.isSetVariableDefinitionName);
+        const foundNode = getChildNodes(rootNode).find(n => ParsingDefinitionNames.isSetVariableDefinitionName(n));
         expect(foundNode).toBeUndefined();
       });
       it('set -q with excludeQuery=false', () => {
@@ -1139,13 +1140,13 @@ describe('parsing symbols', () => {
               kind: symbol.fishKind,
               uri: symbol.uri,
             },
-            'isGlobalArgparseDefinition(analyzer, functionDoc, symbol)': isGlobalArgparseDefinition(analyzer, functionDoc, symbol),
-            'getGlobalArgparseLocations(analyzer, functionDoc, symbol)': getGlobalArgparseLocations(analyzer, functionDoc, symbol),
+            'isGlobalArgparseDefinition(analyzer, functionDoc, symbol)': isGlobalArgparseDefinition(functionDoc, symbol),
+            'getGlobalArgparseLocations(analyzer, functionDoc, symbol)': getGlobalArgparseLocations(functionDoc, symbol),
             completionDoc: completionDoc.uri,
             functionDoc: functionDoc.uri,
             workspace: workspace.uri,
           });
-          const locations = getGlobalArgparseLocations(analyzer, functionDoc, symbol);
+          const locations = getGlobalArgparseLocations(functionDoc, symbol);
           expect(locations.length).toBe(1);
           const completionSymbol = locations[0];
           expect(completionSymbol).toBeDefined();

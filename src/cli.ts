@@ -407,12 +407,12 @@ commandBin.command('complete')
       Object.keys(configHandlers).forEach((name) => logger.logToStdout(name.toString()));
       process.exit(0);
     } else if (args.envVariables) {
-      Object.entries(Config.envDocs).forEach(([key, value]) => {
+      Object.entries(Config.envDocs()).forEach(([key, value]) => {
         logger.logToStdout(`${key}\\t'${value}'`);
       });
       process.exit(0);
     } else if (args.envVariableNames) {
-      Object.keys(Config.envDocs).forEach((name) => logger.logToStdout(name.toString()));
+      Object.keys(Config.envDocs()).forEach((name) => logger.logToStdout(name.toString()));
       process.exit(0);
     } else if (args.abbreviations) {
       logger.logToStdout(buildFishLspAbbreviations());
@@ -448,10 +448,10 @@ commandBin.command('env')
     const opts = SubcommandEnv.toEnvOutputOptions(args);
     if (args.names) {
       let result = '';
-      Object.keys(Config.envDocs).forEach((name) => {
+      Object.keys(Config.envDocs()).forEach((name) => {
         if (args?.only && args.only.length > 0 && !args.only.includes(name)) {
           logger.logToStderr(chalk.red(`\n[ERROR] Unknown variable name '${name} ' in --only option.`));
-          logger.logToStderr(`Valid variable names are:\n${Object.keys(Config.envDocs).join(', ')}`);
+          logger.logToStderr(`Valid variable names are:\n${Object.keys(Config.envDocs()).join(', ')}`);
           process.exit(1);
         }
         result += args.joined ? `${name} ` : `${name}\n`;

@@ -304,6 +304,9 @@ export class Analyzer {
   public symbols: FishSymbolCaches = new FishSymbolCaches();
   public referenceCandidates: FishReferenceCandidateCache = new FishReferenceCandidateCache();
 
+  /** in-flight handle for the background reference-candidate warm-up (see `warmReferenceCandidates`) */
+  private referenceWarmHandle?: { cancelled: boolean; };
+
   public started = false;
 
   public diagnostics: BufferedAsyncDiagnosticCache = new BufferedAsyncDiagnosticCache();
@@ -377,9 +380,12 @@ export class Analyzer {
       iterateNested(...analyzedDocument.documentSymbols),
     );
     this.referenceCandidates.removeByUri(document.uri);
-    if (analyzedDocument.root) {
-      this.referenceCandidates.ensureDocument(document, analyzedDocument.root);
-    }
+    // Reference-candidate indexing is intentionally NOT done here. Doing it on
+    // every `analyze()` call put a full-workspace tree walk on the startup hot
+    // path (~2.5s of background analysis). Instead it is warmed off the critical
+    // path via `warmReferenceCandidates()` after `onInitialized()`, and filled
+    // on demand by `ensureReferenceCandidatesForUri()` for anything not yet
+    // warmed or freshly edited (see `getReferences`).
     return analyzedDocument;
   }
 
@@ -469,6 +475,55 @@ export class Analyzer {
     if (analyzed.root) {
       this.referenceCandidates.ensureDocument(analyzed.document, analyzed.root);
     }
+  }
+
+  /**
+   * Build the reference-candidate index for already-analyzed documents off the
+   * critical path, a few documents per event-loop tick so incoming LSP requests
+   * stay responsive. This is a pure relocation of the work that used to run
+   * eagerly inside `analyze()`: only fully-analyzed documents are indexed here
+   * (partial completion documents stay lazy, exactly as before). Idempotent with
+   * the on-demand `ensureReferenceCandidatesForUri()` path via `hasIndexed()`.
+   *
+   * @returns a handle whose `cancel()` stops any further chunks (call on shutdown
+   *          or when the workspace changes).
+   */
+  public warmReferenceCandidates(
+    uris: DocumentUri[],
+    opts: { chunkSize?: number; onProgress?: (done: number, total: number) => void; } = {},
+  ): { cancel: () => void; } {
+    // supersede any in-flight warm-up so we never run two at once
+    if (this.referenceWarmHandle) this.referenceWarmHandle.cancelled = true;
+    const handle = { cancelled: false };
+    this.referenceWarmHandle = handle;
+
+    const chunkSize = opts.chunkSize ?? 20;
+    let i = 0;
+
+    const step = () => {
+      if (handle.cancelled) return;
+      const end = Math.min(i + chunkSize, uris.length);
+      for (; i < end; i++) {
+        const uri = uris[i]!;
+        if (this.referenceCandidates.hasIndexed(uri)) continue;
+        const analyzed = this.cache.getDocument(uri);
+        // Leave partial (completion) documents lazy; only warm full documents.
+        if (!analyzed || analyzed.isPartial() || !analyzed.root) continue;
+        this.referenceCandidates.ensureDocument(analyzed.document, analyzed.root);
+      }
+      opts.onProgress?.(i, uris.length);
+      if (i < uris.length) setImmediate(step);
+    };
+
+    if (uris.length) setImmediate(step);
+    return { cancel: () => {
+      handle.cancelled = true;
+    } };
+  }
+
+  /** Stop any in-flight background reference-candidate warm-up. */
+  public cancelReferenceWarm(): void {
+    if (this.referenceWarmHandle) this.referenceWarmHandle.cancelled = true;
   }
 
   // Prebuilt variables (PATH, HOME, status, $argv, …) don't have workspace
@@ -1538,6 +1593,11 @@ export class Analyzer {
    *      autoload pairs.
    */
   public allUnusedLocalReferences(document: LspDocument): FishSymbol[] {
+    // Reference candidates are no longer built eagerly during analysis (they are
+    // warmed off the critical path / on demand), so ensure this document's
+    // candidates exist before querying them below via findInDocumentForSymbol.
+    this.ensureReferenceCandidatesForUri(document.uri);
+
     const symbols = filterFirstPerScopeSymbol(document).filter(s =>
       s.isLocal()
       && (s.needsLocalReferences() || s.isEmittedEvent())

@@ -2,6 +2,23 @@ import { execSubCommandCompletions } from './exec';
 import { logger } from '../logger';
 
 /**
+ * Commands that the arguments are not subcommands, even though they might
+ * appear as them (based on our generalized rules of what a subcommand looks like)
+ *
+ * Normally, these should be builtins or common fish utilities
+ */
+const skipCommands: Set<string> = new Set([
+  'set_color',
+  'type',
+  'command',
+  'builtin',
+  'functions',
+  'funcsave',
+  'funced',
+  'man',
+]);
+
+/**
  * Cache for command subcommands, enabling sync lookups during semantic token generation.
  * Populated asynchronously via fish subprocesses; triggers a refresh callback when new
  * entries arrive so the client re-pulls semantic tokens.
@@ -24,6 +41,7 @@ class SubcommandCache {
 
   /** Fire-and-forget async population. Calls _onPopulated when done. */
   requestPopulate(command: string): void {
+    if (skipCommands.has(command)) return;
     if (this._cache.has(command) || this._pending.has(command)) return;
     this._pending.add(command);
 

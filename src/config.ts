@@ -566,9 +566,19 @@ export namespace Config {
 
   /**
    * Config.docs[fish_lsp_*]: Documentation for fish_lsp_* variables
-   * Used for the `fish-lsp env` cli completions
+   * Used for the `fish-lsp env` cli completions.
+   *
+   * Lazy + memoized: `getDocsObj()` reads `PrebuiltDocumentationMap` from
+   * ./utils/snippets, and computing it at module-eval made config's *evaluation*
+   * depend on snippets being fully loaded first. That made `config` a cyclic
+   * module the moment anything snippets-side needed it back (e.g. snippets reading
+   * `config.fish_lsp_fish_path`). Deferring keeps config's module-eval free of any
+   * snippets dependency, so config can be imported from anywhere safely.
    */
-  export const envDocs: Record<keyof Config, string> = getDocsObj();
+  let _envDocs: Record<keyof Config, string> | undefined;
+  export function envDocs(): Record<keyof Config, string> {
+    return _envDocs ??= getDocsObj();
+  }
   export const allServerFeatures = Array.from([...validHandlers]);
 
   /**

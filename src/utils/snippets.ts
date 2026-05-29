@@ -8,7 +8,8 @@ import pipeCharactersJson from '../snippets/pipesAndRedirects.json';
 import fishlspEnvVariablesJson from '../snippets/fishlspEnvVariables.json';
 import functionsJson from '../snippets/functions.json';
 import { md } from './markdown-builder';
-import { execFileSync } from 'child_process';
+import { execFile, execFileSync } from 'child_process';
+import { config } from '../config';
 
 interface BaseJson {
   name: string;
@@ -251,16 +252,7 @@ export type ExtendedJson = ExtendedBaseJson | EnvVariableJson;
 
 let prebuiltCommandDescriptions: Record<string, string> | undefined;
 
-function loadPrebuiltCommandDescriptions(): Record<string, string> {
-  let stdout = '';
-  try {
-    stdout = execFileSync('fish', ['-c', '__fish_describe_command'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
-  } catch {
-    return {};
-  }
+function parseDescribeCommandOutput(stdout: string): Record<string, string> {
   const items = stdout.split('\n')
     .filter(line => line.includes('\t') && line.trim().length > 0)
     .map(line => {
@@ -275,6 +267,41 @@ function loadPrebuiltCommandDescriptions(): Record<string, string> {
     }
   }
   return result;
+}
+
+function loadPrebuiltCommandDescriptions(): Record<string, string> {
+  let stdout = '';
+  try {
+    stdout = execFileSync(config.fish_lsp_fish_path || 'fish', ['-c', '__fish_describe_command'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+  } catch {
+    return {};
+  }
+  return parseDescribeCommandOutput(stdout);
+}
+
+let prebuiltCommandDescriptionsWarm: Promise<Record<string, string>> | undefined;
+
+/**
+ * Asynchronously populate the prebuilt command-description cache (`__fish_describe
+ * command`). Unlike the lazy {@link getPrebuiltCommandDescriptions}, this does NOT
+ * block the event loop with `execFileSync` — start it early (concurrently with the
+ * other startup fish spawns) so its ~500ms cost overlaps instead of serializing
+ * during completion-map enrichment. Idempotent; memoizes the in-flight promise.
+ */
+export function warmPrebuiltCommandDescriptions(): Promise<Record<string, string>> {
+  if (prebuiltCommandDescriptions) return Promise.resolve(prebuiltCommandDescriptions);
+  if (!prebuiltCommandDescriptionsWarm) {
+    prebuiltCommandDescriptionsWarm = new Promise<Record<string, string>>((resolve) => {
+      execFile(config.fish_lsp_fish_path || 'fish', ['-c', '__fish_describe_command'], { encoding: 'utf8', maxBuffer: 1024 * 1024 * 16 }, (err, stdout) => {
+        prebuiltCommandDescriptions = err ? {} : parseDescribeCommandOutput(stdout);
+        resolve(prebuiltCommandDescriptions);
+      });
+    });
+  }
+  return prebuiltCommandDescriptionsWarm;
 }
 
 export function getPrebuiltCommandDescriptions(): Record<string, string> {
