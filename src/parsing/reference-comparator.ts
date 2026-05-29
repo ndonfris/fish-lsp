@@ -13,6 +13,7 @@ import { getSetCommandScopeTag, isSetQueryDefinition, isSetVariableDefinitionNam
 import { FishString } from './string';
 import { isAbbrDefinitionName, isMatchingAbbrFunction } from '../diagnostics/node-types';
 import { isBindFunctionCall } from './bind';
+import { isSetReferenceTargetNode } from './reference-candidates';
 import { isAliasDefinitionValue } from './alias';
 import { isFunctionsReference } from './function';
 
@@ -470,6 +471,25 @@ const checkVariableReference: ReferenceCheck = ({ symbol, document, node }) => {
   if (parentNode && isCommandWithName(parentNode, 'export', 'set', 'read', 'for', 'argparse')) {
     if (isOption(node)) return false;
     if (isVariableDefinitionName(node)) return symbol.name === node.text;
+    // A `set` VALUE that reached this point is a plain word/concatenation
+    // (not a `$var` expansion / `variable_name` — those return above), e.g.
+    // the bare `foo` in `set bar $foo foo` or the `foo[1]` in
+    // `set x foo[1] foo[2]`. Such values are literals, NOT references — the
+    // only `set` forms that take a bare variable NAME as an argument are
+    // `set -q/--query`, `set -e/--erase`, and `set -S/--show`, captured by
+    // `isSetReferenceTargetNode`. Gate on it so non-target values stop here
+    // instead of matching via the generic scope fall-through below.
+    if (isCommandWithName(parentNode, 'set') && !isSetReferenceTargetNode(node)) {
+      return false;
+    }
+    // `read` has no bare-name reference-target forms (no -q/-e/-S). Anything
+    // reaching here is neither a `$var`/`variable_name` (handled above) nor a
+    // read definition name (handled by the `isVariableDefinitionName` return
+    // above), so it's a flag VALUE — `read -p/-d/-n/-c/-P/-R/--delimiter …`
+    // — i.e. a literal, not a reference.
+    if (isCommandWithName(parentNode, 'read')) {
+      return false;
+    }
   }
 
   if (symbol.name !== node.text) return false;

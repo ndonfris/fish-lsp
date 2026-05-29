@@ -196,9 +196,42 @@ const checkGeneralScopeContainment: ScopeCheck = ({ a, b }) => {
   return a.scope.scopeTag === b.scope.scopeTag;
 };
 
+/**
+ * Two LOCAL variables belong to the same scope chain only when they share the
+ * same owning function (FishSymbol.parent identity), or both sit at script /
+ * program top level (no parent). fish never leaks a script/outer local into a
+ * nested function body, so a function's `$argv` is a distinct variable from the
+ * script's implicit file-level `argv`.
+ *
+ * Using `.parent` rather than SyntaxNode traversal is deliberate: only
+ * functions are internal nodes in the FishSymbol tree (if/for/while blocks are
+ * not symbols), so `.parent` is always the enclosing function symbol — block-
+ * level and body-level locals in the same function therefore still share an
+ * owner. Mirrors the `equalParents` idiom in `FishSymbol.equalArgparse`.
+ */
+const sharesLocalOwner = (a: FishSymbol, b: FishSymbol): boolean => {
+  return a.parent && b.parent
+    ? a.parent.equals(b.parent)
+    : !a.parent && !b.parent;
+};
+
 // Main scope containment checker
 export const symbolContainsScope = (symbolA: FishSymbol, symbolB: FishSymbol): boolean => {
   const pair: SymbolPair = { a: symbolA, b: symbolB };
+
+  // Enforce owning-function identity for local variables before any positional
+  // shortcut: a same-named local in a nested function (or the enclosing
+  // script) is a different variable. Without this, an outer/script-level local
+  // whose scope node spans the whole program would "contain" — and so absorb,
+  // in goto-def/first-per-scope collapsing — a function's own local of the
+  // same name (e.g. the script `argv` swallowing a function's `$argv`).
+  if (
+    symbolA.isVariable() && symbolB.isVariable()
+    && symbolA.isLocal() && symbolB.isLocal()
+    && !sharesLocalOwner(symbolA, symbolB)
+  ) {
+    return false;
+  }
 
   // If scopes are equal, containment is true
   if (haveEqualScopes(pair)) return true;

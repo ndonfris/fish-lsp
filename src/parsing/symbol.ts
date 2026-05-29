@@ -15,7 +15,7 @@ import { config } from '../config';
 import { flattenNested } from '../utils/flatten';
 import { uriToPath } from '../utils/translation';
 import { FishString } from './string';
-import { getCommandNameText, isCommand, isCommandWithName, isEmptyString, isFunctionDefinitionName, isOption, isScope, isVariableDefinitionName } from '../utils/node-types';
+import { findParentFunction, getCommandNameText, isCommand, isCommandWithName, isEmptyString, isFunctionDefinitionName, isOption, isScope, isVariableDefinitionName } from '../utils/node-types';
 import { SyncFileHelper } from '../utils/file-operations';
 import { isExportVariableDefinitionName, processExportCommand } from './export';
 import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol } from './complete';
@@ -154,6 +154,13 @@ export class FishSymbol {
    */
   private lifetimeEraseCommand(): 'set' | 'functions' | null {
     if (this.isVariable() && this.isGlobal()) return 'set';
+    // Local `set`/`read` variables also have a tracked lifetime: they shadow
+    // from their own definition until an in-scope `set -e`/`set -el` erases
+    // them, after which references resolve back to an outer (global) variable
+    // of the same name. Restricted to SET/READ — for-loop indices, argparse
+    // flags, and function arg/inherit variables are not erasable this way and
+    // keep their whole-scope lifetime.
+    if (this.isLocal() && (this.fishKind === 'SET' || this.fishKind === 'READ')) return 'set';
     if (this.isFunction() && !this.isGlobal()) return 'functions';
     return null;
   }
@@ -191,6 +198,26 @@ export class FishSymbol {
         .filter(Boolean);
 
       if (eraseTargets.some(target => target.text === this.name)) {
+        // Scope-aware: an erase that names a scope only ends a variable of that
+        // scope. `set -el foo` erases the local `foo`, leaving an outer global
+        // `foo` alive; `set -eg foo` erases the global. An erase with no scope
+        // modifier (`set -e foo`) ends whichever variable this symbol is.
+        if (eraseCommand === 'set') {
+          const eraseScopeOptions: [Option, ModifierScopeTag][] = [
+            [Option.create('-l', '--local'), 'local'],
+            [Option.create('-g', '--global'), 'global'],
+            [Option.create('-f', '--function'), 'function'],
+            [Option.create('-U', '--universal'), 'universal'],
+          ];
+          let eraseScope: ModifierScopeTag | null = null;
+          for (const [opt, tag] of eraseScopeOptions) {
+            if (args.some(arg => isMatchingOption(arg, opt))) {
+              eraseScope = tag;
+              break;
+            }
+          }
+          if (eraseScope && eraseScope !== this.scope.scopeTag) continue;
+        }
         this._lifetimeEndPosition = getRange(node).end;
         return this._lifetimeEndPosition;
       }
@@ -814,9 +841,37 @@ export class FishSymbol {
     // tracked erase boundary (everything except global vars and local funcs),
     // so this single call covers both lifetime-aware shapes.
     if (node.tree === this.node.tree) {
-      return this.isWithinDefinitionLifetime(getRange(node).start, this.uri);
+      return this.referenceWithinLifetime(node);
     }
     return inScope;
+  }
+
+  /**
+   * Node-aware lifetime check used for reference resolution.
+   *
+   * Wraps {@link isWithinDefinitionLifetime} (which is position-only) to add
+   * one exemption: the textual "before definition" exclusion is skipped when
+   * `node` lives inside a function nested *within this symbol's scope* and
+   * deeper than this symbol's own enclosing function. Such functions run when
+   * called — after the `set`/`read` line — and may `--inherit-variable` this
+   * name, so a reference there is valid even if it appears earlier in the file
+   * (e.g. an `inner_fn` defined above a `set -l VAR`). Same-scope references
+   * (the common shadow/erase case, e.g. `echo $foo | read -l foo`) keep the
+   * strict before-definition rule.
+   */
+  public referenceWithinLifetime(node: SyntaxNode): boolean {
+    if (this.isWithinDefinitionLifetime(getRange(node).start, this.uri)) return true;
+    // The nested-function exemption only applies to LOCAL variable lifetimes
+    // (`set -l`/`read -l`), where an earlier-defined nested function may
+    // `--inherit-variable` this name. Functions (hoisted, with their own
+    // `functions -e` lifetime) and globals keep the strict positional rule —
+    // restoring their original `isWithinDefinitionLifetime` behavior exactly.
+    if (!this.isVariable() || !this.isLocal()) return false;
+    const nodeFn = findParentFunction(node);
+    if (!nodeFn) return false;
+    const ownerFn = findParentFunction(this.focusedNode);
+    if (ownerFn && nodeFn.equals(ownerFn)) return false;
+    return this.scope.containsNode(nodeFn);
   }
 
   /**

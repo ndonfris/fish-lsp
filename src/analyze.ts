@@ -12,7 +12,7 @@ import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol, pr
 import { FishSymbolCaches } from './parsing/fish-symbol-caches';
 import { FishReferenceCandidate, FishReferenceCandidateCache, isPotentialReferenceNode } from './parsing/reference-candidates';
 import { createSourceResources, getExpandedSourcedFilenameNode, isSourceCommandArgumentName, isSourceCommandWithArgument, symbolsFromResource } from './parsing/source';
-import { filterFirstPerScopeSymbol, FishSymbol, processNestedTree } from './parsing/symbol';
+import { filterFirstPerScopeSymbol, FishSymbol, processNestedTree, SKIPPABLE_VARIABLE_REFERENCE_NAMES } from './parsing/symbol';
 import { isSetVariableDefinitionName } from './parsing/set';
 import { PrebuiltDocumentationMap } from './utils/snippets';
 import { execCommandLocations } from './utils/exec';
@@ -502,8 +502,20 @@ export class Analyzer {
           : null;
     if (!varName) return null;
 
-    const prebuilt = PrebuiltDocumentationMap.getByName('$' + varName) || PrebuiltDocumentationMap.getByName(varName);
-    if (!prebuilt) return null;
+    // `getByName` returns an array (empty when the name isn't a documented
+    // prebuilt like PATH/HOME/status). An empty array is truthy, so a plain
+    // `a || b` / `!prebuilt` guard never rejects — which would route every
+    // *undefined* variable (e.g. an out-of-scope `set --show args`) into this
+    // scope-agnostic name-match fallback. Guard on length instead.
+    //
+    // `argv`/`fish_trace` are implicitly defined in every fish scope and have
+    // no FishSymbol definition, so they always belong here — recognize them
+    // directly rather than depend on the documentation map being populated
+    // (it can be empty for these under some module-init orders).
+    const prebuiltByDollar = PrebuiltDocumentationMap.getByName('$' + varName);
+    const prebuilt = prebuiltByDollar.length ? prebuiltByDollar : PrebuiltDocumentationMap.getByName(varName);
+    const isImplicitFishVariable = SKIPPABLE_VARIABLE_REFERENCE_NAMES.includes(varName);
+    if (prebuilt.length === 0 && !isImplicitFishVariable) return null;
 
     const currentWorkspace = workspaceManager.findContainingWorkspace(document.uri) || workspaceManager.current;
     if (!currentWorkspace) return null;
@@ -1399,90 +1411,7 @@ export class Analyzer {
       if (callSites.length > 0) return callSites;
     }
 
-    // Note: the no-scope-shadowing / inherit-variable cross-function cycle
-    // is now handled inside `getImplementationLocations` (src/implementation.ts).
-    // The old short-circuits here would `return` before the new logic could
-    // run, which broke the cursor-on-callee-usage → caller-def direction
-    // (the cursor's own location got filtered, leaving an empty result).
-
-    // For globals, collect every same-name same-kind def across the workspace
-    // so multi-def cycles return all of them. For locals, only the resolved
-    // symbol's own def matters.
-    // const allDefs: FishSymbol[] = symbol.isGlobal()
-    //   ? this.symbols.allSymbolsByName.find(symbol.name).filter(s =>
-    //     s.isGlobal() && s.kind === symbol.kind,
-    //   )
-    //   : [symbol];
-    // if (!allDefs.some(s => s.equals(symbol))) allDefs.push(symbol);
-
-    // Filter raw candidates through `isReference` so we drop name-matched
-    // hits that belong to other symbols (e.g. an `argparse 'name=...'` in
-    // an unrelated file: its `_flag_name` shares the candidate name with
-    // ours but lives under a different parent command, so it must not be
-    // surfaced as an "implementation" of our symbol). `excludeEqualNode`
-    // is false here because we want the def's own node to remain in the
-
-    // const candidates = implementationCandidates(document, position)
-    // // candidate set — `classifyImplementationKind` distinguishes it as
-    // // 'definition' and the usage→def cycle relies on that classification.
-    // // Classify the cursor by building an ephemeral candidate at the cursor
-    // // node and asking it which kind it is. Using FishReferenceCandidate for
-    // // the cursor too keeps the classification logic in one place.
-    // // const cursorCandidate = new FishReferenceCandidate(document, cursorNode, symbol.name);
-    // const cursorKind = candidates.find(s => s.uri === document.uri && isPositionWithinRange(position, s.range))?.kind
-    // || 'unknown';
-    // // logger.log('cursor candidate', { cursorKind });
-    // // logger.log('all candidates', candidates.map(c => ImplementationCanididate.toLoggable(c)));
-    //
-    // const isAtCursor = ImplementationCanididate.atLocation(document, position);
-    //
-    // const candidatesOfKind = ImplementationCanididate.ofKind(candidates.filter(c => !isAtCursor(c)));
-    //
-    // const found = implementationCycleLogic(cursorKind)
-    // return found(symbol, candidatesOfKind, document, position);
     return getImplementationLocations(document, position);
-
-    // if (cursorKind === 'usage') {
-    //   const completions = candidatesOfKind('completion');
-    //   if (completions.length > 0) return completions.map(c => Locations.Location.create(c.uri, c.range));
-    //   // // Multi-def globals may not all be in the cache; fall back to symbol
-    //   // // table.
-    //   // const allDefLocs = allDefs.map(s => s.toLocation());
-    //   // if (allDefLocs.length > 0) return allDefLocs;
-    //   return [symbol.toLocation()];
-    // }
-    //
-    // if (cursorKind === 'definition') {
-    //   if (symbol.isArgparse() || symbol.isFunction()) {
-    //     const usages = candidatesOfKind('completion');
-    //     if (usages.length > 0) return usages.map(c => Locations.Location.create(c.uri, c.range));
-    //   }
-    //
-    //   const usages = candidatesOfKind('usage');
-    //   if (usages.length > 0) return usages.map(c => Locations.Location.create(c.uri, c.range));
-    //   // No completion — fall back to getReferences so the cycle can still
-    //   // move (e.g., `function bar` + `alias bb 'bar'`: cycle from the def
-    //   // returns both the def and the alias body usage). When no usages exist
-    //   // either (a truly lonely function), getReferences returns just the def.
-    //   return this.getReferences(document, position);
-    // }
-    //
-    // if (cursorKind === 'completion') {
-    //   // const usages = candidatesOfKind('definition');
-    //   // if (usages.length > 0) return usages.map(c => Locations.Location.create(c.uri, c.range));
-    //   // No usage — fall back to getReferences so the cycle can still move
-    //   // (e.g., `alias bb 'bar'` + `function bar`: cycle from the alias body
-    //   // returns both the alias body usage and the def). When no defs exist
-    //   // either (e.g., an alias for an external command), getReferences returns
-    //   // just the completion.
-    //   return [symbol.toLocation()];
-    // }
-    //
-    // const usages = candidatesOfKind('usage');
-    // if (usages.length > 0) return usages.map(c => Locations.Location.create(c.uri, c.range));
-    // const allDefLocs = allDefs.map(s => s.toLocation());
-    // if (allDefLocs.length > 0) return allDefLocs;
-    // return [symbol.toLocation()];
   }
 
   /**
@@ -1562,11 +1491,23 @@ export class Analyzer {
 
       const shadowing = this.getShadowingLocalSymbols(foundSymbol, searchDoc);
       for (const candidate of candidates) {
-        if (shadowing.some(s =>
-          s.containsNode(candidate.node)
-          || s.scopeNode.equals(candidate.node)
-          || s.scopeContainsNode(candidate.node),
-        )) continue;
+        if (shadowing.some(s => {
+          // A shadowing local only hides candidates within its own lifetime
+          // window (from its definition until an in-scope `set -e`/`set -el`
+          // erase). A reference *before* the local is defined — e.g. the
+          // `$foo` in `echo $foo | read -l foo` — or *after* it is erased
+          // still belongs to the outer/global definition. (The plain
+          // `containsNode` check is line-based, so without this gate a same-
+          // line pre-definition reference would be wrongly shadowed.)
+          // `referenceWithinLifetime` keeps nested-function references (e.g.
+          // an earlier-defined `--inherit-variable` callee) inside the window.
+          if (!s.referenceWithinLifetime(candidate.node)) {
+            return false;
+          }
+          return s.containsNode(candidate.node)
+            || s.scopeNode.equals(candidate.node)
+            || s.scopeContainsNode(candidate.node);
+        })) continue;
         if (!foundSymbol.isReference(candidate.document, candidate.node, true)) continue;
         // toLocationsFor handles argparse dash-stripping and extracts inner
         // command positions out of alias/bind/complete-condition string nodes —
