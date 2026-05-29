@@ -171,27 +171,27 @@ export class FishSymbol {
 
   /**
    * The command whose `-e`/`--erase` form ends this symbol's lifetime, or null
-   * if the symbol's category doesn't support an explicit erase boundary.
+   * if the symbol's category doesn't get a tracked lifetime window.
    *
-   * - Global variables: bounded by `set -e <name>` in the same lexical scope.
-   * - Local functions:  bounded by `functions -e <name>` in the same lexical
-   *   scope, which lets a local shadow stop covering call sites once it's
-   *   explicitly torn down (e.g. `function ls; ...; end; ls; functions -e ls;
-   *   ls` — the second `ls` should resolve outward, not to the local shadow).
+   * - Local `set`/`read` variables: bounded by an in-scope `set -e`/`set -el`
+   *   erase, after which references resolve back to an outer variable of the same
+   *   name. Restricted to SET/READ — for-loop indices, argparse flags, and
+   *   function arg/inherit variables are not erasable this way and keep their
+   *   whole-scope lifetime.
+   * - Local functions: bounded by `functions -e <name>` in the same lexical scope
+   *   (e.g. `function ls; ...; end; ls; functions -e ls; ls` — the second `ls`
+   *   resolves outward, not to the local shadow).
    *
-   * Cross-document and other-shape symbols (aliases, argparse, exported vars,
-   * etc.) don't get a lifetime guard; call order across files can't be
-   * inferred statically.
+   * Global/universal variables are intentionally NOT lifetime-bounded: they are a
+   * single shared entity (universal vars even persist across sessions), so a
+   * `set -e`/`set -eg <name>` is a runtime state change, not a new binding — it
+   * must not partition the variable's references. (This keeps go-to-definition and
+   * find-references consistent: both treat every in-scope use as the same global.)
+   * Cross-document and other-shape symbols (aliases, argparse, exported vars) get
+   * no lifetime guard either.
    */
   private lifetimeEraseCommand(): 'set' | 'functions' | null {
-    if (this.isVariable() && this.isGlobal()) return 'set';
-    // Local `set`/`read` variables also have a tracked lifetime: they shadow
-    // from their own definition until an in-scope `set -e`/`set -el` erases
-    // them, after which references resolve back to an outer (global) variable
-    // of the same name. Restricted to SET/READ — for-loop indices, argparse
-    // flags, and function arg/inherit variables are not erasable this way and
-    // keep their whole-scope lifetime.
-    if (this.isLocal() && (this.fishKind === 'SET' || this.fishKind === 'READ')) return 'set';
+    if (this.isLocal() && this.isVariable() && (this.fishKind === 'SET' || this.fishKind === 'READ')) return 'set';
     if (this.isFunction() && !this.isGlobal()) return 'functions';
     return null;
   }
@@ -218,15 +218,12 @@ export class FishSymbol {
       const args = node.childrenForFieldName('argument');
       if (!args.some(arg => isMatchingOption(arg, eraseOption))) continue;
 
-      const eraseTargets = args
-        .filter(arg => !isOption(arg))
-        .map(arg => {
-          if (arg.type === 'concatenation' && arg.firstNamedChild) {
-            return arg.firstNamedChild;
-          }
-          return arg;
-        })
-        .filter(Boolean);
+      // A `set -e` ends the lifetime only when it erases the WHOLE variable, i.e.
+      // the target is the bare name. `set -e foo[2]` removes a single list element
+      // (tree-sitter parses `foo[2]` as a `concatenation` of `foo` + `[2]`), which
+      // does NOT destroy the variable — so its text won't equal the bare name and
+      // it correctly leaves the lifetime intact.
+      const eraseTargets = args.filter(arg => !isOption(arg));
 
       if (eraseTargets.some(target => target.text === this.name)) {
         // Scope-aware: an erase that names a scope only ends a variable of that
@@ -271,12 +268,19 @@ export class FishSymbol {
     const eraseCommand = this.lifetimeEraseCommand();
     if (!eraseCommand) return true;
 
-    // Variables don't exist before their `set` command runs, so a pre-def
-    // reference is invalid. Functions are effectively hoisted within a file
-    // — `function bar; baz; end; function baz; end; bar` is valid fish, so
-    // the call to `baz` from inside `bar` resolves correctly even though it
-    // appears before `baz`'s definition line.
-    if (eraseCommand === 'set') {
+    // Local variables don't exist before their `set`/`read` command runs, so a
+    // pre-def reference is invalid. This exclusion is LOCAL-only: universal/global
+    // variables are a single shared entity (universal vars even persist across
+    // sessions), so a read appearing before a particular `set -U/-g <name>`
+    // occurrence still refers to the same variable. Without this gate, references
+    // were position-dependent — clicking a later `set -Ux foo` returned only the
+    // refs after it, while clicking a usage (which resolves to the first def)
+    // returned all of them. They must be the same set regardless of which
+    // occurrence is queried. (The `set -e <name>` erase boundary below still
+    // applies to globals/universals.) Functions are effectively hoisted within a
+    // file — `function bar; baz; end; function baz; end; bar` is valid fish — so
+    // they never get a before-def exclusion either (eraseCommand is 'functions').
+    if (eraseCommand === 'set' && this.isLocal()) {
       const start = this.selectionRange.start;
       const startsBeforeDefinition =
         position.line < start.line ||

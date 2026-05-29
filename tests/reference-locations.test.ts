@@ -430,7 +430,11 @@ describe('find reference locations of symbols', () => {
       expect(refLines.has(4)).toBeTruthy();
     });
 
-    it('set -eg should end global variable lifetime for later references', () => {
+    it('set -eg does NOT end global variable lifetime for later references', () => {
+      // A global/universal variable is a single shared entity; `set -eg` is a
+      // runtime state change, not a new binding, so it must not partition the
+      // variable's references. The `echo $some_var` after the erase (line 3) still
+      // refers to the same global definition.
       const doc = workspace.getDocument('conf.d/variable-reference-lifetime.fish')!;
 
       const defNode = analyzer.getNodes(doc.uri).find((n) =>
@@ -444,7 +448,7 @@ describe('find reference locations of symbols', () => {
       expect(refLines.has(0)).toBeTruthy();
       expect(refLines.has(1)).toBeTruthy();
       expect(refLines.has(2)).toBeTruthy();
-      expect(refLines.has(3)).toBeFalsy();
+      expect(refLines.has(3)).toBeTruthy(); // post-erase read is still a reference
     });
 
     it('includes set -q/-e targets when finding prebuilt PATH references', () => {
@@ -1143,9 +1147,7 @@ describe('find reference locations of symbols', () => {
       it('function `foo_test` with precomputed cross-file references', () => {
         const functionDoc = workspace.getDocument('functions/foo_test.fish')!;
         const refs = analyzer.getReferences(functionDoc, Position.create(0, 11));
-        const renames = getRenames(functionDoc, Position.create(0, 11), 'test-rename', {
-          references: refs,
-        });
+        const renames = getRenames(functionDoc, Position.create(0, 11), 'test-rename');
 
         const refUris = new Set(renames.map(loc => loc.uri));
         expect(renames).toHaveLength(refs.length);

@@ -70,7 +70,10 @@ describe('find definition locations of symbols', () => {
       },
     ).initialize();
 
-    it('set -g var should not resolve after matching set -eg var in same scope', () => {
+    it('set -g var still resolves after set -eg var (globals are not lifetime-bounded)', () => {
+      // Globals/universals are a single shared entity, so `set -eg` does not end
+      // their lifetime for resolution — keeping go-to-definition consistent with
+      // find-references (both treat every in-scope use as the same global).
       const doc = TestWorkspaceOne.getDocument('conf.d/variable-lifetime.fish')!;
       analyzer.analyze(doc);
 
@@ -85,7 +88,9 @@ describe('find definition locations of symbols', () => {
       expect(eraseTarget?.selectionRange.start.line).toBe(0);
 
       const afterErase = analyzer.getDefinition(doc, { line: 3, character: 6 });
-      expect(afterErase).toBeNull();
+      expect(afterErase).toBeDefined();
+      expect(afterErase?.name).toBe('some_var');
+      expect(afterErase?.selectionRange.start.line).toBe(0);
     });
 
     // Mirrors the `set -e` lifetime guard above for the function side: a local
