@@ -1030,7 +1030,6 @@ export namespace CommanderSubcommand {
   }
 
   export const getSchemaKeys = (schema: typeof allSchemas) => {
-    // return schema.keyof()?._def.values;
     return [...schema.keyof().options];
   };
 

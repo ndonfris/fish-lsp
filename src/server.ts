@@ -706,54 +706,6 @@ export default class FishServer {
     if (!doc) return [];
 
     return analyzer.getReferences(doc, params.position);
-
-    // const progress = await connection.window.createWorkDoneProgress();
-    // progress.begin('[fish-lsp] finding references', 0, 'Resolving symbol...', true);
-    // await new Promise(resolve => setImmediate(resolve));
-    //
-    // try {
-    //   const defSymbol = analyzer.getDefinition(doc, params.position);
-    //
-    //   // Use the original request position; re-targeting through defSymbol.toPosition()
-    //   // can break synthetic symbols (e.g. function argv focused on function name).
-    //   let results = analyzer.getReferences(doc, params.position, { reporter: progress });
-    //
-    //   const retryTarget = await this.getExternalDefinitionRetryTarget(doc, params.position);
-    //   if (retryTarget) {
-    //     progress.report(0, 'Retrying from external definition...');
-    //     const retriedResults = analyzer.getReferences(retryTarget.doc, retryTarget.position, { reporter: progress });
-    //     const unique = new Map<string, Location>();
-    //     for (const location of [...results, ...retriedResults]) {
-    //       const key = [
-    //         location.uri,
-    //         location.range.start.line,
-    //         location.range.start.character,
-    //         location.range.end.line,
-    //         location.range.end.character,
-    //       ].join(':');
-    //       unique.set(key, location);
-    //     }
-    //     results = [...unique.values()];
-    //   }
-    //
-    //   progress.report(100, `Found ${results.length} reference${results.length === 1 ? '' : 's'}`);
-    //
-    //   logger.info({
-    //     onReferences: 'found references',
-    //     uri: defSymbol?.uri ?? doc.uri,
-    //     count: results.length,
-    //     position: params.position,
-    //     symbol: defSymbol?.name ?? 'prebuilt',
-    //   });
-    //
-    //   if (results.length === 0) {
-    //     logger.warning('onReferences: no references found', { uri: params.textDocument.uri, position: params.position });
-    //     return [];
-    //   }
-    //   return results;
-    // } finally {
-    //   progress.done();
-    // }
   }
 
   /**
@@ -765,77 +717,6 @@ export default class FishServer {
     if (!doc) return [];
 
     return analyzer.getImplementation(doc, params.position);
-    // const symbols = analyzer.cache.getDocumentSymbols(doc.uri);
-    // const lastSymbols = filterLastPerScopeSymbol(symbols);
-    // logger.log('symbols', formatFishSymbolTree(lastSymbols));
-    // const progress = await connection.window.createWorkDoneProgress();
-    // progress.begin('[fish-lsp] finding implementations', 0, 'Resolving symbol...', true);
-    // await new Promise(resolve => setImmediate(resolve));
-    // try {
-    //   let result = analyzer.getImplementation(doc, params.position, { reporter: progress });
-    //   const retryTarget = await this.getExternalDefinitionRetryTarget(doc, params.position);
-    //   if (retryTarget) {
-    //     progress.report(0, 'Retrying from external definition...');
-    //     const retried = analyzer.getImplementation(retryTarget.doc, retryTarget.position, { reporter: progress });
-    //     if (result.length === 0) {
-    //       result = retried;
-    //     } else if (retried.length > 0) {
-    //       const unique = new Map<string, Location>();
-    //       for (const location of [...result, ...retried]) {
-    //         const key = [
-    //           location.uri,
-    //           location.range.start.line,
-    //           location.range.start.character,
-    //           location.range.end.line,
-    //           location.range.end.character,
-    //         ].join(':');
-    //         unique.set(key, location);
-    //       }
-    //       result = [...unique.values()];
-    //     }
-    //   }
-    //   progress.report(100, `Found ${result.length} implementation${result.length === 1 ? '' : 's'}`);
-    //   logger.log('implementationResult', { result });
-    //   return result;
-    // } finally {
-    //   progress.done();
-    // }
-  }
-
-  private async getExternalDefinitionRetryTarget(
-    doc: LspDocument,
-    position: LSP.Position,
-  ): Promise<{ doc: LspDocument; position: LSP.Position; } | null> {
-    const definition = analyzer.getDefinition(doc, position);
-    if (!definition || definition.uri === doc.uri) {
-      return null;
-    }
-
-    const currentWorkspace = workspaceManager.findContainingWorkspace(doc.uri);
-    const definitionWorkspace = workspaceManager.findContainingWorkspace(definition.uri);
-    const isOutsideCurrentWorkspace = !currentWorkspace
-      || !definitionWorkspace
-      || definitionWorkspace.uri !== currentWorkspace.uri;
-
-    if (!isOutsideCurrentWorkspace) {
-      return null;
-    }
-
-    workspaceManager.handleOpenDocument(definition.uri);
-    workspaceManager.handleUpdateDocument(definition.uri);
-    if (workspaceManager.needsAnalysis()) {
-      await workspaceManager.analyzePendingDocuments();
-    }
-
-    const definitionDoc = analyzer.getDocument(definition.uri) || documents.get(definition.uri);
-    if (!definitionDoc) {
-      return null;
-    }
-
-    return {
-      doc: definitionDoc,
-      position: definition.selectionRange.start,
-    };
   }
 
   // Probably should move away from `documentationCache`. It works but is too expensive memory wise.

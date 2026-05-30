@@ -16,7 +16,7 @@ import { findParentCommand, isAliasDefinitionName, isArgparseVariableDefinitionN
  * These quick-fixes are separated from the other diagnostic quick-fixes because
  * future work will involve adding significantly more complex
  * solutions here (atleast I hope. I definitely think fish uniquely has a lot
- * of potential for how advancded quickfixes could become eventually).
+ * of potential for how advanced quick-fixes could become eventually).
  *
  * The quick-fixes located at disable-actions.ts are mainly for simple disabling
  * of diagnostic messages.
@@ -709,7 +709,6 @@ function handleAddEndStdinToArgparse(diagnostic: Diagnostic, document: LspDocume
 }
 
 function handleConvertDeprecatedFishLsp(diagnostic: Diagnostic, node: SyntaxNode, document: LspDocument): CodeAction {
-  // const value = document.getText(diagnostic.range);
   logger.log({ name: 'handleConvertDeprecatedFishLsp', diagnostic: diagnostic.range, node: node.text });
 
   const replaceText = node.text === 'fish_lsp_logfile' ? 'fish_lsp_log_file' : node.text;
@@ -813,9 +812,6 @@ export async function getQuickFixes(
     case ErrorCodes.functionNameUsingReservedKeyword:
       if (!node) return [];
       return [handleReservedKeyword(diagnostic, node, document)];
-    // case ErrorCodes.unusedLocalFunction:
-    //   if (!node) return [];
-    //   return [handleUnusedFunction(diagnostic, node, document)];
     case ErrorCodes.unusedLocalDefinition:
       if (!node) return [];
       action = handleUnusedSymbol(diagnostic, node, document);

@@ -102,8 +102,6 @@ export async function createAliasSaveActionNewFile(
   const functionPath = join(os.homedir(), '.config', 'fish', 'functions', `${funcName}.fish`);
   const functionUri = pathToUri(functionPath);
 
-  // const createFileAction = OptionalVersionedTextDocumentIdentifier.create(functionUri, null)
-
   const createFileAction = CreateFile.create(functionUri, {
     ignoreIfExists: false,
     overwrite: true,

@@ -318,7 +318,6 @@ export function firstAncestorMatch(
 ): SyntaxNode | null {
   const ancestors = getParentNodes(start) || [];
   const root = ancestors[ancestors.length - 1];
-  //if (ancestors.length < 1) return root;
   for (const p of ancestors) {
     if (!predicate(p)) {
       continue;

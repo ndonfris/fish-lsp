@@ -3,7 +3,6 @@ import { Location, Position, Range } from 'vscode-languageserver';
 import { LspDocument } from './document';
 import { FishSymbol } from './parsing/symbol';
 import { logger } from './logger';
-// import { config } from './config';
 
 export type FishRenameLocationType = 'variable' | 'function' | 'command' | 'argparse' | 'flag';
 

@@ -284,7 +284,7 @@ function rangeFromNode(node: SyntaxNode): Range {
 }
 
 // Resolves a node to one or more Location ranges, narrowing the range when tree-sitter
-// tokenizes multiple references together (e.g. `argparse h/help` returns 'h' or 'help'
+// is tokenizing multiple references together (e.g. `argparse h/help` returns 'h' or 'help'
 // individually, and `alias`/`bind`/`complete -n` extract the command within the string).
 export function getLocationWrapper(symbol: FishSymbol, node: SyntaxNode, uri: DocumentUri): Location[] {
   if (symbol.fishKind === 'ARGPARSE' && isOption(node)) {
@@ -540,67 +540,6 @@ export class FishReferenceCandidate {
 }
 
 type SortableRef = Location | FishReferenceCandidate;
-
-// const sorter = (defSymbol: FishSymbol) => {
-//
-//   type RefKind = 'definition' | 'same-uri' | 'complete' | 'option' | 'usage';
-//
-//   function refKind(ref: FishReferenceCandidate): RefKind {
-//     const { node, uri } = ref;
-//
-//     if (node.id === defSymbol.node.id || defSymbol.equalsNode(node)) {
-//       return 'definition';
-//     }
-//
-//     if (uri === defSymbol.uri) {
-//       return 'same-uri';
-//     }
-//
-//     const parentCommand = findParentCommand(node);
-//     if (parentCommand && isCommandWithName(parentCommand, 'complete')) {
-//       return 'complete';
-//     }
-//     if (defSymbol.isArgparse() || defSymbol.isFunction()) {
-//       if (uri.endsWith(`/completions/${defSymbol.name}.fish`)) {
-//         return 'complete';
-//       }
-//     }
-//
-//     if (isOption(node)) {
-//       return 'option';
-//     }
-//
-//     return 'usage';
-//   }
-//
-//   const kindWeight: Record<RefKind, number> = {
-//     definition: 0,
-//     'same-uri': 1,
-//     complete: 2,
-//     option: 3,
-//     usage: 4,
-//   };
-//
-//   return (a: FishReferenceCandidate, b: FishReferenceCandidate): number => {
-//     const ak = refKind(a);
-//     const bk = refKind(b);
-//
-//     const kindDiff = kindWeight[ak] - kindWeight[bk];
-//     if (kindDiff !== 0) return kindDiff;
-//
-//     // For usages, group by URI first.
-//     if (ak === 'usage' && bk === 'usage') {
-//       const uriDiff = a.uri.localeCompare(b.uri);
-//       if (uriDiff !== 0) return uriDiff;
-//     }
-//
-//     // For all same-bucket refs, sort by source position.
-//     const rowDiff = a.node.startPosition.row - b.node.startPosition.row;
-//     if (rowDiff !== 0) return rowDiff;
-//
-//     return a.node.startPosition.column - b.node.startPosition.column;
-//   }
-// }
 
 export class FishReferenceCandidateCache {
   private readonly byId = new Map<string, FishReferenceCandidate>();

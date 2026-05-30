@@ -150,7 +150,6 @@ function formatSignatureDescription(item: ExtendedBaseJson): string {
 }
 
 export function getAliasedCompletionItemSignature(item: FishAliasCompletionItem): SignatureHelp {
-  // const output = PrebuiltDocumentationMap.getByType('command').filter(n => n.name === firstCmd.text);
   return {
     signatures: [buildSignature(item.label, [
       '```fish',

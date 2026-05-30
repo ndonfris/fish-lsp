@@ -149,12 +149,6 @@ const ImplCycleLogic = (document: LspDocument, position: LSP.Position) => {
     {
       from: 'usage',
       callback: () => {
-        // const completions = candidatesOfKind('completion');
-        // if (completions.length > 0) return completions.map(c => Locations.Location.create(c.uri, c.range));
-        // // Multi-def globals may not all be in the cache; fall back to symbol
-        // // table.
-        // const allDefLocs = allDefs.map(s => s.toLocation());
-        // if (allDefLocs.length > 0) return allDefLocs;
         return [symbol.toLocation()];
       },
     },
@@ -167,14 +161,10 @@ const ImplCycleLogic = (document: LspDocument, position: LSP.Position) => {
     {
       from: 'unknown',
       callback: () => {
-        // const completions = candidatesOfKind('completion');
         const usages = candidatesOfKind('usage');
         if (usages.length > 0) return usages.map(c => Locations.Location.create(c.uri, c.range));
-        // const allDefLocs = allDefs.map(s => s.toLocation());
-        // if (allDefLocs.length > 0) return allDefLocs;
         return [symbol.toLocation()];
       },
-
     },
   ];
 

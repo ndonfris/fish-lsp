@@ -1,4 +1,3 @@
-// import { spawnSync } from 'child_process';
 import { LspDocument } from '../document';
 import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
 import { logger } from '../logger';

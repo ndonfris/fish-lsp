@@ -13,7 +13,6 @@ export type CompleteFlag = {
   longOption: string;
 };
 
-// export function parseArgparseFlag(text: string): CompleteFlag {
 function parseArgparseFlag(node: SyntaxNode): CompleteFlag {
   let text = node.text;
   if (isString(node)) text = text.slice(1, -1);
