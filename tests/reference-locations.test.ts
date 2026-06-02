@@ -20,6 +20,7 @@ import { logger } from '../src/logger';
 import { fail } from 'assert';
 import { FunctionParser } from '../src/parsing/barrel';
 import { isAliasDefinitionName } from '../src/parsing/alias';
+import { isSetQueryDefinition } from '../src/parsing/set';
 
 beforeEach(() => {
   logger.setSilent(); // pass in `false` to enable logs
@@ -1739,6 +1740,87 @@ describe('find reference locations of symbols', () => {
         expect(refs).toHaveLength(6);
         expectFoundLocationsToEqualMatchLocations(refs, matchLocations);
       }
+    });
+  });
+
+  describe('ambigous `set -q`', () => {
+    const tw = TestWorkspace.create({ name: 'set_q' }).addFiles(
+      {
+        relativePath: 'conf.d/editor.fish',
+        content: [
+          'set -q EDITOR || set -gx EDITOR nvim',
+          '',
+          'set -q VISUAL',
+          'or set -gx VISUAL nvim',
+        ].join('\n'),
+      },
+      {
+        relativePath: 'conf.d/local-editor.fish',
+        content: [
+          'set -ql EDITOR || set -lx EDITOR nvim',
+        ].join('\n'),
+      },
+    ).initialize();
+
+    const findDefNode = (doc: LspDocument, name: string) => analyzer.getNodes(doc.uri).find(n =>
+      isVariableDefinitionName(n) && n.text === name,
+    )!;
+
+    const findQueryNode = (doc: LspDocument, name: string) => analyzer.getNodes(doc.uri).find(n =>
+      n.parent && isSetQueryDefinition(n.parent) && n.text === name,
+    )!;
+
+    const GLOBAL_EDITOR_MatchLocations = [
+      matchLocation('conf.d/editor.fish', 0, 7),
+      matchLocation('conf.d/editor.fish', 0, 25),
+    ];
+
+    const LOCAL_EDITOR_MatchLocations = [
+      matchLocation('conf.d/local-editor.fish', 0, 8),
+      matchLocation('conf.d/local-editor.fish', 0, 26),
+    ];
+
+    describe("global 'EDITOR'", () => {
+      let defNode: SyntaxNode;
+      let queryNode: SyntaxNode;
+      let globalEditorDoc: LspDocument;
+      beforeEach(() => {
+        globalEditorDoc = tw.find('conf.d/editor.fish')!;
+        defNode = findDefNode(globalEditorDoc, 'EDITOR');
+        queryNode = findQueryNode(globalEditorDoc, 'EDITOR');
+      });
+
+      it("global 'EDITOR' def", () => {
+        const refs = analyzer.getReferences(globalEditorDoc, pointToPosition(defNode.startPosition));
+        expectFoundLocationsToEqualMatchLocations(refs, GLOBAL_EDITOR_MatchLocations);
+      });
+
+      it("global 'EDITOR' ref", () => {
+        const refs = analyzer.getReferences(globalEditorDoc, pointToPosition(queryNode.startPosition));
+        expectFoundLocationsToEqualMatchLocations(refs, GLOBAL_EDITOR_MatchLocations);
+        // local-editor should not be included
+      });
+    });
+
+    describe("local 'EDITOR'", () => {
+      let defNode: SyntaxNode;
+      let queryNode: SyntaxNode;
+      let localEditorDoc: LspDocument;
+      beforeEach(() => {
+        localEditorDoc = tw.find('conf.d/local-editor.fish')!;
+        defNode = findDefNode(localEditorDoc, 'EDITOR');
+        queryNode = findQueryNode(localEditorDoc, 'EDITOR');
+      });
+
+      it('local `EDITOR` def', () => {
+        const refs = analyzer.getReferences(localEditorDoc, pointToPosition(defNode.startPosition));
+        expectFoundLocationsToEqualMatchLocations(refs, LOCAL_EDITOR_MatchLocations);
+      });
+
+      it('local `EDITOR` ref', () => {
+        const refs = analyzer.getReferences(localEditorDoc, pointToPosition(queryNode.startPosition));
+        expectFoundLocationsToEqualMatchLocations(refs, LOCAL_EDITOR_MatchLocations);
+      });
     });
   });
 });

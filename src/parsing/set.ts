@@ -54,6 +54,18 @@ export function getSetCommandScopeTag(document: LspDocument, node: SyntaxNode): 
 }
 
 /**
+ * True when a `set` command carries an explicit scope modifier (`-U`/`-g`/`-f`/`-l`).
+ * Distinguishes a scope-targeted query like `set -lq VAR` from a bare `set -q VAR`,
+ * which queries every scope. Export/unexport (`-x`/`-u`) and query/erase/show flags
+ * are not scope modifiers and do not count.
+ */
+export function setCommandHasExplicitScopeModifier(node: SyntaxNode): boolean {
+  if (!isCommandWithName(node, 'set')) return false;
+  const searchNodes = findSetChildren(node);
+  return findOptionsSet(searchNodes, SetModifiers).length > 0;
+}
+
+/**
  * checks if a node is the variable name of a set command
  * set -g -x foo '...'
  *           ^-- cursor is here

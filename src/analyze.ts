@@ -14,6 +14,7 @@ import { FishReferenceCandidate, FishReferenceCandidateCache, isPotentialReferen
 import { createSourceResources, getExpandedSourcedFilenameNode, isSourceCommandArgumentName, isSourceCommandWithArgument, symbolsFromResource } from './parsing/source';
 import { filterFirstPerScopeSymbol, FishSymbol, processNestedTree, SKIPPABLE_VARIABLE_REFERENCE_NAMES } from './parsing/symbol';
 import { isSetVariableDefinitionName } from './parsing/set';
+import { guardedSetQueryReference } from './parsing/reference-comparator';
 import { PrebuiltDocumentationMap } from './utils/snippets';
 import { execCommandLocations } from './utils/exec';
 import { SyncFileHelper } from './utils/file-operations';
@@ -989,11 +990,18 @@ export class Analyzer {
       const toAdd: FishSymbol[] = localNamedSymbols.filter((s) => {
         const variableBefore = s.kind === SymbolKind.Variable ? precedesRange(s.selectionRange, getRange(node)) : true;
         const inLifetime = s.isWithinDefinitionLifetime(position, document.uri);
-        return (
+        if (
           containsRange(getRange(s.scope.scopeNode), getRange(node))
           && variableBefore
           && inLifetime
-        );
+        ) {
+          return true;
+        }
+        // A guarding `set -q NAME` query can precede the definition it guards in
+        // a conditional chain (`set -lq X || set -l X`), so the cursor falls
+        // before the def's selectionRange and `variableBefore` rejects it.
+        // Resolve through the same scope-aware guard used for reference matching.
+        return guardedSetQueryReference(s, document, node) === true;
       });
       symbols.push(...toAdd.map(s => s.canonicalArgparseRedefinition()));
     }

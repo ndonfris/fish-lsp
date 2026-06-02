@@ -9,7 +9,7 @@ import { findParentCommand, findParentFunction, getCommandNameNode, getCommandNa
 import { isMatchingCompletionFlagNodeWithFishSymbol } from './complete';
 import { isCompletionArgparseFlagWithCommandName } from './argparse';
 import { isMatchingOption, isMatchingOptionOrOptionValue, Option } from './options';
-import { getSetCommandScopeTag, isSetQueryDefinition, isSetVariableDefinitionName } from './set';
+import { getSetCommandScopeTag, isSetQueryDefinition, isSetVariableDefinitionName, setCommandHasExplicitScopeModifier } from './set';
 import { FishString } from './string';
 import { isAbbrDefinitionName, isMatchingAbbrFunction } from '../diagnostics/node-types';
 import { isBindFunctionCall } from './bind';
@@ -42,7 +42,49 @@ function highestConditionalExecution(node: SyntaxNode | null): SyntaxNode | null
   return highest;
 }
 
-function guardedSetQueryReference(symbol: FishSymbol, document: LspDocument, node: SyntaxNode): boolean | null {
+/**
+ * True when `queryCommand` and `definitionCommand` belong to the same
+ * conditional-execution chain, regardless of which operator joins them:
+ *
+ *   - `a && b` / `a || b` — tree-sitter wraps both commands in one (possibly
+ *     nested) `conditional_execution`; they share its topmost ancestor.
+ *   - `a; or b` / `a\nor b` (and the `and` forms) — only the tail command is
+ *     wrapped; the leading command is a plain sibling immediately preceding the
+ *     `conditional_execution`(s). Walk back across any leading
+ *     `conditional_execution` siblings to the head command and match it.
+ */
+function inSameConditionalChain(queryCommand: SyntaxNode, definitionCommand: SyntaxNode): boolean {
+  const queryChain = highestConditionalExecution(queryCommand);
+  const definitionChain = highestConditionalExecution(definitionCommand);
+  if (queryChain && definitionChain && queryChain.equals(definitionChain)) {
+    return true;
+  }
+  if (!definitionChain) return false;
+
+  let head: SyntaxNode = definitionChain;
+  while (head.previousNamedSibling?.type === 'conditional_execution') {
+    head = head.previousNamedSibling;
+  }
+  return !!head.previousNamedSibling?.equals(queryCommand);
+}
+
+/**
+ * Resolves whether the bare-name target of a guarding `set -q` query is a
+ * reference to a `set` definition of the same variable that it guards in a
+ * conditional chain (`set -q X || set … X`, `set -q X; or set … X`, etc.).
+ *
+ *   - EXPLICIT-scope query (`set -lq`, `set -gq`, …): inspects exactly one
+ *     scope, so it references the definition iff that scope equals the
+ *     definition's scope.
+ *   - AMBIGUOUS query (`set -q`, no scope flag): tests every scope, so it
+ *     references the definition only when the definition is global/universal —
+ *     a query placed before a local/function definition cannot be observing
+ *     that not-yet-created binding.
+ *
+ * Returns `null` (defer to the normal reference logic) when the node is not such
+ * a guarding query target, and a definitive `boolean` otherwise.
+ */
+export function guardedSetQueryReference(symbol: FishSymbol, document: LspDocument, node: SyntaxNode): boolean | null {
   if (!symbol.isVariable() || symbol.uri !== document.uri) return null;
   if (!isSetVariableDefinitionName(node, false) || node.text !== symbol.name) return null;
 
@@ -51,23 +93,24 @@ function guardedSetQueryReference(symbol: FishSymbol, document: LspDocument, nod
   if (!queryCommand || !definitionCommand) return null;
   if (!isSetQueryDefinition(queryCommand) || !isCommandWithName(definitionCommand, 'set')) return null;
 
-  const queryChain = highestConditionalExecution(queryCommand);
-  const definitionChain = highestConditionalExecution(definitionCommand);
-  if (!queryChain || !definitionChain || !queryChain.equals(definitionChain)) return null;
+  if (!inSameConditionalChain(queryCommand, definitionCommand)) return null;
 
   const nodePos = getRange(node).start;
   const defPos = symbol.selectionRange.start;
   if (!isBeforePosition(nodePos, defPos)) return null;
 
-  const queryScope = getSetCommandScopeTag(document, queryCommand);
   const definitionScope = getSetCommandScopeTag(symbol.document, definitionCommand) || symbol.scopeTag;
-  if (!queryScope || queryScope !== definitionScope) return false;
+  if (!definitionScope) return false;
 
-  if (definitionScope === 'global' || definitionScope === 'universal') {
-    return true;
+  // Explicitly-scoped query: reference iff the queried scope matches the def's.
+  if (setCommandHasExplicitScopeModifier(queryCommand)) {
+    const queryScope = getSetCommandScopeTag(document, queryCommand);
+    return !!queryScope && queryScope === definitionScope;
   }
 
-  return false;
+  // Ambiguous `set -q` queries every scope; only a session-persistent
+  // (global/universal) definition can already exist when the query runs.
+  return definitionScope === 'global' || definitionScope === 'universal';
 }
 
 // Early exit conditions - things we can immediately rule out
@@ -439,9 +482,6 @@ function isValidCrossFileVariableReference(symbol: FishSymbol, node: SyntaxNode,
 const checkVariableReference: ReferenceCheck = ({ symbol, document, node }) => {
   if (!symbol.isVariable() || node.text !== symbol.name) return false;
 
-  const guardedQueryMatch = guardedSetQueryReference(symbol, document, node);
-  if (guardedQueryMatch !== null) return guardedQueryMatch;
-
   // Bare command names (e.g. `foo`) are command/function references, not
   // variable references. `$foo` is still handled through variable nodes.
   if (isCommandName(node)) return false;
@@ -481,6 +521,20 @@ const checkVariableReference: ReferenceCheck = ({ symbol, document, node }) => {
     // instead of matching via the generic scope fall-through below.
     if (isCommandWithName(parentNode, 'set') && !isSetReferenceTargetNode(node)) {
       return false;
+    }
+    // A scope-qualified query (`set -lq/-gq/-Uq/-fq NAME`) observes only that
+    // one scope, so it references a definition only when the scopes match — a
+    // `set -ql EDITOR` is never a reference to a *global* `EDITOR`, even across
+    // files. (A bare `set -q` queries every scope and is left to the generic
+    // checks below; the same-chain define-if-unset idiom is resolved earlier by
+    // `guardedSetQueryReference`.)
+    if (
+      isCommandWithName(parentNode, 'set')
+      && isSetQueryDefinition(parentNode)
+      && setCommandHasExplicitScopeModifier(parentNode)
+    ) {
+      const queryScope = getSetCommandScopeTag(document, parentNode);
+      return !!queryScope && queryScope === symbol.scopeTag;
     }
     // `read` has no bare-name reference-target forms (no -q/-e/-S). Anything
     // reaching here is neither a `$var`/`variable_name` (handled above) nor a
@@ -523,6 +577,13 @@ export const isSymbolReference = (
   if (symbol.isEvent()) {
     return checkEventReference(ctx);
   }
+
+  // Guarded `set -q` query targets are resolved independently of normal scope
+  // containment: a query legitimately precedes the definition it guards (the
+  // define-if-unset idiom), which `isInValidScope` would otherwise reject for
+  // local symbols whose lifetime starts at the definition.
+  const guardedQueryMatch = guardedSetQueryReference(symbol, document, node);
+  if (guardedQueryMatch !== null) return guardedQueryMatch;
 
   // Validate scope for local symbols
   if (!isInValidScope(ctx)) return false;
