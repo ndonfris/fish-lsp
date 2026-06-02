@@ -64,6 +64,14 @@
     "description": "the current working directory."
   },
   {
+    "name": "dirnext",
+    "description": "forward positions in the history of visited directories (accessible by “nextd” command)"
+  },
+  {
+    "name": "dirprev",
+    "description": "backward positions in the history of visited directories (accessible by “prevd” command)"
+  },
+  {
     "name": "pipestatus",
     "description": "a list of exit statuses of all processes that made up the last executed pipe. See exit status."
   },
