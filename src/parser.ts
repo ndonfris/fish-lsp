@@ -64,7 +64,7 @@ function getFishLanguageWasmBuffer(): Uint8Array {
     logger.log(`Loading tree-sitter-fish wasm override from: ${expandedOverridePath}`);
     return readFileSync(expandedOverridePath);
   } catch (error) {
-    logger.logToStderr(`Failed to load fish_lsp_tree_sitter_fish_wasm override: ${overridePath}`);
+    logger.logToStderr(`Failed to load fish_lsp_tree_sitter_wasm_path override: ${overridePath}`);
     console.error(error);
     throw error;
   }

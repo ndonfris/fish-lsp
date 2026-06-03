@@ -1,3 +1,34 @@
+## <small>1.1.4 (2026-06-03)</small>
+
+* chore: bump 1.1.4-pre.2 metadata, changelog/manpage docs, and dependency lockfile ([2e47f6c](https://github.com/ndonfris/fish-lsp/commit/2e47f6c))
+* chore: bump deps ([89f1101](https://github.com/ndonfris/fish-lsp/commit/89f1101))
+* chore: clean up comments in `src/**/*.ts` files ([f550dcd](https://github.com/ndonfris/fish-lsp/commit/f550dcd))
+* chore: lint `tests/*.test.ts` + added `chore:upgrade` script to `package.json` ([34f895f](https://github.com/ndonfris/fish-lsp/commit/34f895f))
+* docs(snippets): added `dirnext`/`dirprev` variables in `src/snippets/envVariables.json` ([fce53ca](https://github.com/ndonfris/fish-lsp/commit/fce53ca))
+* feat: added `string match -rq -- '(?<var>)' $argv` support to server handlers ([082b90c](https://github.com/ndonfris/fish-lsp/commit/082b90c))
+* feat(cli): runtime config flags + startup inspection commands (`--profile` & `--short`) ([77b8e6f](https://github.com/ndonfris/fish-lsp/commit/77b8e6f))
+* feat(hover): subcommand manpage section fallback (prefer uppercase SUBCOMMAND header) ([e99a609](https://github.com/ndonfris/fish-lsp/commit/e99a609))
+* feat(parser): support env `fish_lsp_tree_sitter_wasm_path` override ([3ab4a8c](https://github.com/ndonfris/fish-lsp/commit/3ab4a8c)), closes [ram02z/tree-sitter-fish#41](https://github.com/ram02z/tree-sitter-fish/issues/41)
+* feat(parsing): resolve commands nested at point ([cc4304e](https://github.com/ndonfris/fish-lsp/commit/cc4304e))
+* feat(references): better `set -q VAR || set -gx VAR` support ([58bd56a](https://github.com/ndonfris/fish-lsp/commit/58bd56a))
+* feat(semantic-tokens): operator, subcommand, and ignored-symbol highlighting ([f208a37](https://github.com/ndonfris/fish-lsp/commit/f208a37))
+* fix(analyze): diagnostics, workspace scoping, and command resolution ([cf19672](https://github.com/ndonfris/fish-lsp/commit/cf19672))
+* fix(completion): completion formatting and documentation cache cleanup ([1be7c8c](https://github.com/ndonfris/fish-lsp/commit/1be7c8c))
+* fix(exec): tolerate non-zero exit codes from `execCmd` ([0a5be80](https://github.com/ndonfris/fish-lsp/commit/0a5be80))
+* fix(inlay-hint): status code support for `12*` exit codes w/ `$status > 128` ([747febb](https://github.com/ndonfris/fish-lsp/commit/747febb))
+* fix(references): keep global variable references position-independent ([66a7d7a](https://github.com/ndonfris/fish-lsp/commit/66a7d7a))
+* perf: speed up startup with lazy initialization ([fadc172](https://github.com/ndonfris/fish-lsp/commit/fadc172))
+* fix(env)!: `config.fish_lsp_single_workspace_support` default true & cleaned unused `./*.json` ([5b5a068](https://github.com/ndonfris/fish-lsp/commit/5b5a068))
+* fix(references,analyze): correct `argv`/local-variable scope resolution ([a417dca](https://github.com/ndonfris/fish-lsp/commit/a417dca))
+* fix(references,hover): function lifetime resolution and `-S` chains, `source $var`, `<?` pipe ([cdb85e3](https://github.com/ndonfris/fish-lsp/commit/cdb85e3))
+* refactor(implementations,rename): split implementation and rename handlers ([787b160](https://github.com/ndonfris/fish-lsp/commit/787b160))
+* refactor(analyze): indexed caches, cross-file refs, nested commands, prepareRename ([9426b85](https://github.com/ndonfris/fish-lsp/commit/9426b85))
+* refactor(analyze): move reference resolution into `analyzer` ([28e51bd](https://github.com/ndonfris/fish-lsp/commit/28e51bd))
+* refactor(parser): replace child-index access with field-name lookup + regression test ([4e68ff9](https://github.com/ndonfris/fish-lsp/commit/4e68ff9))
+* refactor(references): use reference candidates for lookups (`analyzer.getReferences()`) ([57b0775](https://github.com/ndonfris/fish-lsp/commit/57b0775))
+* ci(test-suite): new workflow file running `yarn test` in minimal sys reqs ([5e92b97](https://github.com/ndonfris/fish-lsp/commit/5e92b97))
+* build(test): stabilize CI execution, hooks, and gitignore ([7871536](https://github.com/ndonfris/fish-lsp/commit/7871536))
+
 ## <small>1.1.4-pre.2 (2026-05-29)</small>
 
 * fix(analyze): diagnostics, workspace scoping, and command resolution ([58bd5cc](https://github.com/ndonfris/fish-lsp/commit/58bd5cc))
@@ -24,27 +55,6 @@
 * feat(semantic-tokens): operator, subcommand, and ignored-symbol highlighting ([43bc587](https://github.com/ndonfris/fish-lsp/commit/43bc587))
 * ci(test-suite): new workflow file running `yarn test` in minimal sys reqs ([71fc53c](https://github.com/ndonfris/fish-lsp/commit/71fc53c))
 * build(test): stabilize CI execution, hooks, and gitignore ([dd4f1b5](https://github.com/ndonfris/fish-lsp/commit/dd4f1b5))
-
-<!-- ## <small>1.1.4-pre.2 (2026-05-21)</small> -->
-<!---->
-<!-- * feat: added `string match -rq -- '(?<var>)' $argv` support to server handlers ([2a6b7f1](https://github.com/ndonfris/fish-lsp/commit/2a6b7f1)) -->
-<!-- * feat(cli): runtime config flags + startup inspection commands (`--profile` & `--short`) ([24530c8](https://github.com/ndonfris/fish-lsp/commit/24530c8)) -->
-<!-- * feat(hover): subcommand manpage section fallback (prefer uppercase SUBCOMMAND header) ([3af9ab3](https://github.com/ndonfris/fish-lsp/commit/3af9ab3)) -->
-<!-- * feat(parser): support env `fish_lsp_tree_sitter_wasm_path` override ([4b8b9b3](https://github.com/ndonfris/fish-lsp/commit/4b8b9b3)), tests [ram02z/tree-sitter-fish#41](https://github.com/ram02z/tree-sitter-fish/issues/41) -->
-<!-- * feat(parsing): resolve nested commands at point ([b41e787](https://github.com/ndonfris/fish-lsp/commit/b41e787)) -->
-<!-- * feat(semantic-tokens): operator, subcommand, and ignored-symbol highlighting ([43bc587](https://github.com/ndonfris/fish-lsp/commit/43bc587)) -->
-<!-- * fix: `config.fish_lsp_single_workspace_support` defaults to true + remove unused configs ([45e9d62](https://github.com/ndonfris/fish-lsp/commit/45e9d62)) -->
-<!-- * fix(analyze): diagnostics, workspace scoping, and command resolution ([58bd5cc](https://github.com/ndonfris/fish-lsp/commit/58bd5cc)) -->
-<!-- * fix(completion): completion formatting and documentation cache cleanup ([9f1edb1](https://github.com/ndonfris/fish-lsp/commit/9f1edb1)) -->
-<!-- * fix(exec): tolerate non-zero exit codes from `execCmd` ([dac8d0f](https://github.com/ndonfris/fish-lsp/commit/dac8d0f)) -->
-<!-- * fix(inlay-hint): status code support for `12*` exit codes w/ `$status > 128` ([b9b85eb](https://github.com/ndonfris/fish-lsp/commit/b9b85eb)) -->
-<!-- * fix(references): `argparse` reverse map for `searchDoc.uri === defSymbol.uri` ([aa3dfe2](https://github.com/ndonfris/fish-lsp/commit/aa3dfe2)) -->
-<!-- * refactor(analyze): indexed caches, cross-file refs, nested commands, prepareRename ([6094453](https://github.com/ndonfris/fish-lsp/commit/6094453)) -->
-<!-- * refactor(parser): replace child-index access with field-name lookup + regression test ([c4bb2fb](https://github.com/ndonfris/fish-lsp/commit/c4bb2fb)) -->
-<!-- * refactor(references): replace per-feature search with FishReferenceCandidate ([aac1e82](https://github.com/ndonfris/fish-lsp/commit/aac1e82)) -->
-<!-- * ci(test-suite): new workflow file running `yarn test` in minimal sys reqs ([7bfa310](https://github.com/ndonfris/fish-lsp/commit/7bfa310)) -->
-<!-- * ci(test-suite): skip completion test which is only non-passing test ([7397a21](https://github.com/ndonfris/fish-lsp/commit/7397a21)) -->
-<!-- * build(test): stabilize CI execution, hooks, and gitignore ([dd4f1b5](https://github.com/ndonfris/fish-lsp/commit/dd4f1b5)) -->
 
 ## <small>1.1.4-pre.1 (2026-05-13)</small>
 

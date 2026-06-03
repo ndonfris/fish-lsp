@@ -12,7 +12,12 @@
     </div>
 </h1>
 
+<div align="center">
+
 ![demo.gif](https://github.com/ndonfris/fish-lsp.dev/blob/ndonfris-patch-1/new_output.gif?raw=true)
+<sup>**Try out now on the [fish-lsp.dev/playground](https://fish-lsp.dev/playground)**</sup>
+
+</div>
 
 Introducing the [fish-lsp](https://fish-lsp.dev), a [Language Server Protocol (LSP)](https://lsif.dev/) implementation for the [fish shell language](https://fishshell.com).
 
