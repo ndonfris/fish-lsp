@@ -106,7 +106,7 @@ export const symbolKindToString = (kind: SymbolKind | FishSymbolKind): string =>
   */
 type kindGroups = 'VARIABLES' | 'FUNCTIONS' | 'EVENTS' | 'ARGPARSE' | 'OTHER';
 export const FishKindGroups: Record<kindGroups, FishSymbolKind[]> = {
-  VARIABLES: ['ARGPARSE', 'SET', 'READ', 'FOR', 'VARIABLE', 'FUNCTION_VARIABLE', 'EXPORT', 'STRING_REGEX'],
+  VARIABLES: ['ARGPARSE', 'SET', 'READ', 'FOR', 'VARIABLE', 'FUNCTION_VARIABLE', 'EXPORT', 'STRING_REGEX', 'INLINE_VARIABLE'],
   FUNCTIONS: ['FUNCTION', 'ALIAS'],
   EVENTS: ['EVENT', 'FUNCTION_EVENT'],
   ARGPARSE: ['ARGPARSE'],

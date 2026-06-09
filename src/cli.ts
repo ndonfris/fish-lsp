@@ -164,11 +164,11 @@ commandBin.command('start')
 
     // Set web playground mode if requested
     if (opts.web) {
-      Config.isWebServer = true;
+      Config.runtime.isWebServer = true;
     }
 
     if (opts.skipStartupLogging) {
-      Config.skipStartupLogging = true;
+      Config.runtime.skipStartupLogging = true;
     }
 
     // Dump the configHandlers, if requested from the command line. This stops the server.

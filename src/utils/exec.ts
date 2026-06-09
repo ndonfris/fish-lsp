@@ -34,7 +34,10 @@ export function runEmbeddedFish(script: string, args: string[] = []): Promise<Em
       ? `source (command cat | psub) ${argsEscaped}`
       : 'source (command cat | psub)';
 
-    const child = spawn('fish', ['-c', fishCommand], {
+    // Honor a user-configured fish binary (`fish_lsp_fish_path`) like the other
+    // exec paths do, instead of hardcoding `fish` from PATH. `config` is populated
+    // with the schema default (`'fish'`) at module load, so this is always defined.
+    const child = spawn(config.fish_lsp_fish_path, ['-c', fishCommand], {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
@@ -227,7 +230,10 @@ export async function execCompleteSpace(cmd: string): Promise<string[]> {
 
 export async function execCompleteCmdArgs(cmd: string): Promise<string[]> {
   const args = await ExecFishFiles.getCommandOptions(cmd);
-  const results = args?.stdout.toString().trim().split('\n') || [];
+  const results = (args?.stdout.toString().trim().split('\n') || [])
+    .map(line => line.split('\t'))
+    .filter(([label, desc]) => label && !desc?.startsWith('Abbreviation'))
+    .map(line => line.join('\t').trimEnd());
 
   let i = 0;
   const fixedResults: string[] = [];

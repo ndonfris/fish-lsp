@@ -162,6 +162,7 @@ namespace StructuralKeywords {
    */
   export function isCommand(n: SyntaxNode): boolean {
     const commandName = getCommandName(n);
+    if (commandName && commandName.includes('$')) return false;
     return !!commandName && COMMAND.has(commandName);
   }
 
@@ -259,6 +260,9 @@ const isUserFunction = (n: SyntaxNode): boolean => {
   if (isStructuralKeyword(n)) return false;
   if (isBuiltinFunction(n)) return false;
   if (isCommandWithName(n, '[')) return false; // Special handling for bracket test
+  // Skip only when the command *name* is a variable expansion (e.g. `$var foo`),
+  // not when an argument merely contains `$` (e.g. `export PATH=$PATH`, `ls $HOME`).
+  if (getCommandNameNode(n)?.text.includes('$')) return false;
   return true;
 };
 

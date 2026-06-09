@@ -204,51 +204,71 @@ export type VersionTuple = {
   major: number;
   minor: number;
   patch: number;
+  commitCount: number; // Added to distinguish git snapshot builds
+  isPrerelease: boolean;
   raw: string;
 };
 
 export namespace DepVersion {
 
   /**
-   * Extracts the major, minor, and patch version numbers from a version string.
+   * Extracts the baseline version numbers from a node engine string.
    */
   export function minimumNodeVersion(): VersionTuple {
-    const versionString = PackageJSON.engines.node?.toString();
-    const version = extract(versionString);
+    // Safely grab the engine string and remove common range symbols to isolate the baseline
+    const rawEngine = PackageJSON.engines?.node?.toString() || '';
+
+    // Clean up basic range prefix operators so the regex can target the primary numbers
+    const cleanedString = rawEngine.replace(/^[>=^~<\s]+/, '');
+
+    const version = extract(cleanedString);
     if (!version) {
-      return extract('>=20.0.0')!; // Fallback to a default version if extraction fails
+      return extract('20.0.0')!; // Fallback strictly to a clean semver string
     }
     return version;
   }
 
   export function extract(versionString: string): VersionTuple | null {
-    // Match major.minor.patch, ignoring operators and prerelease/build metadata
-    const match = versionString.match(/^[^\d]*(\d+)\.(\d+)\.(\d+)/);
+    // Isolated regex captures major, minor, patch, and explicitly parses the numeric commit block
+    const match = versionString.match(/(?:^|[^\d])(\d+)\.(\d+)\.(\d+)(?:-(\d+))?/);
 
     if (!match) return null;
 
-    const [, majorStr, minorStr, patchStr] = match;
+    const [, majorStr, minorStr, patchStr, commitStr] = match;
+
+    const major = parseInt(majorStr!, 10);
+    const minor = parseInt(minorStr!, 10);
+    const patch = parseInt(patchStr!, 10);
+    const commitCount = commitStr ? parseInt(commitStr, 10) : 0;
 
     return {
-      major: parseInt(majorStr!, 10),
-      minor: parseInt(minorStr!, 10),
-      patch: parseInt(patchStr!, 10),
-      raw: `${majorStr}.${minorStr}.${patchStr}`,
+      major,
+      minor,
+      patch,
+      commitCount,
+      // If it contains a commit suffix or prerelease string, treat it as a prerelease snapshot
+      isPrerelease: commitCount > 0 || versionString.includes('-'),
+      raw: `${major}.${minor}.${patch}${commitStr ? `-${commitStr}` : ''}`,
     };
   }
 
   export function compareVersions(a: VersionTuple, b: VersionTuple): number {
     if (a.major !== b.major) return a.major - b.major;
     if (a.minor !== b.minor) return a.minor - b.minor;
-    return a.patch - b.patch;
+    if (a.patch !== b.patch) return a.patch - b.patch;
+
+    // If major, minor, and patch are identical, compare the commit increments
+    if (a.commitCount !== b.commitCount) {
+      return a.commitCount - b.commitCount;
+    }
+
+    // Standard SemVer fallback: A pure release is newer than a generic prerelease string
+    if (a.isPrerelease && !b.isPrerelease) return -1;
+    if (!a.isPrerelease && b.isPrerelease) return 1;
+
+    return 0;
   }
 
-  /**
-   * Compares two version tuples and returns true if the current version satisfies the required version.
-   * @param current - The current version tuple.
-   * @param required - The required version tuple.
-   * @returns true if current version is greater than or equal to required version, false otherwise.
-   */
   export function satisfies(current: VersionTuple, required: VersionTuple): boolean {
     return compareVersions(current, required) >= 0;
   }

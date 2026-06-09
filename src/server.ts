@@ -8,7 +8,7 @@ import { InitializeParams, CompletionParams, Connection, CompletionList, Complet
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, documents, rangeOverlapsLineSpan } from './document';
 import { formatDocumentWithIndentComments, formatDocumentContent } from './formatting';
-import { logger, now } from './logger';
+import { logger, Time } from './logger';
 import { connection, setExternalConnection } from './utils/startup';
 import { formatTextWithIndents, symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes } from './utils/tree-sitter';
@@ -21,7 +21,7 @@ import { CompletionPager, initializeCompletionPager, isInVariableExpansionContex
 import { FishCompletionList } from './utils/completion/list';
 import { resolveCompletionItemDocumentation } from './utils/completion/resolve-item';
 import { PrebuiltDocumentationMap, formatPrebuiltDocMarkdown, warmPrebuiltCommandDescriptions } from './utils/snippets';
-import { findParent, findParentCommand, getRedirectOperatorText, isAliasDefinitionName, isBraceExpansion, isCommand, isCommandName, isConcatenatedValue, isConcatenation, isEndStdinCharacter, isOption, isPathNode, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
+import { findParent, findParentCommand, getRedirectOperatorText, isAliasDefinitionName, isBraceExpansion, isCommand, isCommandName, isConcatenatedValue, isConcatenation, isDefinitionName, isEndStdinCharacter, isOption, isPathNode, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
 import { config, Config } from './config';
 import { enrichToMarkdown, handleBraceExpansionHover, handleEndStdinHover, handleSourceArgumentHover } from './documentation';
 import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getDefaultSignatures, getFunctionSignatureHelp, isRegexStringSignature } from './signature';
@@ -65,6 +65,14 @@ export let hasWorkspaceFolderCapability = false;
 export const enableWorkspaceFolderSupport = () => {
   hasWorkspaceFolderCapability = true;
 };
+
+/**
+ * Whether the client advertised `workspace.semanticTokens.refreshSupport`. The
+ * server must only send `workspace/semanticTokens/refresh` requests when this is
+ * true — clients that don't implement it (e.g. Helix) reject the request with
+ * "Method not found", and the unhandled rejection crashes the connection.
+ */
+export let hasSemanticTokensRefreshSupport = false;
 
 export let currentDocument: LspDocument | null = null;
 
@@ -159,6 +167,9 @@ export default class FishServer {
     );
     logger.debug('hasWorkspaceFolderCapability', hasWorkspaceFolderCapability);
 
+    hasSemanticTokensRefreshSupport = !!capabilities?.workspace?.semanticTokens?.refreshSupport;
+    logger.debug('hasSemanticTokensRefreshSupport', hasSemanticTokensRefreshSupport);
+
     const initializeUris = getWorkspacePathsFromInitializationParams(params);
     logger.info('initializeUris', initializeUris);
 
@@ -186,8 +197,9 @@ export default class FishServer {
     server.register(connection);
 
     subcommandCache.onPopulated(() => {
+      if (!hasSemanticTokensRefreshSupport) return;
       void Promise.resolve()
-        .then(() => connection?.languages?.semanticTokens?.refresh?.())
+        .then(() => connection?.languages?.semanticTokens?.refresh())
         .catch(() => undefined);
     });
     subcommandCache.initializeBuiltins();
@@ -199,6 +211,11 @@ export default class FishServer {
   public clientSupportsShowDocument: boolean;
   public backgroundAnalysisComplete: boolean;
   private backgroundAnalysisInProgress: boolean;
+  // The connection handlers were registered on (see `register()`). Background
+  // tasks like the post-indexing semantic-tokens refresh must target THIS
+  // connection — the same one the client talks to — rather than the module-level
+  // `connection`, which in tests is a separate mock that never sees the request.
+  private registeredConnection: Connection | undefined;
 
   constructor(
     private completion: CompletionPager,
@@ -240,6 +257,7 @@ export default class FishServer {
    * @returns void
    */
   register(connection: Connection): void {
+    this.registeredConnection = connection;
     // setup callback handlers
     const { onCodeActionCallback, onCodeActionResolveCallback } = codeActionHandlers();
     const documentHighlightHandler = getDocumentHighlights(analyzer);
@@ -391,7 +409,6 @@ export default class FishServer {
     for (const doc of documents.all()) {
       connection.sendDiagnostics({ uri: doc.uri, diagnostics: [] });
     }
-    // this.diagnosticsWorker.dispose();
     this.backgroundAnalysisComplete = false;
     this.backgroundAnalysisInProgress = false;
   }
@@ -414,7 +431,7 @@ export default class FishServer {
       buildPath: PkgJson.path,
       buildVersion: PkgJson.version,
       buildTime: PkgJson.buildTime,
-      executedAt: now(),
+      executedAt: Time.now,
     });
     if (hasWorkspaceFolderCapability) {
       try {
@@ -482,14 +499,24 @@ export default class FishServer {
        * If skipStartupLogging is enabled, the logger was set to silent during startup to avoid logging incomplete information.
        * Now that initialization is complete, we can disable silent mode to allow logging of the startup information.
        */
-      if (Config.skipStartupLogging) logger.setFullSilence(false);
+      if (Config.runtime.skipStartupLogging) logger.setFullSilence(false);
       logger.log({
-        startupTime: new Date().toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' }),
+        startupTime: Time.now,
         binary: PkgJson.path,
         version: PkgJson.version,
         buildTime: PkgJson.buildTime,
         nodeVersion: process.version,
       });
+      // Ask the client to re-pull semantic tokens now that indexing is done.
+      // Only when the client advertised refresh support — otherwise the request
+      // is rejected ("Method not found") and the unhandled rejection would crash
+      // the connection (e.g. Helix). `.catch` guards the rejection defensively.
+      if (hasSemanticTokensRefreshSupport) {
+        const refreshConnection = this.registeredConnection ?? connection;
+        void Promise.resolve()
+          .then(() => refreshConnection.languages.semanticTokens?.refresh())
+          .catch(() => undefined);
+      }
     }
 
     logger.info(`Initial analysis complete. Analyzed ${totalDocuments} documents.`);
@@ -542,9 +569,6 @@ export default class FishServer {
     }
     const symbols = analyzer.allSymbolsAccessibleAtPosition(doc, params.position);
     const { line, word } = analyzer.parseCurrentLine(doc, params.position);
-    // logger.log({
-    //   symbols: symbols.map(s => s.name),
-    // });
 
     if (!line) return await this.completion.completeEmpty(symbols);
 
@@ -576,6 +600,13 @@ export default class FishServer {
       list = await this.completion.complete(line, fishCompletionData, symbols);
     } catch (error) {
       logger.logAsJson('ERROR: onComplete ' + error?.toString() || 'error');
+    }
+    // don't allow typing more flags after `-`, make list.isIncomplete === false
+    if (!word && list.items.find(item => item.label.startsWith('-'))) {
+      list.isIncomplete = true;
+    }
+    if (word.startsWith('-')) {
+      list.items = list.items.filter(item => item.label.startsWith('-'));
     }
     return list;
   }
@@ -680,13 +711,16 @@ export default class FishServer {
 
     const newDefs = analyzer.getDefinitionLocation(doc, params.position);
     if (!newDefs || newDefs.length === 0) {
-      // const retryTarget = analyzer.getSymbolFromReferenceLocation(
-      //   Location.create(doc.uri, { start: params.position, end: params.position })
-      // );
-      // if (retryTarget) newDefs.push(retryTarget.toLocation());
       if (current) {
+        // Only fall back to a global symbol when `current` actually references
+        // it. `findFirst(current.text)` matches by name alone, so without the
+        // `isReference` gate a bare command argument that merely shares a global
+        // variable's name — e.g. `theme` in `fish_config theme` — would jump to
+        // that `set -gx theme` definition even though it is not a reference.
         const fallbackSymbol = analyzer.symbols.globalSymbols.findFirst(current?.text);
-        if (fallbackSymbol) newDefs.push(fallbackSymbol.toLocation());
+        if (fallbackSymbol && fallbackSymbol.isReference(doc, current)) {
+          newDefs.push(fallbackSymbol.toLocation());
+        }
       }
     }
     for (const location of newDefs) {
@@ -828,7 +862,14 @@ export default class FishServer {
     if (prebuiltHover) return prebuiltHover;
 
     const symbolItem = analyzer.getHover(doc, params.position);
-    if (symbolItem) return symbolItem;
+    if (symbolItem) {
+      logger.log({
+        timestamp: Time.now,
+        msg: 'found symbolItem',
+        isDef: isDefinitionName(current),
+      });
+      return symbolItem;
+    }
     if (prebuiltSkipType) {
       return {
         contents: enrichToMarkdown(formatPrebuiltDocMarkdown(prebuiltSkipType)),
@@ -852,8 +893,8 @@ export default class FishServer {
     );
 
     logger.log(`this.documentationCache.resolve() found ${!!globalItem}`, { docs: globalItem.docs });
-    if (globalItem && globalItem.docs && allowsGlobalDocs) {
-      logger.log({ ...globalItem });
+    if (globalItem && globalItem.docs && allowsGlobalDocs && isDefinitionName(current)) {
+      logger.log({ globalItem: true, ...globalItem });
       return {
         contents: {
           kind: MarkupKind.Markdown,
@@ -1130,7 +1171,6 @@ export default class FishServer {
   async onCodeLens(params: CodeLensParams): Promise<CodeLens[]> {
     logger.log('onCodeLens', params);
 
-    // const path = uriToPath(params.textDocument.uri);
     const doc = documents.get(params.textDocument.uri);
 
     if (!doc) return [];
@@ -1255,7 +1295,7 @@ export default class FishServer {
    * @param {any[]} params - the params passed into the method
    */
   private logParams(methodName: string, ...params: any[]) {
-    logger.log({ time: now(), handler: methodName, params });
+    logger.log({ time: Time.now, handler: methodName, params });
   }
 
   // helper to get all the default objects needed when a TextDocumentPositionParam is passed
@@ -1323,7 +1363,7 @@ export default class FishServer {
       if (doc.isFunced()) {
         this.throwResponseError('Cannot rename across multiple files from a `funced` document');
       }
-      if (Config.isWebServer) {
+      if (Config.runtime.isWebServer) {
         this.throwResponseError('Cannot rename across multiple files from the web server');
       }
     }
@@ -1359,7 +1399,7 @@ export default class FishServer {
         extra.lastChangedSpan = document.lastChangedLineSpan;
       }
       logger.log({
-        time: now(),
+        time: Time.now,
         request,
         uri,
         version,
@@ -1368,7 +1408,7 @@ export default class FishServer {
         ...extra,
       });
     } else {
-      logger.log({ time: now(), request, document: 'undefined', ...extra });
+      logger.log({ time: Time.now, request, document: 'undefined', ...extra });
     }
   }
 }

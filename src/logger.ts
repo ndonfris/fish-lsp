@@ -173,7 +173,14 @@ export class Logger {
   start(): this {
     this.started = true;
     this.clearLogFile();
-    this._logQueue.forEach((message) => {
+    // Snapshot and clear the queue before flushing: when there is no log file,
+    // `_log` re-queues each message, so flushing the live array would re-append
+    // every entry. Without clearing first, each `start()` call (one per server
+    // creation in tests) doubled the queue until `push` overflowed with
+    // `RangeError: Invalid array length`.
+    const queued = this._logQueue;
+    this._logQueue = [];
+    queued.forEach((message) => {
       this._log(message);
     });
     return this;
@@ -347,8 +354,7 @@ export class Logger {
 
   public logTime(...args: any[]): void {
     const formattedMessage = this.convertArgsToString(...args);
-    const time = new Date().toLocaleTimeString();
-    this._log(`[${time}] ${formattedMessage}`);
+    this._log(`[${Time.time}] ${formattedMessage}`);
   }
 
   public log(...args: any[]): void {
@@ -420,20 +426,25 @@ export class Logger {
   }
 }
 
-export function now(): string {
-  const currentTime = new Date();
-  const hours = currentTime.getHours();
-  const hour12 = hours % 12 || 12;
-  const ampm = hours >= 12 ? 'PM' : 'AM';
+export class Time {
+  static get time() {
+    return new Date().toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' });
+  }
 
-  return [
-    hour12.toString().padStart(2, '0'),
-    currentTime.getMinutes().toString().padStart(2, '0'),
-    currentTime.getSeconds().toString().padStart(2, '0'),
-    Math.floor(currentTime.getMilliseconds() / 10).toString().padStart(2, '0'),
-  ].join(':') + ` ${ampm}`;
+  static get now() {
+    const currentTime = new Date();
+    const hours = currentTime.getHours();
+    const hour12 = hours % 12 || 12;
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+
+    return [
+      hour12.toString().padStart(2, '0'),
+      currentTime.getMinutes().toString().padStart(2, '0'),
+      currentTime.getSeconds().toString().padStart(2, '0'),
+      Math.floor(currentTime.getMilliseconds() / 10).toString().padStart(2, '0'),
+    ].join(':') + ` ${ampm}`;
+  }
 }
-
 export const logger: Logger = new Logger();
 
 export function createServerLogger(logFilePath: string, connectionConsole?: IConsole): Logger {

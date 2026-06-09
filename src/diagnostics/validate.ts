@@ -510,9 +510,14 @@ export async function getDiagnosticsAsync(
   });
 
   // `4008` -> auto-loaded functions without description
-  getAutoloadedFunctionsWithoutDescription(doc, handler, allFunctions).forEach((symbol) => {
-    if (addDiagnostics(FishDiagnostic.fromSymbol(ErrorCodes.requireAutloadedFunctionHasDescription, symbol))) return diagnostics;
-  });
+  if (config.fish_lsp_require_autoloaded_functions_to_have_description) {
+    getAutoloadedFunctionsWithoutDescription(doc, handler, allFunctions)
+      .forEach((symbol) => {
+        if (
+          addDiagnostics(FishDiagnostic.fromSymbol(ErrorCodes.requireAutloadedFunctionHasDescription, symbol))
+        ) return diagnostics;
+      });
+  }
 
   // `4009` -> auto-loaded function helper with name collision
   if (doc.isAutoloadedFunction()) {

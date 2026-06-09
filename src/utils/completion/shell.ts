@@ -33,7 +33,11 @@ export async function shellComplete(cmd: string, options: ShellCompleteOptions =
   return child.stdout.toString().trim()
     .split('\n')
     .filter((line) => line.trim() !== '')
-    .map(line => fixLine(line));
+    .map(line => fixLine(line))
+    .filter(([label, desc]) => label && !desc.startsWith('Abbreviation:'));
+  // Filter out `label\tAbbreviation: ...` items added in
+  // https://github.com/fish-shell/fish-shell/commit/4b2aba31eecf9a7675fd2a678e74dbcb936424a5
+  // which are always always shown
 }
 
 function fixFirst(input: string | undefined): string {

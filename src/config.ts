@@ -458,11 +458,17 @@ export const FormatOptions: FormattingOptions = {
  *******************************************/
 export namespace Config {
 
-  // eslint-disable-next-line prefer-const
-  export let isWebServer = false;
-
-  // eslint-disable-next-line prefer-const
-  export let skipStartupLogging = false;
+  /**
+   * Mutable runtime flags. Held on an object rather than `export let` because
+   * oxc (the transformer vitest uses) rejects namespaces that export non-const
+   * bindings, and these are reassigned cross-module (`Config.runtime.isWebServer
+   * = true`). Mutating an object property is allowed where reassigning an export
+   * binding is not.
+   */
+  export const runtime = {
+    isWebServer: false,
+    skipStartupLogging: false,
+  };
 
   /**
    *  fixPopups - updates the `config.fish_lsp_show_client_popups` value based on the 3 cases:
@@ -742,7 +748,7 @@ export namespace Config {
     createServerLogger(config.fish_lsp_log_file, connection.console);
     // if the `skipStartupLogging` flag is set, we want to skip logging the
     // `onInitializedResult` to avoid cluttering the logs with the capabilities object
-    if (skipStartupLogging) logger.setFullSilence();
+    if (runtime.skipStartupLogging) logger.setFullSilence();
     const result = getResultCapabilities();
     logger.log({ onInitializedResult: result });
     return result;

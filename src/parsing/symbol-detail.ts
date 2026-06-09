@@ -207,13 +207,16 @@ function variableExportDescription(symbol: FishSymbol): string {
 function buildVariableDetail(symbol: FishSymbol) {
   const { name, node, uri, fishKind } = symbol;
   if (!node) return '';
-  const description = [`(${md.bold('variable')}) ${md.inlineCode(name)}`];
+  const type = fishKind === 'INLINE_VARIABLE' ? 'override variable' : 'variable';
+  const description = [`(${md.bold(type)}) ${md.inlineCode(name)}`];
   // add short info about variable
   description.push(md.separator());
   if (fishKind === 'SET' || fishKind === 'READ') {
     description.push(`${variableScopeDescription(symbol)}, ${variableExportDescription(symbol)}`);
   } else if (fishKind === 'ARGPARSE') {
     description.push('locally scoped');
+  } else if (fishKind === 'INLINE_VARIABLE') {
+    description.push('locally scoped, exported');
   } else if (node && isVariableArgumentNamed(node, name)) {
     try {
       const result = getArgumentNamesIndexString(node, name);
@@ -265,7 +268,12 @@ function buildVariableDetail(symbol: FishSymbol) {
     }
   }
 
-  return description.join(md.newline());
+  if (fishKind === 'INLINE_VARIABLE') {
+    description.push(md.separator());
+    description.push(md.formattedUrl('https://fishshell.com/docs/current/language.html#variables-override'));
+  }
+
+  return description.join(md.newline()).trimEnd();
 }
 
 export function createDetail(symbol: FishSymbol) {

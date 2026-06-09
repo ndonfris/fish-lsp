@@ -663,7 +663,11 @@ export class FishReferenceCandidateCache {
 
     const nodes = root.descendantsOfType([...REFERENCE_CANDIDATE_NODE_TYPES]);
     for (const node of nodes) {
-      if (!isReferenceCandidateNode(node)) continue;
+      // Single-pass: avoids parsing embedded commands twice (the old
+      // `isReferenceCandidateNode` gate + `extractReferenceCandidateNames` form
+      // both ran `FishString.extractCommands` for string/concatenation nodes).
+      const names = referenceCandidateNamesFor(node);
+      if (names.length === 0) continue;
 
       let uriBucket = this.idsByUri.get(document.uri);
       if (!uriBucket) {
@@ -677,7 +681,7 @@ export class FishReferenceCandidateCache {
         this.idsByUriAndName.set(document.uri, documentNameBuckets);
       }
 
-      for (const name of extractReferenceCandidateNames(node)) {
+      for (const name of names) {
         const candidate = new FishReferenceCandidate(document, node, name);
         this.byId.set(candidate.id, candidate);
 

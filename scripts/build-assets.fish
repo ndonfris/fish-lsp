@@ -72,6 +72,14 @@ if set -q _flag_fresh_install
     and log_info '' '[INFO]' 'Dependencies installed successfully!'
     or fail 'Failed to install dependencies.'
 end
+
+if set -q fish_lsp_tree_sitter_wasm_path
+    log_info '' '[INFO]' 'Build used variable $fish_lsp_tree_sitter_wasm_path' 
+    cp $fish_lsp_tree_sitter_wasm_path release_assets/tree-sitter-fish.wasm 
+    and log_info '' '[INFO]' 'Copied $fish_lsp_tree_sitter_wasm_path to release_assets/tree-sitter-fish.wasm' 
+    or fail 'Failed to copy $fish_lsp_tree_sitter_wasm_path to release_assets/tree-sitter-fish.wasm'
+end
+
 yarn build &>/dev/null
 
 log_info '' '[INFO]' 'Project built successfully!'

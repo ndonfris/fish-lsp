@@ -25,7 +25,7 @@ import { isSymbolReference } from './reference-comparator';
 import { equalSymbolDefinitions, equalSymbols, equalSymbolScopes, fishSymbolNameEqualsNodeText, isFishSymbol, symbolContainsNode, symbolContainsPosition, symbolContainsScope, symbolEqualsLocation, symbolEqualsNode, symbolScopeContainsNode } from './equality-utils';
 import { SymbolConverters } from './symbol-converters';
 import { FishKindGroups, FishSymbolInput, FishSymbolKind, fishSymbolKindToSymbolKind, fromFishSymbolKindToSymbolKind } from './symbol-kinds';
-import { isInlineVariableAssignment, processInlineVariables } from './inline-variable';
+import { hasInlineVariables, processInlineVariables } from './inline-variable';
 import { processStringRegexCommand } from './string-regex';
 
 export const SKIPPABLE_VARIABLE_REFERENCE_NAMES = [
@@ -80,7 +80,11 @@ export class FishSymbol {
     // never during bulk background analysis, so eagerly building it here for every
     // symbol of every indexed file was wasted work. We keep the raw input because
     // `createDetail` reads `symbol.detail` back for EXPORT/fallback kinds.
-    this._rawDetail = obj.detail;
+    // Coerce to a string: the lazy `detail` getter seeds `_detail` with this
+    // before calling `createDetail`, which reads `symbol.detail` back for
+    // EXPORT/empty-kind/fallback symbols. If `_rawDetail` were `undefined` that
+    // re-read would re-enter the getter forever (stack overflow).
+    this._rawDetail = obj.detail ?? '';
   }
 
   /**
@@ -265,6 +269,22 @@ export class FishSymbol {
    */
   public isWithinDefinitionLifetime(position: Position, uri: DocumentUri = this.uri): boolean {
     if (uri !== this.uri) return true;
+
+    // Inline (command-local) variables only exist for the single command they
+    // prefix — `var_a=(whoami) ls` defines `var_a` for that `ls` invocation
+    // alone. Their lifetime therefore ends at the end of that command node, so
+    // a later `$var_a` is not within lifetime and must not resolve back to the
+    // inline definition. (Scope containment already rejects most such cases,
+    // but lifetime-aware fallbacks — workspace/global symbol lookups — need
+    // this explicit bound too.)
+    if (this.fishKind === 'INLINE_VARIABLE') {
+      const commandEnd = getRange(this.scope.scopeNode).end;
+      const isAfterCommand =
+        position.line > commandEnd.line ||
+        position.line === commandEnd.line && position.character > commandEnd.character;
+      return !isAfterCommand;
+    }
+
     const eraseCommand = this.lifetimeEraseCommand();
     if (!eraseCommand) return true;
 
@@ -536,6 +556,7 @@ export class FishSymbol {
     }
     if (this.isVariable()) {
       if (SKIPPABLE_VARIABLE_REFERENCE_NAMES.includes(this.name)) return false;
+      if (this.fishKind === 'INLINE_VARIABLE') return false;
       if (this.isExported()) return false;
       if (this.isGlobal()) return false;
       if (this.fishKind === 'FOR') return false;
@@ -1075,10 +1096,13 @@ function buildNested(document: LspDocument, node: SyntaxNode, children: FishSymb
       newSymbols.push(...processForDefinition(document, node, children));
       break;
     case 'command':
-      if (isInlineVariableAssignment(node)) {
-        // Inline variable assignments are handled elsewhere
+      // A command can carry leading `VAR=value` inline-variable prefixes
+      // (post tree-sitter-fish PR #41 these are `override_variable` children of
+      // the `command` node). Emit a symbol for each, then continue dispatching
+      // on the command name so e.g. `FOO=bar set -gx X 1` produces both the
+      // inline variable and the `set` definition. (consider directly looking for overrides)
+      if (hasInlineVariables(node)) {
         newSymbols.push(...processInlineVariables(document, node));
-        break;
       }
       // Use the `name` field selector so commands prefixed with
       // `override_variable` (post tree-sitter-fish PR #41) still dispatch

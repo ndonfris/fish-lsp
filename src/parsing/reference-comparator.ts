@@ -546,6 +546,15 @@ const checkVariableReference: ReferenceCheck = ({ symbol, document, node }) => {
     }
   }
 
+  // Anything reaching here is neither a `$var`/`variable_name` expansion nor a
+  // variable definition name (both returned above), and its parent is not a
+  // `set/read/for/argparse/export` command. The only legitimate bare-name
+  // (non-`$`) reference forms left are `set -q/-e/-S NAME` targets. A plain
+  // command argument that merely shares the variable's name — e.g. `theme` in
+  // `fish_config theme` — is NOT a reference; without this guard a global
+  // variable (whose scope spans the whole file) would match any same-named
+  // argument via the `scopeContainsNode` check below.
+  if (!isSetReferenceTargetNode(node)) return false;
   if (symbol.name !== node.text) return false;
   if (symbol.scopeContainsNode(node)) return true;
   if (isInNoScopeShadowingCallee(symbol, node, document.uri)) return true;

@@ -12,7 +12,6 @@ import { isOption, isCommandWithName, isUnmatchedStringCharacter, isVariableExpa
 import * as SetParser from '../../parsing/set';
 import * as ReadParser from '../../parsing/read';
 import * as ArgparseParser from '../../parsing/argparse';
-import * as ForParser from '../../parsing/for';
 import * as FunctionParser from '../../parsing/function';
 import { LspDocument } from '../../document';
 import { SyntaxNode } from 'web-tree-sitter';
@@ -152,61 +151,110 @@ export class CompletionPager {
         return false;
       }
 
-      // Check if we're in a context where we'd be defining a variable name
-      // This includes set, read, argparse, for, function parameter, and export contexts
+      const endsWithSpace = /\s$/.test(lineBeforeCursor);
 
-      // First check if the current node itself is a variable definition
-      if (isVariableDefinitionName(currentNode)) {
+      // `set NAME [VALUE...]`: the first non-option argument is the variable being
+      // defined (insert a plain name); anything after it is a value (insert a
+      // `$`-prefixed expansion). `set -q` is a pure query, so every slot is a
+      // reference. Decide by how many non-option arguments precede the word being
+      // completed — NOT by the node under the cursor, which at a fresh slot (after
+      // trailing whitespace) resolves to the *previous* token and misclassifies
+      // both `set -gx <here>` (empty name slot) and `set -gx name <here>` (value).
+      //
+      // Probe at the last non-whitespace column: `descendantForPosition` on a
+      // trailing-space cursor returns the program root (outside the command), so
+      // walking up from there would never find the enclosing command.
+      const lastTokenColumn = Math.max(0, lineBeforeCursor.replace(/\s+$/, '').length - 1);
+      let setCommand: SyntaxNode | null = rootNode.descendantForPosition({ row: 0, column: lastTokenColumn });
+      while (setCommand && setCommand.type !== 'command') {
+        setCommand = setCommand.parent;
+      }
+      if (setCommand && isCommandWithName(setCommand, 'set')) {
+        // `set -q/-e/-S` (query/erase/show) take variable NAMES, not values —
+        // `set -q argv` checks `argv`, never `$argv`. Every operand is a plain
+        // name. Only a value-assigning `set NAME VALUE...` has `$`-expansion slots.
+        if (!SetParser.isSetDefinition(setCommand)) {
+          return true;
+        }
+        const nonOptionArgs = setCommand.childrenForFieldName('argument').filter(arg => !isOption(arg));
+        const priorNonOptionArgs = endsWithSpace ? nonOptionArgs.length : Math.max(0, nonOptionArgs.length - 1);
+        return priorNonOptionArgs === 0;
+      }
+      const { command: enclosingCommandName } = this.inlineParser.getNodeContext(lineBeforeCursor);
+
+      // Bare `set ` (or `set` mid-type): the parser hasn't formed a `command`
+      // node yet, so the walk-up above finds nothing. The very next slot is the
+      // variable name, so it's a definition position.
+      if (!setCommand && enclosingCommandName === 'set') {
         return true;
       }
 
-      // Check if the parent might be a variable definition context
-      // This handles cases where we're about to complete a variable name
-      if (currentNode.parent) {
-        const grandParent = currentNode.parent.parent;
+      // `for NAME in VALUES`: only the loop variable (the first operand) is a
+      // definition; `in` and the values are references. A partial `for ` line
+      // doesn't parse into a `for_statement`, so decide from the text — it's the
+      // loop-var slot until a second token (the `in` keyword) is started.
+      if (enclosingCommandName === 'for') {
+        const afterFor = lineBeforeCursor.replace(/^\s*for\s+/, '');
+        return !/\s/.test(afterFor);
+      }
 
-        // For set commands: check if we're in position to define a variable
-        if (grandParent && isCommandWithName(grandParent, 'set')) {
-          // Skip if it's a query operation (set -q)
-          if (SetParser.isSetQueryDefinition(grandParent)) {
-            return false; // set -q should use $ prefixes for variable references
-          }
-
-          // Check if we're in the variable name position for set
-          const setChildren = SetParser.findSetChildren(grandParent);
-          const firstNonOption = setChildren.find(child => !isOption(child));
-          if (firstNonOption && (firstNonOption.equals(currentNode) || firstNonOption.equals(currentNode.parent))) {
-            return true;
-          }
+      // `function NAME --argument-names a b c`: the named parameters are variable
+      // definitions (plain names). A partial `function ` line doesn't parse into a
+      // `function_definition`, so detect the `--argument-names`/`-a` flag from the
+      // text — operands after it are names until another option begins.
+      if (/^\s*function\s/.test(lineBeforeCursor)) {
+        const afterArgNames = lineBeforeCursor.match(/\s(?:--argument-names|-a)\s+([\s\S]*)$/);
+        if (afterArgNames && !/\s-/.test(afterArgNames[1]!)) {
+          return true;
         }
+      }
 
-        // For read commands: check if we're in position to define a variable
+      // `read`/`argparse`/`for`/`function` define variable names too. At a fresh
+      // slot (cursor after trailing whitespace) the node under the cursor is the
+      // *previous* token, so the definition-name checks below would miss the empty
+      // slot (e.g. `read <TAB>`, `for <TAB>`). Probe by parsing a placeholder
+      // identifier typed at the cursor and reuse each command's existing
+      // definition-name detection on that node.
+      let probeNode = currentNode;
+      if (endsWithSpace) {
+        const probedRoot = this.inlineParser.parse(lineBeforeCursor + 'fishLspProbe');
+        const probed = probedRoot?.descendantForPosition({ row: 0, column: lineBeforeCursor.length });
+        if (probed) {
+          probeNode = probed;
+        }
+      }
+
+      // The probed node is itself a variable definition name (covers `read`/`for`
+      // name slots and the typing case for every definition command).
+      if (isVariableDefinitionName(probeNode)) {
+        return true;
+      }
+
+      if (probeNode.parent) {
+        const grandParent = probeNode.parent.parent;
+
+        // (`set` is handled above via slot-counting.)
+
+        // `read`: trailing operands are variable names (option-values excluded).
         if (grandParent && isCommandWithName(grandParent, 'read')) {
           const { definitionNodes } = ReadParser.findReadChildren(grandParent);
-          if (definitionNodes.some(node => node.equals(currentNode) || currentNode.parent && node.equals(currentNode.parent))) {
+          if (definitionNodes.some(node => node.equals(probeNode) || probeNode.parent && node.equals(probeNode.parent))) {
             return true;
           }
         }
 
-        // For argparse commands: check if we're defining a variable name
+        // `argparse`: the option specs before `--` define `_flag_*` variables.
         if (grandParent && isCommandWithName(grandParent, 'argparse')) {
           const nodes = ArgparseParser.findArgparseDefinitionNames(grandParent);
-          if (nodes.some(node => node.equals(currentNode) || currentNode.parent && node.equals(currentNode.parent))) {
+          if (nodes.some(node => node.equals(probeNode) || probeNode.parent && node.equals(probeNode.parent))) {
             return true;
           }
         }
 
-        // For for loops: check if we're defining the loop variable
-        if (grandParent && isCommandWithName(grandParent, 'for')) {
-          if (grandParent.firstNamedChild && ForParser.isForVariableDefinitionName(grandParent.firstNamedChild)) {
-            return true;
-          }
-        }
-
-        // For function definitions: check if we're defining function parameters/arguments
+        // `function --argument-names`: the named arguments are variable definitions.
         if (grandParent && isCommandWithName(grandParent, 'function')) {
           const { variableNodes } = FunctionParser.findFunctionOptionNamedArguments(grandParent);
-          if (variableNodes.some(node => node.equals(currentNode) || currentNode.parent && node.equals(currentNode.parent))) {
+          if (variableNodes.some(node => node.equals(probeNode) || probeNode.parent && node.equals(probeNode.parent))) {
             return true;
           }
         }
@@ -306,7 +354,7 @@ export class CompletionPager {
       logger.log('toAdd =', toAdd.slice(0, 5));
     }
 
-    if (stdout.length === 0 && !word && !!command && line.endsWith(' ')) {
+    if (!word && !!command && line.endsWith(' ')) {
       const optionLines = await execCompleteCmdArgs(line.trim());
       stdout.push(...optionLines
         .map((optionLine) => {
@@ -367,7 +415,7 @@ export class CompletionPager {
 
     if (command && line.includes(' ')) {
       if (!isEmbeddedCommandlineCompletion) {
-        this._items.addSymbols(variables);
+        this.addVariableSymbols(variables, line, setupData.position, word);
       }
       if (index === 1) {
         this._items.addItems(addFirstIndexedItems(command, this.itemsMap), 25);
@@ -396,6 +444,31 @@ export class CompletionPager {
     const result = this._items.addData(data).build();
     // this._items.log();
     return result;
+  }
+
+  /**
+   * Add local variable symbols as completion items for a non-`$` cursor (the
+   * `complete()` flow, e.g. `ls <TAB>`). A variable used as a command argument
+   * is a *reference*, so its insert text is `$`-prefixed (`ls argv` → `ls $argv`)
+   * — unless the cursor is a variable definition/bare-name slot (`set <TAB>`,
+   * `for <TAB>`, `set -e/-q/-S NAME`, the `set NAME` name slot, …), where a
+   * plain name is wanted. The label stays unprefixed so the user still sees and
+   * filters on `argv`. A word already starting with `$` is left alone (those
+   * are routed through `completeVariables`, which owns prefix handling).
+   */
+  private addVariableSymbols(variables: FishSymbol[], line: string, position: Position, word: string | null): void {
+    const needsDollarPrefix =
+      !word?.startsWith('$')
+      && !this.isInVariableDefinitionContext(line, position);
+    if (!needsDollarPrefix) {
+      this._items.addSymbols(variables);
+      return;
+    }
+    for (const variable of variables) {
+      const item = FishCompletionItem.fromSymbol(variable);
+      item.insertText = '$' + variable.name;
+      this._items.addItem(item);
+    }
   }
 
   private addEmbeddedVariableItems(variables: FishSymbol[], prefixText: string, embeddedWord: string): void {

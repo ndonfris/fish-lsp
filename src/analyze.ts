@@ -10,7 +10,7 @@ import { logger } from './logger';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol, processCompletion } from './parsing/complete';
 import { FishSymbolCaches } from './parsing/fish-symbol-caches';
-import { FishReferenceCandidate, FishReferenceCandidateCache, isPotentialReferenceNode } from './parsing/reference-candidates';
+import { FishReferenceCandidate, FishReferenceCandidateCache, isPotentialReferenceNode, isSetReferenceTargetNode } from './parsing/reference-candidates';
 import { createSourceResources, getExpandedSourcedFilenameNode, isSourceCommandArgumentName, isSourceCommandWithArgument, symbolsFromResource } from './parsing/source';
 import { filterFirstPerScopeSymbol, FishSymbol, processNestedTree, SKIPPABLE_VARIABLE_REFERENCE_NAMES } from './parsing/symbol';
 import { isSetVariableDefinitionName } from './parsing/set';
@@ -19,7 +19,7 @@ import { PrebuiltDocumentationMap } from './utils/snippets';
 import { execCommandLocations } from './utils/exec';
 import { SyncFileHelper } from './utils/file-operations';
 import { flattenNested, iterateNested } from './utils/flatten';
-import { findParentCommand, findParentFunction, getCommandNameNode, getCommandNameText, isAliasDefinitionName, isCommand, isCommandName, isCommandWithName, isOption, isTopLevelDefinition, isExportVariableDefinitionName, isVariable, isVariableDefinitionName, isVariableExpansion, isVariableExpansionWithName } from './utils/node-types';
+import { findParentCommand, findParentFunction, getCommandNameNode, getCommandNameText, isAliasDefinitionName, isCommand, isCommandName, isCommandWithName, isOption, isTopLevelDefinition, isExportVariableDefinitionName, isVariable, isVariableDefinitionName, isVariableExpansion, isVariableExpansionWithName, isDefinitionName } from './utils/node-types';
 import { getNestedCommandReferenceAtPoint, isPossibleNested } from './utils/nested-command-point';
 import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
 import { containsRange, getChildNodes, getNamedChildNodes, getRange, isPositionAfter, isPositionWithinRange, namedNodesGen, nodesGen, precedesRange } from './utils/tree-sitter';
@@ -958,6 +958,26 @@ export class Analyzer {
   }
 
   /**
+   * Name-matched symbols at a position, filtered by the *node context* so a
+   * candidate that merely shares the word's text but is the wrong kind for the
+   * node is dropped. This replaces a bare `allSymbolsByName.find(word)`: a
+   * variable definition is only a candidate when the node is an actual variable
+   * usage (`$var` / `variable_name`, a variable definition name, or a
+   * `set -q/-e/-S NAME` target), so a bare command argument like `theme` in
+   * `fish_config theme` no longer matches a `set -g theme` definition. Non-
+   * variable symbols (functions/aliases/events) keep their broad matching —
+   * they are referenced by bare command names and inside string carriers
+   * (alias/`complete` values), with `isReference` arbitrating downstream.
+   */
+  public findSymbolsForPosition(document: LspDocument, position: Position): FishSymbol[] {
+    const word = this.wordAtPoint(document.uri, position.line, position.character);
+    if (!word) return [];
+    const node = this.nodeAtPoint(document.uri, position.line, position.character);
+    return this.symbols.allSymbolsByName.find(word)
+      .filter(symbol => symbolMatchesNodeContext(symbol, node));
+  }
+
+  /**
    * Utility function to get the definitions of a symbol at a given position.
    */
   private getDefinitionHelper(document: LspDocument, position: Position): FishSymbol[] {
@@ -966,8 +986,26 @@ export class Analyzer {
     const node = this.nodeAtPoint(document.uri, position.line, position.character);
     if (!word || !node) return [];
 
-    const namedSymbols = this.symbols.allSymbolsByName.find(word);
+    const namedSymbols = this.findSymbolsForPosition(document, position);
     const localNamedSymbols = this.symbols.findDocumentNamedSymbols(document.uri, word);
+
+    // Resolve a definition only at positions that could plausibly reference a
+    // symbol: a direct identifier node (variable / command name / declaration),
+    // OR a verified reference to a word-matched symbol. The direct node-shape
+    // checks must stay because the multi-stage resolution below (local →
+    // sourced → global → indexed paths) recognizes cross-file/sourced references
+    // that the scope-validating `isReference` deliberately does not. The
+    // `isReference` arm additionally rescues references living inside
+    // nested-command carriers (alias values, `complete -n`/`-a` strings), where
+    // the node is a string rather than a bare command name. Other positions
+    // (operators, plain strings, builtin commands with no matching symbol) fall
+    // through to the man-page/command-doc hover.
+    if (
+      !isVariable(node) && !isCommandName(node) && !isDefinitionName(node)
+      && !namedSymbols.some(s => s.isReference(document, node))
+    ) {
+      return [];
+    }
 
     // First check local symbols. A symbol is "the definition" when either:
     //   (a) its selectionRange contains the cursor's node (the usual case — node
@@ -1387,20 +1425,25 @@ export class Analyzer {
 
     // Match hover()'s symbol fallback so value tokens like `nvim` in
     // `set -gx EDITOR nvim` can jump to indexed global symbols even when the
-    // token is not itself a direct definition/reference node.
+    // token is not itself a direct definition/reference node. Context-filter
+    // the candidates so a bare word does not jump to a same-named *variable*
+    // (e.g. `theme` in `fish_config theme` → `set -g theme`): variables are
+    // only referenced via `$var` / a definition name / a `set -q/-e/-S` target.
     const word = this.wordAtPoint(document.uri, position.line, position.character);
     if (word) {
       if (!config.fish_lsp_single_workspace_support) {
         const indexedPaths = config.fish_lsp_all_indexed_paths
           .map(path => SyncFileHelper.expandEnvVars(path))
           .filter(Boolean);
-        const indexedPathSymbol = this.symbols.findIndexedPathGlobalSymbols(word, indexedPaths)[0];
+        const indexedPathSymbol = this.symbols.findIndexedPathGlobalSymbols(word, indexedPaths)
+          .find(symbol => symbolMatchesNodeContext(symbol, node));
         if (indexedPathSymbol) {
           return [indexedPathSymbol.toLocation()];
         }
       } else {
         const workspace = workspaceManager.findContainingWorkspace(document.uri) || workspaceManager.current;
-        const workspaceSymbol = this.symbols.findWorkspaceGlobalSymbols(word, workspace)[0];
+        const workspaceSymbol = this.symbols.findWorkspaceGlobalSymbols(word, workspace)
+          .find(symbol => symbolMatchesNodeContext(symbol, node));
         if (workspaceSymbol) {
           return [workspaceSymbol.toLocation()];
         }
@@ -1796,7 +1839,7 @@ export class Analyzer {
 
     const symbol =
       this.getDefinition(document, position) ||
-      this.symbols.globalSymbols.findFirst(node.text);
+      this.symbols.globalSymbols.find(node.text).find(s => symbolMatchesNodeContext(s, node));
 
     if (!symbol) return null;
     logger.log(`analyzer.getHover: ${symbol.name}`, {
@@ -1806,7 +1849,15 @@ export class Analyzer {
       text: symbol.node.text,
       kind: symbolKindToString(symbol.kind),
     });
-    return symbol.toHover();
+    // Show the symbol's hover on its own declaration, or on any real reference
+    // to it — including references nested inside alias/`complete` strings. Other
+    // positions (e.g. a builtin command name, or a bare argument that merely
+    // shares a variable's name like `theme` in `fish_config theme`) return null
+    // so the caller falls back to the man-page/command documentation hover.
+    if (isDefinitionName(node) || symbol.isReference(document, node)) {
+      return symbol.toHover();
+    }
+    return null;
   }
 
   /**
@@ -2438,6 +2489,30 @@ class AnalyzedDocumentCache {
   clear(uri: URI) {
     this._documents.delete(uri);
   }
+}
+
+/**
+ * Decides whether a name-matched {@link FishSymbol} is a plausible candidate
+ * for the syntax node at a request position (used by
+ * {@link Analyzer.findSymbolsForPosition}).
+ *
+ * The only kind-sensitive rule is for variables: fish only references a
+ * variable through a `$var` expansion / `variable_name`, a variable definition
+ * name, or a `set -q/-e/-S NAME` target. A plain word — e.g. the `theme`
+ * argument in `fish_config theme` — is therefore NOT a reference to a
+ * `set -g theme` variable, even though the text matches. Every other symbol
+ * kind (functions, aliases, events, …) keeps broad name matching, because they
+ * are legitimately referenced by bare command names and inside string carriers
+ * (`alias`/`complete` values); `isReference` validates those downstream.
+ */
+function symbolMatchesNodeContext(symbol: FishSymbol, node: SyntaxNode | null): boolean {
+  if (!node) return true;
+  if (symbol.isVariable()) {
+    return isVariable(node)
+      || isVariableDefinitionName(node)
+      || isSetReferenceTargetNode(node);
+  }
+  return true;
 }
 
 export function findCommandLocations(cmd: string) {

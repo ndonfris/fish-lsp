@@ -1,7 +1,7 @@
 import { extname } from 'path';
 import { Position, Range, URI } from 'vscode-languageserver';
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
-import { findSetDefinedVariable, isFunctionDefinition, isVariableDefinition, isFunctionDefinitionName, isVariable, isScope, isProgram, isCommandName, isForLoop, findForLoopVariable } from './node-types';
+import { isFunctionDefinition, isFunctionDefinitionName, isVariable, isScope, isProgram, isCommandName, isForLoop, findForLoopVariable } from './node-types';
 import { Maybe } from './maybe';
 
 // You can add this as a utility function or extend it if needed
@@ -284,23 +284,6 @@ export function findEnclosingScope(node: SyntaxNode): SyntaxNode {
   }
 }
 
-// some nodes (such as commands) to get their text, you will need
-// the first named child.
-// other nodes (such as flags) need just the actual text.
-export function getNodeText(node: SyntaxNode | null): string {
-  if (!node) {
-    return '';
-  }
-  if (isFunctionDefinition(node)) {
-    return node.child(1)?.text || '';
-  }
-  if (isVariableDefinition(node)) {
-    const defVar = findSetDefinedVariable(node)!;
-    return defVar.text || '';
-  }
-  return node.text !== null ? node.text.trim() : '';
-}
-
 export function getNodesTextAsSingleLine(nodes: SyntaxNode[]): string {
   let text = '';
   for (const node of nodes) {
@@ -361,7 +344,7 @@ export function ancestorMatch(
 export function descendantMatch(
   start: SyntaxNode,
   predicate: (n: SyntaxNode) => boolean,
-  inclusive = true,
+  inclusive: boolean = true,
 ): SyntaxNode[] {
   const descendants: SyntaxNode[] = [];
   descendants.push(...getChildNodes(start));

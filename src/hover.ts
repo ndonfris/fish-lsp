@@ -7,7 +7,7 @@ import { documentationHoverProvider, enrichCommandWithFlags, enrichToCodeBlockMa
 import { DocumentationCache } from './utils/documentation-cache';
 import { execCommandDocs, execCompletions, execSubCommandCompletions } from './utils/exec';
 import { subcommandCache } from './utils/subcommand-cache';
-import { findParent, findParentCommand, getCommandNameNode, getCommandNameText, isCommand, isFunctionDefinition, isOption, isProgram, isVariableDefinitionName, isVariableExpansion, isVariableExpansionWithName } from './utils/node-types';
+import { findParent, findParentCommand, getCommandNameNode, getCommandNameText, isCommand, isFunctionDefinition, isOption, isProgram, isVariable, isVariableDefinitionName, isVariableExpansion, isVariableExpansionWithName } from './utils/node-types';
 import { findFirstParent, nodeLogFormatter } from './utils/tree-sitter';
 import { getNestedCommandReferenceAtPoint } from './utils/nested-command-point';
 import { symbolKindsFromNode, uriToPath } from './utils/translation';
@@ -28,7 +28,7 @@ export async function handleHover(
   }
   const local = analyzer.getDefinition(document, position);
   logger.log({
-    handleHover: handleHover.name,
+    handleHover: 'handleHover()',
     symbol: local?.name,
     position,
     current: nodeLogFormatter(current),
@@ -47,7 +47,25 @@ export async function handleHover(
   const resolvedItem = await cache.resolve(lookupText, document.uri, symbolType);
   const item = symbolType ? cache.find(lookupText, symbolType) : cache.getItem(lookupText);
   const docsItem = item || resolvedItem;
-  if (docsItem && docsItem.docs) {
+  // A bare command argument (e.g. `theme` in `fish_config theme`) is a `word`
+  // node, never a variable reference (those start with `$`). The DocumentationCache
+  // is keyed only by name, so a same-named global variable would otherwise match
+  // and leak its docs. Only honor a Variable-typed hit when the node is a variable.
+  const isVariableDocsMismatch = docsItem?.type === LSP.SymbolKind.Variable && !isVariable(current);
+  // A bare `word` that is the VALUE of a preceding option — e.g. `time` in
+  // `command ls --sort time -1` — is not a command/keyword reference even though
+  // its name matches one. Because the cache is name-keyed, honoring the hit
+  // would show the wrong man page (`man time` instead of documentation for the
+  // `ls` invocation it belongs to). Wrapped commands like `ls` in `command ls`
+  // are unaffected: their previous sibling is the `command` decorator, not an
+  // option.
+  const prevNamedSibling = current.previousNamedSibling;
+  const isOptionValueDocsMismatch =
+    !isVariable(current)
+    && !isOption(current)
+    && !!prevNamedSibling
+    && isOption(prevNamedSibling);
+  if (docsItem && docsItem.docs && !isVariableDocsMismatch && !isOptionValueDocsMismatch) {
     return {
       contents: {
         kind: MarkupKind.Markdown,

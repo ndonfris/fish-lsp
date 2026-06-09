@@ -51,14 +51,21 @@ export function isMatchingCompletionFlagNodeWithFishSymbol(symbol: FishSymbol, n
         : symbol.name === node.text;
     }
 
-    if (isMatchingOption(
-      prevNode,
-      Option.create('-n', '--condition'),
-      Option.create('-a', '--arguments'),
-    )) {
+    // `-n`/`--condition` value is a shell snippet, so any command inside it is a
+    // real reference (e.g. `complete -c bob -n "__fish_bob_using_command ls"`).
+    if (isMatchingOption(prevNode, Option.create('-n', '--condition'))) {
       return isString(node)
         ? FishString.extractCommands(node).some(cmd => cmd === symbol.name)
         : node.text === symbol.name;
+    }
+
+    // `-a`/`--arguments` value is a literal completion candidate, NOT shell code.
+    // `complete -c bob -a "ls"` lists `ls` as a candidate string and must not
+    // reference the `ls` function. Only a command substitution `(...)` actually
+    // invokes a command (`complete -c bob -a '(ls)'`).
+    if (isMatchingOption(prevNode, Option.create('-a', '--arguments'))) {
+      if (!node.text.includes('(') || !node.text.includes(')')) return false;
+      return isString(node) && FishString.extractCommands(node).some(cmd => cmd === symbol.name);
     }
   }
 

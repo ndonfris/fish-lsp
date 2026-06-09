@@ -53,7 +53,7 @@ export function isInlineVariableAssignment(node: SyntaxNode): boolean {
 
   // Check if the text contains an assignment pattern
   const text = node.text;
-  const assignmentMatch = text.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+  const assignmentMatch = text.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
 
   return assignmentMatch !== null;
 }
@@ -78,7 +78,7 @@ export function parseInlineVariableAssignment(node: SyntaxNode): { name: string;
   }
 
   const text = node.text;
-  const assignmentMatch = text.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+  const assignmentMatch = text.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
 
   if (!assignmentMatch || !assignmentMatch[1] || assignmentMatch[2] === undefined) return null;
 
@@ -139,9 +139,9 @@ export function processInlineVariables(document: LspDocument, commandNode: Synta
       document,
       node: commandNode,
       focusedNode: varNode,
-      detail: `Command environment variable: ${assignment.name}=${assignment.value}`,
+      detail: `Command override variable: ${assignment.name}=${assignment.value}`,
       fishKind: 'INLINE_VARIABLE',
-      range: getRange(varNode),
+      range: getRange(commandNode),
       selectionRange: nameRange,
       scope,
       children: [],

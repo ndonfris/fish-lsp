@@ -1,6 +1,6 @@
 import { defineConfig, Plugin } from 'vitest/config'
-import tsconfigPaths from 'vite-tsconfig-paths'
 import wasm from 'vite-plugin-wasm'
+import tsconfigPaths from 'vite-tsconfig-paths'
 import * as path from 'path'
 import { readFileSync } from 'fs';
 
@@ -28,7 +28,7 @@ const reporters: (string | [string, Record<string, unknown>])[] = isSilent || is
 if (isCI) reporters.push('github-actions');
 
 export default defineConfig({
-  plugins: [tsconfigPaths(), wasm(), fishLoader()],
+  plugins: [, wasm(), fishLoader()],
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
@@ -70,6 +70,7 @@ export default defineConfig({
   },
   assetsInclude: ['**/*.fish', '**/*.wasm'],
   resolve: {
+    tsconfigPaths: true,
     alias: {
       '@package': path.resolve(__dirname, 'package.json'),
       '@embedded_assets/tree-sitter.wasm': path.resolve(__dirname, 'tree-sitter.wasm'),

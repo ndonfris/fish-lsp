@@ -61,8 +61,24 @@ export namespace md {
     return '1.' + value;
   }
 
-  export function link(name: string, href: string) {
+  /**
+   * @param href - use href for both name and href
+   * @returns string formatted `[name](href)`
+   */
+  export function link(href: string): string;
+  /**
+   * @param name
+   * @param href
+   * @returns string formatted `[name](href)`
+   */
+  export function link(name: string, href: string): string;
+  export function link(name: string, href?: string) {
+    if (name && !href) href = name;
     return `[${name}](${href})`;
+  }
+
+  export function formattedUrl(href: string) {
+    return italic(href);
   }
 
   export function filepathString(value: string) {
