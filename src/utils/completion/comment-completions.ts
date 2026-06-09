@@ -33,7 +33,7 @@ export function buildCommentCompletions(
 
   if (position.line === 0) {
     completions.push(
-      ...StaticItems.shebang.map(item => {
+      ...(StaticItems.shebang ?? []).map(item => {
         item.textEdit = TextEdit.replace(range, item.label);
         return item;
       }),
@@ -47,7 +47,7 @@ export function buildCommentCompletions(
   const diagnosticComment = getCommentDiagnostics(line, position.line);
   if (!diagnosticComment) {
     completions.push(
-      ...StaticItems.comment.map((item) => {
+      ...(StaticItems.comment ?? []).map((item) => {
         item.textEdit = TextEdit.replace(range, `${item.label} `);
         item.command = retriggerCommand;
         return item;
@@ -62,7 +62,7 @@ export function buildCommentCompletions(
     if (diagnosticComment?.codes) {
       const codeStrings = diagnosticComment?.codes.map(code => code.toString());
       completions.push(
-        ...StaticItems.diagnostic
+        ...(StaticItems.diagnostic ?? [])
           .filter(item => !codeStrings.includes(item.label))
           .map((item) => {
             item.command = retriggerCommand;

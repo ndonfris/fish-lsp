@@ -3,7 +3,7 @@
   "author": "ndonfris",
   "license": "MIT",
   "name": "fish-lsp",
-  "version": "1.1.4",
+  "version": "1.1.4-next.1",
   "description": "LSP implementation for fish/fish-shell",
   "keywords": [
     "lsp",
@@ -94,6 +94,7 @@
     "test:coverage:run": "env -i PATH=$PATH HOME=$HOME NODE_ENV=test USER=test_user CI=$CI GITHUB_ACTIONS=$GITHUB_ACTIONS vitest --coverage --run",
     "publish-nightly": "fish ./scripts/publish-nightly.fish",
     "refactor": "knip",
+    "typecheck": "tsc -p tsconfig.json --noEmit --incremental false",
     "lint:check": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:check-fix": "eslint . --fix-dry-run",
@@ -229,7 +230,6 @@
     "typescript-eslint": "^8.60.1",
     "vite": "^8.0.16",
     "vite-plugin-wasm": "^3.6.0",
-    "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.1.8"
   },
   "resolutions": {

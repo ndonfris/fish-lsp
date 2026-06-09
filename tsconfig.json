@@ -12,6 +12,12 @@
       "ESNext"
     ],
     "noEmit": false,
+    // `module` must pair with `moduleResolution: "bundler"`: bundler resolution
+    // requires module `esnext`/`preserve` (TS5095), and the inherited
+    // `@tsconfig/node22` default of `module: "nodenext"` additionally forces
+    // `moduleResolution: "nodenext"` (TS5109). `esnext` resolves both and matches
+    // how esbuild bundles (the build never runs `tsc` against this config).
+    "module": "esnext",
     "moduleResolution": "bundler",
     "declaration": true,
     "declarationMap": true,

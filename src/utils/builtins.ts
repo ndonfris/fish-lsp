@@ -1,5 +1,3 @@
-import { spawnSync, SpawnSyncOptionsWithStringEncoding } from 'child_process';
-
 export const BuiltInList = [
   '!',
   '.',
@@ -122,75 +120,12 @@ export function isReservedKeyword(word: string): boolean {
   return ReservedKeywordSet.has(word);
 }
 
-/**
- * Find the fish shell path using `which fish`
- */
-export function findShell() {
-  const result = spawnSync('which fish', { shell: true, stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf-8' });
-  return result.stdout?.toString().trim() || 'fish';
-}
-const fishShell = findShell();
-
-const spawnOpts: SpawnSyncOptionsWithStringEncoding = {
-  shell: fishShell,
-  stdio: ['ignore', 'pipe', 'inherit'],
-  encoding: 'utf-8',
-};
-
-/**
- * Helper function to safely execute fish commands and return output as lines.
- * Returns an empty array if stdout is not available or command fails.
- */
-function execFishCommand(command: string): string[] {
-  const result = spawnSync(command, spawnOpts);
-  return result.stdout?.toString().split('\n') || [];
-}
-
-function createFunctionNamesList() {
-  return execFishCommand('functions --names | string split -n \'\\n\'');
-}
-export const FunctionNamesList = createFunctionNamesList();
-export function isFunction(word: string): boolean {
-  return FunctionNamesList.includes(word);
-}
-function createFunctionEventsList() {
-  return execFishCommand('functions --handlers | string match -vr \'^Event \\w+\' | string split -n \'\\n\'');
-}
-
-/**
- * Consider using these utilities to check if a word is a event on a function/emit/trap
- */
-export const EventNamesList = createFunctionEventsList();
-export function isEvent(word: string): boolean {
-  return EventNamesList.includes(word);
-}
-
-function createAbbrList() {
-  return execFishCommand('abbr --show');
-}
-export const AbbrList = createAbbrList();
-
-function createGlobalVariableList() {
-  return execFishCommand('set -n');
-}
-
-export const GlobalVariableList = createGlobalVariableList();
-
-/**
- * TO get the list of commands with potential subcommands, you can use:
- *
- * >_ cd /usr/share/fish/completions/
- * >_ for i in (rg -e '-a' -l); echo (string split -f 1 '.fish' -m1 $i);end
- *
- * example commands with potential subcommands
- *  • string split ...
- *  • killall node
- *  • man vim
- *  • command fish
- *
- * useful when checking the current Command for documentation/completion
- * suggestions. If a match is hit, check one more node back, and if it is
- * not a command, stop searching backwards.
- */
-
-// List of global aliases removed (check history if needed in future)
+// NOTE: This module is intentionally side-effect free — it exports only static
+// data (`BuiltInList`/`reservedKeywords`) and pure predicates. It is imported
+// transitively at the very top of startup, so it must NOT spawn fish.
+//
+// The old `findShell()` (`which fish`) plus the `functions`/`abbr --show`/`set -n`
+// `spawnSync` enumerations lived here, but their exports were unused and the work
+// is now done correctly (single bundled `fish -Pc`, honoring
+// `config.fish_lsp_fish_path`, deferred until after config is populated) by
+// `runSetupItems()` in `./completion/startup-config`.

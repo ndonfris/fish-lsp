@@ -418,10 +418,13 @@ export async function timeServerStartup(
       if (!server) {
         throw new Error('Server not initialized');
       }
+      // Capture in a `const` so the non-null narrowing survives into the nested
+      // async closure below (TS drops `let`-narrowing across closure boundaries).
+      const activeServer = server;
 
       await withStartupProfiling(!!opts.profile, async () => {
         // Call onInitialized() which handles background analysis with proper flag management
-        const initResult = await server.onInitialized({});
+        const initResult = await activeServer.onInitialized({});
         all = initResult.totalDocuments;
 
         /** Collect the stats from the initialization result */
