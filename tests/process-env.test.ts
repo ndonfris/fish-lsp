@@ -8,6 +8,7 @@ import { Analyzer } from '../src/analyze';
 import * as os from 'os';
 import { FishUriWorkspace } from '../src/utils/workspace';
 import { pathToUri } from '../src/utils/translation';
+import { fail } from 'assert';
 
 describe('setting up process-env', () => {
   setLogger();

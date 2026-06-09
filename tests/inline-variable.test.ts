@@ -89,4 +89,18 @@ HTTP_PROXY=proxy:8080 curl example.com
       value: '',
     });
   });
+
+  it('should detect lowercase inline variable names (fish allows them)', () => {
+    const code = 'foo=bar my_command';
+    const tree = analyzer.parser.parse(code);
+    const commandNode = tree.rootNode.firstNamedChild!;
+    const firstArg = commandNode.firstNamedChild!;
+
+    expect(hasInlineVariables(commandNode)).toBe(true);
+    expect(isInlineVariableAssignment(firstArg)).toBe(true);
+    expect(parseInlineVariableAssignment(firstArg)).toEqual({
+      name: 'foo',
+      value: 'bar',
+    });
+  });
 });

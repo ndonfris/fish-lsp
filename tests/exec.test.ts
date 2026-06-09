@@ -60,8 +60,21 @@ describe('src/utils/exec.ts tests', () => {
 
   it('execCompleteSpace', async () => {
     const output = await execCompleteSpace('string ');
+    const results: string[] = [];
+    output.map(line => line.split('\t')).forEach(([label, desc]) => {
+      if (label && desc?.startsWith('Abbreviation:')) {
+        return;
+      }
+      results.push([label, desc].join('\t').trimEnd());
+    });
+    expect(output.length).toBeGreaterThanOrEqual(17);
+    expect(results.length).toBe(17);
     // console.log('line: ', output.length);
-    expect(output.length).toEqual(17);
+    // console.log({
+    //   results,
+    //   output
+    // })
+    // expect(output.length).toEqual(17);
   });
 
   it('execCommandDocs', async () => {

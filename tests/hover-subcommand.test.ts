@@ -1,6 +1,8 @@
-import { setLogger } from './helpers';
+import { createTestServer, setLogger, TestServerHandle } from './helpers';
 import { extractManPageSection } from '../src/hover';
 import { execCommandDocs } from '../src/utils/exec';
+import TestWorkspace from './test-workspace-utils';
+import FishServer from '../src/server';
 
 setLogger();
 
@@ -183,5 +185,53 @@ describe('extractManPageSection()', () => {
       expect(section).toContain('last subcommand');
       expect(section).not.toContain('FIRST SUBCOMMAND');
     });
+  });
+});
+
+function hoverText(hover: Awaited<ReturnType<FishServer['onHover']>>): string {
+  if (!hover) return '';
+  const contents = hover.contents as { value?: string; } | string;
+  return typeof contents === 'string' ? contents : contents.value ?? '';
+}
+
+// A bare `word` that is the VALUE of a preceding option (e.g. `time` in
+// `command ls --sort time -1`) is not a command/keyword reference even though
+// its name matches one. Hover must not surface the `time` command docs just
+// because the documentation cache is keyed by name.
+describe('server onHover - option value matching a command name', () => {
+  let handle: TestServerHandle;
+  let server: FishServer;
+
+  beforeAll(async () => {
+    handle = await createTestServer();
+    server = handle.server;
+  });
+
+  afterAll(async () => {
+    await handle?.shutdown();
+  });
+
+  const workspace = TestWorkspace.create().addFiles(
+    {
+      relativePath: 'conf.d/sort.fish',
+      content: [
+        'command ls -a --group-directories-first --sort time -1 $argv',
+      ].join('\n'),
+    },
+  ).initialize();
+
+  it('does not show the `time` command docs when hovering the `--sort time` value', async () => {
+    const doc = workspace.getDocument('conf.d/sort.fish')!;
+    const line = 'command ls -a --group-directories-first --sort time -1 $argv';
+    const timeCharacter = line.indexOf(' time ') + 2; // inside the `time` argument
+
+    const hover = await server.onHover({
+      textDocument: { uri: doc.uri },
+      position: { line: 0, character: timeCharacter },
+    });
+
+    // The bug: the option value resolved to the `time` builtin's documentation.
+    // Its stable prebuilt doc link is `cmds/time.html`; that must not appear.
+    expect(hoverText(hover)).not.toContain('cmds/time.html');
   });
 });

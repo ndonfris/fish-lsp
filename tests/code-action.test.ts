@@ -4,7 +4,7 @@ import { containsRange, findEnclosingScope, getChildNodes, getRange } from '../s
 import { isCommandName, isCommandWithName, isComment, isFunctionDefinitionName, isIfStatement, isMatchingOption, isOption, isString, isTopLevelFunctionDefinition } from '../src/utils/node-types';
 import { Option } from '../src/parsing/options';
 import { convertIfToCombinersString } from '../src/code-actions/combiner';
-import { setLogger, setupStartupMock } from './helpers';
+import { setLogger } from './helpers';
 import { initializeParser } from '../src/parser';
 import { findReturnNodes, getReturnStatusValue } from '../src/inlay-hints';
 import { TextDocumentItem } from 'vscode-languageserver';
@@ -481,7 +481,6 @@ complete -c util -l other`,
       logger.setConsole(global.console);
       logger.allowDefaultConsole();
       logger.setSilent(false);
-      setupStartupMock();
     });
 
     const workspace = TestWorkspace.create().addFiles(

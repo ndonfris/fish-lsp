@@ -8,7 +8,9 @@ import { execCommandLocations } from '../src/utils/exec';
 import { env } from '../src/utils/env-manager';
 // import { currentWorkspace, findCurrentWorkspace, workspaces } from '../src/utils/workspace';
 import { workspaceManager } from '../src/utils/workspace-manager';
-import { createFakeLspDocument, setLogger } from './helpers';
+import { createFakeLspDocument, createTestServer, setLogger, type TestServerHandle } from './helpers';
+import { DefinitionParams } from 'vscode-languageserver';
+import FishServer from '../src/server';
 import { getRange } from '../src/utils/tree-sitter';
 import { pathToUri } from '../src/utils/translation';
 import { isMatchingOption, Option } from '../src/parsing/options';
@@ -867,5 +869,150 @@ describe('find definition locations of symbols', () => {
       expect(echoDef?.uri).toBeUndefined();
       expect(echoDefLocations).toHaveLength(0);
     });
+  });
+});
+
+describe('server onDefinition - inline (command-local) variables', () => {
+  setLogger();
+
+  let handle: TestServerHandle;
+  let server: FishServer;
+
+  beforeAll(async () => {
+    handle = await createTestServer();
+    server = handle.server;
+  });
+
+  afterAll(async () => {
+    await handle?.shutdown();
+  });
+
+  // `name=value cmd` sets `name` for the lifetime of that single command only
+  // (an inline/override variable). A later `$var_a` usage is NOT a reference to
+  // it — inline variables are only visible within the command they prefix — so
+  // go-to-definition on that later `$var_a` must NOT jump back to the inline
+  // definition on the `var_a=(whoami) ls` line.
+  const workspace = TestWorkspace.create().addFiles(
+    {
+      relativePath: 'playground.fish',
+      content: [
+        '#/tmp/playground.fish',     // 0
+        'var_a=(whoami) ls',         // 1  inline (command-local) definition
+        '',                          // 2
+        "string match -rq '\\d+'",   // 3
+        '',                          // 4
+        'fish_config theme',         // 5
+        '',                          // 6
+        '$var_a',                    // 7  bad reference - no definition in scope
+        '',                          // 8
+        'set -g real_var hello',     // 9  real (global) definition
+        'echo $real_var',            // 10 valid reference -> resolves to line 9
+      ].join('\n'),
+    },
+  ).initialize();
+
+  it('does not resolve a later `$var_a` to the inline definition', async () => {
+    const doc = workspace.getDocument('playground.fish')!;
+
+    const params: DefinitionParams = {
+      textDocument: { uri: doc.uri },
+      position: { line: 7, character: 1 }, // inside `var_a` of `$var_a`
+    };
+
+    const defs = await server.onDefinition(params);
+
+    // The inline `var_a` definition lives on line 1. It must not be returned as
+    // a definition for the out-of-scope `$var_a` on line 7.
+    const inlineDefLines = defs.filter(d => d.uri === doc.uri).map(d => d.range.start.line);
+    expect(inlineDefLines).not.toContain(1);
+    expect(defs).toHaveLength(0);
+  });
+
+  // Control: proves the server path is wired up (document registered + analyzed)
+  // so the assertion above isn't a false pass from a missing document.
+  it('still resolves a real `$real_var` reference through the same server path', async () => {
+    const doc = workspace.getDocument('playground.fish')!;
+
+    const params: DefinitionParams = {
+      textDocument: { uri: doc.uri },
+      position: { line: 10, character: 8 }, // inside `real_var` of `echo $real_var`
+    };
+
+    const defs = await server.onDefinition(params);
+
+    const defLines = defs.filter(d => d.uri === doc.uri).map(d => d.range.start.line);
+    expect(defLines).toContain(9);
+  });
+
+  // The exclusion above is enforced by the inline variable's lifetime ending at
+  // the end of the command it prefixes — not merely by scope containment — so
+  // every lifetime-aware lookup path drops it. Assert that bound directly.
+  it('inline variable lifetime ends at the end of its command', () => {
+    const doc = workspace.getDocument('playground.fish')!;
+    analyzer.analyze(doc);
+
+    const inlineVar = analyzer
+      .getFlatDocumentSymbols(doc.uri)
+      .find(s => s.name === 'var_a' && s.fishKind === 'INLINE_VARIABLE')!;
+    expect(inlineVar).toBeDefined();
+
+    // Within its command (line 1) the variable is alive; after it (line 7) it
+    // is not.
+    expect(inlineVar.isWithinDefinitionLifetime({ line: 1, character: 16 }, doc.uri)).toBe(true);
+    expect(inlineVar.isWithinDefinitionLifetime({ line: 7, character: 1 }, doc.uri)).toBe(false);
+  });
+});
+
+// A bare command argument that merely shares a global variable's name is NOT a
+// reference to that variable — variables are only referenced via `$var` (or a
+// definition name / `set -q/-e/-S` target). Regression for go-to-definition
+// jumping from `fish_config theme` to a `set -g theme` definition.
+describe('server onDefinition - bare argument matching a global variable name', () => {
+  setLogger();
+
+  let handle: TestServerHandle;
+  let server: FishServer;
+
+  beforeAll(async () => {
+    handle = await createTestServer();
+    server = handle.server;
+  });
+
+  afterAll(async () => {
+    await handle?.shutdown();
+  });
+
+  const workspace = TestWorkspace.create().addFiles(
+    {
+      relativePath: 'conf.d/theme.fish',
+      content: [
+        'set -gx theme onetheme',   // 0  global variable definition
+        'fish_config theme',        // 1  `theme` is a subcommand arg, NOT a ref
+        'echo $theme',              // 2  valid reference -> resolves to line 0
+      ].join('\n'),
+    },
+  ).initialize();
+
+  it('does not resolve the `fish_config theme` argument to the `set -gx theme` definition', async () => {
+    const doc = workspace.getDocument('conf.d/theme.fish')!;
+    const params: DefinitionParams = {
+      textDocument: { uri: doc.uri },
+      position: { line: 1, character: 13 }, // inside the `theme` argument
+    };
+
+    const defs = await server.onDefinition(params);
+    expect(defs).toHaveLength(0);
+  });
+
+  it('still resolves a real `$theme` expansion to the `set -gx theme` definition', async () => {
+    const doc = workspace.getDocument('conf.d/theme.fish')!;
+    const params: DefinitionParams = {
+      textDocument: { uri: doc.uri },
+      position: { line: 2, character: 7 }, // inside `theme` of `echo $theme`
+    };
+
+    const defs = await server.onDefinition(params);
+    const defLines = defs.filter(d => d.uri === doc.uri).map(d => d.range.start.line);
+    expect(defLines).toContain(0);
   });
 });

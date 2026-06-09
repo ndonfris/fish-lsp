@@ -1,4 +1,4 @@
-import { setLogger, setupStartupMock, createMockConnection } from './helpers';
+import { setLogger, createMockConnection } from './helpers';
 import { AnalyzedDocument, analyzer, Analyzer } from '../src/analyze';
 import { documents, LspDocument } from '../src/document';
 import { workspaceManager } from '../src/utils/workspace-manager';
@@ -20,12 +20,6 @@ const testDiagnosticsWrapper = async (analyzedDoc: AnalyzedDocument) => {
 };
 
 // Mock the startup module at the top level
-setupStartupMock();
-vi.mock('../src/utils/startup', () => ({
-  connection: createMockConnection(),
-  setExternalConnection: vi.fn(),
-}));
-
 describe('Virtual Fish File Handling', () => {
   let mockConnection: LSP.Connection;
   let createdServers: FishServer[] = [];
@@ -110,7 +104,7 @@ echo $var_name
       expect(doc.uri).toBe(untitledUri);
 
       // Test that symbols can be extracted from virtual content
-      const analyzedDoc = analyzer.analyze(doc);
+      analyzer.analyze(doc);
       const symbols = analyzer.getDocumentSymbols(doc.uri);
       expect(symbols).toBeDefined();
       expect(symbols.length).toBeGreaterThan(0);
@@ -134,7 +128,7 @@ echo $var_name
         workspaceFolders: null,
       };
 
-      Config.isWebServer = true;
+      Config.runtime.isWebServer = true;
       const { server, initializeResult } = await createTestServer(virtualParams);
 
       expect(server).toBeDefined();
@@ -180,7 +174,7 @@ echo $var_name
     // });
 
     it('should provide completions for virtual files', async () => {
-      Config.isWebServer = true;
+      Config.runtime.isWebServer = true;
       const { server } = await createTestServer({ processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
 
       const virtualUri = 'memory://test.fish';
@@ -221,7 +215,7 @@ end
     });
 
     it('should handle hover for virtual files', async () => {
-      Config.isWebServer = true;
+      Config.runtime.isWebServer = true;
       const { server } = await createTestServer({ processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
 
       const virtualUri = 'vscode-vfs://github/user/repo/test.fish';
@@ -261,7 +255,7 @@ test_func
     });
 
     it('should handle hover for nested helper commands in complete strings', async () => {
-      Config.isWebServer = true;
+      Config.runtime.isWebServer = true;
       const { server } = await createTestServer({ processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
 
       const virtualUri = 'vscode-vfs://github/user/repo/complete-helper-hover.fish';
@@ -288,7 +282,7 @@ test_func
     });
 
     it('should update virtual document content when client sends didChangeTextDocument', async () => {
-      Config.isWebServer = true;
+      Config.runtime.isWebServer = true;
       const { server } = await createTestServer({ processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
 
       const virtualUri = 'https://example.com/dynamic.fish';
@@ -403,7 +397,6 @@ end
   describe('File System Independence', () => {
     it('should work without physical file system access', async () => {
       // Mock file system operations to simulate no file access
-      const originalRead = require('fs').readFileSync;
       vi.spyOn(require('fs'), 'readFileSync').mockImplementation(() => {
         throw new Error('ENOENT: no such file or directory');
       });
@@ -480,7 +473,7 @@ end
     });
 
     it('should provide basic language features without shell access', async () => {
-      Config.isWebServer = true;
+      Config.runtime.isWebServer = true;
       const { server } = await createTestServer({ processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
 
       const dockerUri = 'docker://container/workspace/script.fish';
@@ -670,8 +663,8 @@ virtual_only_func
     });
 
     it('should mirror textDocument/diagnostics request behavior', async () => {
-      Config.isWebServer = true;
-      const { server } = await createTestServer({ processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
+      Config.runtime.isWebServer = true;
+      await createTestServer({ processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
 
       const virtualUri = 'memory://test-diagnostics-mirror.fish';
       const fishContentForDiagnostics = `
@@ -722,8 +715,8 @@ set $local_var "trying to set with dollar sign"
     });
 
     it('should handle document updates and re-analyze for diagnostics', async () => {
-      Config.isWebServer = true;
-      const { server } = await createTestServer({ processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
+      Config.runtime.isWebServer = true;
+      await createTestServer({ processId: 0, rootUri: null, rootPath: null, capabilities: {}, initializationOptions: {}, workspaceFolders: [] } as LSP.InitializeParams);
 
       const virtualUri = 'memory://test-updates.fish';
       const initialContent = `

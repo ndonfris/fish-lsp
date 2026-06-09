@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 import fs from 'fs';
 import * as fc from 'fast-check';
-import { Logger, logger, createServerLogger, IConsole, LOG_LEVELS, LogLevel, now } from '../src/logger';
+import { Logger, logger, createServerLogger, IConsole, LOG_LEVELS, LogLevel, Time } from '../src/logger';
 
 // Mock fs module completely - no real file operations needed
 vi.mock('fs', () => ({
@@ -530,10 +530,10 @@ describe('Logger', () => {
       /* If you want to view logs in the test output */
       // testLogger = new Logger().allowDefaultConsole().setSilent(false).start();
       testLogger.log('Starting operation...');
-      testLogger.debug(now());
+      testLogger.debug(Time.now);
       testLogger.setSilent(false);
       expect(logger).toBeDefined();
-      expect(typeof now()).toBe('string');
+      expect(typeof Time.now).toBe('string');
       testLogger.log('Operation completed.');
       expect(testLogger).toBeDefined();
       testLogger.setSilent(true);

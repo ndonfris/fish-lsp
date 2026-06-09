@@ -1,9 +1,8 @@
 import * as os from 'os';
-import { homedir } from 'os';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode, Tree } from 'web-tree-sitter';
-import { findChildNodes, getChildNodes, getNodeAtRange, nodesGen } from '../src/utils/tree-sitter';
-import { Diagnostic, DiagnosticSeverity, InitializeParams, TextDocumentItem } from 'vscode-languageserver';
+import { getChildNodes, getNodeAtRange, nodesGen } from '../src/utils/tree-sitter';
+import { Diagnostic, DiagnosticSeverity, InitializeParams } from 'vscode-languageserver';
 import { initializeParser } from '../src/parser';
 import { ErrorCodes } from '../src/diagnostics/error-codes';
 // import { fishNoExecuteDiagnostic } from '../src/diagnostics/no-execute-diagnostic';
@@ -13,18 +12,21 @@ import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion
 import { LspDocument } from '../src/document';
 import { createFakeLspDocument, setLogger, createMockConnection } from './helpers';
 import { getDiagnosticsAsync } from '../src/diagnostics/validate';
-import { DiagnosticComment, DiagnosticCommentsHandler, isDiagnosticComment, parseDiagnosticComment } from '../src/diagnostics/comments-handler';
+import { DiagnosticCommentsHandler } from '../src/diagnostics/comments-handler';
 import { withTempFishFile } from './temp';
 import { workspaceManager } from '../src/utils/workspace-manager';
 // import { Option } from '../src/parsing/options';
 import { getNoExecuteDiagnostics } from '../src/diagnostics/no-execute-diagnostic';
 import { analyzer, Analyzer } from '../src/analyze';
-import { config } from '../src/config';
+import { config, getDefaultConfiguration } from '../src/config';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { logger } from '../src/logger';
 import FishServer from '../src/server';
 import { connection } from '../src/utils/startup';
-import TestWorkspace from './test-workspace-utils';
+import TestWorkspace, { TestFile } from './test-workspace-utils';
+import { findAllMissingArgparseFlags } from '../src/diagnostics/missing-completions';
+import { flattenNested } from '../src/utils/flatten';
+import { getGroupedCompletionSymbolsAsArgparse, groupCompletionSymbolsTogether } from '../src/parsing/complete';
 import { FishSymbol } from '../src/parsing/symbol';
 import { fail } from 'assert';
 
@@ -49,15 +51,6 @@ setLogger(
   },
 );
 
-function fishTextDocumentItem(uri: string, text: string): LspDocument {
-  return new LspDocument({
-    uri: `file://${homedir()}/.config/fish/${uri}`,
-    languageId: 'fish',
-    version: 1,
-    text,
-  } as TextDocumentItem);
-}
-
 function severityStr(severity: DiagnosticSeverity | undefined) {
   switch (severity) {
     case DiagnosticSeverity.Error: return 'Error';
@@ -79,16 +72,16 @@ function logDiagnostics(diagnostic: Diagnostic, root: SyntaxNode) {
   console.log('-'.repeat(80));
 }
 
-function mapDiagnostics(diagnostics: Diagnostic) {
-  return {
-    code: diagnostics.code,
-    text: diagnostics.data.node.text,
-  };
+async function diagnosticsMapped(root: SyntaxNode, document: LspDocument) {
+  const diagnostics = await getDiagnosticsAsync(root, document);
+  return diagnostics.map(d => ({
+    code: d.code,
+    text: analyzer.getDocument(document.uri)?.getText(d.range),
+  }));
 }
 
 function extractDiagnostics(tree: Tree) {
   const results: SyntaxNode[] = [];
-  const cursor = tree.walk();
   const visitNode = (node: Parser.SyntaxNode) => {
     if (node.isError) {
       results.push(node);
@@ -675,12 +668,12 @@ echo '10 3003 3002 3001 are still disabled'`;
     const { rootNode } = parser.parse(input);
     const doc = createFakeLspDocument('file:///tmp/test-1.fish', input);
     analyzer.ensureCachedDocument(doc);
-    const lspDiagnosticComments: DiagnosticComment[] =
-      findChildNodes(rootNode, n => isDiagnosticComment(n))
-        .map(parseDiagnosticComment)
-        .filter(c => c !== null);
+    //const lspDiagnosticComments: DiagnosticComment[] =
+    //  findChildNodes(rootNode, n => isDiagnosticComment(n))
+    //    .map(parseDiagnosticComment)
+    //    .filter(c => c !== null);
 
-    const enabledDiagnostics = ErrorCodes.allErrorCodes; // need to disable config.fish_lsp_disabled_error_codes
+    //const enabledDiagnostics = ErrorCodes.allErrorCodes; // need to disable config.fish_lsp_disabled_error_codes
 
     const handler = new DiagnosticCommentsHandler();
     nodesGen(rootNode).forEach(node => {
@@ -766,7 +759,7 @@ end`;
   });
 
   describe.skip('CONDITIONAL EDGE CASES', () => {
-    const testcases = [
+    const _testcases = [
       // {
       //   title: 'normal case, where both variables are in a if statement, so both should be silenced',
       //   input: `if set -q var1 && set -q var2; echo 'var1 and var2 are set'; end`,
@@ -1012,16 +1005,25 @@ function foo
       lotsOfComments = tw.find('conf.d/lots-of-comments.fish')!;
     });
 
+    beforeEach(async () => {
+      Object.assign(config, getDefaultConfiguration());
+    });
+
+    afterEach(async () => {
+      Object.assign(config, getDefaultConfiguration());
+    });
+
     it('VALIDATE: setup workspace files', () => {
       expect(script1).toBeDefined();
       expect(script2).toBeDefined();
       expect(script3).toBeDefined();
       expect(script4).toBeDefined();
+      expect(script5).toBeDefined();
       expect(autoloadedFoo).toBeDefined();
     });
 
     it.skip('VALIDATE: diagnostics across workspace files', async () => {
-      const { root, document: doc, sourceNodes, flatSymbols } = analyzer.analyze(script4).ensureParsed();
+      const { document: doc, sourceNodes, flatSymbols } = analyzer.analyze(script4).ensureParsed();
       sourceNodes.forEach((sourceNode) => {
         console.log({
           text: sourceNode.text,
@@ -1065,33 +1067,53 @@ function foo
     });
 
     it('VALIDATE: definitions across workspace files', async () => {
-      const { root, document: doc } = analyzer.analyze(script4).ensureParsed();
-      const result = await getDiagnosticsAsync(root, doc);
-      // result.forEach(d => logDiagnostics(d, root));
-      expect(result.map(mapDiagnostics)).toEqual([
+      const { root, document } = analyzer.analyze(script4).ensureParsed();
+      const diagnostics = await diagnosticsMapped(root, document);
+      expect(diagnostics).toEqual([
         { code: 4004, text: 'script-4' },
       ]);
     });
 
     it('VALIDATE: @fish-lsp-(disable|enable)', async () => {
-      const { root, document: doc } = analyzer.analyze(autoloadedFoo).ensureParsed();
-      const result = await getDiagnosticsAsync(root, doc);
-      // result.forEach(d => logDiagnostics(d, root));
-      expect(result.map(mapDiagnostics)).toEqual([
+      // disable
+      config.fish_lsp_require_autoloaded_functions_to_have_description = false;
+      const { root, document } = analyzer.analyze(autoloadedFoo).ensureParsed();
+      const diagnostics = await diagnosticsMapped(root, document);
+      expect(diagnostics).toEqual([
         { code: 4004, text: '__wrapper' },
         { code: 4004, text: 'bar' },
         { code: 7001, text: 'unknown_command_here' },
       ]);
+
+      // enable
+      config.fish_lsp_require_autoloaded_functions_to_have_description = true;
+      const requiresDesc = (await diagnosticsMapped(root, document)).filter(d => d.code === ErrorCodes.requireAutloadedFunctionHasDescription);
+      console.log({ requiresDesc });
+      expect(requiresDesc).toEqual([
+        { code: 4008, text: '__foo-wrapper' },
+        { code: 4008, text: '__script-2-wrapper' },
+        { code: 4008, text: 'baz-wrapper' },
+        { code: 4008, text: 'bar-wrapper' },
+      ]);
     });
 
-    it('VALIDATE: universal variable definition in autoloaded file', async () => {
-      const { root, document: doc } = analyzer.analyze(script5).ensureParsed();
-      const result = await getDiagnosticsAsync(root, doc);
-      result.forEach(d => logDiagnostics(d, root));
-      // expect(result.map(mapDiagnostics)).toContainEqual({
-      //   code: 5001,
-      //   text: '-Ux',
-      // });
+    it('VALIDATE: universal variable definition in tmp file', async () => {
+      const { document, root } = analyzer.analyze(createFakeLspDocument('/tmp/no-universal.fish', 'set -Ux universal 1')).ensureParsed();
+      const result = await diagnosticsMapped(root, document);
+
+      expect(result).toContainEqual({
+        code: 2003,
+        text: '-Ux',
+      });
+    });
+
+    it('VALIDATE: universal variable definition allowed in autoloaded conf.d/ file', async () => {
+      const { document, root } = analyzer.analyze(autoloadedFoo).ensureParsed();
+      const result = await diagnosticsMapped(root, document);
+      expect(result).not.toContainEqual({
+        code: 2003,
+        text: '-Ux',
+      });
     });
 
     it('VALIDATE: large number of comments', async () => {
@@ -1118,9 +1140,8 @@ function foo
       const { root, document } = analyzer.ensureCachedDocument(
         createFakeLspDocument('file:///tmp/test-duplicate-function-non-overlap.fish', input),
       ).ensureParsed();
-      const diagnostics = await getDiagnosticsAsync(root, document);
-
-      expect(diagnostics.map(mapDiagnostics)).not.toContainEqual({
+      const diagnostics = await diagnosticsMapped(root, document);
+      expect(diagnostics).not.toContainEqual({
         code: ErrorCodes.duplicateFunctionDefinitionInSameScope,
         text: 'seq',
       });
@@ -1180,8 +1201,8 @@ function foo
         'set bar baz',
       ].join('\n');
       const { root, document } = analyzer.ensureCachedDocument(createFakeLspDocument('file:///tmp/test-unused-set-values.fish', input)).ensureParsed();
-      const diagnostics = await getDiagnosticsAsync(root, document);
-      expect(diagnostics.map(mapDiagnostics)).toEqual([
+      const diagnostics = await diagnosticsMapped(root, document);
+      expect(diagnostics).toEqual([
         { code: 4004, text: 'foo' },
         { code: 4004, text: 'bar' },
       ]);
@@ -1193,8 +1214,8 @@ function foo
         'bar',
       ].join('\n');
       const { root, document } = analyzer.ensureCachedDocument(createFakeLspDocument('file:///tmp/test-unused-bare-command.fish', input)).ensureParsed();
-      const diagnostics = await getDiagnosticsAsync(root, document);
-      expect(diagnostics.map(mapDiagnostics)).toContainEqual({ code: 4004, text: 'bar' });
+      const diagnostics = await diagnosticsMapped(root, document);
+      expect(diagnostics).toContainEqual({ code: 4004, text: 'bar' });
     });
 
     it('VALIDATE: command name via $var should count as variable reference', async () => {
@@ -1203,8 +1224,8 @@ function foo
         '$bar',
       ].join('\n');
       const { root, document } = analyzer.ensureCachedDocument(createFakeLspDocument('file:///tmp/test-used-command-via-var.fish', input)).ensureParsed();
-      const diagnostics = await getDiagnosticsAsync(root, document);
-      expect(diagnostics.map(mapDiagnostics)).not.toContainEqual({ code: 4004, text: 'bar' });
+      const diagnostics = await diagnosticsMapped(root, document);
+      expect(diagnostics).not.toContainEqual({ code: 4004, text: 'bar' });
     });
 
     it('VALIDATE: alias definitions should not report unused local definition', async () => {
@@ -1216,13 +1237,11 @@ function foo
         "alias bx 'bar'",
       ].join('\n');
       const { root, document } = analyzer.ensureCachedDocument(createFakeLspDocument('file:///tmp/test-unused-aliases.fish', input)).ensureParsed();
-      const diagnostics = await getDiagnosticsAsync(root, document);
-      const mapped = diagnostics.map(mapDiagnostics);
-
-      expect(mapped).not.toContainEqual({ code: 4004, text: 'alias' });
-      expect(mapped).not.toContainEqual({ code: 4004, text: 'bb' });
-      expect(mapped).not.toContainEqual({ code: 4004, text: 'b_' });
-      expect(mapped).not.toContainEqual({ code: 4004, text: 'bx' });
+      const diagnostics = await diagnosticsMapped(root, document);
+      expect(diagnostics).not.toContainEqual({ code: 4004, text: 'alias' });
+      expect(diagnostics).not.toContainEqual({ code: 4004, text: 'bb' });
+      expect(diagnostics).not.toContainEqual({ code: 4004, text: 'b_' });
+      expect(diagnostics).not.toContainEqual({ code: 4004, text: 'bx' });
     });
 
     // Regression: `alias foo=ref_cmd` (unquoted `=` form) was not counted as a
@@ -1239,10 +1258,8 @@ function foo
       const { root, document } = analyzer.ensureCachedDocument(
         createFakeLspDocument('file:///tmp/test-unquoted-alias-ref.fish', input),
       ).ensureParsed();
-      const diagnostics = await getDiagnosticsAsync(root, document);
-      const mapped = diagnostics.map(mapDiagnostics);
-
-      expect(mapped).not.toContainEqual({ code: 4004, text: 'ref_cmd' });
+      const diagnostics = await diagnosticsMapped(root, document);
+      expect(diagnostics).not.toContainEqual({ code: 4004, text: 'ref_cmd' });
     });
 
     // Sanity check companion: the quoted form should already be fine.
@@ -1255,10 +1272,9 @@ function foo
       const { root, document } = analyzer.ensureCachedDocument(
         createFakeLspDocument('file:///tmp/test-quoted-alias-ref.fish', input),
       ).ensureParsed();
-      const diagnostics = await getDiagnosticsAsync(root, document);
-      const mapped = diagnostics.map(mapDiagnostics);
+      const diagnostics = await diagnosticsMapped(root, document);
 
-      expect(mapped).not.toContainEqual({ code: 4004, text: 'ref_cmd' });
+      expect(diagnostics).not.toContainEqual({ code: 4004, text: 'ref_cmd' });
     });
 
     it('VALIDATE: variable values should not suppress unknown command diagnostics', async () => {
@@ -1276,14 +1292,50 @@ function foo
         ].join('\n');
 
         const { root, document } = analyzer.ensureCachedDocument(createFakeLspDocument('file:///tmp/test-unknown-command-via-value.fish', input)).ensureParsed();
-        const diagnostics = await getDiagnosticsAsync(root, document);
-        const mapped = diagnostics.map(mapDiagnostics);
-
-        expect(mapped).toContainEqual({ code: 7001, text: unknownFromValue });
-        expect(mapped).toContainEqual({ code: 7001, text: 'some_unknown_function' });
+        const diagnostics = await diagnosticsMapped(root, document);
+        expect(diagnostics).toContainEqual({ code: 7001, text: unknownFromValue });
+        expect(diagnostics).toContainEqual({ code: 7001, text: 'some_unknown_function' });
       } finally {
         config.fish_lsp_diagnostic_disable_error_codes = savedDisabled;
       }
+    });
+
+    // `var_a=(whoami) ls` is an inline (command-local) variable, scoped to that
+    // single command — its only valid usage would be inside the same command, so
+    // it is never "unused" in the 4004 sense and must NOT be flagged. (The many
+    // positive 4004 cases above show the check is otherwise active here.)
+    it('VALIDATE: inline (command-local) variable should not report 4004', async () => {
+      const { root, document } = analyzer.ensureCachedDocument(
+        createFakeLspDocument('file:///tmp/test-inline-unused.fish', 'var_a=(whoami) ls'),
+      ).ensureParsed();
+      const diagnostics = await diagnosticsMapped(root, document);
+      expect(diagnostics).not.toContainEqual({
+        code: ErrorCodes.unusedLocalDefinition,
+        text: 'var_a',
+      });
+    });
+
+    // regression test for inline variable test
+    it('VALIDATE: set variable should report 4004', async () => {
+      const { root, document } = analyzer.ensureCachedDocument(
+        createFakeLspDocument('file:///tmp/test-set-unused.fish', 'set var_a (whoami)'),
+      ).ensureParsed();
+      const diagnostics = await diagnosticsMapped(root, document);
+      expect(diagnostics).toContainEqual({
+        code: ErrorCodes.unusedLocalDefinition,
+        text: 'var_a',
+      });
+    });
+
+    it('VALIDATE: string [SUBCMD] --regex "(?<name>)" variable should report 4004', async () => {
+      const { root, document } = analyzer.ensureCachedDocument(
+        createFakeLspDocument('file:///tmp/test-string-regex-unused.fish', 'string match -rq \'(?<name>\\s+)\''),
+      ).ensureParsed();
+      const diagnostics = await diagnosticsMapped(root, document);
+      expect(diagnostics).toContainEqual({
+        code: ErrorCodes.unusedLocalDefinition,
+        text: 'name',
+      });
     });
 
     describe('autoloaded helper function name collisions', () => {
@@ -1336,6 +1388,73 @@ function foo
         expect(alphaCollision?.message).toContain('_helper_func');
         expect(betaCollision?.message).toContain('_helper_func');
       });
+    });
+  });
+});
+
+describe('diagnostics with missing completions', () => {
+  setLogger();
+
+  beforeAll(async () => {
+    await Analyzer.initialize();
+    config.fish_lsp_diagnostic_disable_error_codes = [ErrorCodes.requireAutloadedFunctionHasDescription];
+    // The main suite's afterAll leaves strict conditional warnings enabled; this
+    // block expects the default (off) so `or return` doesn't add a diagnostic.
+    config.fish_lsp_strict_conditional_command_warnings = false;
+    config.fish_lsp_require_autoloaded_functions_to_have_description = false;
+  });
+
+  afterAll(() => {
+    config.fish_lsp_diagnostic_disable_error_codes = [];
+  });
+
+  describe('analyze workspace 1: `function`', () => {
+    const workspace = TestWorkspace.create()
+      .addFiles(
+        TestFile.function('fish_function', [
+          'function fish_function',
+          '  argparse a/arg1 -- $argv',
+          '  or return',
+          '  set -l hello "hello"',
+          '  set -l world "world"',
+          '  echo "$hello, $world!"',
+          'end',
+        ].join('\n')),
+        TestFile.completion('fish_function', [
+          'complete -c fish_function -s a -l arg1 -d "Argument 1"',
+          'complete -c fish_function      -l arg2 -d "Argument 2"',
+          'complete -c fish_function      -l arg3 -d "Argument 3"',
+        ].join('\n')),
+      ).initialize();
+
+    it('should analyze a simple function definition', async () => {
+      const functionDoc = workspace.getDocument('functions/fish_function.fish')!;
+      const completionDoc = workspace.getDocument('completions/fish_function.fish')!;
+      if (!functionDoc || !completionDoc) fail();
+      expect(functionDoc).toBeDefined();
+      expect(completionDoc).toBeDefined();
+
+      const functionCached = analyzer.analyze(functionDoc);
+      const completionCached = analyzer.analyze(completionDoc);
+      expect(functionCached).toBeDefined();
+      expect(completionCached).toBeDefined();
+
+      // Set config inline: the suite's module-level `beforeEach` resets these
+      // before each test, so configure exactly here for a deterministic count
+      // (only the two missing-completion diagnostics for `arg2`/`arg3`).
+      config.fish_lsp_diagnostic_disable_error_codes = [ErrorCodes.requireAutloadedFunctionHasDescription];
+      config.fish_lsp_strict_conditional_command_warnings = false;
+
+      const diagnostics = await getDiagnosticsAsync(functionCached.root!, functionDoc);
+      expect(diagnostics.length).toBe(2);
+
+      const flatFuncSymbols = flattenNested(...functionCached.documentSymbols).filter(s => s.isFunction() && s.isGlobal());
+      const flatAutoloadedSymbols = flattenNested(...flatFuncSymbols);
+      const completionSymbols = analyzer.getFlatCompletionSymbols(completionDoc.uri).filter(s => s.isNonEmpty());
+      const completionGroups = groupCompletionSymbolsTogether(...completionSymbols);
+      getGroupedCompletionSymbolsAsArgparse(completionGroups, flatAutoloadedSymbols);
+
+      findAllMissingArgparseFlags(functionDoc);
     });
   });
 });

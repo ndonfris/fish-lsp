@@ -3,12 +3,10 @@ import { CompletionItemKind } from 'vscode-languageserver';
 import path from 'path';
 import { vi } from 'vitest';
 import { analyzer } from '../src/analyze';
-import { createFakeLspDocument, createTestServer, setupStartupMock, TestServerHandle } from './helpers';
+import { createFakeLspDocument, createTestServer, TestServerHandle } from './helpers';
 import * as shellModule from '../src/utils/completion/shell';
 import * as execModule from '../src/utils/exec';
 import { FishCompletionItem } from '../src/utils/completion/types';
-
-setupStartupMock();
 
 import FishServer, { cachedCompletionMap } from '../src/server';
 import { md } from '../src/utils/markdown-builder';
@@ -453,7 +451,7 @@ describe('Command completion documentation', () => {
   it('completes test options inside incomplete complete -n conditions', async () => {
     const content = "complete -c A -n 'not test -";
     const doc = createFakeLspDocument('/tmp/complete-condition-test-options.fish', content);
-    analyzer.analyze(doc);
+    analyzer.analyze(doc).ensureParsed();
 
     const params: CompletionParams = {
       textDocument: { uri: doc.uri },
@@ -472,16 +470,38 @@ describe('Command completion documentation', () => {
     const doc = createFakeLspDocument('/tmp/string-split-trailing-space.fish', content);
     analyzer.analyze(doc);
 
+    // await server.onInitialized({})
     const params: CompletionParams = {
       textDocument: { uri: doc.uri },
       position: { line: 0, character: content.length },
     };
 
-    const result = await server.onCompletion(params);
+    // `string split -` switches/flags
+    const expectedFlags: string[] = [
+      '--fields',
+      '--help',
+      '--max',
+      '--no-empty',
+      '--quiet',
+      '--right',
+      '-f',
+      '-h',
+      '-m',
+      '-n',
+      '-q',
+      '-r',
+    ];
 
+    const result = await server.onCompletion(params);
     expect(result.items.some(i => i.label === '-f')).toBe(true);
     expect(result.items.some(i => i.label === '--help')).toBe(true);
     expect(result.items.some(i => i.label === '--max')).toBe(true);
+
+    const completionItemFlags = result.items.filter(item => item.label.startsWith('-'));
+    expect(completionItemFlags.length).toBeGreaterThanOrEqual(expectedFlags.length);
+    for (const flag of expectedFlags) {
+      expect(completionItemFlags.some(item => item.label === flag)).toBeTruthy();
+    }
   });
 
   it('preserves snippet insert text for regex templates in the completion map', async () => {

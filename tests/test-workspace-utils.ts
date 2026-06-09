@@ -58,7 +58,7 @@ import { Workspace } from '../src/utils/workspace';
 import { workspaceManager } from '../src/utils/workspace-manager';
 import { Analyzer, analyzer } from '../src/analyze';
 import { pathToUri, uriToPath } from '../src/utils/translation';
-import { logger, now } from '../src/logger';
+import { logger, Time } from '../src/logger';
 import { SyncFileHelper } from '../src/utils/file-operations';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { execFileSync, execSync } from 'child_process';
@@ -1493,7 +1493,7 @@ export class TestLogger {
  */
 export class DefaultTestWorkspaces {
   static emptyWorkspace(): TestWorkspace {
-    return TestWorkspace.create({ name: `empty_workspace_${now().replace(' ', '_')}` }).reset();
+    return TestWorkspace.create({ name: `empty_workspace_${Time.now.replace(' ', '_')}` }).reset();
   }
 
   /**

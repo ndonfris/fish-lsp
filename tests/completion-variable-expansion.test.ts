@@ -1,11 +1,11 @@
-import { CompletionParams, Range, CompletionItemKind, MarkupContent } from 'vscode-languageserver';
-import { createFakeLspDocument, setupStartupMock, createMockConnection } from './helpers';
+import { CompletionParams, Range, CompletionItemKind, MarkupContent, Position } from 'vscode-languageserver';
+import { createFakeLspDocument, createMockConnection } from './helpers';
 import { analyzer, Analyzer } from '../src/analyze';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { initializeParser } from '../src/parser';
-
-// Setup startup mocks before importing FishServer
-setupStartupMock();
+import { CompletionPager } from '../src/utils/completion/pager';
+import { InlineParser } from '../src/utils/completion/inline-parser';
+import { logger } from '../src/logger';
 
 // Now import FishServer after the mock is set up
 import FishServer from '../src/server';
@@ -510,5 +510,133 @@ describe('Completion Handler - Variable Expansion', () => {
         expect(resolvedItem?.documentation).toBeDefined();
       }
     });
+  });
+
+  // A variable completion item inserts a `$`-prefixed expansion at reference
+  // slots (`ls <TAB>` -> `ls $myvar`) but a plain name at definition / bare-name
+  // slots (`set <TAB>`, `set -e/-q/-S <TAB>`, the `set NAME` slot). The
+  // definition-vs-reference decision itself is unit-tested in
+  // `variable-completion-context.test.ts`; here we assert the end-to-end insert
+  // text produced by `onCompletion`.
+  describe('`$` prefix for variable items', () => {
+    // Resolve the completion item for the local `myvar` definition at the cursor
+    // (end of `lastLine`), returning its effective inserted text.
+    async function insertTextFor(lastLine: string, name = 'myvar'): Promise<string | undefined> {
+      const content = ['set -gx myvar 1', lastLine].join('\n');
+      const doc = createFakeLspDocument('test.fish', content);
+      analyzer.analyze(doc);
+
+      const params: CompletionParams = {
+        textDocument: { uri: doc.uri },
+        position: { line: 1, character: lastLine.length },
+      };
+      const result = await server.onCompletion(params);
+      const item = result.items.find(i => i.label === name || i.label === `$${name}`);
+      if (!item) return undefined;
+      return (item.insertText ?? item.label) as string;
+    }
+
+    it('`ls <TAB>` -> reference slot inserts `$myvar`', async () => {
+      expect(await insertTextFor('ls ')).toBe('$myvar');
+    });
+
+    it('`set -gx myvar <TAB>` -> value slot inserts `$myvar`', async () => {
+      expect(await insertTextFor('set -gx myvar ')).toBe('$myvar');
+    });
+
+    it('`set <TAB>` -> definition slot inserts plain `myvar`', async () => {
+      expect(await insertTextFor('set ')).toBe('myvar');
+    });
+
+    it('`set -gx <TAB>` -> definition slot inserts plain `myvar`', async () => {
+      expect(await insertTextFor('set -gx ')).toBe('myvar');
+    });
+
+    it('`set -e/-q/-S/--erase <TAB>` -> bare-name target inserts plain `myvar`', async () => {
+      expect(await insertTextFor('set -e ')).toBe('myvar');
+      expect(await insertTextFor('set -q ')).toBe('myvar');
+      expect(await insertTextFor('set -S ')).toBe('myvar');
+      expect(await insertTextFor('set --erase ')).toBe('myvar');
+    });
+
+    it('`echo $<TAB>` -> already `$`-prefixed, no double `$`', async () => {
+      const insertText = await insertTextFor('echo $myv');
+      expect(insertText).toBeDefined();
+      expect(insertText).toContain('myvar');
+      expect(insertText).not.toContain('$$');
+    });
+  });
+});
+
+// Unit tests for the pager's definition-vs-reference decision
+// (`isInVariableDefinitionContext`). The end-to-end insert-text consequences of
+// this decision are asserted in the `` `$` prefix for variable items `` block
+// above; here we exercise the decision directly across `set`/`read`/`for`/
+// `function`/`argparse` shapes without standing up a server.
+describe('variable completion definition-context detection', () => {
+  let pager: CompletionPager;
+
+  beforeAll(async () => {
+    logger.setSilent(true);
+    const inline = await InlineParser.create();
+    // `isInVariableDefinitionContext` only uses the inline parser, so the items
+    // map is irrelevant here.
+    pager = new CompletionPager(inline, {} as any, logger);
+  });
+
+  const isDefinitionSlot = (line: string): boolean =>
+    (pager as any).isInVariableDefinitionContext(line, Position.create(0, line.length));
+
+  it('treats the `set NAME` slot as a definition (plain name)', () => {
+    expect(isDefinitionSlot('set ')).toBe(true);          // empty name slot
+    expect(isDefinitionSlot('set -gx ')).toBe(true);      // empty name slot after options
+    expect(isDefinitionSlot('set -gx na')).toBe(true);    // typing the name
+    expect(isDefinitionSlot('set foo')).toBe(true);
+  });
+
+  it('treats the `set NAME VALUE` slot as a reference (`$`-expansion)', () => {
+    expect(isDefinitionSlot('set -gx name ')).toBe(false);   // empty value slot
+    expect(isDefinitionSlot('set -gx name va')).toBe(false); // typing a value
+    expect(isDefinitionSlot('set name value ')).toBe(false); // second value slot
+  });
+
+  it('treats `set -q/-e/-S` operands as plain variable names (no `$`)', () => {
+    // `set -q argv` queries the name `argv`; `set -q $argv` would query the
+    // expansion, which is wrong. Same for erase/show.
+    expect(isDefinitionSlot('set -q ')).toBe(true);
+    expect(isDefinitionSlot('set -q ar')).toBe(true);
+    expect(isDefinitionSlot('set -lq ')).toBe(true);
+    expect(isDefinitionSlot('set -q VAR1 ')).toBe(true);  // multiple names
+    expect(isDefinitionSlot('set -e ')).toBe(true);
+    expect(isDefinitionSlot('set -S ')).toBe(true);
+  });
+
+  it('treats `read` operands as variable names, but not option values', () => {
+    expect(isDefinitionSlot('read ')).toBe(true);        // empty name slot
+    expect(isDefinitionSlot('read na')).toBe(true);      // typing a name
+    expect(isDefinitionSlot('read -l ')).toBe(true);     // after a modifier
+    expect(isDefinitionSlot('read foo ')).toBe(true);    // a second name
+    expect(isDefinitionSlot('read -p ')).toBe(false);    // the prompt is a value, not a name
+  });
+
+  it('treats only the `for` loop variable as a definition', () => {
+    expect(isDefinitionSlot('for ')).toBe(true);         // loop-var slot
+    expect(isDefinitionSlot('for x')).toBe(true);        // typing the loop var
+    expect(isDefinitionSlot('for x ')).toBe(false);      // the `in` keyword slot
+    expect(isDefinitionSlot('for x in ')).toBe(false);   // values are references
+  });
+
+  it('treats `function --argument-names` operands as definitions, not its other args', () => {
+    expect(isDefinitionSlot('function foo --argument-names ')).toBe(true);
+    expect(isDefinitionSlot('function foo --argument-names a ')).toBe(true);
+    expect(isDefinitionSlot('function foo -a b ')).toBe(true);           // `-a` short form
+    expect(isDefinitionSlot("function foo --argument-names a -d 'x' ")).toBe(false); // moved to -d
+    expect(isDefinitionSlot('function foo ')).toBe(false);               // function name, not a var
+    expect(isDefinitionSlot('function foo -d ')).toBe(false);            // description value
+  });
+
+  it('treats `argparse ... -- $argv` operands after `--` as references', () => {
+    expect(isDefinitionSlot("argparse 'h/help' -- ")).toBe(false);
+    expect(isDefinitionSlot("argparse 'h/help' -- $")).toBe(false);
   });
 });

@@ -1,18 +1,14 @@
-import * as Parser from 'web-tree-sitter';
 import { Analyzer } from '../src/analyze';
 import { LspDocument } from '../src/document';
-import { initializeParser } from '../src/parser';
-import { symbolsFromResource } from '../src/parsing/source';
+import { createSourceResources, symbolsFromResource } from '../src/parsing/source';
 import { setLogger } from './helpers';
 
 describe('Symbol Root Level Detection', () => {
-  let parser: Parser;
   let analyzer: Analyzer;
 
   setLogger();
 
   beforeAll(async () => {
-    parser = await initializeParser();
     analyzer = await Analyzer.initialize();
   });
 
@@ -98,39 +94,31 @@ set -l root_local "I should be exported"
 
     // Create and analyze document
     const sourceDoc = LspDocument.createTextDocumentItem('file:///source.fish', sourceScript);
-    analyzer.analyze(sourceDoc);
+    const doc = analyzer.analyze(sourceDoc).document;
 
     // Create a mock SourceResource
-    const mockSourceResource = {
-      to: sourceDoc,
-      from: sourceDoc,
-      range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
-      node: {} as any,
-      definitionScope: {} as any,
-      sources: [],
-    };
+    const mockSourceResources = createSourceResources(analyzer, doc);
 
-    // Get exported symbols using symbolsFromResource
-    const exportedSymbols = symbolsFromResource(analyzer, mockSourceResource);
-    const exportedNames = exportedSymbols.map(s => s.name);
+    for (const mockSourceResource of mockSourceResources) {
+      const exportedSymbols = symbolsFromResource(analyzer, mockSourceResource);
+      const exportedNames = exportedSymbols.map(s => s.name);
+      expect(exportedNames).toContain('exportable_function');
+      expect(exportedNames).toContain('another_exportable');
 
-    // Should export root-level functions
-    expect(exportedNames).toContain('exportable_function');
-    expect(exportedNames).toContain('another_exportable');
+      // Should export root-level variables
+      expect(exportedNames).toContain('global_var');
+      expect(exportedNames).toContain('root_local');
 
-    // Should export root-level variables
-    expect(exportedNames).toContain('global_var');
-    expect(exportedNames).toContain('root_local');
+      // Should NOT export nested functions
+      expect(exportedNames).not.toContain('nested_function');
 
-    // Should NOT export nested functions
-    expect(exportedNames).not.toContain('nested_function');
-
-    // Should NOT export function-scoped variables
-    expect(exportedNames).not.toContain('function_scoped');
-
-    // Verify all exported symbols are indeed root level
-    for (const symbol of exportedSymbols) {
-      expect(symbol.isRootLevel()).toBe(true);
+      // Should NOT export function-scoped variables
+      expect(exportedNames).not.toContain('function_scoped');
+      // Should export root-level functions
+      // Verify all exported symbols are indeed root level
+      for (const symbol of exportedSymbols) {
+        expect(symbol.isRootLevel()).toBe(true);
+      }
     }
   });
 
@@ -182,22 +170,16 @@ end
     expect(rootLevel!.parent).toBeUndefined();
 
     // Test symbolsFromResource with deeply nested structure
-    const mockSourceResource = {
-      to: doc,
-      from: doc,
-      range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
-      node: {} as any,
-      definitionScope: {} as any,
-      sources: [],
-    };
+    const mockSourceResources = createSourceResources(analyzer, doc);
 
-    const exportedSymbols = symbolsFromResource(analyzer, mockSourceResource);
-    const exportedNames = exportedSymbols.map(s => s.name);
-
-    // Should only export root-level symbols
-    expect(exportedNames).toContain('level1');
-    expect(exportedNames).toContain('root_level');
-    expect(exportedNames).not.toContain('level2');
-    expect(exportedNames).not.toContain('level3');
+    for (const mockSourceResource of mockSourceResources) {
+      const exportedSymbols = symbolsFromResource(analyzer, mockSourceResource);
+      const exportedNames = exportedSymbols.map(s => s.name);
+      // Should only export root-level symbols
+      expect(exportedNames).toContain('level1');
+      expect(exportedNames).toContain('root_level');
+      expect(exportedNames).not.toContain('level2');
+      expect(exportedNames).not.toContain('level3');
+    }
   });
 });

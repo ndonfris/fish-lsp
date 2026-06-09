@@ -2,8 +2,9 @@ import { INDENT_COMMENT_REGEX, isIndentComment, parseIndentComment, processInden
 import { initializeParser } from '../src/parser';
 import * as Parser from 'web-tree-sitter';
 import { getChildNodes } from '../src/utils/tree-sitter';
-import { setLogger } from './helpers';
+import { createFakeLspDocument, setLogger } from './helpers';
 import { TestWorkspace } from './test-workspace-utils';
+import { analyzer } from '../src/analyze';
 
 let parser: Parser;
 
@@ -83,9 +84,9 @@ end
       const commentNodes = allNodes.filter(node => node.type === 'comment');
 
       expect(commentNodes.length).toBe(3);
-      expect(isIndentComment(commentNodes[0])).toBe(false); // Regular comment
-      expect(isIndentComment(commentNodes[1])).toBe(true);  // @fish_indent: off
-      expect(isIndentComment(commentNodes[2])).toBe(true);  // @fish_indent: on
+      expect(isIndentComment(commentNodes[0]!)).toBe(false); // Regular comment
+      expect(isIndentComment(commentNodes[1]!)).toBe(true);  // @fish_indent: off
+      expect(isIndentComment(commentNodes[2]!)).toBe(true);  // @fish_indent: on
     });
   });
 
@@ -102,17 +103,17 @@ echo "world"
       const allNodes = getChildNodes(tree.rootNode);
       const commentNodes = allNodes.filter(node => node.type === 'comment');
 
-      const offComment = parseIndentComment(commentNodes[0]);
-      const onComment = parseIndentComment(commentNodes[1]);
+      const offComment = parseIndentComment(commentNodes[0]!);
+      const onComment = parseIndentComment(commentNodes[1]!);
 
       expect(offComment).toBeTruthy();
       expect(offComment!.indent).toBe('off');
-      expect(offComment!.line).toBe(commentNodes[0].startPosition.row);
+      expect(offComment!.line).toBe(commentNodes[0]!.startPosition.row);
       expect(offComment!.node).toBe(commentNodes[0]);
 
       expect(onComment).toBeTruthy();
       expect(onComment!.indent).toBe('on');
-      expect(onComment!.line).toBe(commentNodes[1].startPosition.row);
+      expect(onComment!.line).toBe(commentNodes[1]!.startPosition.row);
       expect(onComment!.node).toBe(commentNodes[1]);
     });
 
@@ -126,7 +127,7 @@ echo "hello"
       const allNodes = getChildNodes(tree.rootNode);
       const commentNodes = allNodes.filter(node => node.type === 'comment');
 
-      const result = parseIndentComment(commentNodes[0]);
+      const result = parseIndentComment(commentNodes[0]!);
       expect(result).toBe(null);
     });
 
@@ -168,10 +169,10 @@ end
       const indentComments = processIndentComments(tree.rootNode);
 
       expect(indentComments).toHaveLength(4);
-      expect(indentComments[0].indent).toBe('off');
-      expect(indentComments[1].indent).toBe('on');
-      expect(indentComments[2].indent).toBe('off');
-      expect(indentComments[3].indent).toBe('on');
+      expect(indentComments[0]!.indent).toBe('off');
+      expect(indentComments[1]!.indent).toBe('on');
+      expect(indentComments[2]!.indent).toBe('off');
+      expect(indentComments[3]!.indent).toBe('on');
     });
 
     it('should return empty array when no indent comments exist', () => {
@@ -198,8 +199,8 @@ echo "line 1"
       const indentComments = processIndentComments(tree.rootNode);
 
       expect(indentComments).toHaveLength(2);
-      expect(indentComments[0].line).toBe(0); // First line
-      expect(indentComments[1].line).toBe(2); // Third line
+      expect(indentComments[0]!.line).toBe(0); // First line
+      expect(indentComments[1]!.line).toBe(2); // Third line
     });
   });
 
@@ -209,8 +210,12 @@ echo "line 1"
 function test
   echo "formatted"
 end`;
+      // const tmpDoc = createFakeLspDocument('/tmp/enabled-indent-range.fish', content)
+      // const doc = analyzer.analyze(tmpDoc)
+
       const workspace = TestWorkspace.createSingle(content).initialize();
-      const doc = workspace.focusedDocument;
+      const doc = workspace.focusedDocument!;
+
       const tree = parser.parse(content);
       const result = getEnabledIndentRanges(doc, tree.rootNode);
 
@@ -226,7 +231,7 @@ echo "unformatted"
 # @fish_indent: on
 echo "formatted again"`;
       const workspace = TestWorkspace.createSingle(content).initialize();
-      const doc = workspace.focusedDocument;
+      const doc = workspace.focusedDocument!;
       const tree = parser.parse(content);
       const result = getEnabledIndentRanges(doc, tree.rootNode);
 
@@ -250,7 +255,7 @@ echo "line 9 - unformatted"
 # @fish_indent: on
 echo "line 11 - formatted"`;
       const workspace = TestWorkspace.createSingle(content).initialize();
-      const doc = workspace.focusedDocument;
+      const doc = workspace.focusedDocument!;
       const tree = parser.parse(content);
       const result = getEnabledIndentRanges(doc, tree.rootNode);
 
@@ -267,7 +272,7 @@ echo "unformatted"
 # @fish_indent: on
 echo "formatted"`;
       const workspace = TestWorkspace.createSingle(content).initialize();
-      const doc = workspace.focusedDocument;
+      const doc = workspace.focusedDocument!;
       const tree = parser.parse(content);
       const result = getEnabledIndentRanges(doc, tree.rootNode);
 
@@ -282,7 +287,7 @@ echo "also formatted"
 # @fish_indent: off
 echo "unformatted"`;
       const workspace = TestWorkspace.createSingle(content).initialize();
-      const doc = workspace.focusedDocument;
+      const doc = workspace.focusedDocument!;
       const tree = parser.parse(content);
       const result = getEnabledIndentRanges(doc, tree.rootNode);
 
@@ -301,7 +306,7 @@ function test
 end
 echo "end"`;
       const workspace = TestWorkspace.createSingle(content).initialize();
-      const doc = workspace.focusedDocument;
+      const doc = workspace.focusedDocument!;
       const tree = parser.parse(content);
       const result = getEnabledIndentRanges(doc, tree.rootNode);
 

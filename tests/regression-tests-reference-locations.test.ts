@@ -376,7 +376,7 @@ describe('find reference locations of symbols', () => {
       const functionDoc = workspace.getDocument('functions/test.fish')!;
       const node = analyzer.getNodes(functionDoc.uri).find((n) => n.text === 'foo' && isVariableDefinitionName(n))!;
       expect(node).toBeDefined();
-      const def = analyzer.getDefinition(functionDoc, getRange(node).start);
+      // const def = analyzer.getDefinition(functionDoc, getRange(node).start);
       // console.log({def:locationAsString(def?.toLocation()!)});
       const result = analyzer.getReferences(functionDoc, getRange(node).start);
       // printLocations(result, {
@@ -1194,9 +1194,9 @@ describe('find reference locations of symbols', () => {
       it('function `foo_test` with precomputed cross-file references', () => {
         const functionDoc = workspace.getDocument('functions/foo_test.fish')!;
         const refs = analyzer.getReferences(functionDoc, Position.create(0, 11));
-        const renames = getRenames(functionDoc, Position.create(0, 11), 'test-rename', {
-          references: refs,
-        });
+        // getRenames computes its own references internally from (doc, position),
+        // so no precomputed set is passed; `refs` is used below for the count.
+        const renames = getRenames(functionDoc, Position.create(0, 11), 'test-rename');
 
         const refUris = new Set(renames.map(loc => loc.uri));
         expect(renames).toHaveLength(refs.length);

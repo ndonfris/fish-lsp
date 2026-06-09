@@ -10,7 +10,7 @@ import {
   findFirstNamedSibling,
   findFirstSibling,
   findEnclosingScope,
-  getNodeText, firstAncestorMatch,
+  firstAncestorMatch,
   ancestorMatch,
   descendantMatch,
   hasNode,
@@ -132,28 +132,6 @@ describe('tree-sitter.ts functions testing', () => {
     ].join('\n'), (n: SyntaxNode) => n.text === '"3"').pop()!;
     const result = findEnclosingScope(node);
     expect(result.type).toEqual('function_definition');
-  });
-
-  it('getNodeText returns text of the node', () => {
-    const input = [
-      'function __func_1',
-      '    if test -z $argv',
-      '        return 0',
-      '    end',
-      '    set -gx a "1" "2" "3"',
-      'end',
-    ].join('\n');
-    let node = parseStringForNode(input, (n: SyntaxNode) => n.text === '"3"').pop()!;
-    let result = getNodeText(node);
-    expect(result).toEqual('"3"');
-    node = parseStringForNode(input, (n: SyntaxNode) => n.text === '__func_1').pop()!;
-    result = getNodeText(node);
-    expect(result).toEqual('__func_1');
-
-    node = parseStringForNode(input, NodeTypes.isFunctionDefinition).pop()!;
-    result = getNodeText(node);
-    // console.log(result);
-    expect(result).toEqual('__func_1');
   });
 
   // test('getNodesTextAsSingleLine returns concatenated text of nodes', () => {

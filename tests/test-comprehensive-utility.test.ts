@@ -1,5 +1,9 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { LspDocument } from '../src/document';
-import { TestWorkspace, TestFile, Query } from './test-workspace-utils';
+import { TestWorkspace, TestFile, Query, focusedWorkspace } from './test-workspace-utils';
+import { workspaceManager } from '../src/utils/workspace-manager';
+import { SyncFileHelper } from '../src/utils/file-operations';
 
 describe('Comprehensive Test Workspace Utility Tests', () => {
   describe('Functionality verification', () => {
@@ -179,6 +183,185 @@ describe('Comprehensive Test Workspace Utility Tests', () => {
         expect(complexWorkspace.getDocuments(Query.confd())).toHaveLength(1);
         expect(complexWorkspace.getDocuments(Query.scripts())).toHaveLength(1);
       });
+    });
+  });
+});
+
+describe('TestWorkspace.read() from an on-disk workspace directory', () => {
+  describe('read workspace 1 from directory `workspace_1/fish`', () => {
+    const ws = TestWorkspace.read('workspace_1/fish').initialize();
+
+    it('should read files from the specified directory', () => {
+      const docs = ws.documents;
+      expect(docs.length).toBeGreaterThan(2);
+      expect(docs.map(f => f.getRelativeFilenameToWorkspace())).toContain('config.fish');
+    });
+  });
+
+  describe('read workspace 2 from directory `workspace_1`', () => {
+    const ws = TestWorkspace.read('workspace_1').initialize();
+
+    it('should read files from the specified directory', () => {
+      const docs = ws.documents;
+      expect(docs.length).toBeGreaterThan(2);
+      expect(docs.map(f => f.getRelativeFilenameToWorkspace())).toContain('config.fish');
+    });
+  });
+
+  describe('read workspace 3 from directory `workspace_1` w/config', () => {
+    const ws = TestWorkspace.read({ folderPath: 'workspace_1' }).initialize();
+
+    it('should read files from the specified directory', () => {
+      const docs = ws.documents;
+      expect(docs.length).toBeGreaterThan(2);
+      expect(docs.map(f => f.getRelativeFilenameToWorkspace())).toContain('config.fish');
+    });
+  });
+});
+
+describe('Snapshot Functionality Tests', () => {
+  let workspace: TestWorkspace;
+  let snapshotPath: string;
+
+  beforeAll(() => {
+    workspace = TestWorkspace.create({ name: 'snapshot_test' })
+      .addFiles(
+        TestFile.function('test_func', 'function test_func\n  echo "test"\nend'),
+        TestFile.completion('test_func', 'complete -c test_func -l help'),
+        TestFile.config('set -g fish_greeting "Test config"'),
+      );
+    workspace.initialize();
+  });
+
+  it('should create a snapshot file', async () => {
+    snapshotPath = workspace.writeSnapshot();
+
+    expect(fs.existsSync(snapshotPath)).toBe(true);
+    expect(snapshotPath).toContain('.snapshot');
+    expect(snapshotPath).toContain('snapshot_test');
+  });
+
+  it('should contain valid JSON snapshot data', async () => {
+    const snapshotContent = fs.readFileSync(snapshotPath, 'utf8');
+    const snapshot = JSON.parse(snapshotContent);
+
+    expect(snapshot.name).toBe('snapshot_test');
+    expect(snapshot.files).toHaveLength(3);
+    expect(snapshot.timestamp).toBeGreaterThan(0);
+
+    // Check file structure
+    const functionFile = snapshot.files.find((f: any) => f.relativePath === 'functions/test_func.fish');
+    expect(functionFile).toBeDefined();
+    expect(functionFile.content).toContain('function test_func');
+  });
+
+  it('should restore workspace file specs from snapshot', async () => {
+    const restoredWorkspace = TestWorkspace.fromSnapshot(snapshotPath);
+
+    expect(restoredWorkspace.name).toBe('snapshot_test');
+    // Check that files were added correctly (before initialization)
+    expect((restoredWorkspace as any)._files).toHaveLength(3);
+
+    // Check file content is preserved
+    const files = (restoredWorkspace as any)._files;
+    const funcFile = files.find((f: any) => f.relativePath === 'functions/test_func.fish');
+    expect(funcFile.content).toContain('function test_func');
+  });
+
+  it('should create snapshot with custom path', async () => {
+    const customPath = path.join(__dirname, 'custom-snapshot.json');
+    const customSnapshotPath = workspace.writeSnapshot(customPath);
+
+    expect(customSnapshotPath).toBe(customPath);
+    expect(fs.existsSync(customPath)).toBe(true);
+
+    // Cleanup
+    fs.unlinkSync(customPath);
+  });
+
+  afterAll(() => {
+    // Cleanup snapshot
+    if (fs.existsSync(snapshotPath)) {
+      fs.unlinkSync(snapshotPath);
+    }
+  });
+});
+
+describe('Test Workspace Setup (`TestWorkspace.create()` usage)', () => {
+  describe('t1', () => {
+    TestWorkspace.create({
+      name: 'test-setup',
+      autoAnalyze: true,
+      autoFocusWorkspace: true,
+    }).addFiles(
+      TestFile.config('fish_add_path --path /usr/local/bin'),
+      TestFile.confd('paths', `
+fish_add_path --path /usr/bin
+fish_add_path --path ~/.local/bin
+fish_add_path --path /bin
+fish_add_path --path /usr/bin
+`),
+    ).setup();
+
+    it('should have a valid workspace', () => {
+      const ws = workspaceManager.current!;
+      expect(ws?.name).toBe('test-setup');
+      expect(ws?.needsAnalysis()).toBe(false);
+      expect(ws?.uris.indexedCount).toBeGreaterThan(0);
+      expect(ws?.uris.indexedCount).toBe(2);
+    });
+
+    it('auto focus workspace', () => {
+      expect(focusedWorkspace!.name).toBe('test-setup');
+      expect(focusedWorkspace!.uris.indexedCount).toBe(2);
+    });
+  });
+
+  describe('t2', () => {
+    TestWorkspace.create({
+      name: 'test-setup-2',
+      autoAnalyze: true,
+      forceAllDefaultWorkspaceFolders: true,
+      addEnclosingFishFolder: true,
+      autoFocusWorkspace: true,
+    }).addFiles(
+      TestFile.config('fish_add_path --path /usr/local/bin'),
+      TestFile.function('ls', `function ls
+  echo "Listing files in current directory"
+  command exa
+  `),
+      TestFile.completion('ls', `
+complete -c ls -n "__fish_seen_subcommand_from ls" -f -a "(\ls)"
+`),
+    ).setup();
+
+    it('should have a valid workspace (w/ `fish` enclosing wrapper)', () => {
+      const ws = focusedWorkspace!;
+      expect(ws?.name).toContain('test-setup-2');
+      expect(ws?.needsAnalysis()).toBe(false);
+      expect(ws?.uris.indexedCount).toBeGreaterThan(0);
+      expect(ws?.uris.indexedCount).toBe(3);
+    });
+
+    it('show tree sitter parse tree', () => {
+      const ws = focusedWorkspace!;
+      ws.showAllTreeSitterParseTrees();
+    });
+  });
+
+  describe('check cleaned up success', () => {
+    it('should have no workspaces left', () => {
+      const excludeTestWorkspaces = ['test-setup', 'test-setup-2'];
+
+      const workspacesPath = path.resolve('./tests/workspaces/');
+      const folders = fs.readdirSync(workspacesPath)
+        .filter(f => !!f.trim())
+        .map(f => path.join(workspacesPath, f))
+        .filter(f => SyncFileHelper.isDirectory(f))
+        .map(f => f.split(path.sep).slice(-1)[0] || f);
+
+      const badFolders: string[] = folders.filter(f => excludeTestWorkspaces.includes(f));
+      expect(badFolders.length).toBe(0);
     });
   });
 });

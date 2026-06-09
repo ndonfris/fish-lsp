@@ -1,6 +1,5 @@
 import { analyzer, Analyzer } from '../src/analyze';
 import { LspDocument } from '../src/document';
-
 import { config } from '../src/config';
 import { TestWorkspace, TestFile } from './test-workspace-utils';
 import { Range } from 'vscode-languageserver';
@@ -14,17 +13,19 @@ import {
   type DecodedToken,
 } from './semantic-tokens-helpers';
 import { getSemanticTokensSimplest, semanticTokenHandler } from '../src/semantic-tokens';
-import { getRange, isNodeWithinRange, nodesGen } from '../src/utils/tree-sitter';
+import { getRange } from '../src/utils/tree-sitter';
 import { PrebuiltDocumentationMap } from '../src/utils/snippets';
 import { CompletionItemMap } from '../src/utils/completion/startup-cache';
 import { FishCompletionItemKind } from '../src/utils/completion/types';
 import { logger } from '../src/logger';
 import { pathToUri } from '../src/utils/translation';
 import { existsSync } from 'fs';
-import { createFakeLspDocument, FakeLspDocument } from './helpers';
+import { createFakeLspDocument, createTestServer, FakeLspDocument, TestServerHandle } from './helpers';
 import { join } from 'path';
 import { subcommandCache } from '../src/utils/subcommand-cache';
 import { FishString } from '../src/parsing/string';
+import { execCmd } from '../src/utils/exec';
+import { DepVersion } from '../src/utils/commander-cli-subcommands';
 
 logger.setSilent(true);
 
@@ -49,11 +50,11 @@ export const formatTokens = (tokens: DecodedToken[]) => {
 };
 
 /** Helper to get all syntax nodes within a given range for a document */
-const _get_nodesInRange = (doc: LspDocument, range: Range) => {
-  const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
-  if (!analyzed) return [];
-  return nodesGen(analyzed.root).filter(n => isNodeWithinRange(n, range));
-};
+// const _get_nodesInRange = (doc: LspDocument, range: Range) => {
+//   const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
+//   if (!analyzed) return [];
+//   return nodesGen(analyzed.root).filter(n => isNodeWithinRange(n, range));
+// };
 
 /**
  * Test suite for the simplified semantic token handler.
@@ -1702,15 +1703,35 @@ set incomplete`;
       });
     };
 
+    const minFishVersion = '4.7.1-117-gacd3c45a4';
+    const isMinFishVersion = async () => {
+      const versionStr = (await execCmd("fish --version | string match -r '\\d.*$'")).pop();
+      if (!versionStr) return false;
+      const minFish = DepVersion.extract(minFishVersion)!;
+      const currVersion = DepVersion.extract(versionStr)!;
+      return DepVersion.satisfies(currVersion, minFish);
+    };
+
     beforeAll(async () => {
       prebuiltCommandNames = new Set(
         PrebuiltDocumentationMap.getByType('command').map(entry => entry.name),
       );
       // PrebuiltDocumentationMap.getByType('command').forEach(entry => console.log(entry.name));
+      const isSatisfiesFishVersion = await isMinFishVersion();
+      if (!isSatisfiesFishVersion) {
+        //  NOTE:
+        //  • after 4.7.1-1~jammy no /usr/share/fish/functions/*.fish files
+        //    • https://github.com/fish-shell/fish-shell/issues/12769
+        //  • after 4.7.1.-117 abbr's `complete -C '...'` for any `abbr --position anywhere`
+        //    • https://github.com/fish-shell/fish-shell/commit/4b2aba31eecf9a7675fd2a678e74dbcb936424a5
+        console.warn(`WARNING: FISH VERSION <= "${minFishVersion}"`);
+      } else {
+        console.warn(`SUCCESS: FISH VERSION is good (>= ${minFishVersion})`);
+      }
 
       functionNamesToCheck.forEach(name => {
         const fsPath = join(fishFunctionsDir, `${name}.fish`);
-        if (!existsSync(fsPath)) {
+        if (!existsSync(fsPath) && !isSatisfiesFishVersion) {
           console.warn(`[function.defaultLibrary] missing file: ${fsPath}`);
           return;
         }
@@ -2131,6 +2152,123 @@ echo $my_var`;
       expectTokenExists(tokens, { text: 'split', tokenType: 'function', line: 0 });
       expectTokenExists(tokens, { text: 'normalize', tokenType: 'function', line: 1 });
       expectTokenExists(tokens, { text: 'match', tokenType: 'function', line: 2 });
+    });
+  });
+
+  describe('Variable as command name', () => {
+    function getTokensForContent(content: string, uri = 'test://var-as-command.fish') {
+      const doc = new FakeLspDocument({ uri, languageId: 'fish', version: 1, text: content });
+      analyzer.analyze(doc);
+      const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
+      const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
+      return decodeSemanticTokens(result, content);
+    }
+
+    it('highlights `$var` used as a command as a variable, not a function', () => {
+      // `var` holds `ls`, but `$var` in command position must be highlighted as a
+      // variable expansion — never as a command/function call.
+      const content = [
+        'set -g var ls',
+        '$var $PWD',
+      ].join('\n');
+      const tokens = getTokensForContent(content, 'test://var-command-name.fish');
+
+      // definition site: `set` is a builtin, `var` is a variable
+      expectTokenExists(tokens, { text: 'set', tokenType: 'function', line: 0 });
+      expectTokenExists(tokens, { text: 'var', tokenType: 'variable', line: 0 });
+
+      // usage site (line 1): `$var` is a variable, `$PWD` is a variable
+      expectTokenExists(tokens, { text: 'var', tokenType: 'variable', line: 1 });
+      expectTokenExists(tokens, { text: 'PWD', tokenType: 'variable', line: 1 });
+
+      // and the `$var` command position must NOT be highlighted like a call
+      const functionTokensOnUsageLine = tokens.filter(t => t.line === 1 && t.tokenType === 'function');
+      expect(functionTokensOnUsageLine).toHaveLength(0);
+    });
+
+    it('does not highlight a `$var`-containing command path (`./dist/$var info`) as a command', () => {
+      // The command name is a concatenation containing `$var`, so it cannot be
+      // resolved to a static command — only the expansion gets highlighted.
+      const content = [
+        'set -g var fish-lsp',
+        './dist/$var info',
+      ].join('\n');
+      const tokens = getTokensForContent(content, 'test://var-command-path.fish');
+
+      // the `$var` expansion on line 1 is a variable
+      expectTokenExists(tokens, { text: 'var', tokenType: 'variable', line: 1 });
+
+      // the `./dist/$var` command must NOT be highlighted as a function/command
+      const functionTokensOnUsageLine = tokens.filter(t => t.line === 1 && t.tokenType === 'function');
+      expect(functionTokensOnUsageLine).toHaveLength(0);
+    });
+  });
+
+  describe('semantic token handler initialized', () => {
+    // Mirror the server-based setup in `tests/completion-command-docs.test.ts`:
+    // build a real `FishServer` against a mocked LSP connection so we can verify
+    // that startup indexing asks the client to re-pull semantic tokens — but only
+    // when the client advertised `workspace.semanticTokens.refreshSupport`. The
+    // refresh is dispatched on a microtask, so flush before asserting.
+    const flushMicrotasks = () => new Promise(resolve => setTimeout(resolve, 0));
+
+    describe('when the client supports semanticTokens refresh', () => {
+      let handle: TestServerHandle;
+
+      beforeAll(async () => {
+        handle = await createTestServer({
+          params: {
+            capabilities: {
+              workspace: { workspaceFolders: true, semanticTokens: { refreshSupport: true } },
+            },
+          } as any,
+        });
+      });
+
+      afterAll(async () => {
+        await handle?.shutdown();
+      });
+
+      it('registers the handler and refreshes after onInitialized()', async () => {
+        const semanticTokens = handle.connection.languages.semanticTokens;
+
+        // The semantic-token handler is registered while the server is created.
+        expect(semanticTokens.on).toHaveBeenCalled();
+        // Nothing should fire until startup indexing completes.
+        expect(semanticTokens.refresh).not.toHaveBeenCalled();
+
+        await handle.server.onInitialized({});
+        await flushMicrotasks();
+
+        expect(semanticTokens.refresh).toHaveBeenCalled();
+      });
+    });
+
+    describe('when the client does NOT support semanticTokens refresh', () => {
+      let handle: TestServerHandle;
+
+      beforeAll(async () => {
+        handle = await createTestServer({
+          params: { capabilities: { workspace: { workspaceFolders: true } } } as any,
+        });
+      });
+
+      afterAll(async () => {
+        await handle?.shutdown();
+      });
+
+      it('does not send refresh after onInitialized() (avoids "Method not found" crash)', async () => {
+        const semanticTokens = handle.connection.languages.semanticTokens;
+
+        expect(semanticTokens.on).toHaveBeenCalled();
+
+        await handle.server.onInitialized({});
+        await flushMicrotasks();
+
+        // Helix and other clients without `refreshSupport` reject this request,
+        // which previously crashed the connection via an unhandled rejection.
+        expect(semanticTokens.refresh).not.toHaveBeenCalled();
+      });
     });
   });
 });

@@ -1,8 +1,6 @@
 import { CancellationTokenSource, PrepareRenameParams, RenameParams } from 'vscode-languageserver';
-import { createTestServer, setLogger, setupStartupMock, type TestServerHandle } from './helpers';
+import { createTestServer, setLogger, type TestServerHandle } from './helpers';
 import TestWorkspace from './test-workspace-utils';
-
-setupStartupMock();
 
 import FishServer from '../src/server';
 

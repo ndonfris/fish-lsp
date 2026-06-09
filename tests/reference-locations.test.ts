@@ -1,15 +1,16 @@
 import { analyzer, Analyzer } from '../src/analyze';
 import { workspaceManager } from '../src/utils/workspace-manager';
-import { createFakeLspDocument, expectFoundLocationsToEqualMatchLocations, matchLocation, printLocations, setLogger } from './helpers';
+import { createFakeLspDocument, createTestServer, expectFoundLocationsToEqualMatchLocations, matchLocation, printLocations, setLogger, type TestServerHandle } from './helpers';
+import FishServer from '../src/server';
 import { getChildNodes, getRange, pointToPosition } from '../src/utils/tree-sitter';
 import { isCompletionCommandDefinition } from '../src/parsing/complete';
-import { isArgumentThatCanContainCommandCalls, isCommand, isCommandWithName, isDefinitionName, isEndStdinCharacter, isOption, isString, isVariable, isVariableDefinitionName } from '../src/utils/node-types';
+import { isArgumentThatCanContainCommandCalls, isCommand, isCommandWithName, isDefinitionName, isFunctionDefinitionName, isOption, isString, isVariable, isVariableDefinitionName } from '../src/utils/node-types';
 import { getArgparseDefinitionName, isCompletionArgparseFlagWithCommandName } from '../src/parsing/argparse';
 import { getRenames } from '../src/renames';
-import { Position, Location } from 'vscode-languageserver';
+import { Position, Location, ReferenceParams } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../src/document';
-import { filterFirstPerScopeSymbol, FishSymbol } from '../src/parsing/symbol';
+import { FishSymbol } from '../src/parsing/symbol';
 import { isMatchingOptionValue } from '../src/parsing/options';
 import { Option } from '../src/parsing/options';
 import { extractCommands, extractMatchingCommandLocations } from '../src/parsing/nested-strings';
@@ -251,6 +252,54 @@ describe('find reference locations of symbols', () => {
         expectFoundLocationsToEqualMatchLocations(refs, matchLocations);
         expect(refs).toHaveLength(matchLocations.length);
       });
+    });
+  });
+
+  describe('complete -a arguments', () => {
+    // `-a`/`--arguments` value of a `complete` command is a literal completion
+    // candidate string, not shell code. Only a command substitution `(...)`
+    // actually invokes a command, so `complete -c bob -a "ls"` must NOT reference
+    // the `ls` function, while `complete -c bob -a '(ls)'` must.
+    const workspace = TestWorkspace.create().addFiles(
+      {
+        relativePath: 'functions/ls.fish',
+        content: [
+          'function ls',
+          '    echo hi',
+          'end',
+        ].join('\n'),
+      },
+      {
+        relativePath: 'completions/bob.fish',
+        content: [
+          // line 0: literal candidate "ls" — must NOT reference the `ls` function
+          'complete -c bob -n \'__fish_bob_needs_command\' -f -a "ls" -d \'literal candidate\'',
+          // line 1: command substitution (ls) — MUST reference the `ls` function
+          'complete -c bob -n \'__fish_bob_needs_command\' -f -a \'(ls)\' -d \'command substitution\'',
+        ].join('\n'),
+      },
+    ).initialize();
+
+    it('only `(ls)` references the `ls` function, not the literal "ls"', () => {
+      const functionDoc = workspace.getDocument('functions/ls.fish')!;
+      const completionDoc = workspace.getDocument('completions/bob.fish')!;
+      expect(functionDoc).toBeDefined();
+      expect(completionDoc).toBeDefined();
+
+      const defName = analyzer.findNode((n, document) =>
+        document!.uri === functionDoc.uri
+        && n.text === 'ls'
+        && isFunctionDefinitionName(n),
+      )!;
+      expect(defName).toBeDefined();
+
+      const refs = analyzer.getReferences(functionDoc, getRange(defName).start);
+      const completionRefs = refs.filter(loc => loc.uri.endsWith('completions/bob.fish'));
+
+      // The literal `complete -a "ls"` (line 0) must not be a reference.
+      expect(completionRefs.some(loc => loc.range.start.line === 0)).toBe(false);
+      // The command substitution `complete -a '(ls)'` (line 1) must be a reference.
+      expect(completionRefs.some(loc => loc.range.start.line === 1)).toBe(true);
     });
   });
 
@@ -604,77 +653,6 @@ describe('find reference locations of symbols', () => {
         return isMatchingOptionValue(n, Option.create('-w', '--wraps').withValue());
       }).flatMap(({ nodes }) => nodes);
       expect(values).toHaveLength(3);
-    });
-
-    it('check all strings that should be a function call location', () => {
-      const symbol = analyzer.findSymbol((s, d) => {
-        return !!(s.name === 'ls' && d?.uri.endsWith('conf.d/alias.fish'));
-      })!;
-
-      const commandCalls = analyzer.findNodes((n, d) => {
-        if (symbol.equalsNode(n, { strict: true })) {
-          // console.log({
-          //   symbol: symbol.toString(),
-          //   node: n.text,
-          //   uri: d?.uri,
-          //   range: getRange(n),
-          // });
-        }
-        const flatSymbols = analyzer.getFlatDocumentSymbols(d.uri).filter(s =>
-          s.isLocal()
-          && s.name === symbol.name
-          && s.kind === symbol.kind,
-        );
-
-        if (flatSymbols && flatSymbols.some(s => s.scopeContainsNode(n))) {
-          return false;
-        }
-
-        if (
-          n.parent
-          && isCommandWithName(n.parent, symbol.name)
-          && n.parent.firstNamedChild?.equals(n)
-        ) {
-          return true;
-        }
-
-        if (isArgumentThatCanContainCommandCalls(n)) {
-          if (isString(n) || n.text.includes('=')) {
-            return extractCommands(n).some(cmd => cmd === symbol.name);
-          }
-          return n.text === symbol.name;
-        }
-
-        if (isDefinitionName(n)) return false;
-
-        if (n.parent && isCommandWithName(n.parent, 'functions', 'emit', 'trap', 'command', 'bind', 'abbr')) {
-          if (n.parent.firstNamedChild?.equals(n)) return false;
-          if (isOption(n)) return false;
-          if (isString(n)) return extractCommands(n).some(cmd => cmd === symbol.name);
-          const firstIndex = isCommandWithName(n.parent, 'bind', 'abbr') ? 2 : 1;
-          const endStdinIndex = isCommandWithName(n.parent, 'abbr')
-            ? -1
-            : n.parent.children.findIndex(c => isEndStdinCharacter(c));
-          const children = n.parent.children.slice(firstIndex, endStdinIndex).filter(c => !isOption(c) && !isEndStdinCharacter(c));
-          const found = children.find(n => n.text === symbol.name);
-          if (found) {
-            return found.equals(n);
-          }
-        }
-
-        return false;
-      });
-      // commandCalls.forEach(({ uri, nodes }, index) => {
-      //   console.log(`commandCall ${index}`, {
-      //     uri: LspDocument.testUri(uri),
-      //     nodes: nodes.map(n => ({
-      //       text: n.text,
-      //       type: n.type,
-      //       startPosition: `{ row: ${n.startPosition.row}, column: ${n.startPosition.column} }`,
-      //       endPosition: `{ row: ${n.endPosition.row}, column: ${n.endPosition.column} }`,
-      //     })),
-      //   });
-      // });
     });
 
     it('global alias `ls` (using cache via `getReferences()`)', () => {
@@ -1329,8 +1307,6 @@ describe('find reference locations of symbols', () => {
 
       it('other_event_test.fish', () => {
         const focusedDoc = workspace.getDocument('other_event_test.fish')!;
-        const symbols = filterFirstPerScopeSymbol(focusedDoc);
-        // printClientTree({ log: true }, ...symbols);
         const unusedRefs = analyzer.allUnusedLocalReferences(focusedDoc);
         // console.log('unused references', unusedRefs.length);
         // printLocations(unusedRefs, {
@@ -1343,8 +1319,6 @@ describe('find reference locations of symbols', () => {
 
       it('event_without_emit.fish', () => {
         const focusedDoc = workspace.getDocument('event_without_emit.fish')!;
-        const symbols = filterFirstPerScopeSymbol(focusedDoc);
-        // printClientTree({ log: true }, ...symbols);
         const unusedRefs = analyzer.allUnusedLocalReferences(focusedDoc);
         // console.log('unused references', unusedRefs.length);
         // printLocations(unusedRefs, {
@@ -1821,6 +1795,180 @@ describe('find reference locations of symbols', () => {
         const refs = analyzer.getReferences(localEditorDoc, pointToPosition(queryNode.startPosition));
         expectFoundLocationsToEqualMatchLocations(refs, LOCAL_EDITOR_MatchLocations);
       });
+    });
+  });
+});
+
+describe('universal/global variable references are position-independent', () => {
+  setLogger();
+
+  beforeEach(async () => {
+    await setupProcessEnvExecFile();
+    await initializeParser();
+    await Analyzer.initialize();
+  });
+
+  function refsOf(ws: TestWorkspace, line: number, character: number): Set<string> {
+    const doc = ws.getDocument('conf.d/pw.fish')!;
+    return new Set(
+      analyzer.getReferences(doc, { line, character })
+        .map(r => `${r.range.start.line}:${r.range.start.character}`),
+    );
+  }
+
+  const ws = TestWorkspace.create().addFiles({
+    relativePath: 'conf.d/pw.fish',
+    content: [
+      'echo $pw',          // 0  ref BEFORE any def (universal persists across sessions)
+      'set -Ux pw $PWD',   // 1  def #1  (pw @ 8)
+      'echo $pw',          // 2  ref between defs
+      'set -Ux pw $PWD',   // 3  def #2  (pw @ 8)  <-- redefinition, NOT an erase
+      'echo $pw',          // 4  ref after def #2
+    ].join('\n'),
+  }).initialize();
+
+  it('refs from def#1, def#2, and a usage all return the same complete set', () => {
+    const fromUsage = refsOf(ws, 2, 6);  // $pw on line 2
+    const fromDef1 = refsOf(ws, 1, 8);   // set -Ux pw  (def #1)
+    const fromDef2 = refsOf(ws, 3, 8);   // set -Ux pw  (def #2)
+
+    // every read (0,2,4) must appear regardless of which occurrence is queried
+    for (const set of [fromUsage, fromDef1, fromDef2]) {
+      expect(set.has('0:6')).toBe(true); // pre-def read included (the bug: was dropped from def#2)
+      expect(set.has('2:6')).toBe(true);
+      expect(set.has('4:6')).toBe(true);
+    }
+    // position-independence: identical sets no matter where you click
+    expect([...fromDef2].sort()).toEqual([...fromUsage].sort());
+    expect([...fromDef1].sort()).toEqual([...fromUsage].sort());
+  });
+});
+
+// `set -e foo[N]` erases a single list element, not the whole variable, so it
+// must NOT end `foo`'s lifetime — references after it still bind to the def.
+// (Full `set -e foo` / `set -el foo` does end a local variable's lifetime.)
+describe('indexed erase does not end a variable lifetime', () => {
+  setLogger();
+  beforeEach(async () => {
+    await setupProcessEnvExecFile();
+    await initializeParser();
+    await Analyzer.initialize();
+  });
+
+  const ws = TestWorkspace.create().addFiles(
+    {
+      relativePath: 'functions/idx.fish',
+      content: [
+        'function idx',                    // 0
+        '    set -l local_symbol 1 2 3 4', // 1  def @ 11
+        '    set -e local_symbol[4]',      // 2  index erase — NOT a full erase
+        '    set --show local_symbol',     // 3  ref @ 15 (must survive)
+        'end',                             // 4
+      ].join('\n'),
+    },
+    {
+      relativePath: 'functions/full.fish',
+      content: [
+        'function full',                   // 0
+        '    set -l v 1 2',                // 1  def @ 11
+        '    set -el v',                   // 2  FULL local erase — ends lifetime
+        '    set --show v',                // 3  ref @ 15 (should NOT bind to def)
+        'end',                             // 4
+      ].join('\n'),
+    },
+  ).initialize();
+
+  it('keeps references after `set -e foo[N]` (index erase)', () => {
+    const doc = ws.getDocument('functions/idx.fish')!;
+    const refLines = new Set(
+      analyzer.getReferences(doc, { line: 1, character: 11 }).map(r => r.range.start.line),
+    );
+    expect(refLines.has(1)).toBe(true); // def
+    expect(refLines.has(2)).toBe(true); // the `set -e local_symbol[4]` target is still a ref
+    expect(refLines.has(3)).toBe(true); // post-index-erase `set --show` still bound
+  });
+
+  it('still ends a LOCAL lifetime on a full `set -el foo`', () => {
+    const doc = ws.getDocument('functions/full.fish')!;
+    const refLines = new Set(
+      analyzer.getReferences(doc, { line: 1, character: 11 }).map(r => r.range.start.line),
+    );
+    expect(refLines.has(1)).toBe(true); // def
+    expect(refLines.has(3)).toBe(false); // after full local erase, line 3 no longer binds
+  });
+});
+
+describe('server onReferences', () => {
+  setLogger();
+
+  let handle: TestServerHandle;
+  let server: FishServer;
+
+  beforeAll(async () => {
+    handle = await createTestServer();
+    server = handle.server;
+  });
+
+  afterAll(async () => {
+    await handle?.shutdown();
+  });
+
+  describe('argv in regular caller + no-scope callee', () => {
+    const workspace = TestWorkspace.create().addFiles(
+      {
+        relativePath: 'functions/caller.fish',
+        content: [
+          'function caller',
+          '   set val_1 1',
+          '   set val_2 2',
+          '   set val_3 3',
+          '   set val_4 4',
+          '   called',
+          '   set --show argv',
+          'end',
+        ].join('\n'),
+      },
+      {
+        relativePath: 'functions/called.fish',
+        content: [
+          'function called --no-scope-shadowing',
+          '    set -f argv 1 2 3',
+          '    set --show argv',
+          'end',
+        ].join('\n'),
+      },
+      {
+        relativePath: 'functions/outer.fish',
+        content: [
+          'function outer',
+          '    caller',
+          '    set --show argv',
+          'end',
+        ].join('\n'),
+      },
+    ).initialize();
+
+    it('keeps argv references anchored to request position (includes caller+called, excludes outer)', async () => {
+      const callerDoc = workspace.getDocument('functions/caller.fish')!;
+      const calledDoc = workspace.getDocument('functions/called.fish')!;
+      const outerDoc = workspace.getDocument('functions/outer.fish')!;
+
+      const params: ReferenceParams = {
+        context: { includeDeclaration: true },
+        textDocument: { uri: calledDoc.uri },
+        position: { line: 1, character: 11 }, // `argv` in: set -f argv 1 2 3
+      };
+
+      const refs = await server.onReferences(params);
+
+      const callerRefLines = refs.filter(r => r.uri === callerDoc.uri).map(r => r.range.start.line);
+      const calledRefLines = refs.filter(r => r.uri === calledDoc.uri).map(r => r.range.start.line);
+      const outerRefLines = refs.filter(r => r.uri === outerDoc.uri).map(r => r.range.start.line);
+
+      expect(callerRefLines).toContain(6);
+      expect(calledRefLines).toContain(1);
+      expect(calledRefLines).toContain(2);
+      expect(outerRefLines).not.toContain(2);
     });
   });
 });

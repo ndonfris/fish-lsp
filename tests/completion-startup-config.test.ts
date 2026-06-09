@@ -47,16 +47,21 @@ export type SetupResult = SetupItem & {
   results: string[];
 };
 
+type CommandSetupItem = {
+  command: string;
+} & SetupItem;
 export async function simpleParrallelTestSetupItemsInitializer(
   items: SetupItem[] = SetupItemsFromCommandConfig,
 ): Promise<SetupResult[]> {
+  const commandItems = items.filter(i => typeof i.command === 'string') as CommandSetupItem[];
   const settled = await Promise.allSettled(
-    items.map((item) =>
-      execCmd(item.command, { interactiveMode: true }).then((results) => ({
-        ...item,
-        results,
-      })),
-    ),
+    commandItems
+      .map((item) =>
+        execCmd(item.command, { interactiveMode: true }).then((results) => ({
+          ...item,
+          results,
+        })),
+      ),
   );
 
   return settled.map((outcome, i) => ({
