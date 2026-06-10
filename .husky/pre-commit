@@ -2,7 +2,9 @@
 
 # simple backup file for commit message, in case lint-staged fails and the commit message is lost
 commit_msg_file="$(git rev-parse --git-dir)/COMMIT_EDITMSG"
+cat $commit_msg_file
 if [ -f "$commit_msg_file" ]; then
+  cp $commit_msg_file $(git rev-parse --git-dir)/COMMIT_EDITMSG.old
   tmp_file="/tmp/fish-lsp-last-commit-msg-$(date +%Y%m%d-%H%M%S).msg"
   cp "$commit_msg_file" "$tmp_file"
   echo "Saved commit message backup to: $tmp_file"
