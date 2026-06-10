@@ -155,6 +155,7 @@ export default class FishServer {
     // rootUri/rootPath are deprecated in LSP, but we still log/support them for older clients.
     const legacyRoots = params as unknown as { rootUri?: string | null; rootPath?: string | null; };
     logger.log({
+      time: Time.now,
       server: 'FishServer',
       rootUri: legacyRoots.rootUri,
       rootPath: legacyRoots.rootPath,
@@ -200,7 +201,7 @@ export default class FishServer {
       if (!hasSemanticTokensRefreshSupport) return;
       void Promise.resolve()
         .then(() => connection?.languages?.semanticTokens?.refresh())
-        .catch(() => undefined);
+        .catch(err => logger.debug('semanticTokens/refresh failed (subcommand-cache trigger)', err));
     });
     subcommandCache.initializeBuiltins();
 
@@ -369,6 +370,9 @@ export default class FishServer {
   public dispose(): void {
     this.documentListeners.forEach(listener => listener.dispose());
     this.documentListeners = [];
+    // Cancel the subcommand cache's pending debounced `semanticTokens/refresh`
+    // and detach its callback so it can't fire on this torn-down connection.
+    subcommandCache.dispose();
   }
 
   async didSaveTextDocument(params: LSP.DidSaveTextDocumentParams): Promise<void> {
@@ -488,7 +492,15 @@ export default class FishServer {
 
       if (currentDocument) {
         this.analyzeDocument(currentDocument);
-        analyzer.diagnostics.requestUpdate(currentDocument.uri, true); // full diagnostics pass after analysis
+      }
+      // Startup catch-up: publish diagnostics for *every* open document now that
+      // indexing is done. `onDidOpen` skips its diagnostics push while
+      // `backgroundAnalysisComplete` is still false, so any document opened
+      // *during* startup analysis would otherwise sit with no diagnostics until
+      // the user edited it (a `didChange`) — the original "diagnostics don't show
+      // until I type" symptom. This covers the focused doc and any others.
+      for (const doc of documents.all()) {
+        analyzer.diagnostics.requestUpdate(doc.uri, true);
       }
     } catch (error) {
       this.backgroundAnalysisInProgress = false;
@@ -515,7 +527,7 @@ export default class FishServer {
         const refreshConnection = this.registeredConnection ?? connection;
         void Promise.resolve()
           .then(() => refreshConnection.languages.semanticTokens?.refresh())
-          .catch(() => undefined);
+          .catch(err => logger.debug('semanticTokens/refresh failed (onInitialized trigger)', err));
       }
     }
 

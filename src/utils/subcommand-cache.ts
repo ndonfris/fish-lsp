@@ -89,6 +89,24 @@ class SubcommandCache {
     this._onPopulated = callback;
   }
 
+  /**
+   * Cancel any pending debounced refresh and detach the populate callback.
+   * Called from `FishServer.dispose()` (→ `onShutdown`) so a torn-down server
+   * never has its `semanticTokens/refresh` fired by a late subprocess resolution,
+   * and the dangling 200ms timer doesn't outlive the connection.
+   *
+   * The populated `_cache` is intentionally kept — it's process-level data, and
+   * any still-`_pending` subprocess simply no-ops on resolve (`_scheduleRefresh`
+   * early-returns once `_onPopulated` is null).
+   */
+  dispose(): void {
+    if (this._refreshTimer) {
+      clearTimeout(this._refreshTimer);
+      this._refreshTimer = null;
+    }
+    this._onPopulated = null;
+  }
+
   /** Debounce refresh callback (200ms) to batch rapid discoveries */
   private _scheduleRefresh(): void {
     if (!this._onPopulated) return;

@@ -2234,8 +2234,14 @@ echo $my_var`;
 
         // The semantic-token handler is registered while the server is created.
         expect(semanticTokens.on).toHaveBeenCalled();
-        // Nothing should fire until startup indexing completes.
-        expect(semanticTokens.refresh).not.toHaveBeenCalled();
+
+        // The subcommand cache *also* asks the client to re-pull tokens once its
+        // builtins populate — on a 200ms-debounced timer driven by background
+        // fish subprocesses, independent of `onInitialized`. Whether that has
+        // fired by this point is a race (passes locally, fired early under the CI
+        // container), so clear any prior calls and assert *specifically* the
+        // `onInitialized`-driven refresh below.
+        vi.mocked(semanticTokens.refresh).mockClear();
 
         await handle.server.onInitialized({});
         await flushMicrotasks();
