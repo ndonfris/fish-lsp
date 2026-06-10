@@ -10,7 +10,7 @@ import { logger } from './logger';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol, processCompletion } from './parsing/complete';
 import { FishSymbolCaches } from './parsing/fish-symbol-caches';
-import { FishReferenceCandidate, FishReferenceCandidateCache, isPotentialReferenceNode, isSetReferenceTargetNode } from './parsing/reference-candidates';
+import { FishReferenceCandidate, FishReferenceCandidateCache, findReferenceSymbolType, isPotentialReferenceNode, ReferenceSymbolType, symbolReferenceType } from './parsing/reference-candidates';
 import { createSourceResources, getExpandedSourcedFilenameNode, isSourceCommandArgumentName, isSourceCommandWithArgument, symbolsFromResource } from './parsing/source';
 import { filterFirstPerScopeSymbol, FishSymbol, processNestedTree, SKIPPABLE_VARIABLE_REFERENCE_NAMES } from './parsing/symbol';
 import { isSetVariableDefinitionName } from './parsing/set';
@@ -1831,31 +1831,74 @@ export class Analyzer {
    * This is either a symbol, a manpage, or a fish-shell shipped function.
    * Other hovers are shown are shown if this method can't find any (defined in `./hover.ts`).
    */
+  /**
+   * Whether `symbol`'s hover should be shown at `node`. A symbol's hover applies
+   * at its own declaration, or at a genuine reference whose *category* matches —
+   * a `$var` node never shows a function's hover, a bare command name never
+   * shows a variable's. `nodeType === null` (an ambiguous carrier) keeps the
+   * looser reference-only check, with `isReference` arbitrating.
+   */
+  private symbolHoverApplies(
+    symbol: FishSymbol,
+    document: LspDocument,
+    node: SyntaxNode,
+    nodeType: ReferenceSymbolType | null,
+  ): boolean {
+    if (isDefinitionName(node)) return true;
+    if (!symbol.isReference(document, node)) return false;
+    return nodeType === null || symbolReferenceType(symbol) === nodeType;
+  }
+
+  /**
+   * Classifier-driven hover resolution.
+   *
+   *   1. Classify the node (`findReferenceSymbolType`) so candidate symbols of
+   *      the wrong category are never considered.
+   *   2. Prefer the resolved definition — `getDefinition` understands cross-file,
+   *      sourced, alias and argparse-option references the pure classifier can't.
+   *   3. Otherwise fall back to a name-matched global symbol *of the same
+   *      category* (e.g. an autoloaded function referenced before its own file
+   *      is indexed).
+   *
+   * Returns `null` when nothing resolves, so `onHover` falls back to prebuilt /
+   * man-page / parent-command documentation.
+   */
   public getHover(document: LspDocument, position: Position): Hover | null {
     const tree = this.getTree(document.uri);
     const node = this.nodeAtPoint(document.uri, position.line, position.character);
 
     if (!tree || !node) return null;
 
-    const symbol =
-      this.getDefinition(document, position) ||
-      this.symbols.globalSymbols.find(node.text).find(s => symbolMatchesNodeContext(s, node));
+    const nodeType = findReferenceSymbolType(node);
 
-    if (!symbol) return null;
-    logger.log(`analyzer.getHover: ${symbol.name}`, {
-      name: symbol.name,
-      uri: symbol.uri,
-      detail: symbol.detail,
-      text: symbol.node.text,
-      kind: symbolKindToString(symbol.kind),
-    });
-    // Show the symbol's hover on its own declaration, or on any real reference
-    // to it — including references nested inside alias/`complete` strings. Other
-    // positions (e.g. a builtin command name, or a bare argument that merely
-    // shares a variable's name like `theme` in `fish_config theme`) return null
-    // so the caller falls back to the man-page/command documentation hover.
-    if (isDefinitionName(node) || symbol.isReference(document, node)) {
-      return symbol.toHover();
+    // Candidates, most-precise first: the resolved definition (understands
+    // cross-file / sourced / argparse-option references), then every same-name
+    // symbol whose category matches the node context. The category filter is
+    // what lets a `cmd` *call* skip a same-named `set` variable and find the
+    // function, and a `$cmd` skip the function and find the variable.
+    const definition = this.getDefinition(document, position);
+    const candidates = definition
+      ? [definition, ...this.findSymbolsForPosition(document, position)]
+      : this.findSymbolsForPosition(document, position);
+    for (const symbol of candidates) {
+      if (this.symbolHoverApplies(symbol, document, node, nodeType)) {
+        logger.log(`analyzer.getHover: ${symbol.name}`, {
+          name: symbol.name,
+          uri: symbol.uri,
+          kind: symbolKindToString(symbol.kind),
+          nodeType,
+        });
+        return symbol.toHover();
+      }
+    }
+
+    // No locally-resolved symbol — try a same-category global (e.g. an
+    // autoloaded function referenced before its own file is indexed).
+    if (nodeType !== null) {
+      const globalMatch = this.symbols.globalSymbols.find(node.text)
+        .find(s => symbolReferenceType(s) === nodeType
+          && this.symbolHoverApplies(s, document, node, nodeType));
+      if (globalMatch) return globalMatch.toHover();
     }
     return null;
   }
@@ -2507,12 +2550,20 @@ class AnalyzedDocumentCache {
  */
 function symbolMatchesNodeContext(symbol: FishSymbol, node: SyntaxNode | null): boolean {
   if (!node) return true;
-  if (symbol.isVariable()) {
-    return isVariable(node)
-      || isVariableDefinitionName(node)
-      || isSetReferenceTargetNode(node);
+  const nodeType = findReferenceSymbolType(node);
+  const symbolType = symbolReferenceType(symbol);
+  // Variables must sit at an actual variable usage (`$var`, a definition name, a
+  // `set -q/-e/-S` target) — never a carrier word/string. This keeps a bare
+  // command argument (`theme` in `fish_config theme`) from resolving to a
+  // same-named `set -g theme`.
+  if (symbolType === 'variable') {
+    return nodeType === 'variable';
   }
-  return true;
+  // Functions/events are also referenced from inside string carriers
+  // (alias/`complete`/`bind` values), which classify as `null`; only reject a
+  // node whose context is unambiguously a *different* category. `isReference`
+  // arbitrates the remaining cases downstream.
+  return nodeType === null || nodeType === symbolType;
 }
 
 export function findCommandLocations(cmd: string) {

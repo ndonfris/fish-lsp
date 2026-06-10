@@ -7,12 +7,12 @@ import { documentationHoverProvider, enrichCommandWithFlags, enrichToCodeBlockMa
 import { DocumentationCache } from './utils/documentation-cache';
 import { execCommandDocs, execCompletions, execSubCommandCompletions } from './utils/exec';
 import { subcommandCache } from './utils/subcommand-cache';
-import { findParent, findParentCommand, getCommandNameNode, getCommandNameText, isCommand, isFunctionDefinition, isOption, isProgram, isVariable, isVariableDefinitionName, isVariableExpansion, isVariableExpansionWithName } from './utils/node-types';
+import { findParent, findParentCommand, getCommandNameNode, getCommandNameText, getRedirectOperatorText, isCommand, isFunctionDefinition, isOption, isProgram, isReturnStatusNumber, isVariable, isVariableDefinitionName, isVariableExpansion, isVariableExpansionWithName } from './utils/node-types';
 import { findFirstParent, nodeLogFormatter } from './utils/tree-sitter';
 import { getNestedCommandReferenceAtPoint } from './utils/nested-command-point';
 import { symbolKindsFromNode, uriToPath } from './utils/translation';
 import { logger } from './logger';
-import { findPrebuiltDoc, getSpecialVariableHoverDoc } from './utils/snippets';
+import { findPrebuiltDoc, formatPrebuiltDocMarkdown, getSpecialVariableHoverDoc, PrebuiltDocumentationMap } from './utils/snippets';
 import { md } from './utils/markdown-builder';
 import { AutoloadedPathVariables } from './utils/process-env';
 
@@ -355,6 +355,39 @@ export const variablesWithoutLocalDocumentation = [
   '$status',
   '$pipestatus',
 ];
+
+/**
+ * Prebuilt / snippet documentation for a node that has no local symbol
+ * definition — the second tier of hover resolution, after `analyzer.getHover()`
+ * and before the man-page / parent-command fallback. Consolidates:
+ *
+ *   - special & autoloaded variables (`$status`, `$pipestatus`, `$fish_pid`,
+ *     `$argv`, `$fish_complete_path`, `$__fish_data_dir`, …)
+ *   - pipe operators (`|`, `&|`, redirections)
+ *   - `return <status-number>` exit codes
+ *
+ * Returns `null` when nothing prebuilt applies, so `onHover` continues to the
+ * command-documentation fallback.
+ */
+export function getPrebuiltHover(
+  analyzer: Analyzer,
+  doc: LspDocument,
+  current: Parser.SyntaxNode,
+  position: LSP.Position,
+): LSP.Hover | null {
+  const variableHover = getVariableExpansionDocs(analyzer, doc, position)(current);
+  if (variableHover) return variableHover;
+
+  const pipeLookupText = getRedirectOperatorText(current) ?? current.text;
+  const prebuiltSkipType = [
+    ...PrebuiltDocumentationMap.getByType('pipe'),
+    ...isReturnStatusNumber(current) ? PrebuiltDocumentationMap.getByType('status') : [],
+  ].find(obj => obj.name === pipeLookupText);
+  if (prebuiltSkipType) {
+    return { contents: enrichToMarkdown(formatPrebuiltDocMarkdown(prebuiltSkipType)) };
+  }
+  return null;
+}
 
 export function getVariableExpansionDocs(analyzer: Analyzer, doc: LspDocument, position: LSP.Position) {
   function isVariablesWithoutLocalDocumentation(current: Parser.SyntaxNode) {

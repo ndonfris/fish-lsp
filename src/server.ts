@@ -12,7 +12,7 @@ import { logger, Time } from './logger';
 import { connection, setExternalConnection } from './utils/startup';
 import { formatTextWithIndents, symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes } from './utils/tree-sitter';
-import { getVariableExpansionDocs, handleHover } from './hover';
+import { getPrebuiltHover, handleHover } from './hover';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentation-cache';
 import { getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspaces } from './utils/workspace';
 import { workspaceManager } from './utils/workspace-manager';
@@ -20,8 +20,8 @@ import { filterLastPerScopeSymbol, FishSymbol } from './parsing/symbol';
 import { CompletionPager, initializeCompletionPager, isInVariableExpansionContext, SetupData } from './utils/completion/pager';
 import { FishCompletionList } from './utils/completion/list';
 import { resolveCompletionItemDocumentation } from './utils/completion/resolve-item';
-import { PrebuiltDocumentationMap, formatPrebuiltDocMarkdown, warmPrebuiltCommandDescriptions } from './utils/snippets';
-import { findParent, findParentCommand, getRedirectOperatorText, isAliasDefinitionName, isBraceExpansion, isCommand, isCommandName, isConcatenatedValue, isConcatenation, isDefinitionName, isEndStdinCharacter, isOption, isPathNode, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
+import { PrebuiltDocumentationMap, warmPrebuiltCommandDescriptions } from './utils/snippets';
+import { findParent, findParentCommand, isAliasDefinitionName, isBraceExpansion, isCommand, isCommandName, isConcatenatedValue, isConcatenation, isDefinitionName, isEndStdinCharacter, isOption, isPathNode, isVariableDefinition } from './utils/node-types';
 import { config, Config } from './config';
 import { enrichToMarkdown, handleBraceExpansionHover, handleEndStdinHover, handleSourceArgumentHover } from './documentation';
 import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getDefaultSignatures, getFunctionSignatureHelp, isRegexStringSignature } from './signature';
@@ -815,7 +815,11 @@ export default class FishServer {
       if (result) return result;
     }
 
-    if (isConcatenatedValue(current)) {
+    // A variable definition name can sit inside a `concatenation` node — e.g.
+    // `PATH=` in `export PATH="/bin:$PATH"`. That is a real symbol, so prefer its
+    // definition hover (resolved further down) over the brace/concatenation
+    // expansion preview.
+    if (isConcatenatedValue(current) && !isDefinitionName(current)) {
       logger.log('isConcatenatedValue', { text: current.text, type: current.type });
       const parent = findParent(current, isConcatenation);
       const brace = findParent(current, isBraceExpansion);
@@ -844,57 +848,29 @@ export default class FishServer {
       return handleEndStdinHover(current);
     }
 
-    const { kindType, kindString } = symbolKindsFromNode(current);
-    logger.log({ currentText: current.text, currentType: current.type, symbolKind: kindString });
-
-    const pipeLookupText = getRedirectOperatorText(current) ?? current.text;
-    const prebuiltSkipType = [
-      ...PrebuiltDocumentationMap.getByType('pipe'),
-      ...isReturnStatusNumber(current) ? PrebuiltDocumentationMap.getByType('status') : [],
-    ].find(obj => obj.name === pipeLookupText);
-
-    // documentation for prebuilt variables without definition's
-    // including $status, $pipestatus, $fish_pid, etc.
-    // See: PrebuiltDocumentationMap.getByType('variable') for entire list
-    // Also includes autoloaded variables: $fish_complete_path, $__fish_data_dir, etc...
-    const isPrebuiltVariableWithoutDefinition = getVariableExpansionDocs(analyzer, doc, params.position);
-    const prebuiltHover = isPrebuiltVariableWithoutDefinition(current);
-    if (prebuiltHover) return prebuiltHover;
-
+    // --- 1. Symbol hover: a definition/reference resolved by node category
+    //   (classifier-driven `analyzer.getHover` — never crosses variable/function). ---
     const symbolItem = analyzer.getHover(doc, params.position);
     if (symbolItem) {
-      logger.log({
-        timestamp: Time.now,
-        msg: 'found symbolItem',
-        isDef: isDefinitionName(current),
-      });
+      logger.log({ timestamp: Time.now, msg: 'found symbolItem', isDef: isDefinitionName(current) });
       return symbolItem;
     }
-    if (prebuiltSkipType) {
-      return {
-        contents: enrichToMarkdown(formatPrebuiltDocMarkdown(prebuiltSkipType)),
-      };
-    }
 
+    // --- 2. Prebuilt / snippet docs for nodes without a local definition:
+    //   special & autoloaded variables, pipe operators, `return <status>` codes. ---
+    const prebuiltHover = getPrebuiltHover(analyzer, doc, current, params.position);
+    if (prebuiltHover) return prebuiltHover;
+
+    // --- 3. Global declaration docs: a global function/variable *definition*
+    //   name resolves to its cached man-page documentation. ---
+    const { kindType, kindString } = symbolKindsFromNode(current);
     const definition = analyzer.getDefinition(doc, params.position);
     const allowsGlobalDocs = !definition || definition?.isGlobal();
     const lookupText = analyzer.wordAtPoint(doc.uri, params.position.line, params.position.character)?.trim()
       || current.text.trim();
-    const symbolType = [
-      'function',
-      'class',
-      'variable',
-    ].includes(kindString) ? kindType : undefined;
-
-    const globalItem = await this.documentationCache.resolve(
-      lookupText,
-      path,
-      symbolType,
-    );
-
-    logger.log(`this.documentationCache.resolve() found ${!!globalItem}`, { docs: globalItem.docs });
+    const symbolType = ['function', 'class', 'variable'].includes(kindString) ? kindType : undefined;
+    const globalItem = await this.documentationCache.resolve(lookupText, path, symbolType);
     if (globalItem && globalItem.docs && allowsGlobalDocs && isDefinitionName(current)) {
-      logger.log({ globalItem: true, ...globalItem });
       return {
         contents: {
           kind: MarkupKind.Markdown,
@@ -902,6 +878,9 @@ export default class FishServer {
         },
       };
     }
+
+    // --- 4. Parent-command / man-page fallback: subcommand or flag docs from the
+    //   enclosing command when the node itself isn't a resolvable symbol. ---
     const fallbackHover = await handleHover(
       analyzer,
       doc,
@@ -909,10 +888,7 @@ export default class FishServer {
       current,
       this.documentationCache,
     );
-    logger.log({
-      hover: { ...params },
-      ...fallbackHover,
-    });
+    logger.log({ hover: { ...params }, ...fallbackHover });
     return fallbackHover;
   }
 

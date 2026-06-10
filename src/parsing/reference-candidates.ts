@@ -8,11 +8,14 @@ import { isGenericFunctionEventHandlerDefinitionName } from './emit';
 import { isArgparseVariableDefinitionName } from './argparse';
 import { isMatchingOption, isMatchingOptionOrOptionValue, Option, getLeadingDashCount } from './options';
 import {
+  findParent,
   findParentCommand,
   isCommandName,
   isCommandWithName,
+  isCompleteCommandName,
   isDefinition,
   isEmittedEventDefinitionName,
+  isFunctionDefinition,
   isOption,
   isProgram,
   isString,
@@ -22,6 +25,7 @@ import {
 } from '../utils/node-types';
 import { getRange } from '../utils/tree-sitter';
 import { isAliasDefinitionValue } from './alias';
+import { isReadVariableDefinitionName } from './read';
 import { extractCommandLocations, extractMatchingCommandLocations } from './nested-strings';
 
 export const REFERENCE_CANDIDATE_NODE_TYPES = [
@@ -148,6 +152,210 @@ export function isPotentialReferenceNode(symbol: FishSymbol, node: SyntaxNode): 
   return node.text === symbol.name || isString(node);
 }
 
+/**
+ * The three broad categories a name reference can resolve to. A FishSymbol of
+ * one category can never be the target of a reference node belonging to another
+ * (a `$var` can't reference a function; a bare command name can't reference a
+ * `set` variable), so this is the unit we filter same-named candidates by.
+ */
+export type ReferenceSymbolType = 'variable' | 'function' | 'emit';
+
+/**
+ * Backwards-maps a *usage-site* SyntaxNode to the symbol category it is able to
+ * reference, from syntactic context alone. This is the inverse of
+ * {@link isPotentialReferenceNode}: rather than "does this node match that
+ * symbol", it answers "what *kind* of symbol could this node refer to", so a
+ * name match against a wrong-kind symbol can be dropped before any per-symbol
+ * work — e.g. the bare argument `theme` in `fish_config theme` must not resolve
+ * to a same-named `set -g theme` variable.
+ *
+ * Returns `null` when context cannot narrow the category. Bare argument words,
+ * strings, and options are carriers that may hold either a command or a variable
+ * reference, so callers should fall back to broad matching for them.
+ */
+/** Builtins whose non-option arguments name a command/function reference. */
+const COMMAND_NAME_ARG_BUILTINS = ['command', 'builtin', 'type', 'which', 'functions'];
+
+/** `command ls`, `type foo`, `functions -q foo`, … — a non-option argument of a
+ * builtin that takes a command/function name. */
+function isCommandWrapperArgument(node: SyntaxNode): boolean {
+  if (isOption(node)) return false;
+  const cmd = findParentCommand(node);
+  const name = cmd?.firstNamedChild?.text;
+  if (!cmd || !name || !COMMAND_NAME_ARG_BUILTINS.includes(name)) return false;
+  return cmd.childrenForFieldName('argument')
+    .some(arg => !isOption(arg) && arg.equals(node));
+}
+
+/** `function f --wraps cmd` / `-w cmd` / `-w=cmd`, and the `complete -w cmd`
+ * form — the wrapped target is a command/function reference. */
+function isWrapsTargetNode(node: SyntaxNode): boolean {
+  if (isOption(node) && /^(-w|--wraps)=/.test(node.text)) return true;
+  const prev = node.previousNamedSibling;
+  return !isOption(node)
+    && !!prev
+    && isMatchingOption(prev, Option.create('-w', '--wraps'));
+}
+
+/** `abbr -a x --function cmd` — `cmd` is the function the abbr expands to. */
+function isAbbrFunctionTarget(node: SyntaxNode): boolean {
+  if (isOption(node)) return false;
+  const cmd = findParentCommand(node);
+  if (!cmd || !isCommandWithName(cmd, 'abbr')) return false;
+  const prev = node.previousNamedSibling;
+  return !!prev && isMatchingOption(prev, Option.create('-f', '--function'));
+}
+
+/** `bind KEYS cmd …` — every argument after the key sequence is executed as a
+ * command. */
+function isBindCommandValue(node: SyntaxNode): boolean {
+  if (isOption(node)) return false;
+  const cmd = findParentCommand(node);
+  if (!cmd || !isCommandWithName(cmd, 'bind')) return false;
+  const args = cmd.childrenForFieldName('argument').filter(a => !isOption(a));
+  // args[0] is the key sequence; the remainder is the bound command.
+  return args.slice(1).some(a =>
+    a.equals(node) || a.type === 'concatenation' && a.firstNamedChild?.equals(node));
+}
+
+/** The value of a `complete -s X` / `-l X` / `-o X` flag — these reference the
+ * argparse-defined option (`_flag_X`) of the `complete -c` command, which is a
+ * variable-category symbol. (The `-c` value is the command itself; `-w` is a
+ * wrapped command — both handled as functions elsewhere.) */
+function isCompleteArgparseFlagNode(node: SyntaxNode): boolean {
+  if (isOption(node)) return false;
+  const cmd = findParentCommand(node);
+  if (!cmd || !isCommandWithName(cmd, 'complete')) return false;
+  const prev = node.previousNamedSibling;
+  return !!prev && isMatchingOption(
+    prev,
+    Option.create('-s', '--short-option'),
+    Option.create('-l', '--long-option'),
+    Option.create('-o', '--old-option'),
+  );
+}
+
+/** The variable name of a `function f -v NAME` / `--on-variable NAME` header.
+ * Unlike `-V`/`--inherit-variable` (which *defines* a local), `--on-variable`
+ * names an existing variable to watch — a pure reference, so it isn't covered by
+ * `isFunctionVariableDefinitionName`. */
+function isFunctionOnVariableReference(node: SyntaxNode): boolean {
+  if (isOption(node)) return false;
+  const prev = node.previousNamedSibling;
+  if (!prev || !isMatchingOption(prev, Option.create('-v', '--on-variable'))) return false;
+  return !!findParent(node, n => isFunctionDefinition(n));
+}
+
+/** A `complete` string argument whose contents fish re-evaluates as shell code:
+ * the `-n`/`--condition` value (always shell), or a `-a`/`--arguments` value
+ * containing a command substitution `(cmd …)`. A plain `-a 'literal'` is a
+ * completion candidate, and a single-quoted `'(x)'` outside `complete` (e.g.
+ * `echo '(x)'`, never executed) both return false. Real command substitutions
+ * `echo (cmd)` / `"$(cmd)"` parse to `command_name` nodes and are handled by the
+ * `isCommandName` arm instead. */
+function isReevaluatedCompleteString(node: SyntaxNode): boolean {
+  if (!isString(node) && node.type !== 'concatenation') return false;
+  const cmd = findParentCommand(node);
+  if (!cmd || !isCommandWithName(cmd, 'complete')) return false;
+  const prev = node.previousNamedSibling;
+  if (!prev) return false;
+  if (isMatchingOption(prev, Option.create('-n', '--condition'))) return true;
+  if (isMatchingOption(prev, Option.create('-a', '--arguments'))) {
+    return /\(.*\)/.test(node.text);
+  }
+  return false;
+}
+
+/** A bare option used as a command argument (`cmd --value`, `cmd -v`) — its only
+ * resolvable target is an argparse-defined flag, which is a variable-category
+ * symbol. Checked *after* the function arm so `-w=cmd` wraps stay functions.
+ * Wrong-name options (`ls --color`) simply find no matching symbol downstream. */
+function isCommandCallOption(node: SyntaxNode): boolean {
+  if (!isOption(node)) return false;
+  const cmd = findParentCommand(node);
+  if (!cmd) return false;
+  return cmd.childrenForFieldName('argument').some(arg => arg.equals(node));
+}
+
+/**
+ * Backwards-maps a *usage-site* SyntaxNode to the symbol category it is able to
+ * reference, from syntactic context alone. This is the inverse of
+ * {@link isPotentialReferenceNode}: rather than "does this node match that
+ * symbol", it answers "what *kind* of symbol could this node refer to", so a
+ * name match against a wrong-kind symbol can be dropped before any per-symbol
+ * work — e.g. the bare argument `theme` in `fish_config theme` must not resolve
+ * to a same-named `set -g theme` variable.
+ *
+ * Returns `null` when context cannot narrow the category — a plain completion
+ * string, a flag's value, or a bare subcommand argument carries no resolvable
+ * reference, so callers fall back to broad matching (or to none).
+ */
+export function findReferenceSymbolType(node: SyntaxNode): ReferenceSymbolType | null {
+  if (!node || !node.isNamed) return null;
+
+  // Variable usages: `$var` / `variable_name`, a variable definition name, a
+  // `set -q/-e/-S NAME` target, a `read` target (arity-aware: skips `-p`
+  // prompts), or an argparse-defined name.
+  if (
+    isVariable(node)
+    || isVariableDefinitionName(node)
+    || isSetReferenceTargetNode(node)
+    || isReadVariableDefinitionName(node)
+    || isArgparseVariableDefinitionName(node)
+    || isCompleteArgparseFlagNode(node)
+    || isFunctionOnVariableReference(node)
+  ) {
+    return 'variable';
+  }
+
+  // Event usages: the `EVENT` argument of `emit EVENT`, or the event name of a
+  // `function --on-event EVENT` handler.
+  if (
+    isEmittedEventDefinitionName(node)
+    || isGenericFunctionEventHandlerDefinitionName(node)
+  ) {
+    return 'emit';
+  }
+
+  // Command/function usages: a bare command-name position, a `complete -c CMD`
+  // target, an alias body, a `--wraps`/`command`/`functions`/`abbr --function`
+  // argument, a `bind` command body, or an embedded command substitution.
+  if (
+    isCommandName(node) && !isDefinition(node)
+    || isCompleteCommandName(node)
+    || isAliasDefinitionValue(node)
+    || isWrapsTargetNode(node)
+    || isCommandWrapperArgument(node)
+    || isAbbrFunctionTarget(node)
+    || isBindCommandValue(node)
+    || isReevaluatedCompleteString(node)
+  ) {
+    return 'function';
+  }
+
+  // Fallback: a bare `--flag`/`-f` option argument of a command call can only
+  // reference an argparse-defined flag (variable). Kept last so the function
+  // arm claims `-w=cmd`-style option references first.
+  if (isCommandCallOption(node)) {
+    return 'variable';
+  }
+
+  return null;
+}
+
+/**
+ * Maps a FishSymbol to the reference category that can target it — the
+ * symbol-side counterpart of {@link findReferenceSymbolType}. Used to compare a
+ * candidate symbol against a usage node's narrowed category.
+ */
+export function symbolReferenceType(symbol: FishSymbol): ReferenceSymbolType {
+  if (symbol.isEventHook() || symbol.isEmittedEvent()) return 'emit';
+  if (symbol.isFunction()) return 'function';
+  // Everything else (SET/READ/FOR/EXPORT/ARGPARSE/STRING_REGEX/INLINE_VARIABLE)
+  // is variable-shaped.
+  return 'variable';
+}
+
 export function extractReferenceCandidateNames(node: SyntaxNode): string[] {
   if (!node || !node.isNamed || !node.text?.trim()) return [];
 
@@ -262,8 +470,17 @@ function isCompletionArgparseFlagWithCommandName(node: SyntaxNode, commandName: 
   );
   if (!hasCommand) return false;
 
-  return !!node.previousSibling
-    && Option.fromRaw(flagName).equals(node.previousSibling);
+  // `node` is the flag *name* token; it sits after `-s`/`--short-option` for a
+  // single-char flag (`complete ... -s v`) or after `-l`/`--long-option` for a
+  // multi-char flag (`complete ... -l value`). Matching on the dash-prefixed
+  // form via `Option.fromRaw(flagName)` was wrong — `flagName` ("v"/"value")
+  // has no leading dashes, so `fromRaw` built an empty option that never
+  // matched. Mirror `FishSymbol.isArgparseCompletionFlag`'s short/long routing.
+  const prev = node.previousSibling;
+  if (!prev || node.text !== flagName) return false;
+  return flagName.length === 1
+    ? isMatchingOption(prev, Option.create('-s', '--short-option'))
+    : isMatchingOption(prev, Option.create('-l', '--long-option'));
 }
 
 function rangeFromNode(node: SyntaxNode): Range {

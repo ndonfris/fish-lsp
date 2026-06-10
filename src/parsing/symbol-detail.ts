@@ -211,7 +211,7 @@ function buildVariableDetail(symbol: FishSymbol) {
   const description = [`(${md.bold(type)}) ${md.inlineCode(name)}`];
   // add short info about variable
   description.push(md.separator());
-  if (fishKind === 'SET' || fishKind === 'READ') {
+  if (fishKind === 'SET' || fishKind === 'READ' || fishKind === 'EXPORT') {
     description.push(`${variableScopeDescription(symbol)}, ${variableExportDescription(symbol)}`);
   } else if (fishKind === 'ARGPARSE') {
     description.push('locally scoped');
@@ -277,8 +277,6 @@ function buildVariableDetail(symbol: FishSymbol) {
 }
 
 export function createDetail(symbol: FishSymbol) {
-  if (symbol.fishKind === 'EXPORT') return symbol.detail.toString();
-
   const symbolKind = getSymbolKind(symbol);
   if (symbolKind === '') return symbol.detail;
 

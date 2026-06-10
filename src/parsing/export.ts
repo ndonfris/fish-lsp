@@ -5,8 +5,6 @@ import { LspDocument } from '../document';
 import { FishSymbol } from './symbol';
 import { DefinitionScope } from '../utils/definition-scope';
 import { getRange } from '../utils/tree-sitter';
-import { md } from '../utils/markdown-builder';
-import { uriToReadablePath } from '../utils/translation';
 import { Option } from './options';
 
 /**
@@ -132,26 +130,6 @@ export function extractExportVariable(node: SyntaxNode): ExtractedExportVariable
   return { name, value, nameRange: Range.create(nameStart, nameEnd) };
 }
 
-export function buildExportDetail(doc: LspDocument, commandNode: SyntaxNode, variableDefinitionNode: SyntaxNode) {
-  const commandText = commandNode.text;
-
-  const extracted = extractExportVariable(variableDefinitionNode);
-  if (!extracted) return '';
-  const { name, value } = extracted;
-
-  // Create a detail string with the command and variable definition
-  const detail = [
-    `(${md.bold('variable')}) ${md.inlineCode(name)}`,
-    `${md.italic('globally')} scoped, ${md.italic('exported')}`,
-    `located in file: ${md.inlineCode(uriToReadablePath(doc.uri))}`,
-    md.separator(),
-    md.codeBlock('fish', commandText),
-    md.separator(),
-    md.codeBlock('fish', `set -gx ${name} ${value}`),
-  ].join(md.newline());
-  return detail;
-}
-
 /**
  * Process an export command to create a FishSymbol
  */
@@ -180,11 +158,9 @@ export function processExportCommand(document: LspDocument, node: SyntaxNode, ch
   // Get the scope - export always creates global exported variables
   const scope = DefinitionScope.create(node.parent || node, 'global');
 
-  // The detail will be formatted by FishSymbol.setupDetail()
-  const detail = buildExportDetail(document, node, found.nameNode!);
-
-  // Create a FishSymbol for the export definition - using 'SET' fishKind
-  // since export is effectively an alias for 'set -gx'
+  // Create a FishSymbol for the export definition. The hover `detail` is built
+  // lazily by `createDetail` → `buildVariableDetail` (the same path as `set -gx`),
+  // so an `EXPORT` symbol renders identically to a normal exported variable.
   return [
     FishSymbol.fromObject({
       name,
@@ -192,10 +168,11 @@ export function processExportCommand(document: LspDocument, node: SyntaxNode, ch
       focusedNode: varDefNode,
       range: getRange(node),
       selectionRange: nameRange,
-      fishKind: 'EXPORT', // Using SET since export is equivalent to 'set -gx'
+      fishKind: 'EXPORT',
       document,
       uri: document.uri,
-      detail,
+      // Built lazily by `createDetail` → `buildVariableDetail`; the seed is unused.
+      detail: '',
       scope,
       // this is so that we always see that export variables are global and exported
       options: [Option.create('-g', '--global'), Option.create('-x', '--export')],

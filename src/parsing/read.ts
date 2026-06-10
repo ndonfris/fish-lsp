@@ -81,6 +81,18 @@ function getFallbackModifierScope(document: LspDocument, node: SyntaxNode) {
  * @param node The node to check isCommandWithName(node, 'read')
  * @returns nodes that are variable names and the modifier if seen
  */
+/**
+ * True when `node`'s previous sibling is a value-taking flag in its *separate*
+ * form (`-p prompt`), meaning `node` is that flag's value and must be skipped.
+ * The attached form (`-p=prompt`) is self-contained and does NOT consume the
+ * following argument, so a trailing `read -p=(...) var` still defines `var`.
+ */
+function isValueOfPrecedingFlag(node: SyntaxNode, option: Option): boolean {
+  const prev = node.previousSibling;
+  if (!prev || prev.text.includes('=')) return false;
+  return isMatchingOption(prev, option);
+}
+
 export function findReadChildren(node: SyntaxNode): { definitionNodes: SyntaxNode[]; modifier: Option | undefined; } {
   let modifier: Option | undefined = undefined;
   const definitionNodes: SyntaxNode[] = [];
@@ -95,19 +107,19 @@ export function findReadChildren(node: SyntaxNode): { definitionNodes: SyntaxNod
           return false;
         case isMatchingOption(n, Option.create('-c', '--command')):
           return false;
-        case isMatchingOption(n.previousSibling!, Option.create('-d', '--delimiter')):
+        case isValueOfPrecedingFlag(n, Option.create('-d', '--delimiter')):
         case isMatchingOption(n, Option.create('-d', '--delimiter')):
           return false;
-        case isMatchingOption(n.previousSibling!, Option.create('-n', '--nchars')):
+        case isValueOfPrecedingFlag(n, Option.create('-n', '--nchars')):
         case isMatchingOption(n, Option.create('-n', '--nchars')):
           return false;
-        case isMatchingOption(n.previousSibling!, Option.create('-p', '--prompt')):
+        case isValueOfPrecedingFlag(n, Option.create('-p', '--prompt')):
         case isMatchingOption(n, Option.create('-p', '--prompt')):
           return false;
-        case isMatchingOption(n.previousSibling!, Option.create('-P', '--prompt-str')):
+        case isValueOfPrecedingFlag(n, Option.create('-P', '--prompt-str')):
         case isMatchingOption(n, Option.create('-P', '--prompt-str')):
           return false;
-        case isMatchingOption(n.previousSibling!, Option.create('-R', '--right-prompt')):
+        case isValueOfPrecedingFlag(n, Option.create('-R', '--right-prompt')):
         case isMatchingOption(n, Option.create('-R', '--right-prompt')):
           return false;
         case isMatchingOption(n, Option.create('-s', '--silent')):
