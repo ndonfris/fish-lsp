@@ -1904,6 +1904,60 @@ export class Analyzer {
   }
 
   /**
+   * Data for a name that is *referenced but never defined* — a function called
+   * or a variable expanded multiple times with no matching definition anywhere
+   * in the indexed workspace. Powers the last-resort "multi-reference" hover
+   * (built in `hover.ts`) shown only when no symbol, prebuilt, or command/man
+   * documentation applies.
+   *
+   * Returns `null` unless: the node has a definite category, there is no
+   * definition of that name+category, and there are at least two distinct
+   * reference sites of the matching category in this document.
+   */
+  public getUndefinedReferenceSites(
+    document: LspDocument,
+    position: Position,
+  ): { name: string; category: ReferenceSymbolType; sites: { line: number; snippet: string; }[]; } | null {
+    const node = this.nodeAtPoint(document.uri, position.line, position.character);
+    if (!node) return null;
+    const category = findReferenceSymbolType(node);
+    if (category === null) return null;
+    const name = this.wordAtPoint(document.uri, position.line, position.character)?.trim() || node.text;
+    if (!name) return null;
+
+    // A definition of this name+category exists → `getHover` already shows it.
+    const hasDefinition = this.symbols.allSymbolsByName.find(name)
+      .some(s => symbolReferenceType(s) === category);
+    if (hasDefinition) return null;
+
+    this.ensureReferenceCandidatesForUri(document.uri);
+    // A single `$var` reference yields overlapping candidate nodes (the
+    // `variable_expansion` and its inner `variable_name`); merge them so each
+    // logical use counts once. Sort by position, then drop any candidate that
+    // starts inside the previously-kept candidate's range.
+    const candidates = this.referenceCandidates.findInDocument(document.uri, name)
+      .filter(candidate => findReferenceSymbolType(candidate.node) === category)
+      .sort((a, b) =>
+        a.range.start.line - b.range.start.line
+        || a.range.start.character - b.range.start.character);
+
+    const sites: { line: number; snippet: string; }[] = [];
+    let lastEnd: Position | null = null;
+    for (const candidate of candidates) {
+      const start = candidate.range.start;
+      if (lastEnd && (start.line < lastEnd.line
+        || start.line === lastEnd.line && start.character < lastEnd.character)) {
+        continue;
+      }
+      const enclosing = findParentCommand(candidate.node) ?? candidate.node;
+      sites.push({ line: start.line, snippet: enclosing.text.split('\n')[0]!.trim() });
+      lastEnd = candidate.range.end;
+    }
+    if (sites.length < 2) return null;
+    return { name, category, sites };
+  }
+
+  /**
    * Returns the tree-sitter tree for the given documentUri.
    * If the document is not in the cache, it will cache it and return the tree.
    *

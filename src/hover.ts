@@ -369,6 +369,44 @@ export const variablesWithoutLocalDocumentation = [
  * Returns `null` when nothing prebuilt applies, so `onHover` continues to the
  * command-documentation fallback.
  */
+/**
+ * Last-resort hover for a name that is *referenced but never defined* — a
+ * function called or a variable expanded multiple times with no matching
+ * definition and no command/man documentation. Surfaces the category, the
+ * reference count, and the usage sites so the user sees it is used yet unresolved
+ * (a likely typo, or an external/autoloaded symbol not in the workspace).
+ *
+ * Returns `null` when there is no such multi-reference, so `onHover` keeps its
+ * existing `null` result.
+ */
+export function getMultiReferenceHover(
+  analyzer: Analyzer,
+  doc: LspDocument,
+  position: LSP.Position,
+): LSP.Hover | null {
+  const found = analyzer.getUndefinedReferenceSites(doc, position);
+  if (!found) return null;
+  const { name, category, sites } = found;
+
+  const maxSites = 5;
+  const shown = sites.slice(0, maxSites).map(s =>
+    `- ${md.inlineCode(`${s.line + 1}`)}  ${md.inlineCode(s.snippet)}`);
+  const more = sites.length > maxSites
+    ? [`- …and ${md.bold(String(sites.length - maxSites))} more`]
+    : [];
+
+  return {
+    contents: enrichToMarkdown([
+      `(${md.italic(category)}) ${md.inlineCode(name)}`,
+      md.separator(),
+      `${md.italic('no definition found')} — referenced ${md.bold(String(sites.length))} times`,
+      md.separator(),
+      ...shown,
+      ...more,
+    ].join(md.newline())),
+  };
+}
+
 export function getPrebuiltHover(
   analyzer: Analyzer,
   doc: LspDocument,

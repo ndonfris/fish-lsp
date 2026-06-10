@@ -84,4 +84,46 @@ describe('classifier-driven getHover()', () => {
     expect(value).toBeTruthy();
     expect(value).toContain('value');
   });
+
+  // `fish_greeting` is one of the few names that legitimately exists as BOTH a
+  // function and a variable. The local definition must win over the man page,
+  // and the node category must select the right one of the two.
+  describe('fish_greeting (function + variable overlap)', () => {
+    // Both kinds defined in the same file.
+    const BOTH = [
+      'function fish_greeting',
+      '  echo "hello"',
+      'end',
+      'set -g fish_greeting "hi"',
+      'echo $fish_greeting', // line 4 — variable usage
+      'fish_greeting', //       line 5 — function call
+    ].join('\n');
+
+    it('a local variable definition is shown instead of the man page', () => {
+      const value = hoverAt('set -gx fish_greeting "hi there"\necho $‸fish_greeting');
+      expect(value).toBeTruthy();
+      expect(value).toContain('(**variable**)');
+      expect(value).toContain('fish_greeting');
+    });
+
+    it('a local function definition is shown instead of the man page', () => {
+      const value = hoverAt('function fish_greeting\n  echo hi\nend\n‸fish_greeting');
+      expect(value).toBeTruthy();
+      expect(value).toContain('fish_greeting');
+      expect(value).not.toContain('(**variable**)');
+    });
+
+    it('with both defined, `$fish_greeting` resolves to the variable', () => {
+      const value = hoverAt(BOTH.replace('echo $fish_greeting', 'echo $‸fish_greeting'));
+      expect(value).toBeTruthy();
+      expect(value).toContain('(**variable**)');
+    });
+
+    it('with both defined, the `fish_greeting` call resolves to the function', () => {
+      // caret on the bare call (last line)
+      const value = hoverAt(BOTH.replace(/\nfish_greeting$/, '\n‸fish_greeting'));
+      expect(value).toBeTruthy();
+      expect(value).not.toContain('(**variable**)');
+    });
+  });
 });

@@ -12,7 +12,7 @@ import { logger, Time } from './logger';
 import { connection, setExternalConnection } from './utils/startup';
 import { formatTextWithIndents, symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes } from './utils/tree-sitter';
-import { getPrebuiltHover, handleHover } from './hover';
+import { getMultiReferenceHover, getPrebuiltHover, handleHover } from './hover';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentation-cache';
 import { getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspaces } from './utils/workspace';
 import { workspaceManager } from './utils/workspace-manager';
@@ -888,8 +888,14 @@ export default class FishServer {
       current,
       this.documentationCache,
     );
-    logger.log({ hover: { ...params }, ...fallbackHover });
-    return fallbackHover;
+    if (fallbackHover) {
+      logger.log({ hover: { ...params }, ...fallbackHover });
+      return fallbackHover;
+    }
+
+    // --- 5. Last resort: a name referenced multiple times but never defined and
+    //   with no command/man docs — surface the usage sites so it isn't silent. ---
+    return getMultiReferenceHover(analyzer, doc, params.position);
   }
 
   /**
