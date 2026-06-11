@@ -1,280 +1,591 @@
 .TH "FISH\-LSP" "1" "June 2026" "1.1.4" "fish-lsp"
 .SH "NAME"
 \fBfish-lsp\fR \- A language server for the fish shell
-.SH SYNOPSIS
 .P
-\fBfish\-lsp [OPTIONS]\fP
-.br
-\fBfish\-lsp [SUBCOMMAND] [OPTIONS]\fP
+.SH SYNOPSIS
+.nf
+\fBfish\-lsp\fR [\fB\-v\fR | \fB\-\-version\fR] [\fB\-h\fR | \fB\-\-help\fR] [\fB\-\-help\-all\fR] [\fB\-\-help\-short\fR]
+         [\fB\-\-help\-man\fR]
+\fBfish\-lsp\fR \fBstart\fR [\fB\-\-enable\fR | \fB\-\-disable\fR] [\fB\-\-dump\fR]
+               [\fB\-\-stdio\fR | \fB\-\-node\-ipc\fR | \fB\-\-socket\fR \fIPORT\fR]
+               [\fB\-\-memory\-limit\fR \fIMB\fR] [\fB\-\-max\-files\fR \fINUMBER\fR] [\fB\-\-web\fR]
+\fBfish\-lsp\fR \fBenv\fR [\fB\-c\fR | \fB\-\-create\fR] [\fB\-s\fR | \fB\-\-show\fR] [\fB\-\-show\-default\fR]
+             [\fB\-\-only\fR \fIVAR\fR] [\fB\-\-no\-global\fR] [\fB\-\-no\-local\fR] [\fB\-\-no\-export\fR]
+             [\fB\-\-no\-comments\fR] [\fB\-\-confd\fR] [\fB\-\-json\fR]
+\fBfish\-lsp\fR \fBinfo\fR [\fB\-\-bin\fR] [\fB\-\-path\fR] [\fB\-\-build\-time\fR] [\fB\-\-build\-type\fR]
+              [\fB\-v\fR | \fB\-\-version\fR] [\fB\-\-lsp\-version\fR] [\fB\-\-capabilities\fR]
+              [\fB\-\-man\-file\fR] [\fB\-\-log\-file\fR] [\fB\-\-show\fR] [\fB\-\-short\fR] [\fB\-\-json\fR]
+              [\fB\-\-extra\fR] [\fB\-\-verbose\fR] [\fB\-\-check\-health\fR] [\fB\-\-health\-check\fR]
+              [\fB\-\-time\-startup\fR] [\fB\-\-time\-only\fR] [\fB\-\-use\-workspace\fR \fIPATH\fR]
+              [\fB\-\-no\-warning\fR] [\fB\-\-show\-files\fR] [\fB\-\-dump\-symbol\-tree\fR \fIFILE\fR]
+              [\fB\-\-dump\-parse\-tree\fR \fIFILE\fR] [\fB\-\-dump\-semantic\-tokens\fR \fIFILE\fR]
+              [\fB\-\-no\-color\fR] [\fB\-\-no\-icons\fR] [\fB\-\-source\-maps\fR] [\fB\-\-check\fR]
+              [\fB\-\-status\fR]
+\fBfish\-lsp\fR \fBurl\fR [\fB\-\-repo\fR | \fB\-\-git\fR] [\fB\-\-npm\fR] [\fB\-\-homepage\fR]
+             [\fB\-\-contributions\fR] [\fB\-\-wiki\fR] [\fB\-\-issues\fR | \fB\-\-report\fR]
+             [\fB\-\-discussions\fR] [\fB\-\-clients\-repo\fR] [\fB\-\-sources\fR]
+\fBfish\-lsp\fR \fBcomplete\fR [\fB\-\-names\fR] [\fB\-\-toggles\fR] [\fB\-\-fish\fR] [\fB\-\-features\fR]
+                  [\fB\-\-env\-variables\fR] [\fB\-\-env\-variable\-names\fR]
+                  [\fB\-\-names\-with\-summary\fR] [\fB\-\-abbreviations\fR]
+.fi
+.P
 .SH DESCRIPTION
 .P
-\fBfish\-lsp\fP is a language server for the fish shell\. It provides IDE\-like features for fish shell scripts, such as syntax checking, linting, and auto\-completion\.
+\fBfish\-lsp\fP is a 
+.UR https://lsif.dev
+.I Language Server Protocol
+.UE
+(LSP) implementation for the fish shell\. It brings IDE\-like features to fish scripts in any editor that supports the protocol, including completions, hover documentation, signature help, diagnostics, goto definition, find references, rename, document and workspace symbols, and formatting\.
 .P
-It requires a language client that supports the Language Server Protocol (LSP)\.
+The server is not run directly by the user\. A language client starts it and communicates over \fBstdio\fP (the default), a TCP socket, or node IPC\. Common clients include the built\-in LSP API in \fBnvim\fP (v0\.9+), \fBlsp\-mode\fP for \fBemacs\fP, and the fish\-lsp extension for \fBVSCode\fP\|\.
 .P
-Some common language clients include: the builtin API for \fBnvim\fP (v0\.9+), lsp\-mode for \fBemacs\fP, or the fish\-lsp extension for \fBVSCode\fP\|\.
+Server behavior is configured through the \fBfish_lsp_*\fP environment variables, which can be generated with \fBfish\-lsp env\fP\|\. Any command flag overrides its corresponding environment variable for that invocation\.
 .P
-Documentation below shows usage of the \fBfish\-lsp\fP command, including its subcommands and options\.
+The following subcommands are available:
+
+.RS 1
+.IP \(bu 2
+\fBstart\fP — start the language server
+.IP \(bu 2
+\fBenv\fP — generate the \fBfish_lsp_*\fP environment variables
+.IP \(bu 2
+\fBinfo\fP — show build, health, and debugging information
+.IP \(bu 2
+\fBurl\fP — print helpful project URLs
+.IP \(bu 2
+\fBcomplete\fP — generate completions for the \fBfish\-lsp\fP command
+
+.RE
+.P
 .SH OPTIONS
 .P
-\fB\-v\fP or \fB\-\-version\fP                Show version information and exit\.
+.TP
+\fB\-v\fP, \fB\-\-version\fP
 .br
-\fB\-h\fP or \fB\-\-help\fP                   Show help message and exit\.
+Show version information and exit\.
+.TP
+\fB\-h\fP, \fB\-\-help\fP
 .br
-\fB\-\-help\-all\fP                     Show all the help information
+Show help message and exit\.
+.TP
+\fB\-\-help\-all\fP
 .br
-\fB\-\-help\-short\fP                   Show shortened help message
+Show all the help information
+.TP
+\fB\-\-help\-short\fP
 .br
-\fB\-\-help\-man\fP                     Show manpage output
-.SH SUBCOMMANDS
-.SS \fBstart\fP
+Show shortened help message
+.TP
+\fB\-\-help\-man\fP
+.br
+Show manpage output
+.P
+.SH START SUBCOMMAND
+.nf
+\fBfish\-lsp\fR \fBstart\fR [\fB\-\-enable\fR | \fB\-\-disable\fR] [\fB\-\-dump\fR]
+               [\fB\-\-stdio\fR | \fB\-\-node\-ipc\fR | \fB\-\-socket\fR \fIPORT\fR]
+               [\fB\-\-memory\-limit\fR \fIMB\fR] [\fB\-\-max\-files\fR \fINUMBER\fR] [\fB\-\-web\fR]
+.fi
 .P
 start the language server
 .P
-\fB\-\-enable\fP                       enable the language server features
+.TP
+\fB\-\-enable [HANDLER\.\.\.]\fP
 .br
-\fB\-\-disable\fP                      disable the language server features
+enable the language server features
+.TP
+\fB\-\-disable [HANDLER\.\.\.]\fP
 .br
-\fB\-\-dump\fP                         dump the json output of the language server features enabled after startup
+disable the language server features
+.TP
+\fB\-\-dump\fP
 .br
-\fB\-\-stdio\fP                        use stdin/stdout for communication (default)
+dump the json output of the language server features enabled after startup
+.TP
+\fB\-\-stdio\fP
 .br
-\fB\-\-node\-ipc\fP                     use node IPC for communication
+use stdin/stdout for communication (default)
+.TP
+\fB\-\-node\-ipc\fP
 .br
-\fB\-\-socket <port>\fP                use TCP socket for communication
+use node IPC for communication
+.TP
+\fB\-\-socket <port>\fP
 .br
-\fB\-\-memory\-limit <mb>\fP            set memory usage limit in MB
+use TCP socket for communication
+.TP
+\fB\-\-memory\-limit <mb>\fP
 .br
-\fB\-\-max\-files <number>\fP           override the maximum number of files to analyze
+set memory usage limit in MB
+.TP
+\fB\-\-max\-files <number>\fP
 .br
-\fB\-\-web\fP                          start server in web mode used for https://fish-lsp.dev/playground
-.SS \fBenv\fP
+override the maximum number of files to analyze
+.TP
+\fB\-\-web\fP
+.br
+start server in web mode used for https://fish-lsp.dev/playground
 .P
-show the environment variables available to the lsp
-.P
-\fB\-c\fP or \fB\-\-create\fP                 create the environment variable
-.br
-\fB\-s\fP or \fB\-\-show\fP                   show the environment variables
-.br
-\fB\-\-show\-default\fP                 show the default values for fish\-lsp env variables
-.br
-\fB\-\-only <VAR>\fP                   only include the specified environment variables in the output
-.br
-\fB\-\-no\-global\fP                    don't use global scope when generating environment variables
-.br
-\fB\-\-no\-local\fP                     don't use local scope when generating environment variables
-.br
-\fB\-\-no\-export\fP                    don't use export flag when generating environment variables
-.br
-\fB\-\-no\-comments\fP                  skip outputting comments
-.br
-\fB\-\-confd\fP                        output for redirecting to conf\.d/fish\-lsp\.fish
-.br
-\fB\-\-json\fP                         output \fBfish_lsp_*\fP initialization variables as JSON object (for vscode \fBsettings\.json\fP)
-.SS \fBinfo\fP
-.P
-show the build info of fish\-lsp
-.P
-\fB\-\-bin\fP                          show the path of the fish\-lsp executable
-.br
-\fB\-\-path\fP                         show the path of the entire fish\-lsp installation
-.br
-\fB\-\-build\-time\fP                   show the path of the entire fish\-lsp repo
-.br
-\fB\-\-build\-type\fP                   show the build type of the command
-.br
-\fB\-v\fP or \fB\-\-version\fP                show the lsp version
-.br
-\fB\-\-lsp\-version\fP                  show the vscode\-languageserver version
-.br
-\fB\-\-capabilities\fP                 show the lsp capabilities
-.br
-\fB\-\-man\-file\fP                     show the man file path
-.br
-\fB\-\-log\-file\fP                     show the log file path
-.br
-\fB\-\-show\fP                         show the man/log file contents (needs to be paired with \fB\-\-log\-file\fP or \fB\-\-man\-file\fP)
-.br
-\fB\-\-short\fP                        display small amount of info (alias for \fB\-\-version \-\-build\-type \-\-build\-time \-\-lsp\-version\fP)
-.br
-\fB\-\-json\fP                         display the info as JSON (e\.g\., \fBfish\-lsp info \-\-short \-\-json\fP)
-.br
-\fB\-\-extra\fP                        show debugging server info (capabilities, paths, version, etc\.)
-.br
-\fB\-\-verbose\fP                      show debugging server info (capabilities, paths, version, etc\.)
-.br
-\fB\-\-check\-health\fP                 run diagnostics and report health status
-.br
-\fB\-\-health\-check\fP                 run diagnostics and report health status
-.br
-\fB\-\-time\-startup\fP                 time the startup of the fish\-lsp executable
-.br
-\fB\-\-time\-only\fP                    show brief summary of the startup timing
-.br
-\fB\-\-use\-workspace <PATH>\fP         use the workspace at the specified directory path when \fBfish\-lsp info \-\-time\-startup\fP is used
-.br
-\fB\-\-no\-warning\fP                   disable message in the \fBfish\-lsp info \-\-time\-startup\fP output
-.br
-\fB\-\-show\-files\fP                   show the files that were indexed during startup when \fBfish\-lsp info \-\-time\-startup\fP is used
-.br
-\fB\-\-dump\-symbol\-tree <FILE>\fP      show the fish\-lsp definition symbol tree for the specified file
-.br
-\fB\-\-dump\-parse\-tree <FILE>\fP       show the tree\-sitter AST for the specified file
-.br
-\fB\-\-dump\-semantic\-tokens <FILE>\fP  show the semantic\-tokens for the specified file
-.br
-\fB\-\-no\-color\fP                     disable color output from \fB\-\-dump\-*\fP output
-.br
-\fB\-\-no\-icons\fP                     disable icon usage in output from \fBfish\-lsp info \-\-dump\-symbol\-tree\fP
-.br
-\fB\-\-source\-maps\fP                  show the source\-maps
-.br
-\fB\-\-check\fP                        used in combination with \fB\-\-source\-maps\fP, verifies source\-maps are working by throwing an error
-.br
-\fB\-\-status\fP                       used in combination with \fB\-\-source\-maps\fP, shows status of source\-maps loading
-.SS \fBurl\fP
-.P
-show a helpful url related to the fish\-lsp
-.P
-\fB\-\-repo\fP or \fB\-\-git\fP                show the github repo
-.br
-\fB\-\-npm\fP                          show the npm package url
-.br
-\fB\-\-homepage\fP                     show the homepage
-.br
-\fB\-\-contributions\fP                show the contributions url
-.br
-\fB\-\-wiki\fP                         show the github wiki
-.br
-\fB\-\-issues\fP or \fB\-\-report\fP           show the issues page
-.br
-\fB\-\-discussions\fP                  show the discussions page
-.br
-\fB\-\-clients\-repo\fP                 show the clients configuration repo
-.br
-\fB\-\-sources\fP                      show a list of helpful sources
-.SS \fBcomplete\fP
-.P
-Provide completions for the \fBfish\-lsp\fP
-.P
-\fB\-\-names\fP                        show the feature names of the completions
-.br
-\fB\-\-toggles\fP                      show the feature names of the completions
-.br
-\fB\-\-fish\fP                         show fish script
-.br
-\fB\-\-features\fP                     show features
-.br
-\fB\-\-env\-variables\fP                show env variable completions
-.br
-\fB\-\-env\-variable\-names\fP           show env variable names
-.br
-\fB\-\-names\-with\-summary\fP           show the names with the summary for the completions
-.br
-\fB\-\-abbreviations\fP                show the 'fish\-lsp' subcommand abbreviations
-.SH EXAMPLES
+.SS Examples
 
 .RS 1
 .IP \(bu 2
 Start the \fBfish\-lsp\fP language server, with the default configuration:
 .RS 2
+.sp
 .nf
+.ft C
 >_ fish\-lsp start
-.fi
-.RE
-.IP \(bu 2
-Generate the completions for the \fBfish\-lsp\fP language server binary:
-.RS 2
-.nf
->_ fish\-lsp complete > ~/\.config/fish/completions/fish\-lsp\.fish
+.ft P
 .fi
 .RE
 .IP \(bu 2
 Debug the \fBfish\-lsp\fP language server by dumping the enabled features after startup:
 .RS 2
+.sp
 .nf
+.ft C
 >_ fish\-lsp start \-\-dump
+.ft P
 .fi
 .RE
 .IP \(bu 2
-Show information about the \fBfish\-lsp\fP language server:
+Start the \fBfish\-lsp\fP language server with certain features disabled
 .RS 2
+.sp
 .nf
->_ fish\-lsp info 
+.ft C
+>_ fish\-lsp start \-\-disable diagnostic complete 
+.ft P
 .fi
 .RE
-.IP \(bu 2
-Show all the available information about the \fBfish\-lsp\fP language server:
-.RS 2
-.nf
->_ fish\-lsp info \-\-verbose
-.fi
+
 .RE
-.IP \(bu 2
-Show startup timing information for the \fBfish\-lsp\fP language server:
-.RS 2
+.P
+.SH ENV SUBCOMMAND
 .nf
->_ fish\-lsp info \-\-time\-startup
+\fBfish\-lsp\fR \fBenv\fR [\fB\-c\fR | \fB\-\-create\fR] [\fB\-s\fR | \fB\-\-show\fR] [\fB\-\-show\-default\fR]
+             [\fB\-\-only\fR \fIVAR\fR] [\fB\-\-no\-global\fR] [\fB\-\-no\-local\fR] [\fB\-\-no\-export\fR]
+             [\fB\-\-no\-comments\fR] [\fB\-\-confd\fR] [\fB\-\-json\fR]
 .fi
-.RE
-.IP \(bu 2
-Show startup timing information for the \fBfish\-lsp\fP language server for a specific workspace:
-.RS 2
-.nf
->_ fish\-lsp info \-\-time\-startup \-\-use\-workspace ~/\.config/fish \-\-no\-warning
-.fi
-.RE
-.IP \(bu 2
-Preform a health check on the \fBfish\-lsp\fP language server:
-.RS 2
-.nf
->_ fish\-lsp info \-\-check\-health
-.fi
-.RE
-.IP \(bu 2
-Show the tree\-sitter\-fish parse tree for the input:
-.RS 2
-.nf
->_ cat ~/\.config/fish/config\.fish | fish\-lsp info \-\-dump\-parse\-tree
-.fi
-.RE
-.IP \(bu 2
-Show the definition symbol tree for a specific file:
-.RS 2
-.nf
->_ fish\-lsp info \-\-dump\-symbol\-tree ~/\.config/fish/config\.fish
-.fi
-.RE
-.IP \(bu 2
-Show the semantic tokens for a specific file (read from \fBstdin\fP):
-.RS 2
-.nf
->_ cat $__fish_data_dir/config\.fish | fish\-lsp info \-\-dump\-semantic\-tokens
-.fi
-.RE
+.P
+show the environment variables available to the lsp
+.P
+.TP
+\fB\-c\fP, \fB\-\-create\fP
+.br
+create the environment variable
+.TP
+\fB\-s\fP, \fB\-\-show\fP
+.br
+show the environment variables
+.TP
+\fB\-\-show\-default\fP
+.br
+show the default values for fish\-lsp env variables
+.TP
+\fB\-\-only <VAR>\fP
+.br
+only include the specified environment variables in the output
+.TP
+\fB\-\-no\-global\fP
+.br
+don't use global scope when generating environment variables
+.TP
+\fB\-\-no\-local\fP
+.br
+don't use local scope when generating environment variables
+.TP
+\fB\-\-no\-export\fP
+.br
+don't use export flag when generating environment variables
+.TP
+\fB\-\-no\-comments\fP
+.br
+skip outputting comments
+.TP
+\fB\-\-confd\fP
+.br
+output for redirecting to conf\.d/fish\-lsp\.fish
+.TP
+\fB\-\-json\fP
+.br
+output \fBfish_lsp_*\fP initialization variables as JSON object (for vscode \fBsettings\.json\fP)
+.P
+.SS Examples
+
+.RS 1
 .IP \(bu 2
 Show the environment variables available to the \fBfish\-lsp\fP language server:
 .RS 2
+.sp
 .nf
+.ft C
 >_ fish\-lsp env \-\-show
+.ft P
 .fi
 .RE
 .IP \(bu 2
 Show the default values for specific environment variables used by the \fBfish\-lsp\fP language server:
 .RS 2
+.sp
 .nf
+.ft C
 >_ fish\-lsp env \-\-show\-default \-\-only fish_lsp_all_indexed_paths,fish_lsp_max_background_files \-\-no\-comments
-.fi
-.RE
-.IP \(bu 2
-Get sources related to the \fBfish\-lsp\fP language server's development:
-.RS 2
-.nf
->_ fish\-lsp url \-\-sources
+.ft P
 .fi
 .RE
 
 .RE
+.P
+.SH INFO SUBCOMMAND
+.nf
+\fBfish\-lsp\fR \fBinfo\fR [\fB\-\-bin\fR] [\fB\-\-path\fR] [\fB\-\-build\-time\fR] [\fB\-\-build\-type\fR]
+              [\fB\-v\fR | \fB\-\-version\fR] [\fB\-\-lsp\-version\fR] [\fB\-\-capabilities\fR]
+              [\fB\-\-man\-file\fR] [\fB\-\-log\-file\fR] [\fB\-\-show\fR] [\fB\-\-short\fR] [\fB\-\-json\fR]
+              [\fB\-\-extra\fR] [\fB\-\-verbose\fR] [\fB\-\-check\-health\fR] [\fB\-\-health\-check\fR]
+              [\fB\-\-time\-startup\fR] [\fB\-\-time\-only\fR] [\fB\-\-use\-workspace\fR \fIPATH\fR]
+              [\fB\-\-no\-warning\fR] [\fB\-\-show\-files\fR] [\fB\-\-dump\-symbol\-tree\fR \fIFILE\fR]
+              [\fB\-\-dump\-parse\-tree\fR \fIFILE\fR] [\fB\-\-dump\-semantic\-tokens\fR \fIFILE\fR]
+              [\fB\-\-no\-color\fR] [\fB\-\-no\-icons\fR] [\fB\-\-source\-maps\fR] [\fB\-\-check\fR]
+              [\fB\-\-status\fR]
+.fi
+.P
+show the build info of fish\-lsp
+.P
+.TP
+\fB\-\-bin\fP
+.br
+show the path of the fish\-lsp executable
+.TP
+\fB\-\-path\fP
+.br
+show the path of the entire fish\-lsp installation
+.TP
+\fB\-\-build\-time\fP
+.br
+show the path of the entire fish\-lsp repo
+.TP
+\fB\-\-build\-type\fP
+.br
+show the build type of the command
+.TP
+\fB\-v\fP, \fB\-\-version\fP
+.br
+show the lsp version
+.TP
+\fB\-\-lsp\-version\fP
+.br
+show the vscode\-languageserver version
+.TP
+\fB\-\-capabilities\fP
+.br
+show the lsp capabilities
+.TP
+\fB\-\-man\-file\fP
+.br
+show the man file path
+.TP
+\fB\-\-log\-file\fP
+.br
+show the log file path
+.TP
+\fB\-\-show\fP
+.br
+show the man/log file contents (needs to be paired with \fB\-\-log\-file\fP or \fB\-\-man\-file\fP)
+.TP
+\fB\-\-short\fP
+.br
+display small amount of info (alias for \fB\-\-version \-\-build\-type \-\-build\-time \-\-lsp\-version\fP)
+.TP
+\fB\-\-json\fP
+.br
+display the info as JSON (e\.g\., \fBfish\-lsp info \-\-short \-\-json\fP)
+.TP
+\fB\-\-extra\fP
+.br
+show debugging server info (capabilities, paths, version, etc\.)
+.TP
+\fB\-\-verbose\fP
+.br
+show debugging server info (capabilities, paths, version, etc\.)
+.TP
+\fB\-\-check\-health\fP
+.br
+run diagnostics and report health status
+.TP
+\fB\-\-health\-check\fP
+.br
+run diagnostics and report health status
+.TP
+\fB\-\-time\-startup\fP
+.br
+time the startup of the fish\-lsp executable
+.TP
+\fB\-\-time\-only\fP
+.br
+show brief summary of the startup timing
+.TP
+\fB\-\-use\-workspace <PATH>\fP
+.br
+use the workspace at the specified directory path when \fBfish\-lsp info \-\-time\-startup\fP is used
+.TP
+\fB\-\-no\-warning\fP
+.br
+disable message in the \fBfish\-lsp info \-\-time\-startup\fP output
+.TP
+\fB\-\-show\-files\fP
+.br
+show the files that were indexed during startup when \fBfish\-lsp info \-\-time\-startup\fP is used
+.TP
+\fB\-\-dump\-symbol\-tree <FILE>\fP
+.br
+show the fish\-lsp definition symbol tree for the specified file
+.TP
+\fB\-\-dump\-parse\-tree <FILE>\fP
+.br
+show the tree\-sitter AST for the specified file
+.TP
+\fB\-\-dump\-semantic\-tokens <FILE>\fP
+.br
+show the semantic\-tokens for the specified file
+.TP
+\fB\-\-no\-color\fP
+.br
+disable color output from \fB\-\-dump\-*\fP output
+.TP
+\fB\-\-no\-icons\fP
+.br
+disable icon usage in output from \fBfish\-lsp info \-\-dump\-symbol\-tree\fP
+.TP
+\fB\-\-source\-maps\fP
+.br
+show the source\-maps
+.TP
+\fB\-\-check\fP
+.br
+used in combination with \fB\-\-source\-maps\fP, verifies source\-maps are working by throwing an error
+.TP
+\fB\-\-status\fP
+.br
+used in combination with \fB\-\-source\-maps\fP, shows status of source\-maps loading
+.P
+.SS Examples
+
+.RS 1
+.IP \(bu 2
+Show information about the \fBfish\-lsp\fP language server:
+.RS 2
+.sp
+.nf
+.ft C
+>_ fish\-lsp info
+.ft P
+.fi
+.RE
+.IP \(bu 2
+Show all the available information about the \fBfish\-lsp\fP language server:
+.RS 2
+.sp
+.nf
+.ft C
+>_ fish\-lsp info \-\-verbose
+.ft P
+.fi
+.RE
+.IP \(bu 2
+Show startup timing information for the \fBfish\-lsp\fP language server:
+.RS 2
+.sp
+.nf
+.ft C
+>_ fish\-lsp info \-\-time\-startup
+.ft P
+.fi
+.RE
+.IP \(bu 2
+Show startup timing information for the \fBfish\-lsp\fP language server for a specific workspace:
+.RS 2
+.sp
+.nf
+.ft C
+>_ fish\-lsp info \-\-time\-startup \-\-use\-workspace ~/\.config/fish \-\-no\-warning
+.ft P
+.fi
+.RE
+.IP \(bu 2
+Preform a health check on the \fBfish\-lsp\fP language server:
+.RS 2
+.sp
+.nf
+.ft C
+>_ fish\-lsp info \-\-check\-health
+.ft P
+.fi
+.RE
+.IP \(bu 2
+Show the tree\-sitter\-fish parse tree for the input:
+.RS 2
+.sp
+.nf
+.ft C
+>_ cat ~/\.config/fish/config\.fish | fish\-lsp info \-\-dump\-parse\-tree
+.ft P
+.fi
+.RE
+.IP \(bu 2
+Show the definition symbol tree for a specific file:
+.RS 2
+.sp
+.nf
+.ft C
+>_ fish\-lsp info \-\-dump\-symbol\-tree ~/\.config/fish/config\.fish
+.ft P
+.fi
+.RE
+.IP \(bu 2
+Show the semantic tokens for a specific file (read from \fBstdin\fP):
+.RS 2
+.sp
+.nf
+.ft C
+>_ cat $__fish_data_dir/config\.fish | fish\-lsp info \-\-dump\-semantic\-tokens
+.ft P
+.fi
+.RE
+
+.RE
+.P
+.SH URL SUBCOMMAND
+.nf
+\fBfish\-lsp\fR \fBurl\fR [\fB\-\-repo\fR | \fB\-\-git\fR] [\fB\-\-npm\fR] [\fB\-\-homepage\fR]
+             [\fB\-\-contributions\fR] [\fB\-\-wiki\fR] [\fB\-\-issues\fR | \fB\-\-report\fR]
+             [\fB\-\-discussions\fR] [\fB\-\-clients\-repo\fR] [\fB\-\-sources\fR]
+.fi
+.P
+show a helpful url related to the fish\-lsp
+.P
+.TP
+\fB\-\-repo\fP, \fB\-\-git\fP
+.br
+show the github repo
+.TP
+\fB\-\-npm\fP
+.br
+show the npm package url
+.TP
+\fB\-\-homepage\fP
+.br
+show the homepage
+.TP
+\fB\-\-contributions\fP
+.br
+show the contributions url
+.TP
+\fB\-\-wiki\fP
+.br
+show the github wiki
+.TP
+\fB\-\-issues\fP, \fB\-\-report\fP
+.br
+show the issues page
+.TP
+\fB\-\-discussions\fP
+.br
+show the discussions page
+.TP
+\fB\-\-clients\-repo\fP
+.br
+show the clients configuration repo
+.TP
+\fB\-\-sources\fP
+.br
+show a list of helpful sources
+.P
+.SS Examples
+
+.RS 1
+.IP \(bu 2
+Get sources related to the \fBfish\-lsp\fP language server's development:
+.RS 2
+.sp
+.nf
+.ft C
+>_ fish\-lsp url \-\-sources
+.ft P
+.fi
+.RE
+
+.RE
+.P
+.SH COMPLETE SUBCOMMAND
+.nf
+\fBfish\-lsp\fR \fBcomplete\fR [\fB\-\-names\fR] [\fB\-\-toggles\fR] [\fB\-\-fish\fR] [\fB\-\-features\fR]
+                  [\fB\-\-env\-variables\fR] [\fB\-\-env\-variable\-names\fR]
+                  [\fB\-\-names\-with\-summary\fR] [\fB\-\-abbreviations\fR]
+.fi
+.P
+Provide completions for the \fBfish\-lsp\fP
+.P
+.TP
+\fB\-\-names\fP
+.br
+show the feature names of the completions
+.TP
+\fB\-\-toggles\fP
+.br
+show the feature names of the completions
+.TP
+\fB\-\-fish\fP
+.br
+show fish script
+.TP
+\fB\-\-features\fP
+.br
+show features
+.TP
+\fB\-\-env\-variables\fP
+.br
+show env variable completions
+.TP
+\fB\-\-env\-variable\-names\fP
+.br
+show env variable names
+.TP
+\fB\-\-names\-with\-summary\fP
+.br
+show the names with the summary for the completions
+.TP
+\fB\-\-abbreviations\fP
+.br
+show the 'fish\-lsp' subcommand abbreviations
+.P
+.SS Examples
+
+.RS 1
+.IP \(bu 2
+Generate the completions for the \fBfish\-lsp\fP language server binary:
+.RS 2
+.sp
+.nf
+.ft C
+>_ fish\-lsp complete > ~/\.config/fish/completions/fish\-lsp\.fish
+.ft P
+.fi
+.RE
+.IP \(bu 2
+Generate the abbreviations for the \fBfish\-lsp\fP language server binary:
+.RS 2
+.sp
+.nf
+.ft C
+>_ fish\-lsp complete \-\-abbreviations | source
+.ft P
+.fi
+.RE
+
+.RE
+.P
 .SH SEE ALSO
 
 .RS 1
@@ -286,6 +597,7 @@ Get sources related to the \fBfish\-lsp\fP language server's development:
 \fBfish website:\fR https://fishshell.com
 
 .RE
+.P
 .SH AUTHOR
 
 .RS 1
