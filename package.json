@@ -212,7 +212,7 @@
     "chokidar": "^4.0.3",
     "conventional-changelog": "^7.2.0",
     "dts-bundle-generator": "^9.5.1",
-    "esbuild": "^0.27.0",
+    "esbuild": "^0.28.1",
     "esbuild-plugin-polyfill-node": "^0.3.0",
     "esbuild-plugins-node-modules-polyfill": "^1.8.1",
     "eslint": "^9.39.4",
