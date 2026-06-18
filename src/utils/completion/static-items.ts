@@ -3,6 +3,7 @@ import { ErrorCodes } from '../../diagnostics/error-codes';
 import { md } from '../markdown-builder';
 import { FishCompletionItem, FishCompletionItemKind, CompletionExample } from './types';
 import { findPrebuiltDoc, formatPrebuiltDocMarkdown, PrebuiltDocumentationMap } from '../snippets';
+import CompletionSnippets from '../../snippets/completionSnippets.json';
 
 const EscapedChars: FishCompletionItem[] = [
   {
@@ -996,6 +997,13 @@ const comments = [
   },
 ] as FishCompletionItem[];
 
+const baseSnippets = CompletionSnippets.map(item => FishCompletionItem.createSnippet(
+  item.name,
+  item.description,
+  Array.isArray(item.prefix) ? item.prefix.join(' ') : item.prefix,
+  Array.isArray(item.body) ? item.body.join('\n') : item.body,
+)) as FishCompletionItem[];
+
 export const StaticItems: Record<string, FishCompletionItem[]> = {
   [FishCompletionItemKind.ESC_CHARS]: EscapedChars,
   [FishCompletionItemKind.PIPE]: Pipes,
@@ -1009,6 +1017,7 @@ export const StaticItems: Record<string, FishCompletionItem[]> = {
   [FishCompletionItemKind.SHEBANG]: shebangs,
   [FishCompletionItemKind.COMMENT]: comments,
   [FishCompletionItemKind.DIAGNOSTIC]: disableDiagnostics,
+  [FishCompletionItemKind.SNIPPET]: baseSnippets,
   // lazy: see prebuiltVars()/prebuiltFuncs() — avoids an eval-time read of
   // PrebuiltDocumentationMap so the snippets/config module graph stays cycle-safe.
   get [FishCompletionItemKind.VARIABLE]() {

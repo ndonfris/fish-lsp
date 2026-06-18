@@ -178,12 +178,6 @@
         "command": "fish-lsp.showInfo",
         "title": "show server info"
       }
-    ],
-    "snippets": [
-      {
-        "language": "fish",
-        "path": "./snippets/snippets.json"
-      }
     ]
   },
   "dependencies": {

@@ -1,7 +1,7 @@
 import {
   CompletionContext,
   CompletionItem,
-  CompletionItemKind, MarkupContent,
+  CompletionItemKind, InsertTextFormat, InsertTextMode, MarkupContent,
   MarkupKind,
   Position, Range,
   SymbolKind,
@@ -32,6 +32,7 @@ export const FishCompletionItemKind = {
   SHEBANG: 'shebang',
   COMMENT: 'comment',
   DIAGNOSTIC: 'diagnostic',
+  SNIPPET: 'snippet',
 } as const;
 export type FishCompletionItemKind = typeof FishCompletionItemKind[keyof typeof FishCompletionItemKind];
 
@@ -57,6 +58,7 @@ export const toCompletionItemKind: Record<FishCompletionItemKind, CompletionItem
   [FishCompletionItemKind.SHEBANG]: CompletionItemKind.File,
   [FishCompletionItemKind.COMMENT]: CompletionItemKind.Text,
   [FishCompletionItemKind.DIAGNOSTIC]: CompletionItemKind.Text,
+  [FishCompletionItemKind.SNIPPET]: CompletionItemKind.Snippet,
 };
 export type FishCompletionData = {
   uri: string;
@@ -258,6 +260,23 @@ export namespace FishCompletionItem {
     context?: CompletionContext,
   ): FishCompletionData {
     return { uri, line, word, position, command, context };
+  }
+
+  export function createSnippet(
+    label: string,
+    description: string,
+    prefix: string,
+    body: string,
+  ) {
+    const item = create(label, FishCompletionItemKind.SNIPPET, prefix, description)
+      .setUseDocAsDetail();
+    item.insertText = body;
+    item.kind = CompletionItemKind.Snippet;
+    item.filterText = prefix;
+    item.detail = prefix;
+    item.insertTextFormat = InsertTextFormat.Snippet;
+    item.insertTextMode = InsertTextMode.adjustIndentation;
+    return item;
   }
 }
 

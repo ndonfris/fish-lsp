@@ -71,6 +71,7 @@ export class CompletionPager {
     }
     this._items.addItems(this.itemsMap.allOfKinds('comment').map(item => item.setPriority(95)));
     this._items.addItems(this.itemsMap.allOfKinds('function').map(item => item.setPriority(30)));
+    this._items.addItems(this.itemsMap.allOfKinds('snippet').map(item => item.setPriority(99)));
     return this._items.build(false);
   }
 
@@ -296,6 +297,7 @@ export class CompletionPager {
     if (!word && !command) {
       return this.completeEmpty(symbols);
     }
+    this._items.addItems(this.itemsMap.allOfKinds('snippet'), 99);
 
     const stdout: [string, string][] = [];
     if (command && this.itemsMap.blockedCommands.includes(command)) {
