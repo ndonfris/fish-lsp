@@ -25,7 +25,7 @@ export async function performHealthCheck() {
   try {
     const fishLspPath = (await execAsyncFish('command -v fish-lsp')).stdout.toString().trim();
     if (fishLspPath) {
-      logger.logToStdout(`✓ fish-lsp binary found: ${fishLspPath}`);
+      logger.logToStdout(`✓ fish-lsp binary found: ${SyncFileHelper.toSimplifiedPath(fishLspPath)}`);
     } else {
       logger.logToStdout('✗ fish-lsp binary not found in PATH');
     }
@@ -66,7 +66,7 @@ export async function performHealthCheck() {
   // Check log file
   logger.logToStdout('\nchecking log file:');
   if (config.fish_lsp_log_file) {
-    logger.logToStdout(`✓ log file found: ${config.fish_lsp_log_file}`);
+    logger.logToStdout(`✓ log file found: ${SyncFileHelper.toSimplifiedPath(config.fish_lsp_log_file)}`);
     try {
       const logDir = path.dirname(config.fish_lsp_log_file);
       await fs.promises.access(logDir, fs.constants.W_OK);
@@ -82,14 +82,16 @@ export async function performHealthCheck() {
     logger.logToStdout('\nchecking completions:');
     const completions = (await execAsyncFish('path sort --unique --key=basename $fish_complete_path/*.fish | string match -re "\./fish-lsp.fish\\$"')).stdout.toString().trim();
     if (completions) {
-      logger.logToStdout(`✓ completions file found: ${completions}`);
+      logger.logToStdout(`✓ completions file found: ${SyncFileHelper.toSimplifiedPath(completions)}`);
     } else {
       CheckHealthErrorMessages.completionsFile.globalNotFound();
     }
 
     try {
-      const completionsEqual = await execAsyncFish(`fish-lsp complete | command diff ${completions} -`);
-      if (completionsEqual.stdout.toString().trim() === '') {
+      // Check if the completions file is up to date, by comparing the output of `fish-lsp complete` with the contents of the completions file.
+      const completionsEqual = await execAsyncFish(`fish-lsp complete | command diff --ignore-matching-lines="# .*" ${completions} -`);
+      const completionsEqualOutput = completionsEqual.stdout.toString().trim();
+      if (completionsEqualOutput === '') {
         logger.logToStdout('✓ completions file is up to date');
       } else {
         CheckHealthErrorMessages.completionsFile.notUpToDate();
@@ -106,7 +108,7 @@ export async function performHealthCheck() {
     const manFile = await execAsyncFish('man fish-lsp 2>/dev/null | command cat | count');
     const manFilePath = (await execAsyncFish('man -w fish-lsp 2> /dev/null')).stdout.toString().trim();
     if (manFile.stdout && parseInt(manFile.stdout.toString().trim()) > 1 && manFilePath !== '') {
-      logger.logToStdout(`✓ global man file found: ${manFilePath}`);
+      logger.logToStdout(`✓ global man file found: ${SyncFileHelper.toSimplifiedPath(manFilePath)}`);
     } else {
       CheckHealthErrorMessages.manFile.globalNotFound();
     }
@@ -114,7 +116,7 @@ export async function performHealthCheck() {
     try {
       const binManFilePath = (await execAsyncFish('path filter -fZ -- $MANPATH/*/fish-lsp.1 | string split0 -m1 -f1')).stdout.toString().trim();
       if (binManFilePath !== '') {
-        logger.logToStdout(`✓ binary man file found: ${binManFilePath}`);
+        logger.logToStdout(`✓ binary man file found: ${SyncFileHelper.toSimplifiedPath(binManFilePath)}`);
         try {
           const manDiff = (await execAsyncFish(`fish-lsp info --man-file --show | command diff ${manFilePath} -`)).stdout.toString().trim();
           if (manDiff === '') {
@@ -199,38 +201,38 @@ async function logFishLspConfig() {
   const dataDir = env.getFirstValueInArray('__fish_data_dir');
   for (const path of config.fish_lsp_all_indexed_paths) {
     if (!path || path.trim() === '') {
-      logger.logToStdout(`✗ fish-lsp workspace '${path}' is empty or invalid`);
+      logger.logToStdout(`✗ fish-lsp workspace '${SyncFileHelper.toSimplifiedPath(path)}' is empty or invalid`);
       continue;
     }
     const expanded_path = SyncFileHelper.expandEnvVars(path);
     if (!expanded_path || expanded_path.trim() === '') {
-      logger.logToStdout(`✗ fish-lsp workspace '${path}' expanded to empty path`);
+      logger.logToStdout(`✗ fish-lsp workspace '${SyncFileHelper.toSimplifiedPath(path)}' expanded to empty path`);
       continue;
     }
     try {
       if (fs.statSync(expanded_path).isDirectory()) {
-        logger.logToStdout(`✓ fish-lsp workspace '${path}' is a directory`);
+        logger.logToStdout(`✓ fish-lsp workspace '${SyncFileHelper.toSimplifiedPath(path)}' is a directory`);
       } else {
-        logger.logToStdout(`✗ fish-lsp workspace '${path}' is not a directory`);
+        logger.logToStdout(`✗ fish-lsp workspace '${SyncFileHelper.toSimplifiedPath(path)}' is not a directory`);
       }
     } catch (error) {
-      logger.logToStdout(`✗ fish-lsp workspace '${path}' (${expanded_path}) stat failed: ${error}`);
+      logger.logToStdout(`✗ fish-lsp workspace '${SyncFileHelper.toSimplifiedPath(path)}' (${expanded_path}) stat failed: ${error}`);
       continue;
     }
     try {
       await fs.promises.access(expanded_path, fs.constants.R_OK);
-      logger.logToStdout(`✓ fish-lsp workspace '${path}' is readable`);
+      logger.logToStdout(`✓ fish-lsp workspace '${SyncFileHelper.toSimplifiedPath(path)}' is readable`);
     } catch (error) {
-      logger.logToStdout(`✗ fish-lsp workspace '${path}' is not readable`);
+      logger.logToStdout(`✗ fish-lsp workspace '${SyncFileHelper.toSimplifiedPath(path)}' is not readable`);
     }
     try {
       await fs.promises.access(expanded_path, fs.constants.W_OK);
-      logger.logToStdout(`✓ fish-lsp workspace '${path}' is writable`);
+      logger.logToStdout(`✓ fish-lsp workspace '${SyncFileHelper.toSimplifiedPath(path)}' is writable`);
     } catch (error) {
       if (expanded_path === dataDir) {
-        logger.logToStdout(`✗ fish-lsp workspace '${path}' is not writable (this is expected)`);
+        logger.logToStdout(`✗ fish-lsp workspace '${SyncFileHelper.toSimplifiedPath(path)}' is not writable (this is expected)`);
       } else {
-        logger.logToStdout(`✗ fish-lsp workspace '${path}' is not writable`);
+        logger.logToStdout(`✗ fish-lsp workspace '${SyncFileHelper.toSimplifiedPath(path)}' is not writable`);
       }
     }
   }
