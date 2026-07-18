@@ -14,14 +14,10 @@ import './virtual-fs';
 
 import './utils/commander-cli-subcommands';
 import { execCLI } from './cli';
-
-// Environment detection
-function isBrowserEnvironment(): boolean {
-  return typeof window !== 'undefined' || typeof self !== 'undefined';
-}
+import { isBrowserEnvironment, isNodeRuntime } from './utils/environment';
 
 function isRunningAsCLI(): boolean {
-  return !isBrowserEnvironment() && require.main === module;
+  return isNodeRuntime() && !isBrowserEnvironment() && require.main === module;
 }
 
 // CLI functionality - only load when needed

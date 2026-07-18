@@ -9,6 +9,7 @@ import { config } from '../config';
 import { logger } from '../logger';
 import { SyncFileHelper } from './file-operations';
 import { getCurrentExecutablePath, getFishBuildTimeFilePath, getManFilePath, getProjectRootPath, isBundledEnvironment } from './path-resolution';
+import { isBrowserEnvironment } from './environment';
 import { maxWidthForOutput } from './startup';
 import { vfs } from '../virtual-fs';
 import FishServer from '../server';
@@ -389,8 +390,8 @@ export const getExecutionContext = (): 'module' | 'web' | 'binary' | 'node-binar
   const execPath = getCurrentExecutablePath();
   const isNodeExecution = process.argv[0]?.includes('node');
 
-  // Check if running in web context (no real filesystem paths)
-  if (typeof (globalThis as any).window !== 'undefined' || typeof (globalThis as any).self !== 'undefined') {
+  // Check if running in web context (no real filesystem paths).
+  if (isBrowserEnvironment()) {
     return 'web';
   }
 

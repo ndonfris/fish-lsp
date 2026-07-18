@@ -79,10 +79,13 @@ export class FishLspWeb {
   }
 }
 
-// Auto-start for web environments
-if (typeof window !== 'undefined' || typeof self !== 'undefined') {
-  const fishLsp = new FishLspWeb();
-  fishLsp.listen();
-}
+// NOTE: This module intentionally does NOT auto-start `FishLspWeb` as a
+// top-level side effect. `main.ts` imports this file unconditionally so it
+// gets bundled into the CLI binary, and a runtime `new FishLspWeb().listen()`
+// call at import time would open an LSP connection over `self` (e.g. stdio
+// via a worker) as soon as the module loads — which is exactly what caused
+// the CLI to hang under Bun (`self` is defined there too, see #173). Explicit
+// browser entry points must construct `FishLspWeb` and call `.listen()`
+// themselves.
 
 export default FishLspWeb;
