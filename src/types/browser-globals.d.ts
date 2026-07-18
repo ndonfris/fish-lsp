@@ -2,8 +2,8 @@
 //
 // Typechecking targets Node (the `lib` array intentionally omits `DOM`, so the
 // CLI build never pulls browser types), but a few modules feature-detect or use
-// the browser worker globals — `typeof window`, `BrowserMessageReader(self)`,
-// `window.addEventListener(...)`.
+// the browser worker globals — `typeof window`, `typeof document`,
+// `typeof importScripts`, `BrowserMessageReader(self)`, `window.addEventListener(...)`.
 //
 // Declared with `var` (NOT `let`/`const`) so they also become properties of
 // `globalThis`; `tests/main.test.ts` assigns and deletes them via
@@ -14,6 +14,8 @@
 /* eslint-disable no-var */
 declare var window: any;
 declare var self: any;
+declare var document: any;
+declare var importScripts: any;
 /* eslint-enable no-var */
 
 // This file will possibly be removed in the future along with entrypoints
