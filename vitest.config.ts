@@ -1,6 +1,5 @@
 import { defineConfig, Plugin } from 'vitest/config'
 import wasm from 'vite-plugin-wasm'
-import tsconfigPaths from 'vite-tsconfig-paths'
 import * as path from 'path'
 import { readFileSync } from 'fs';
 
@@ -56,7 +55,7 @@ export default defineConfig({
         ['lcov', { 'projectRoot': './src' }],
         'text',
       ],
-      ignoreEmptyLines: true,
+      // ignoreEmptyLines: true,
       reportOnFailure: true,
     },
     testTimeout: 25_000,
@@ -65,7 +64,7 @@ export default defineConfig({
     hookTimeout: 60_000,
     teardownTimeout: 70_000,
   },
-  esbuild: {
+  oxc: {
     exclude: ['**/*.fish']
   },
   assetsInclude: ['**/*.fish', '**/*.wasm'],

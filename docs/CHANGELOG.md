@@ -1,3 +1,10 @@
+## <small>1.1.5-pre.0 (2026-07-22)</small>
+
+* build(deps): move & bump dependencies for `1.1.5-pre.0` ([ebb34ce](https://github.com/ndonfris/fish-lsp/commit/ebb34ce)), closes [#170](https://github.com/ndonfris/fish-lsp/issues/170)
+* fix: bun issue hanging caused by misidentified 'web' env ([4887223](https://github.com/ndonfris/fish-lsp/commit/4887223))
+* fix: husky pre-commit script backup current msg issue ([a4482be](https://github.com/ndonfris/fish-lsp/commit/a4482be))
+* fix(health-check): `fish-lsp info --check-health` completion comment timestamp ignored ([78cf1d4](https://github.com/ndonfris/fish-lsp/commit/78cf1d4))
+
 ## <small>1.1.4 (2026-06-11)</small>
 
 * style: imports `vscode-languageserver` instead of `vscode-languageserver-protocol/node` ([2f996d8](https://github.com/ndonfris/fish-lsp/commit/2f996d8))

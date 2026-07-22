@@ -125,7 +125,7 @@ fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish
 
 ### Build from Source
 
-Recommended Dependencies: `yarn@1.22.22` `node@22.14.0` `fish@4.0.8`
+Recommended Dependencies: `yarn@1.22.22` `node@22.22.2` `fish@4.0.8`
 
 ```bash
 git clone https://github.com/ndonfris/fish-lsp 
