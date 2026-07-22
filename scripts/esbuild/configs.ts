@@ -45,7 +45,7 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
     internalPlugins: {
       target: 'node',
       typescript: false, // Use native esbuild TS support
-      polyfills: 'minimal', // Include minimal polyfills for browser compatibility when needed
+      polyfills: 'minimal', // Provide the minimal globals required by the bundled Node target
       embedAssets: true, // Enable embedded assets for binary builds
     },
     onBuildEnd: () => { }
@@ -156,4 +156,3 @@ export function createBuildOptions(config: BuildConfig, production = false, sour
     ],
   };
 }
-

@@ -536,7 +536,7 @@ export class TestWorkspace {
       for (const dir of ['functions', 'completions', 'conf.d']) {
         const dirPath = path.join(this._workspacePath, dir);
         if (fs.existsSync(dirPath)) {
-          fs.rmdirSync(dirPath, { recursive: true });
+          fs.rmSync(dirPath, { recursive: true, force: true });
         }
       }
     }

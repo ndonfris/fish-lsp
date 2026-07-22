@@ -4,17 +4,15 @@
 
 import esbuild from 'esbuild';
 import type { Plugin } from 'esbuild';
-import { polyfillNode } from 'esbuild-plugin-polyfill-node';
-import { nodeModulesPolyfillPlugin } from 'esbuild-plugins-node-modules-polyfill';
 import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill';
 import { colorize, colors, toRelativePath } from './colors';
 import { writeFileSync, existsSync, readFileSync } from 'fs';
 import path, { resolve } from 'path';
 
 export interface PluginOptions {
-  target: 'node' | 'browser';
+  target: 'node';
   typescript: boolean;
-  polyfills: 'minimal' | 'full' | 'none';
+  polyfills: 'minimal' | 'none';
   embedAssets?: boolean;
 }
 
@@ -114,39 +112,8 @@ export function createPlugins(options: PluginOptions): esbuild.Plugin[] {
 
   // Note: Using native esbuild TypeScript support instead of external plugin for better performance
 
-  // Polyfills based on target and level - only load when actually needed
-  if (options.target === 'browser' && options.polyfills === 'full') {
-    plugins.push(
-      polyfillNode({
-        globals: {
-          navigator: false,
-          global: true,
-          process: true,
-        },
-        polyfills: {
-          fs: true,
-          path: true,
-          stream: true,
-          crypto: true,
-          os: true,
-          util: true,
-          events: true,
-          buffer: true,
-          process: true,
-          child_process: false,
-          cluster: false,
-          dgram: false,
-          dns: false,
-          http: false,
-          https: false,
-          net: false,
-          tls: false,
-          worker_threads: false,
-        },
-      }),
-      nodeModulesPolyfillPlugin()
-    );
-  } else if (options.target === 'node' && options.polyfills === 'minimal') {
+  // Add the minimal globals required by bundled Node targets.
+  if (options.polyfills === 'minimal') {
     plugins.push(
       NodeGlobalsPolyfillPlugin({
         buffer: true,

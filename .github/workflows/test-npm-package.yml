@@ -16,7 +16,7 @@ on:
     paths:
       - 'src/**'
       - 'package.json'
-      - 'scripts/build.ts'
+      - 'scripts/esbuild/**'
       - '.github/workflows/test-npm-package.yml'
 
 jobs:
