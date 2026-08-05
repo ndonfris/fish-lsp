@@ -29,6 +29,8 @@ import { flattenNested } from '../src/utils/flatten';
 import { getGroupedCompletionSymbolsAsArgparse, groupCompletionSymbolsTogether } from '../src/parsing/complete';
 import { FishSymbol } from '../src/parsing/symbol';
 import { fail } from 'assert';
+import { isFishStatusDeprecatedFlag } from '../src/diagnostics/node-types';
+import { StatusArgs } from '../src/diagnostics/deprecated-flags';
 
 let parser: Parser;
 let diagnostics: Diagnostic[] = [];
@@ -1719,6 +1721,50 @@ describe('diagnostics with missing completions', () => {
         const diagnostics = await getDiagnosticsAsync(cached.root!, document);
         expect(diagnostics).toContainEqual(expect.objectContaining({ code: ErrorCodes.sourceFileDoesNotExist }));
       }
+    });
+  });
+
+  describe('static source paths derived from status filename', () => {
+    const workspace = TestWorkspace.create().addFiles(
+      {
+        relativePath: 'v3/helper.fish',
+        content: [
+          'status -c',
+          'status -j none',
+          'status -l',
+          'status --is-full-job-control',
+          'status --current-line-number',
+        ],
+      },
+    ).initialize();
+
+    it('resolves status -c to the same file', async () => {
+      const helperDoc = workspace.getDocument('v3/helper.fish')!;
+      analyzer.analyze(helperDoc);
+
+      const document = workspace.getDocument('v3/helper.fish')!;
+      const cached = analyzer.analyze(document);
+      for (const node of getChildNodes(cached.root!)) {
+        if (isFishStatusDeprecatedFlag(node)) {
+          console.log({
+            isDeprecatedStatusFlag: true,
+            node: {
+              text: node.text,
+              type: node.type,
+            },
+            replacementText: StatusArgs.findSubcommandFromFlag(node.text),
+          });
+        }
+      }
+      const diagnostics = await getDiagnosticsAsync(cached.root!, document);
+      // for (const diagnostic of diagnostics) {
+      //   console.log({
+      //     code: diagnostic.code,
+      //     message: diagnostic.message,
+      //     range: diagnostic.range,
+      //   })
+      // }
+      expect(diagnostics.filter(d => d.code === ErrorCodes.fishStatusDeprecatedFlag).length).toBe(5);
     });
   });
 });

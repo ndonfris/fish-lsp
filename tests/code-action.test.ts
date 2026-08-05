@@ -22,6 +22,7 @@ import { logger } from '../src/logger';
 import { Workspace } from '../src/utils/workspace';
 import { getDiagnosticsAsync } from '../src/diagnostics/validate';
 import { fail } from 'assert';
+import { rangesEqual } from '../src/parsing/equality-utils';
 
 let parser: Parser;
 
@@ -475,6 +476,138 @@ complete -c util -l other`,
       });
     });
   });
+
+  describe('status flag code-action', () => {
+    beforeEach(async () => {
+      setLogger();
+      logger.setConsole(global.console);
+      logger.allowDefaultConsole();
+      logger.setSilent(false);
+    });
+
+    const workspace = TestWorkspace.create().addFiles(
+      {
+        relativePath: 'functions/myfunc.fish',
+        content: [
+          'function myfunc',
+          '    if status -l',
+          '        echo "status flag is used"',
+          '    end',
+          '    status -c',
+          '    status --current-line-number',
+          '    status -h # note we dont include this one',
+          'end',
+        ],
+
+      },
+    ).initialize();
+
+    let myFuncDoc: LspDocument;
+    let ws: Workspace;
+
+    const onCodeActionCallback = codeActionHandlers().onCodeActionCallback;
+
+    beforeAll(async () => {
+      ws = workspace.workspace!;
+      if (!ws) throw new Error('Workspace not initialized');
+      myFuncDoc = workspace.find('functions/myfunc.fish')!;
+      ws.uris.all.forEach(uri => {
+        const doc = documents.get(uri);
+        if (doc) analyzer.analyze(doc);
+      });
+      logger.setConnectionConsole(connection.console);
+    });
+
+    it('ensure docs', () => {
+      expect(ws).toBeDefined();
+      expect(myFuncDoc).toBeDefined();
+    });
+
+    it('quickfix.fix for entire file', async () => {
+      const doc = myFuncDoc;
+      const { root } = analyzer.analyze(doc).ensureParsed();
+      const diagnostics = await getDiagnosticsAsync(root, doc);
+      analyzer.diagnostics.setForTesting(doc.uri, diagnostics);
+      const req = {
+        textDocument: { uri: doc.uri },
+        range: doc.fileRange,
+        context: { diagnostics: [...analyzer.diagnostics.get(doc.uri) ?? []] },
+      };
+      const actions = await onCodeActionCallback(req);
+      const completionActions = actions.filter(action => {
+        return action.title.startsWith('Convert deprecated status');
+      });
+      expect(completionActions.length).toBeGreaterThanOrEqual(3);
+      const completionActionsTitles = completionActions.map(action => action.title);
+      expect(completionActionsTitles).toContain('Convert deprecated status flag \'-l\' to subcommand \'is-login\'');
+      expect(completionActionsTitles).toContain('Convert deprecated status flag \'-c\' to subcommand \'is-command-substitution\'');
+      expect(completionActionsTitles).toContain('Convert deprecated status flag \'--current-line-number\' to subcommand \'current-line-number\'');
+    });
+
+    it('quickfix.fix for `status -l` diagnostic', async () => {
+      const doc = myFuncDoc;
+      const { root } = analyzer.analyze(doc).ensureParsed();
+      const diagnostics = await getDiagnosticsAsync(root, doc);
+      analyzer.diagnostics.setForTesting(doc.uri, diagnostics);
+      const req = {
+        textDocument: { uri: doc.uri },
+        range: doc.fileRange,
+        context: { diagnostics: [...analyzer.diagnostics.get(doc.uri)?.filter(d => rangesEqual(d.range, {
+          start: { line: 1, character: 14 },
+          end: { line: 1, character: 16 },
+        })) ?? []] },
+      };
+      const actions = await onCodeActionCallback(req);
+      const completionActions = actions.filter(action => {
+        return action.title.startsWith('Convert deprecated status');
+      });
+      expect(completionActions).toHaveLength(1);
+      const completionActionsTitles = completionActions.map(action => action.title);
+      expect(completionActionsTitles).toContain('Convert deprecated status flag \'-l\' to subcommand \'is-login\'');
+    });
+
+    it('status quickfix.fixAll', async () => {
+      const doc = myFuncDoc;
+      const { root } = analyzer.analyze(doc).ensureParsed();
+      const diagnostics = await getDiagnosticsAsync(root, doc);
+      analyzer.diagnostics.setForTesting(doc.uri, diagnostics);
+      const req = {
+        textDocument: { uri: doc.uri },
+        range: doc.fileRange,
+        context: { diagnostics: [...analyzer.diagnostics.get(doc.uri) ?? []] },
+      };
+      const actions = await onCodeActionCallback(req);
+
+      expect(actions.filter(action => action.kind === 'quickfix.fixAll')).toBeDefined();
+      const quickfixAllAction = actions.find(action => action.kind === 'quickfix.fixAll');
+      if (!quickfixAllAction) fail();
+      const allQuickFixes = quickfixAllAction.edit?.changes?.[doc.uri];
+      expect(allQuickFixes).toBeDefined();
+      expect(allQuickFixes).toHaveLength(3);
+      expect(allQuickFixes).toContainEqual(expect.objectContaining({
+        range: {
+          start: { line: 1, character: 14 },
+          end: { line: 1, character: 16 },
+        },
+        newText: 'is-login',
+      }));
+      expect(allQuickFixes).toContainEqual(expect.objectContaining({
+        range: {
+          start: { line: 4, character: 11 },
+          end: { line: 4, character: 13 },
+        },
+        newText: 'is-command-substitution',
+      }));
+      expect(allQuickFixes).toContainEqual(expect.objectContaining({
+        range: {
+          start: { line: 5, character: 11 },
+          end: { line: 5, character: 32 },
+        },
+        newText: 'current-line-number',
+      }));
+    });
+  });
+
   describe('code-actions-handlers', () => {
     beforeEach(async () => {
       setLogger();
