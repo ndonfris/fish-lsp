@@ -1066,7 +1066,7 @@ export class Analyzer {
             // nested `_foo`) would otherwise be indistinguishable here and
             // the first matching parent — typically the erased one — wins.
             const callerVar = this.symbols.findDocumentVariables(caller.uri, word).find(s =>
-              !!s.parent && s.parent.equals(caller),
+              s.getFunctionOwner()?.equals(caller),
             );
             if (callerVar) {
               symbols.push(callerVar);
@@ -1172,9 +1172,12 @@ export class Analyzer {
       if (symbol) return symbol;
     }
     const result = symbols.pop() || null;
+    const resultFunction = result?.isVariable()
+      ? result.getFunctionOwner()
+      : undefined;
     // For variables inside --no-scope-shadowing functions, resolve to the root
     // definition in the caller chain
-    if (result?.isVariable() && result.parent?.isFunctionWithNoScopeShadowing()) {
+    if (result?.isVariable() && resultFunction?.isFunctionWithNoScopeShadowing()) {
       return this.resolveNoScopeShadowingDefinition(result);
     }
     // For --inherit-variable symbols, resolve to the caller's definition
@@ -1184,9 +1187,9 @@ export class Analyzer {
     // For variables inside a function that inherits this variable name,
     // resolve to the caller's definition (e.g., B has --inherit-variable VAR
     // and also `set VAR ...` — the true definition is in the caller)
-    if (result?.isVariable() && result.parent?.hasInheritedVariable(result.name)) {
+    if (result?.isVariable() && resultFunction?.hasInheritedVariable(result.name)) {
       // Find the --inherit-variable declaration symbol for this variable
-      const inheritDecl = result.parent.children
+      const inheritDecl = resultFunction.children
         .find((c: FishSymbol) => c.name === result.name && c.isInheritVariable());
       if (inheritDecl) {
         return this.resolveInheritVariableDefinition(inheritDecl) || result;
@@ -1247,11 +1250,12 @@ export class Analyzer {
    * @returns the root definition symbol, or the input symbol if no caller chain exists
    */
   public resolveNoScopeShadowingDefinition(varSymbol: FishSymbol): FishSymbol {
-    if (!varSymbol.isVariable() || !varSymbol.parent?.isFunctionWithNoScopeShadowing()) {
+    const enclosingFunction = varSymbol.getFunctionOwner();
+    if (!varSymbol.isVariable() || !enclosingFunction?.isFunctionWithNoScopeShadowing()) {
       return varSymbol;
     }
 
-    let currentFunc = varSymbol.parent;
+    let currentFunc = enclosingFunction;
     let rootVar = varSymbol;
     const visited = new Set<string>();
 
@@ -1267,7 +1271,7 @@ export class Analyzer {
       // an erased top-level `_foo` and a nested `_foo`) don't collide on
       // their implicit `argv` children.
       const callerVar = this.symbols.findDocumentVariables(caller.uri, varSymbol.name).find(s =>
-        !!s.parent && s.parent.equals(caller),
+        s.getFunctionOwner()?.equals(caller),
       );
       if (!callerVar) break;
 
@@ -1342,7 +1346,7 @@ export class Analyzer {
 
       // Found a caller — look for the variable definition in it
       const callerVar = this.symbols.findDocumentVariables(sym.uri, inheritSymbol.name).find(s =>
-        s.parent?.name === sym.name
+        s.getFunctionOwner()?.equals(sym)
         && !s.isInheritVariable(),
       );
       if (callerVar) {
@@ -1382,7 +1386,7 @@ export class Analyzer {
 
       // Found a script-level caller — look for a root-level variable definition
       const rootVar = this.symbols.findDocumentVariables(uri, inheritSymbol.name).find(s =>
-        !s.parent?.isFunction()
+        !s.getFunctionOwner()
         && !s.isInheritVariable(),
       );
       if (rootVar) return rootVar;
@@ -1698,7 +1702,7 @@ export class Analyzer {
         const scopeNode = symbol.scope.scopeNode;
         if (scopeNode) {
           const noScopeFuncs = this.symbols.noScopeShadowing.allSymbols.filter(f => {
-            if (!this.isFunctionVisibleFrom(f, symbol.parent, symbol.uri)) return false;
+            if (!this.isFunctionVisibleFrom(f, symbol.getFunctionOwner(), symbol.uri)) return false;
             if (f.children.some(c => c.isVariable() && c.name === symbol.name)) return true;
             for (const n of nodesGen(f.scopeNode)) {
               if (isVariableExpansionWithName(n, symbol.name)) return true;
@@ -1719,7 +1723,11 @@ export class Analyzer {
       // inherits it via `--inherit-variable name` is called inside the var's
       // scope.
       if (symbol.isVariable() && this.symbols.inheritedVariables.has(symbol.name)) {
-        const inheritingFuncs = this.getCallableInheritingFunctions(symbol.name, symbol.parent, symbol.uri);
+        const inheritingFuncs = this.getCallableInheritingFunctions(
+          symbol.name,
+          symbol.getFunctionOwner(),
+          symbol.uri,
+        );
         const scopeNode = symbol.scope.scopeNode;
         if (scopeNode) {
           for (const n of nodesGen(scopeNode)) {
@@ -1762,7 +1770,7 @@ export class Analyzer {
    * than its own definition.
    */
   private isUsedViaNoScopeShadowingRoot(symbol: FishSymbol): boolean {
-    if (!symbol.isVariable() || !symbol.parent?.isFunctionWithNoScopeShadowing()) {
+    if (!symbol.isVariable() || !symbol.getFunctionOwner()?.isFunctionWithNoScopeShadowing()) {
       return false;
     }
     const rootSymbol = this.resolveNoScopeShadowingDefinition(symbol);
@@ -1787,7 +1795,7 @@ export class Analyzer {
         && !definitionSymbol.equalScopes(s)
         && s.name === definitionSymbol.name
         && s.kind === definitionSymbol.kind
-        && !s.parent?.isFunctionWithNoScopeShadowing()
+        && !s.getFunctionOwner()?.isFunctionWithNoScopeShadowing()
         && !s.isInheritVariable(),
       );
     }
