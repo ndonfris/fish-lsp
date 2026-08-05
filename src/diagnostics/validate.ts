@@ -3,7 +3,9 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
 import { getRange, namedNodesGen } from '../utils/tree-sitter';
 import { isMatchingOption, Option } from '../parsing/options';
-import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage, isDotSourceCommand, isMatchingAbbrFunction, isFunctionWithEventHookCallback, isVariableDefinitionWithExpansionCharacter, isPosixCommandInsteadOfFishCommand, getFishBuiltinEquivalentCommandName, getAutoloadedFunctionsWithoutDescription, isWrapperFunction /*isKnownCommand*/ } from './node-types';
+import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage, isDotSourceCommand, isMatchingAbbrFunction, isFunctionWithEventHookCallback, isVariableDefinitionWithExpansionCharacter, isPosixCommandInsteadOfFishCommand, getFishBuiltinEquivalentCommandName, getAutoloadedFunctionsWithoutDescription, isWrapperFunction, /*isKnownCommand*/
+  isFishStatusDeprecatedFlag,
+  getFishStatusDeprecatedFlagMessage } from './node-types';
 import { ErrorCodes } from './error-codes';
 import { config } from '../config';
 import { DiagnosticCommentsHandler } from './comments-handler';
@@ -317,6 +319,10 @@ export async function getDiagnosticsAsync(
     if (isFishLspDeprecatedVariableName(node) && handler.isCodeEnabled(ErrorCodes.fishLspDeprecatedEnvName)) {
       logger.log('isFishLspDeprecatedVariableName', doc.getText(getRange(node)));
       if (addDiagnostics(FishDiagnostic.create(ErrorCodes.fishLspDeprecatedEnvName, node, getDeprecatedFishLspMessage(node)))) return diagnostics;
+    }
+
+    if (isFishStatusDeprecatedFlag(node) && handler.isCodeEnabled(ErrorCodes.fishStatusDeprecatedFlag)) {
+      if (addDiagnostics(FishDiagnostic.create(ErrorCodes.fishStatusDeprecatedFlag, node, getFishStatusDeprecatedFlagMessage(node)))) return diagnostics;
     }
 
     /** store any functions we see, to reuse later */

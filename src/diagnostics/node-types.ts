@@ -13,6 +13,7 @@ import { isBuiltin } from '../utils/builtins';
 import { server } from '../server';
 import { analyzer } from '../analyze';
 import { FishCompletionItemKind } from '../utils/completion/types';
+import { StatusArgs } from './deprecated-flags';
 
 type startTokenType = 'function' | 'while' | 'if' | 'for' | 'begin' | 'switch' | '[' | '{' | '(' | "'" | '"';
 type endTokenType = 'end' | "'" | '"' | ']' | '}' | ')';
@@ -635,4 +636,21 @@ export function isKnownCommand(commandName: string, doc: LspDocument): boolean {
   }
 
   return false;
+}
+
+export function isFishStatusDeprecatedFlag(node: SyntaxNode): boolean {
+  if (node.type === 'command' || !isOption(node)) return false;
+  if (!node.parent || !isCommandWithName(node.parent, 'status')) return false;
+  const arg = node.parent.childForFieldName('argument');
+  if (!arg) return false;
+  if (StatusArgs.allFlags.has(arg.text)) return true;
+  return false;
+}
+
+export function getFishStatusDeprecatedFlagMessage(node: SyntaxNode): string | undefined {
+  const replaceText = StatusArgs.findSubcommandFromFlag(node.text);
+  if (replaceText) {
+    return `REPLACE \`${node.text}\` with \`${replaceText}\``;
+  }
+  return undefined;
 }

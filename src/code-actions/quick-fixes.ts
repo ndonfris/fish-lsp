@@ -3,7 +3,7 @@ import { LspDocument } from '../document';
 import { ErrorCodes } from '../diagnostics/error-codes';
 import { equalRanges, getChildNodes } from '../utils/tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
-import { ErrorNodeTypes, getFishBuiltinEquivalentCommandName } from '../diagnostics/node-types';
+import { ErrorNodeTypes, getFishBuiltinEquivalentCommandName, isFishStatusDeprecatedFlag } from '../diagnostics/node-types';
 import { SupportedCodeActionKinds } from './action-kinds';
 import { logger } from '../logger';
 import { analyzer, Analyzer } from '../analyze';
@@ -11,6 +11,7 @@ import { getRange } from '../utils/tree-sitter';
 import { pathToRelativeFunctionName, uriToPath, uriToReadablePath } from '../utils/translation';
 import { FishString } from '../parsing/string';
 import { findParentCommand, isAliasDefinitionName, isArgparseVariableDefinitionName, isConditionalCommand, isFunctionDefinition, isFunctionDefinitionName, isVariableDefinitionName } from '../utils/node-types';
+import { StatusArgs } from '../diagnostics/deprecated-flags';
 
 /**
  * These quick-fixes are separated from the other diagnostic quick-fixes because
@@ -727,6 +728,27 @@ function handleConvertDeprecatedFishLsp(diagnostic: Diagnostic, node: SyntaxNode
   };
 }
 
+export function handleConvertStatusFlagToSubcommand(diagnostic: Diagnostic, node: SyntaxNode, document: LspDocument): CodeAction | undefined {
+  logger.log({ name: 'handleConvertStatusFlagToSubcommand', diagnostic: diagnostic.range, node: node.text });
+
+  if (!isFishStatusDeprecatedFlag(node)) return undefined;
+  const replaceText = StatusArgs.findSubcommandFromFlag(node.text);
+  if (!replaceText) return undefined;
+  const edit = TextEdit.replace(diagnostic.range, replaceText);
+  const workspaceEdit: WorkspaceEdit = {
+    changes: {
+      [document.uri]: [edit],
+    },
+  };
+  return {
+    title: `Convert deprecated status flag '${node.text}' to subcommand '${replaceText}'`,
+    kind: SupportedCodeActionKinds.QuickFix,
+    diagnostics: [diagnostic],
+    edit: workspaceEdit,
+    isPreferred: true,
+  };
+}
+
 export async function getQuickFixes(
   document: LspDocument,
   diagnostic: Diagnostic,
@@ -832,6 +854,12 @@ export async function getQuickFixes(
     case ErrorCodes.fishLspDeprecatedEnvName:
       if (!node) return [];
       return [handleConvertDeprecatedFishLsp(diagnostic, node, document)];
+
+    case ErrorCodes.fishStatusDeprecatedFlag:
+      if (!node) return [];
+      action = handleConvertStatusFlagToSubcommand(diagnostic, node, document);
+      if (action) actions.push(action);
+      return actions;
 
     default:
       return actions;
