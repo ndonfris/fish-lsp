@@ -465,6 +465,25 @@ describe('node-types tests', () => {
     expect(shortOptionNodes.map(n => n.text)).toEqual(['-gxa']);
   });
 
+  it.each<[string, string[]]>([
+    ['cmd --flag=value', ['--flag=value', 'value']],
+    ['cmd -f=value', ['-f=value', 'value']],
+    ["cmd --flag='value'", ["--flag='value'", "'value'"]],
+    ['cmd --flag=-value', ['--flag=-value', '-value']],
+    ['cmd --flag=', ['--flag=']],
+    ['cmd --flag=value=more', ['--flag=value=more', 'value', 'more']],
+    ['cmd --flag value', ['value']],
+    ["cmd -f 'value'", ["'value'"]],
+    ['cmd --flag $value', ['$value']],
+    ['cmd --flag=value positional', ['--flag=value', 'value']],
+    ['cmd --flag --other', []],
+    ['cmd -- value', []],
+    ['cmd positional', []],
+    ['set --global variable value', []],
+  ])('isOptionValue: %s', (source, expected) => {
+    expect(parseStringForNodeType(source, NodeTypes.isOptionValue).map(node => node.text)).toEqual(expected);
+  });
+
   it('isShortOption [WITH CHAR]', () => {
     const shortOptionNodes = parseStringForNodeType('set -gxa PATH $HOME/.cargo/bin', NodeTypes.isShortOption);
     expect(shortOptionNodes.map(n => n.text)).toEqual(['-gxa']);
@@ -500,7 +519,8 @@ describe('node-types tests', () => {
 
     const longOpt = parseStringForNodeType('command ls --ignore=\'install_scripts\'', (n: SyntaxNode) => NodeTypes.isMatchingOption(n, Option.long('--ignore')));
     expect(
-      longOpt.map(n => n.text.slice(0, n.text.indexOf('='))),
+      // longOpt.map(n => n.text.includes('=') ? n.text.slice(0, n.text.indexOf('=')) : n.text),
+      longOpt.map(n => NodeTypes.SyntaxNodeText.beforeEquals(n)),
     ).toEqual(['--ignore', '--ignore']);
   });
 

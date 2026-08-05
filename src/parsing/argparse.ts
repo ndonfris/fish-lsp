@@ -147,9 +147,15 @@ export function findArgparseDefinitionNames(node: SyntaxNode): SyntaxNode[] {
  * @returns true if the node is an argparse definition variable (flags for the `argparse` command with be skipped)
  */
 export function isArgparseVariableDefinitionName(node: SyntaxNode) {
-  if (!node.parent || !isCommandWithName(node.parent, 'argparse')) return false;
-  const children = findArgparseDefinitionNames(node.parent);
-  return !!children.some(n => n.equals(node));
+  // In `name=` / `n/name=?`, only the first child of the concatenation
+  // contains flag names; the remaining children describe the value syntax.
+  const argument = node.parent?.type === 'concatenation'
+    && node.parent.firstNamedChild?.equals(node)
+    ? node.parent
+    : node;
+  if (!argument.parent || !isCommandWithName(argument.parent, 'argparse')) return false;
+  const children = findArgparseDefinitionNames(argument.parent);
+  return children.some(n => n.equals(argument));
 }
 
 export function convertNodeRangeWithPrecedingFlag(node: SyntaxNode) {

@@ -72,7 +72,9 @@ export function parseInlineVariableAssignment(node: SyntaxNode): { name: string;
     if (!nameField) return null;
     const valueField = node.childForFieldName('value');
     return {
-      name: nameField.text,
+      // Grammar 3.7.1-2 includes the trailing '=' in the name of an
+      // assignment with no value (e.g. `EMPTY= command`).
+      name: nameField.text.replace(/=$/, ''),
       value: valueField?.text ?? '',
     };
   }

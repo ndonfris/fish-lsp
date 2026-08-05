@@ -276,10 +276,10 @@
   resolved "https://registry.npmjs.org/@esbuild/win32-x64/-/win32-x64-0.28.1.tgz#10064ee44f4347b90c9a02b446bbf80a91632b12"
   integrity sha512-bm4Mowrv+GXMlpWX++EcXw/iLyd1o3+bJkC2DkWXYVvgZCqD/bSj9ctZeAMC3cIxgjRVR2Dufaiu4YPxr5gW1A==
 
-"@esdmr/tree-sitter-fish@^3.7.0":
-  version "3.7.0"
-  resolved "https://registry.npmjs.org/@esdmr/tree-sitter-fish/-/tree-sitter-fish-3.7.0.tgz#ab9d953398e2075dc4e908422ce6d4caa94897b9"
-  integrity sha512-Pf/jzPRyVjs69Af5bwScd6Wl5Q2n27+2uSe58yZ+fKUu/p7aYC73apjcOIxDw9+s4tUODk2e8yJGmQUNngsM/A==
+"@esdmr/tree-sitter-fish@3.7.1-2":
+  version "3.7.1-2"
+  resolved "https://registry.npmjs.org/@esdmr/tree-sitter-fish/-/tree-sitter-fish-3.7.1-2.tgz#4c21db094947b7068ee7f9c26bc4f6dd0491932a"
+  integrity sha512-UtZtAK/yG2NX6MKnCEbHPTTBsjk1vS5HV6tV6zeHpM27fYeJ2K9RhPHdAChjHq3SVCWGId0uxd7NptKzxQmvxg==
 
 "@eslint-community/eslint-utils@^4.8.0", "@eslint-community/eslint-utils@^4.9.1":
   version "4.9.1"

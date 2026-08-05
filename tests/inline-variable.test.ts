@@ -77,15 +77,15 @@ HTTP_PROXY=proxy:8080 curl example.com
     expect(hasInlineVariables(commandNode)).toBe(false);
   });
 
-  it('should handle empty values', () => {
-    const code = 'EMPTY= command';
+  it.each(['EMPTY', 'empty', '_empty'])('should handle an empty value for %s', (name) => {
+    const code = `${name}= command`;
     const tree = analyzer.parser.parse(code);
     const commandNode = tree.rootNode.firstNamedChild!;
     const firstArg = commandNode.firstNamedChild!;
 
     const parsed = parseInlineVariableAssignment(firstArg);
     expect(parsed).toEqual({
-      name: 'EMPTY',
+      name,
       value: '',
     });
   });

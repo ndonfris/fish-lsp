@@ -1,3 +1,7 @@
+## <small>1.1.5-pre.2 (2026-08-05)</small>
+
+* feat(`status --flag`): `6002` diagnostic + quickfix code-action (#182) ([e062918](https://github.com/ndonfris/fish-lsp/commit/e062918)), closes [#182](https://github.com/ndonfris/fish-lsp/issues/182)
+
 ## <small>1.1.5-pre.1 (2026-08-05)</small>
 
 * docs: bump docs for 1.1.5-pre.1 + new contributors ([cf082d4](https://github.com/ndonfris/fish-lsp/commit/cf082d4))

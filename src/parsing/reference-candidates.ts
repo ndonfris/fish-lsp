@@ -272,9 +272,14 @@ function isReevaluatedCompleteString(node: SyntaxNode): boolean {
  * Wrong-name options (`ls --color`) simply find no matching symbol downstream. */
 function isCommandCallOption(node: SyntaxNode): boolean {
   if (!isOption(node)) return false;
+  // The flag in `--flag=value` can be a child of the argument node.
+  const argument = node.parent?.type === 'concatenation'
+    && node.parent.firstNamedChild?.equals(node)
+    ? node.parent
+    : node;
   const cmd = findParentCommand(node);
   if (!cmd) return false;
-  return cmd.childrenForFieldName('argument').some(arg => arg.equals(node));
+  return cmd.childrenForFieldName('argument').some(arg => arg.equals(argument));
 }
 
 /**
