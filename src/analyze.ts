@@ -1808,7 +1808,7 @@ export class Analyzer {
       const fromPath = uriToPath(document.uri);
       const baseDir = dirname(fromPath);
 
-      const expanded = getExpandedSourcedFilenameNode(node, baseDir);
+      const expanded = getExpandedSourcedFilenameNode(node, baseDir, fromPath);
       // `source $file` (and other non-literal arguments) can't be expanded to
       // a real path — bail so the caller can fall back to symbol resolution.
       if (!expanded) return [];
@@ -2168,7 +2168,7 @@ export class Analyzer {
     const baseDir = dirname(fromPath);
 
     for (const node of sourceNodes) {
-      const sourced = getExpandedSourcedFilenameNode(node, baseDir);
+      const sourced = getExpandedSourcedFilenameNode(node, baseDir, fromPath);
       if (sourced) {
         sources.add(pathToUri(sourced));
       }
@@ -2568,7 +2568,7 @@ class AnalyzedDocumentCache {
     const fromPath = uriToPath(uri);
     const baseDir = dirname(fromPath);
 
-    const sourceNodes = analyzedDoc.sourceNodes.map((node: any) => getExpandedSourcedFilenameNode(node, baseDir)).filter((s: any) => !!s) as string[];
+    const sourceNodes = analyzedDoc.sourceNodes.map((node: any) => getExpandedSourcedFilenameNode(node, baseDir, fromPath)).filter((s: any) => !!s) as string[];
     for (const source of sourceNodes) {
       const sourceUri = pathToUri(source);
       result.add(sourceUri);

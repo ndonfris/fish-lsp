@@ -3,7 +3,7 @@ import { findParentCommand, getCommandNameNode, hasParent, isCommand, isCommandN
 import { getChildNodes, getRange, isNodeWithinOtherNode, precedesRange, TreeWalker } from '../utils/tree-sitter';
 import { Maybe } from '../utils/maybe';
 import { Option } from '../parsing/options';
-import { isExistingSourceFilenameNode, isSourceCommandArgumentName } from '../parsing/source';
+import { getResolvedSourcedFilenameNode, isExistingSourceFilenameNode, isSourceCommandArgumentName } from '../parsing/source';
 import { LspDocument } from '../document';
 import { DiagnosticCommentsHandler } from './comments-handler';
 import { FishSymbol } from '../parsing/symbol';
@@ -146,9 +146,14 @@ export function isUniversalDefinition(node: SyntaxNode): boolean {
   return false;
 }
 
-export function isSourceFilename(node: SyntaxNode): boolean {
+export function isSourceFilename(node: SyntaxNode, baseDir?: string, sourceFilePath?: string): boolean {
   if (isSourceCommandArgumentName(node)) {
-    const isExisting = isExistingSourceFilenameNode(node);
+    // Unknown command substitutions are dynamic. Do not treat their literal
+    // source text as a missing filesystem path.
+    if (getResolvedSourcedFilenameNode(node, baseDir, sourceFilePath) === undefined) {
+      return false;
+    }
+    const isExisting = isExistingSourceFilenameNode(node, baseDir, sourceFilePath);
     if (!isExisting) {
       // check if the node is a variable expansion
       // if it is, do not through a diagnostic because we can't evaluate if this is a valid path

@@ -8,7 +8,7 @@ import { ErrorCodes } from './error-codes';
 import { config } from '../config';
 import { DiagnosticCommentsHandler } from './comments-handler';
 import { logger } from '../logger';
-import { isAutoloadedUriLoadsFunctionName, uriToReadablePath } from '../utils/translation';
+import { isAutoloadedUriLoadsFunctionName, uriToPath, uriToReadablePath } from '../utils/translation';
 import { FishString } from '../parsing/string';
 import { findParent, findParentCommand, getCommandNameNode, isCommandName, isCommandWithName, isComment, isCompleteCommandName, isFunctionDefinitionName, isOption, isScope, isString, isTopLevelFunctionDefinition } from '../utils/node-types';
 import { isBuiltin, isReservedKeyword } from '../utils/builtins';
@@ -20,6 +20,7 @@ import { findUnreachableCode, sequenceTerminatesAllPaths } from '../parsing/unre
 import { FishDiagnostic } from './types';
 import { server } from '../server';
 import { FishCompletionItemKind } from '../utils/completion/types';
+import { dirname } from 'path';
 
 // Number of nodes to process before yielding to event loop
 const CHUNK_SIZE = 100;
@@ -188,6 +189,8 @@ export async function getDiagnosticsAsync(
 
   // callback to check if the function has an `--event` handler && the handler is enabled at the node
   const isFunctionWithEventHook = isFunctionWithEventHookCallback(doc, handler, allFunctions);
+  const sourceFilePath = uriToPath(doc.uri);
+  const sourceBaseDir = dirname(sourceFilePath);
 
   // Process nodes in chunks to avoid blocking the main thread
   // Using generator for better memory efficiency
@@ -272,7 +275,7 @@ export async function getDiagnosticsAsync(
       );
       if (addDiagnostics(diagnostic)) return diagnostics;
     }
-    if (isSourceFilename(node) && handler.isCodeEnabled(ErrorCodes.sourceFileDoesNotExist)) {
+    if (isSourceFilename(node, sourceBaseDir, sourceFilePath) && handler.isCodeEnabled(ErrorCodes.sourceFileDoesNotExist)) {
       if (addDiagnostics(FishDiagnostic.create(ErrorCodes.sourceFileDoesNotExist, node))) return diagnostics;
     }
 

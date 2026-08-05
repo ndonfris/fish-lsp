@@ -14,6 +14,18 @@ import { findFirstExistingFile, isExistingFile } from '../utils/path-resolution'
 
 // TODO think of better naming conventions for these functions
 
+interface SourceResolutionContext {
+  baseDir?: string;
+  sourceFilePath?: string;
+}
+
+const statusFilenameSubcommands = new Set([
+  'filename',
+  'current-filename',
+  '-f',
+  '--current-filename',
+]);
+
 export function isSourceCommandName(node: SyntaxNode) {
   return isCommandWithName(node, 'source') || isCommandWithName(node, '.');
 }
@@ -50,47 +62,170 @@ export function isSourcedFilename(node: SyntaxNode) {
   return false;
 }
 
-export function isExistingSourceFilenameNode(node: SyntaxNode, baseDir?: string) {
-  if (!isSourcedFilename(node)) return false;
-  const resolvedPath = resolveSourcePath(node.text, baseDir);
-  return resolvedPath && isExistingFile(resolvedPath);
+export function getResolvedSourcedFilenameNode(
+  node: SyntaxNode,
+  baseDir?: string,
+  sourceFilePath?: string,
+): string | undefined {
+  if (!isSourcedFilename(node)) return undefined;
+  return resolveSourcePath(node, { baseDir, sourceFilePath });
 }
 
-export function getExpandedSourcedFilenameNode(node: SyntaxNode, baseDir?: string) {
-  if (!isSourcedFilename(node)) return undefined;
+export function isExistingSourceFilenameNode(
+  node: SyntaxNode,
+  baseDir?: string,
+  sourceFilePath?: string,
+): boolean {
+  const resolvedPath = getResolvedSourcedFilenameNode(node, baseDir, sourceFilePath);
+  return !!resolvedPath && isExistingFile(resolvedPath);
+}
 
-  const resolvedPath = resolveSourcePath(node.text, baseDir);
+export function getExpandedSourcedFilenameNode(
+  node: SyntaxNode,
+  baseDir?: string,
+  sourceFilePath?: string,
+): string | undefined {
+  const resolvedPath = getResolvedSourcedFilenameNode(node, baseDir, sourceFilePath);
   if (resolvedPath && isExistingFile(resolvedPath)) {
     return SyncFileHelper.expandEnvVars(resolvedPath);
   }
   return undefined;
 }
 
+function evaluateCommandArgument(node: SyntaxNode, context: SourceResolutionContext): string | undefined {
+  if (node.type === 'command_substitution') {
+    return evaluateCommandSubstitution(node, context);
+  }
+  return node.text;
+}
+
+/**
+ * Evaluates only deterministic commands used to derive paths from the current
+ * script. `stdin` is supplied when the command is part of a supported pipe.
+ */
+function evaluatePathCommand(
+  node: SyntaxNode,
+  context: SourceResolutionContext,
+  stdin?: string,
+): string | undefined {
+  if (node.type !== 'command') return undefined;
+
+  const commandName = node.childForFieldName('name')?.text;
+  const args = node.childrenForFieldName('argument');
+
+  if (commandName === 'status' && stdin === undefined && args.length === 1) {
+    const subcommand = args[0]?.text;
+    if (subcommand === 'dirname') return context.baseDir;
+    if (subcommand === 'basename') {
+      return context.sourceFilePath ? path.basename(context.sourceFilePath) : undefined;
+    }
+    if (subcommand && statusFilenameSubcommands.has(subcommand)) {
+      return context.sourceFilePath;
+    }
+    return undefined;
+  }
+
+  if (commandName === 'dirname' && stdin === undefined && args.length === 1) {
+    const operand = evaluateCommandArgument(args[0]!, context);
+    return operand === undefined ? undefined : dirname(operand);
+  }
+
+  if (commandName !== 'path' || args[0]?.text !== 'dirname') return undefined;
+
+  if (stdin !== undefined && args.length === 1) {
+    return dirname(stdin);
+  }
+  if (stdin === undefined && args.length === 2) {
+    const operand = evaluateCommandArgument(args[1]!, context);
+    return operand === undefined ? undefined : dirname(operand);
+  }
+  return undefined;
+}
+
+function evaluateCommandSubstitution(node: SyntaxNode, context: SourceResolutionContext): string | undefined {
+  const expression = node.firstNamedChild;
+  if (!expression) return undefined;
+
+  const flattenPipeline = (current: SyntaxNode): SyntaxNode[] | undefined => {
+    if (current.type === 'command') return [current];
+    if (current.type !== 'pipe') return undefined;
+
+    const commands: SyntaxNode[] = [];
+    for (const child of current.namedChildren) {
+      const nested = flattenPipeline(child);
+      if (!nested) return undefined;
+      commands.push(...nested);
+    }
+    return commands;
+  };
+
+  const commands = flattenPipeline(expression);
+  if (!commands || commands.length === 0) return undefined;
+  if (commands.length === 1) {
+    return evaluatePathCommand(commands[0]!, context);
+  }
+
+  let output: string | undefined;
+  for (const [index, command] of commands.entries()) {
+    output = evaluatePathCommand(command, context, index === 0 ? undefined : output);
+    if (output === undefined) return undefined;
+  }
+  return output;
+}
+
+/**
+ * Expands deterministic command substitutions while preserving literal and
+ * environment-variable path fragments for the existing path resolver.
+ */
+function evaluateSourceArgument(node: SyntaxNode, context: SourceResolutionContext): string | undefined {
+  if (node.type === 'command_substitution') {
+    return evaluateCommandSubstitution(node, context);
+  }
+  if (node.type !== 'concatenation') {
+    return node.text;
+  }
+
+  const parts: string[] = [];
+  for (const child of node.namedChildren) {
+    if (child.type === 'command_substitution') {
+      const expanded = evaluateCommandSubstitution(child, context);
+      if (expanded === undefined) return undefined;
+      parts.push(expanded);
+    } else {
+      parts.push(child.text);
+    }
+  }
+  return parts.join('');
+}
+
 /**
  * Resolves a source path that might be relative, relative to the base directory
- * @param sourcePath The path from the source command (e.g., "./scripts/file.fish", "/abs/path.fish")
- * @param baseDir The directory to resolve relative paths against (usually the directory containing the sourcing script)
- * @returns The resolved absolute path, or the original path if it was already absolute
+ * @param node The source command's filename argument
+ * @param context Information about the document containing the source command
+ * @returns The resolved path candidate, or `undefined` for a dynamic expression
  */
-function resolveSourcePath(sourcePath: string, baseDir?: string): string {
+function resolveSourcePath(node: SyntaxNode, context: SourceResolutionContext): string | undefined {
+  const sourcePath = evaluateSourceArgument(node, context);
+  if (sourcePath === undefined) return undefined;
+
   // Expand environment variables first
   const expandedPath = SyncFileHelper.expandEnvVars(sourcePath);
 
-  // If it's already an absolute path, return as-is
+  // Normalize absolute paths before using them as document/source graph keys.
   if (isAbsolute(expandedPath)) {
-    return expandedPath;
+    return path.normalize(expandedPath);
   }
 
   // Try to find the file in multiple possible locations
   const foundPath = findFirstExistingFile(
-    path.join(baseDir || workspaceManager.current?.path || process.cwd(), expandedPath),
+    path.join(context.baseDir || workspaceManager.current?.path || process.cwd(), expandedPath),
     path.resolve(process.cwd(), expandedPath),
     path.resolve(process.env.PWD || '', expandedPath),
     path.resolve(workspaceManager.current?.path || '', expandedPath),
   );
 
   // Return the found path or the expanded path as fallback
-  return foundPath ?? expandedPath;
+  return path.normalize(foundPath ?? expandedPath);
 }
 
 export interface SourceResource {
@@ -148,11 +283,11 @@ export function createSourceResources(analyzer: Analyzer, from: LspDocument): So
   const baseDir = dirname(fromPath);
 
   const nodes = analyzer.getNodes(from.uri).filter(n => {
-    return isSourceCommandArgumentName(n) && !!isExistingSourceFilenameNode(n, baseDir);
+    return isSourceCommandArgumentName(n) && !!isExistingSourceFilenameNode(n, baseDir, fromPath);
   });
   if (nodes.length === 0) return result;
   for (const node of nodes) {
-    const sourcedFile = getExpandedSourcedFilenameNode(node, baseDir);
+    const sourcedFile = getExpandedSourcedFilenameNode(node, baseDir, fromPath);
     if (!sourcedFile) continue;
     const to = analyzer.getDocumentFromPath(sourcedFile) ||
       SyncFileHelper.toLspDocument(sourcedFile);
