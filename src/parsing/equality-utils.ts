@@ -147,6 +147,13 @@ const haveCompatibleScopeTags: ScopeCheck = ({ a, b }) => {
 
 // Check if scopes are equal
 const haveEqualScopes: ScopeCheck = ({ a, b }) => {
+  // Reflexivity must be explicit: the containment checks below are
+  // lifetime-aware (see FishSymbol.scopeContainsNode), so a definition's own
+  // command node — which starts at the `set`/`read` keyword, before the
+  // definition's name token — is deliberately rejected by them. Compare by
+  // definition site (equalSymbols), NOT by scope node: erase-separated
+  // re-definitions share a scope node but are distinct bindings.
+  if (equalSymbols(a, b)) return true;
   if (!haveSameScopeNode({ a, b }) || a.kind !== b.kind) return false;
   return haveCompatibleScopeTags({ a, b });
 };
@@ -196,26 +203,37 @@ const checkGeneralScopeContainment: ScopeCheck = ({ a, b }) => {
   return a.scope.scopeTag === b.scope.scopeTag;
 };
 
-/**
- * Two LOCAL variables belong to the same scope chain only when they share the
- * same owning function (FishSymbol.parent identity), or both sit at script /
- * program top level (no parent). fish never leaks a script/outer local into a
- * nested function body, so a function's `$argv` is a distinct variable from the
- * script's implicit file-level `argv`.
- *
- * Using `.parent` rather than SyntaxNode traversal is deliberate: only
- * functions are internal nodes in the FishSymbol tree (if/for/while blocks are
- * not symbols), so `.parent` is always the enclosing function symbol — block-
- * level and body-level locals in the same function therefore still share an
- * owner. Mirrors the `equalParents` idiom in `FishSymbol.equalArgparse`.
- */
+/** Local variables share an owner only within the same lexical function. */
 const sharesLocalOwner = (a: FishSymbol, b: FishSymbol): boolean => {
-  return a.parent && b.parent
-    ? a.parent.equals(b.parent)
-    : !a.parent && !b.parent;
+  const aOwner = a.getFunctionOwner();
+  const bOwner = b.getFunctionOwner();
+  return aOwner && bOwner ? aOwner.equals(bOwner) : !aOwner && !bOwner;
 };
 
-// Main scope containment checker
+const hasExplicitVariableScope = (symbol: FishSymbol): boolean => {
+  if (!symbol.isVariable()) return false;
+  return symbol.options.some(option =>
+    option.isOption('-U', '--universal')
+    || option.isOption('-g', '--global')
+    || option.isOption('-f', '--function')
+    || option.isOption('-l', '--local'),
+  );
+};
+
+/**
+ * Main scope containment checker.
+ *
+ * The check sequence is load-bearing — each guard must run before the
+ * shortcut it protects:
+ *   1. owner guard — rejects cross-function pairs before any positional
+ *      shortcut, since an outer local's scope node can physically span a
+ *      nested function's body
+ *   2. explicit-scope guard — rejects explicit `-U/-g/-f/-l` re-scopes before
+ *      `haveEqualScopes`, whose tag matrix treats any two local variables'
+ *      tags as compatible
+ *   3. equal scopes — trivially contained (also carries reflexivity)
+ *   4. kind-specific positional containment fallbacks
+ */
 export const symbolContainsScope = (symbolA: FishSymbol, symbolB: FishSymbol): boolean => {
   const pair: SymbolPair = { a: symbolA, b: symbolB };
 
@@ -229,6 +247,21 @@ export const symbolContainsScope = (symbolA: FishSymbol, symbolB: FishSymbol): b
     symbolA.isVariable() && symbolB.isVariable()
     && symbolA.isLocal() && symbolB.isLocal()
     && !sharesLocalOwner(symbolA, symbolB)
+  ) {
+    return false;
+  }
+
+  // An explicit scope modifier creates or targets that exact scope. It must
+  // not be folded into an enclosing binding merely because the enclosing
+  // scope contains its command. Unscoped writes remain eligible to resolve to
+  // the visible outer binding they update.
+  if (
+    symbolA.isVariable() && symbolB.isVariable()
+    && hasExplicitVariableScope(symbolB)
+    && (
+      symbolA.scopeTag !== symbolB.scopeTag
+      || !symbolA.scopeNode.equals(symbolB.scopeNode)
+    )
   ) {
     return false;
   }

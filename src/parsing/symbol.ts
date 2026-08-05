@@ -602,6 +602,24 @@ export class FishSymbol {
     return this.scope.scopeNode;
   }
 
+  /**
+   * Returns the lexical function that owns this symbol. Definitions inside a
+   * `for` body are children of the loop's FOR symbol, so the direct `parent`
+   * is not necessarily the function owner. The symbol itself is deliberately
+   * excluded: a root function or root-level symbol has no function owner.
+   *
+   * The walk stops only at `FUNCTION`, not at `ALIAS` (the other
+   * `isFunction()` kind): an alias body is a single string token that never
+   * parses into child definitions, so an ALIAS can never be an owner.
+   */
+  getFunctionOwner(): FishSymbol | undefined {
+    let parent = this.parent;
+    while (parent && parent.fishKind !== 'FUNCTION') {
+      parent = parent.parent;
+    }
+    return parent;
+  }
+
   // === Conversion Utils ===
   toString() {
     return SymbolConverters.symbolToString(this);

@@ -160,7 +160,7 @@ const isInValidScope: ReferenceCheck = ({ symbol, document, node }) => {
     }
     // Cross-document: only allow if symbol is in a --no-scope-shadowing function
     // AND the node is also in a --no-scope-shadowing function (or at program scope)
-    if (symbol.parent?.isFunctionWithNoScopeShadowing()) {
+    if (symbol.getFunctionOwner()?.isFunctionWithNoScopeShadowing()) {
       const enclosingFunc = findParentFunction(node);
       if (!enclosingFunc || !isFunctionDefinition(enclosingFunc)) {
         return true; // node is at program/global scope
@@ -168,7 +168,11 @@ const isInValidScope: ReferenceCheck = ({ symbol, document, node }) => {
       const enclosingFuncSymbol = analyzer.getEnclosingFunctionSymbol(document.uri, node);
       return !!(
         enclosingFuncSymbol?.isFunctionWithNoScopeShadowing()
-        && analyzer.isFunctionVisibleFrom(enclosingFuncSymbol, symbol.parent, document.uri)
+        && analyzer.isFunctionVisibleFrom(
+          enclosingFuncSymbol,
+          symbol.getFunctionOwner(),
+          document.uri,
+        )
       );
     }
     // Cross-document: --inherit-variable allows specific variables to cross file boundaries
@@ -405,11 +409,12 @@ function scopeCallsNoScopeShadowingFunctionTransitively(
 function isInNoScopeShadowingCallee(symbol: FishSymbol, node: SyntaxNode, uri: string): boolean {
   const enclosingFuncSymbol = analyzer.getEnclosingFunctionSymbol(uri, node);
   if (!enclosingFuncSymbol?.isFunctionWithNoScopeShadowing()) return false;
-  if (!analyzer.isFunctionVisibleFrom(enclosingFuncSymbol, symbol.parent, uri)) return false;
+  const symbolFunction = symbol.getFunctionOwner();
+  if (!analyzer.isFunctionVisibleFrom(enclosingFuncSymbol, symbolFunction, uri)) return false;
   return scopeCallsNoScopeShadowingFunctionTransitively(
     symbol.scope.scopeNode,
     enclosingFuncSymbol,
-    symbol.parent,
+    symbolFunction,
     symbol.uri,
   );
 }
@@ -432,7 +437,11 @@ function isValidInheritVariableScope(symbol: FishSymbol, node: SyntaxNode, uri: 
 
   // Direction 1: symbol is a regular variable, node is inside a function
   // that inherits this variable via --inherit-variable
-  const inheritingFuncs = analyzer.getCallableInheritingFunctions(symbol.name, symbol.parent, symbol.document.uri);
+  const inheritingFuncs = analyzer.getCallableInheritingFunctions(
+    symbol.name,
+    symbol.getFunctionOwner(),
+    symbol.document.uri,
+  );
   if (inheritingFuncs.some(f => f.equals(enclosingFuncSymbol))) {
     return true;
   }
@@ -467,9 +476,13 @@ function isValidCrossFileVariableReference(symbol: FishSymbol, node: SyntaxNode,
   // Check --no-scope-shadowing
   if (
     enclosingFuncSymbol?.isFunctionWithNoScopeShadowing()
-    && analyzer.isFunctionVisibleFrom(enclosingFuncSymbol, symbol.parent, symbol.document.uri)
+    && analyzer.isFunctionVisibleFrom(
+      enclosingFuncSymbol,
+      symbol.getFunctionOwner(),
+      symbol.document.uri,
+    )
   ) {
-    return symbol.parent?.isFunctionWithNoScopeShadowing() || symbol.isGlobal();
+    return symbol.getFunctionOwner()?.isFunctionWithNoScopeShadowing() || symbol.isGlobal();
   }
   // Check --inherit-variable
   if (isValidInheritVariableScope(symbol, node, uri)) {
