@@ -17,7 +17,7 @@ import { withTempFishFile } from './temp';
 import { workspaceManager } from '../src/utils/workspace-manager';
 // import { Option } from '../src/parsing/options';
 import { getNoExecuteDiagnostics } from '../src/diagnostics/no-execute-diagnostic';
-import { analyzer, Analyzer } from '../src/analyze';
+import { AnalyzedDocument, analyzer, Analyzer } from '../src/analyze';
 import { config, getDefaultConfiguration } from '../src/config';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { logger } from '../src/logger';
@@ -1455,6 +1455,270 @@ describe('diagnostics with missing completions', () => {
       getGroupedCompletionSymbolsAsArgparse(completionGroups, flatAutoloadedSymbols);
 
       findAllMissingArgparseFlags(functionDoc);
+    });
+  });
+
+  describe('source command syntax `source (status dirname)/*.fish` verification', () => {
+    let mainCached: AnalyzedDocument;
+    let test1Cached: AnalyzedDocument;
+    let test2Cached: AnalyzedDocument;
+    let test3Cached: AnalyzedDocument;
+    let test4Cached: AnalyzedDocument;
+    let test5Cached: AnalyzedDocument;
+    let test6Cached: AnalyzedDocument;
+    let test7Cached: AnalyzedDocument;
+
+    const workspace = TestWorkspace.create()
+      .addFiles(
+        // a source file that defines my_func
+        TestFile.custom('v1/my_func.fish', [
+          'function my_func',
+          '  argparse a/arg1 h/help -- $argv',
+          '  or return',
+          '  if set -ql _flag_help',
+          '   echo "help msg"',
+          '   return 0',
+          '  end',
+          '  echo "hello world!"',
+          '  set -ql _flag_arg1',
+          '  and echo "arg1 is set! $_flag_arg1"',
+          'end',
+          'complete -c my_function -f',
+          'complete -c my_function -s a -l arg1 -d "Argument 1"',
+          'complete -c my_function -s h -l help -d "help msg"',
+        ].join('\n')),
+        // sources my_func and checks that it exists, should not report any diagnostics
+        TestFile.custom('v1/my_func_test1.fish', [
+          'source (status dirname)/my_func.fish',
+          'my_func --help && test "$status" -eq 0',
+        ].join('\n')),
+        // sources my_func and checks that it exists, should not report any diagnostics
+        TestFile.custom('v1/my_func_test2.fish', [
+          'source $(status dirname)/my_func.fish',
+          'my_func --help && test "$status" -eq 0',
+        ].join('\n')),
+        // sources a file that does not exist, should report diagnostics
+        TestFile.custom('v1/my_func_test3.fish', [
+          'source (status dirname)/function_that_dne.fish',
+          'my_func --help && test "$status" -eq 0',
+        ].join('\n')),
+        // sources a file that does not exist, should report diagnostics
+        TestFile.custom('v1/my_func_test4.fish', [
+          'source (status basename)/function_that_dne.fish',
+          'my_func --help && test "$status" -eq 0',
+        ].join('\n')),
+        // sources a file that does not exist, but is quoted, should not report diagnostics
+        TestFile.custom('v1/my_func_test5.fish', [
+          'source "$(status basename)/function_that_dne.fish"',
+          'my_func --help && test "$status" -eq 0',
+        ].join('\n')),
+        // sources a file that exists, should not report diagnostics
+        TestFile.custom('v1/my_func_test6.fish', [
+          'source ./my_func.fish',
+          'my_func --help && test "$status" -eq 0',
+        ].join('\n')),
+        // sources a file that does not exist, should report diagnostics
+        TestFile.custom('v1/my_func_test7.fish', [
+          'source (status dirname)/no_func.fish',
+          '# no_func DNE, should still error',
+        ].join('\n')),
+
+      ).initialize();
+
+    beforeEach(async () => {
+      // cached documents for the tests
+      mainCached = analyzer.analyze(workspace.getDocument('v1/my_func.fish')!);
+      test1Cached = analyzer.analyze(workspace.getDocument('v1/my_func_test1.fish')!);
+      test2Cached = analyzer.analyze(workspace.getDocument('v1/my_func_test2.fish')!);
+      test3Cached = analyzer.analyze(workspace.getDocument('v1/my_func_test3.fish')!);
+      test4Cached = analyzer.analyze(workspace.getDocument('v1/my_func_test4.fish')!);
+      test5Cached = analyzer.analyze(workspace.getDocument('v1/my_func_test5.fish')!);
+      test6Cached = analyzer.analyze(workspace.getDocument('v1/my_func_test6.fish')!);
+      test7Cached = analyzer.analyze(workspace.getDocument('v1/my_func_test7.fish')!);
+    });
+
+    afterEach(async () => {
+      Object.assign(config, getDefaultConfiguration());
+    });
+
+    it.skip('validate: workspace files', () => {
+      expect(mainCached).toBeDefined();
+      expect(test1Cached).toBeDefined();
+      expect(test2Cached).toBeDefined();
+      expect(test3Cached).toBeDefined();
+      expect(test4Cached).toBeDefined();
+      expect(test5Cached).toBeDefined();
+      expect(test6Cached).toBeDefined();
+      expect(test7Cached).toBeDefined();
+      console.log(workspace.dumpFileTree());
+    });
+
+    it('DOES NOT REPORT existing files for EITHER command substitution syntax: `(status dirname)`/`$(status dirname)`', async () => {
+      // gather diagnostics for test1 and test2
+      const test1Diagnostics = await getDiagnosticsAsync(test1Cached.root!, test1Cached.document);
+      const test2Diagnostics = await getDiagnosticsAsync(test2Cached.root!, test2Cached.document);
+      expect(test1Diagnostics).not.toContainEqual(expect.objectContaining({ code: ErrorCodes.sourceFileDoesNotExist }));
+      expect(test2Diagnostics).not.toContainEqual(expect.objectContaining({ code: ErrorCodes.sourceFileDoesNotExist }));
+
+      // expect sources to contain mainDoc.uri
+      expect(analyzer.collectAllSources(test1Cached.document.uri)).toContain(mainCached.document.uri);
+      expect(analyzer.collectAllSources(test2Cached.document.uri)).toContain(mainCached.document.uri);
+      // expect no diagnostics
+      expect(test1Diagnostics).toHaveLength(0);
+      expect(test2Diagnostics).toHaveLength(0);
+    });
+
+    it('reports missing files command substitution syntax in \'v1/my_func_test3.fish\'', async () => {
+      const test3Diagnostics = await getDiagnosticsAsync(test3Cached.root!, test3Cached.document);
+      expect(test3Diagnostics).toContainEqual(expect.objectContaining({
+        code: ErrorCodes.sourceFileDoesNotExist,
+        message: 'source filename does not exist',
+        range: { start: { line: 0, character: 7 }, end: { line: 0, character: 46 } },
+      }));
+    });
+
+    it('reports missing files command substitution syntax for `status basename` in \'v1/my_func_test4.fish\'', async () => {
+      const test4Diagnostics = await getDiagnosticsAsync(test4Cached.root!, test4Cached.document);
+      expect(test4Diagnostics).toContainEqual(expect.objectContaining({
+        code: ErrorCodes.sourceFileDoesNotExist,
+        message: 'source filename does not exist',
+        range: { start: { line: 0, character: 7 }, end: { line: 0, character: 47 } },
+      }));
+    });
+
+    it('doesn\'t report quoted "$(status basename)/function_that_dne.fish" in \'v1/my_func_test5.fish\'', async () => {
+      const test5Diagnostics = await getDiagnosticsAsync(test5Cached.root!, test5Cached.document);
+      expect(test5Diagnostics).not.toContainEqual(expect.objectContaining({
+        code: ErrorCodes.sourceFileDoesNotExist,
+        message: 'source filename does not exist',
+      }));
+    });
+
+    it('VALID filename `./my_func.fish` sourced in v1/my_func_test6.fish', async () => {
+      const test6Diagnostics = getDiagnosticsAsync(test6Cached.root!, test6Cached.document);
+      await expect(test6Diagnostics).resolves.toHaveLength(0);
+    });
+
+    it('INVALID filename `(status dirname)/no_func.fish` sourced in v1/my_func_test7.fish', async () => {
+      const test7Diagnostics = getDiagnosticsAsync(test7Cached.root!, test7Cached.document);
+      await expect(test7Diagnostics).resolves.toHaveLength(1);
+      await expect(test7Diagnostics).resolves.toContainEqual(expect.objectContaining({
+        code: ErrorCodes.sourceFileDoesNotExist,
+        message: 'source filename does not exist',
+        range: { start: { line: 0, character: 7 }, end: { line: 0, character: 36 } },
+      }));
+    });
+  });
+
+  describe('static source paths derived from status filename', () => {
+    const supportedSources = [
+      'source (dirname (status filename))/helper.fish',
+      'source $(dirname $(status filename))/helper.fish',
+      'source (path dirname (status filename))/helper.fish',
+      'source $(path dirname $(status current-filename))/helper.fish',
+      'source (path dirname (status -f))/helper.fish',
+      'source $(path dirname $(status --current-filename))/helper.fish',
+      'source (status filename | path dirname)/helper.fish',
+      'source $(status filename | path dirname)/helper.fish',
+      'source (status current-filename | path dirname)/helper.fish',
+      'source $(status -f | path dirname)/helper.fish',
+    ];
+    const missingSources = [
+      'source (path dirname (status filename))/missing.fish',
+      'source (status filename | path dirname)/missing.fish',
+    ];
+    const dynamicSources = [
+      'source (status current-command | path dirname)/missing.fish',
+      'source (status filename | path normalize)/missing.fish',
+    ];
+    const parentSources = [
+      'source (status dirname)/../parent_helper.fish',
+      'source $(status dirname)/../parent_helper.fish',
+      'source (path dirname (status dirname))/parent_helper.fish',
+      'source $(path dirname $(status dirname))/parent_helper.fish',
+      'source (path dirname (path dirname (status filename)))/parent_helper.fish',
+      'source $(path dirname $(path dirname $(status filename)))/parent_helper.fish',
+      'source (dirname (dirname (status filename)))/parent_helper.fish',
+      'source (status filename | path dirname | path dirname)/parent_helper.fish',
+      'source $(status filename | path dirname | path dirname)/parent_helper.fish',
+    ];
+    const missingParentSources = [
+      'source (status dirname)/../missing_parent.fish',
+      'source (status filename | path dirname | path dirname)/missing_parent.fish',
+    ];
+    const workspace = TestWorkspace.create()
+      .addFiles(
+        TestFile.custom('parent_helper.fish', 'true'),
+        TestFile.custom('v2/helper.fish', 'true'),
+        ...supportedSources.map((source, index) => TestFile.custom(`v2/supported_${index}.fish`, source)),
+        ...missingSources.map((source, index) => TestFile.custom(`v2/missing_${index}.fish`, source)),
+        ...dynamicSources.map((source, index) => TestFile.custom(`v2/dynamic_${index}.fish`, source)),
+        ...parentSources.map((source, index) => TestFile.custom(`v2/parent_${index}.fish`, source)),
+        ...missingParentSources.map((source, index) => TestFile.custom(`v2/missing_parent_${index}.fish`, source)),
+        TestFile.custom('v2/direct_filename.fish', 'source (status filename).copy'),
+        TestFile.custom('v2/direct_filename.fish.copy', 'true'),
+      ).initialize();
+
+    it('resolves nested and piped expressions to the same sibling file', async () => {
+      const helperDoc = workspace.getDocument('v2/helper.fish')!;
+      analyzer.analyze(helperDoc);
+
+      for (const [index] of supportedSources.entries()) {
+        const document = workspace.getDocument(`v2/supported_${index}.fish`)!;
+        const cached = analyzer.analyze(document);
+        const diagnostics = await getDiagnosticsAsync(cached.root!, document);
+        expect(diagnostics).not.toContainEqual(expect.objectContaining({ code: ErrorCodes.sourceFileDoesNotExist }));
+        expect(analyzer.collectAllSources(document.uri)).toContain(helperDoc.uri);
+      }
+    });
+
+    it('resolves status filename itself when it is part of a larger path', async () => {
+      const document = workspace.getDocument('v2/direct_filename.fish')!;
+      const target = workspace.getDocument('v2/direct_filename.fish.copy')!;
+      const cached = analyzer.analyze(document);
+      const diagnostics = await getDiagnosticsAsync(cached.root!, document);
+      expect(diagnostics).not.toContainEqual(expect.objectContaining({ code: ErrorCodes.sourceFileDoesNotExist }));
+      expect(analyzer.collectAllSources(document.uri)).toContain(target.uri);
+    });
+
+    it('reports missing files after deterministic nested and piped resolution', async () => {
+      for (const [index] of missingSources.entries()) {
+        const document = workspace.getDocument(`v2/missing_${index}.fish`)!;
+        const cached = analyzer.analyze(document);
+        const diagnostics = await getDiagnosticsAsync(cached.root!, document);
+        expect(diagnostics).toContainEqual(expect.objectContaining({ code: ErrorCodes.sourceFileDoesNotExist }));
+      }
+    });
+
+    it('does not guess at unsupported commands or pipeline stages', async () => {
+      for (const [index] of dynamicSources.entries()) {
+        const document = workspace.getDocument(`v2/dynamic_${index}.fish`)!;
+        const cached = analyzer.analyze(document);
+        const diagnostics = await getDiagnosticsAsync(cached.root!, document);
+        expect(diagnostics).not.toContainEqual(expect.objectContaining({ code: ErrorCodes.sourceFileDoesNotExist }));
+      }
+    });
+
+    it('normalizes literal and computed parent-directory paths', async () => {
+      const target = workspace.getDocument('parent_helper.fish')!;
+      analyzer.analyze(target);
+
+      for (const [index] of parentSources.entries()) {
+        const document = workspace.getDocument(`v2/parent_${index}.fish`)!;
+        const cached = analyzer.analyze(document);
+        const diagnostics = await getDiagnosticsAsync(cached.root!, document);
+        expect(diagnostics).not.toContainEqual(expect.objectContaining({ code: ErrorCodes.sourceFileDoesNotExist }));
+        expect(analyzer.collectAllSources(document.uri)).toContain(target.uri);
+      }
+    });
+
+    it('reports missing files after resolving a parent directory', async () => {
+      for (const [index] of missingParentSources.entries()) {
+        const document = workspace.getDocument(`v2/missing_parent_${index}.fish`)!;
+        const cached = analyzer.analyze(document);
+        const diagnostics = await getDiagnosticsAsync(cached.root!, document);
+        expect(diagnostics).toContainEqual(expect.objectContaining({ code: ErrorCodes.sourceFileDoesNotExist }));
+      }
     });
   });
 });

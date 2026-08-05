@@ -40,9 +40,10 @@ export function enrichCommandWithFlags(command: string, description: string, fla
 
 export function handleSourceArgumentHover(analyzer: Analyzer, current: SyntaxNode, document?: LspDocument): Hover | null {
   // Get the base directory for resolving relative paths
-  const baseDir = document ? dirname(uriToPath(document.uri)) : undefined;
+  const sourceFilePath = document ? uriToPath(document.uri) : undefined;
+  const baseDir = sourceFilePath ? dirname(sourceFilePath) : undefined;
 
-  const sourceExpanded = getExpandedSourcedFilenameNode(current, baseDir);
+  const sourceExpanded = getExpandedSourcedFilenameNode(current, baseDir, sourceFilePath);
   if (!sourceExpanded) return null;
   const sourceDoc = analyzer.getDocumentFromPath(sourceExpanded);
   if (!sourceDoc) {
