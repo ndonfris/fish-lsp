@@ -89,6 +89,8 @@ yarn global add fish-lsp
 
 pnpm install -g fish-lsp
 
+bun install -g fish-lsp
+
 nix-shell -p fish-lsp
 
 brew install fish-lsp
@@ -241,6 +243,21 @@ Theoretically, the language-server should generally be compatible with almost an
 
 </details>
 <details>
+  <summary><span><a id="nvf"></a><b>nvf</b></span></summary>
+
+  For [NotAShelf/nvf](https://github.com/NotAShelf/nvf) configuration, place the following snippet in your preferred location (i.e., `home.nix`, `modules/home/neovim.nix`, or `/etc/nixos/configuration.nix` )
+
+  ```nix
+  vim.languages.fish.lsp = {
+      enable = true;
+      servers = ["fish-lsp"];
+  };
+  ```
+
+  > **SEE:** [nvf#1595](https://github.com/NotAShelf/nvf/pull/1595) for more information on the `fish-lsp` configuration.
+
+</details>
+<details>
   <summary><span><a id="helix"></a><b>helix</b></span></summary>
 
   In config file `~/.config/helix/languages.toml`
@@ -373,8 +390,12 @@ Theoretically, the language-server should generally be compatible with almost an
   > To install the fish-lsp in [IntelliJ](https://www.jetbrains.com/idea/), please follow the instructions in the repository [jetbrains-fish](https://github.com/tox-dev/jetbrains-fish?tab=readme-ov-file#installation).
 
 </details>
+<details>
+  <summary><span><a id="Zed"></a><b>Zed</b></span></summary>
 
+  > To install the fish-lsp in [Zed](https://zed.dev/), please follow the instructions in the repository [zed-fish-lsp](https://github.com/alysson-souza/zed-fish-lsp).
 
+</details>
 
 ### Server Configuration <ins><i>(Optional)</i></ins>
 
@@ -973,6 +994,8 @@ Contributions of any kind are welcome! Special thanks to anyone who contributed 
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/jose-elias-alvarez"><img src="https://avatars.githubusercontent.com/u/54108223?v=4?s=50" width="50px;" alt="Jose Alvarez"/><br /><sub><b>Jose Alvarez</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=jose-elias-alvarez" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://www.bernat.tech/"><img src="https://avatars.githubusercontent.com/u/690238?v=4?s=50" width="50px;" alt="Bernát Gábor"/><br /><sub><b>Bernát Gábor</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=gaborbernat" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/rmehri01"><img src="https://avatars.githubusercontent.com/u/52933714?v=4?s=50" width="50px;" alt="Ryan Mehri"/><br /><sub><b>Ryan Mehri</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=rmehri01" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/alysson-souza"><img src="https://avatars.githubusercontent.com/u/297559?v=4?s=50" width="50px;" alt="Alysson Souza e Silva"/><br /><sub><b>Alysson Souza e Silva</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=alysson-souza" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://poz.pet/"><img src="https://avatars.githubusercontent.com/u/64381190?v=4?s=50" width="50px;" alt="poz"/><br /><sub><b>poz</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=imnotpoz" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>

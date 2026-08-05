@@ -162,6 +162,24 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "alysson-souza",
+      "name": "Alysson Souza e Silva",
+      "avatar_url": "https://avatars.githubusercontent.com/u/297559?v=4",
+      "profile": "https://github.com/alysson-souza",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "imnotpoz",
+      "name": "poz",
+      "avatar_url": "https://avatars.githubusercontent.com/u/64381190?v=4",
+      "profile": "https://poz.pet/",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,

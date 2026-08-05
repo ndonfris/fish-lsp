@@ -1,3 +1,15 @@
+## <small>1.1.5-pre.1 (2026-08-05)</small>
+
+* docs: bump docs for 1.1.5-pre.1 + new contributors ([cf082d4](https://github.com/ndonfris/fish-lsp/commit/cf082d4))
+* chore: bump postcss in the npm_and_yarn group across 1 directory (#181) ([5a8c56d](https://github.com/ndonfris/fish-lsp/commit/5a8c56d)), closes [#181](https://github.com/ndonfris/fish-lsp/issues/181)
+* chore: bump undici in the npm_and_yarn group across 1 directory (#175) ([aae7845](https://github.com/ndonfris/fish-lsp/commit/aae7845)), closes [#175](https://github.com/ndonfris/fish-lsp/issues/175)
+* fix: bun issue hanging caused by misidentified 'web' env ([3616c9f](https://github.com/ndonfris/fish-lsp/commit/3616c9f))
+* fix: husky pre-commit script backup current msg issue ([cb9311a](https://github.com/ndonfris/fish-lsp/commit/cb9311a))
+* fix: symbol definition regression introduced in 1.1.4-pre.3 (#180) ([5d75de5](https://github.com/ndonfris/fish-lsp/commit/5d75de5)), closes [#180](https://github.com/ndonfris/fish-lsp/issues/180)
+* fix(diagnostic): allows `source (status dirname)/some_file.fish` to resolve (#179) ([4c8a1c0](https://github.com/ndonfris/fish-lsp/commit/4c8a1c0)), closes [#179](https://github.com/ndonfris/fish-lsp/issues/179)
+* fix(health-check): `fish-lsp info --check-health` completion comment timestamp ignored ([d26ddf2](https://github.com/ndonfris/fish-lsp/commit/d26ddf2))
+* build(deps): move & bump dependencies for `1.1.5-pre.0` ([3172021](https://github.com/ndonfris/fish-lsp/commit/3172021)), closes [#170](https://github.com/ndonfris/fish-lsp/issues/170)
+
 ## <small>1.1.5-pre.0 (2026-07-22)</small>
 
 * build(deps): move & bump dependencies for `1.1.5-pre.0` ([ebb34ce](https://github.com/ndonfris/fish-lsp/commit/ebb34ce)), closes [#170](https://github.com/ndonfris/fish-lsp/issues/170)
