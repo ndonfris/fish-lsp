@@ -15,6 +15,11 @@ import './virtual-fs';
 import './utils/commander-cli-subcommands';
 import { execCLI } from './cli';
 import { isBrowserEnvironment, isNodeRuntime } from './utils/environment';
+import type { Connection, InitializeParams } from 'vscode-languageserver';
+import FishServerBase from './server';
+import {
+  registerTerminalAnalysisRequest,
+} from './terminal-analysis';
 
 function isRunningAsCLI(): boolean {
   return isNodeRuntime() && !isBrowserEnvironment() && require.main === module;
@@ -28,8 +33,22 @@ async function runCLI() {
 // Import web module to ensure it's bundled and can auto-initialize
 import './web';
 
+/**
+ * Public server wrapper. Keep terminal-only protocol extensions at the package
+ * boundary so the core FishServer registration remains focused on standard LSP.
+ */
+export class FishServer extends FishServerBase {
+  public static override async create(
+    connection: Connection,
+    params: InitializeParams,
+  ) {
+    const result = await FishServerBase.create(connection, params);
+    registerTerminalAnalysisRequest(connection);
+    return result;
+  }
+}
+
 // Export both Node.js and web versions
-export { default as FishServer } from './server';
 export { FishLspWeb } from './web';
 export { setExternalConnection, createConnectionType } from './utils/startup';
 export type { ConnectionType, ConnectionOptions } from './utils/startup';
@@ -45,7 +64,6 @@ export type {
 } from './terminal-analysis';
 
 // Default export for CommonJS compatibility
-import FishServer from './server';
 export default FishServer;
 
 // Auto-initialization based on environment
