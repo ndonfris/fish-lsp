@@ -33,6 +33,16 @@ export { default as FishServer } from './server';
 export { FishLspWeb } from './web';
 export { setExternalConnection, createConnectionType } from './utils/startup';
 export type { ConnectionType, ConnectionOptions } from './utils/startup';
+export {
+  TERMINAL_ANALYZE_REQUEST,
+  analyzeTerminalBuffer,
+  createTerminalDocument,
+  registerTerminalAnalysisRequest,
+} from './terminal-analysis';
+export type {
+  TerminalAnalyzeParams,
+  TerminalAnalyzeResult,
+} from './terminal-analysis';
 
 // Default export for CommonJS compatibility
 import FishServer from './server';
