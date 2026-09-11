@@ -956,6 +956,21 @@ export class TestWorkspace {
     return this;
   }
 
+  /**
+   * Create and clean up disk fixtures without registering or analyzing them.
+   * Use this for tests of file discovery or external Fish processes, which
+   * need real files but must control when the LSP learns about them.
+   */
+  initializeFiles(): TestWorkspace {
+    beforeAll(async () => {
+      await this._createWorkspaceFiles();
+    });
+    afterAll(() => {
+      this._cleanupFiles();
+    });
+    return this;
+  }
+
   get setup() {
     return () => {
       beforeAll(async () => {
@@ -1430,23 +1445,21 @@ export class TestWorkspace {
         workspaceManager.remove(this._workspace);
       }
 
-      // Remove files from disk
-      // For workspaces with addEnclosingFishFolder, we need to remove the parent directory
-      const cleanupPath = this._config.addEnclosingFishFolder
-        ? path.dirname(this._workspacePath)
-        : this._workspacePath;
-
-      if (fs.existsSync(cleanupPath)) {
-        fs.rmSync(cleanupPath, { recursive: true, force: true });
-
-        if (this._config.debug) {
-          logger.log(`Cleaned up workspace: ${cleanupPath}`);
-        }
-      }
+      this._cleanupFiles();
     } catch (error) {
       if (this._config.debug) {
         logger.error(`Error during cleanup: ${error}`);
       }
+    }
+  }
+
+  private _cleanupFiles(): void {
+    const cleanupPath = this._config.addEnclosingFishFolder
+      ? path.dirname(this._workspacePath)
+      : this._workspacePath;
+    fs.rmSync(cleanupPath, { recursive: true, force: true });
+    if (this._config.debug) {
+      logger.log(`Cleaned up workspace: ${cleanupPath}`);
     }
   }
 }
