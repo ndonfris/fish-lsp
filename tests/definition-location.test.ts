@@ -23,8 +23,7 @@ let parser: Parser;
 // let currentWorkspace: CurrentWorkspace = new CurrentWorkspace();
 const canQueryGlobalCommandLocations = (() => {
   try {
-    execCommandLocations('alias');
-    return true;
+    return execCommandLocations('alias').length > 0;
   } catch {
     return false;
   }

@@ -304,21 +304,27 @@ export async function execExpandBraceExpansion(input: string): Promise<string> {
 }
 
 export function execCommandLocations(cmd: string): { uri: string; path: string; }[] {
-  const typeStr = execFileSync(config.fish_lsp_fish_path, ['--command', `type -t ${cmd}`], {
-    stdio: ['pipe', 'pipe', 'ignore'],
-  }).toString().trim().split('\n')[0] || '';
+  try {
+    const typeStr = execFileSync(config.fish_lsp_fish_path, ['--command', `type -t ${cmd}`], {
+      stdio: ['pipe', 'pipe', 'ignore'],
+    }).toString().trim().split('\n')[0] || '';
 
-  if (typeStr.includes('file') || typeStr.includes('builtin') || typeStr === '') {
+    if (typeStr.includes('file') || typeStr.includes('builtin') || typeStr === '') {
+      return [];
+    }
+    const output = execFileSync(config.fish_lsp_fish_path, ['--command', `type -ap ${cmd}`], {
+      stdio: ['pipe', 'pipe', 'ignore'],
+    });
+    return output.toString().trim().split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0 && line !== '\n' && line.includes('/'))
+      .map(line => ({
+        uri: pathToUri(line),
+        path: uriToPath(line),
+      }));
+  } catch {
+    // Command lookup is supplementary; an unavailable Fish process should
+    // not prevent definition lookup for parsed workspace documents.
     return [];
   }
-  const output = execFileSync(config.fish_lsp_fish_path, ['--command', `type -ap ${cmd}`], {
-    stdio: ['pipe', 'pipe', 'ignore'],
-  });
-  return output.toString().trim().split('\n')
-    .map(line => line.trim())
-    .filter(line => line.length > 0 && line !== '\n' && line.includes('/'))
-    .map(line => ({
-      uri: pathToUri(line),
-      path: uriToPath(line),
-    })) || [];
 }
