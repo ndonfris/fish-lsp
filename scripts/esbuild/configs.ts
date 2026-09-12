@@ -1,7 +1,7 @@
 // Centrfalized build configurations
 import esbuild from 'esbuild';
 import { resolve } from 'path';
-import { createPlugins, createDefines, PluginOptions, createSourceMapOptimizationPlugin, createSpecialSourceMapPlugin } from './plugins';
+import { createPlugins, createDefines, PluginOptions, createSourceMapOptimizationPlugin, createSpecialSourceMapPlugin, createSourceMapStampPlugin } from './plugins';
 import { BuildConfigTarget, SourcemapMode } from "./types";
 
 export interface BuildConfig extends esbuild.BuildOptions {
@@ -78,6 +78,7 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
     bundle: true,
     treeShaking: true,
     minify: true,
+    keepNames: true, // Real function names in stack traces (`handleSourceMaps`, not `Z`), even without source maps
     assetNames: 'assets/[name]-[hash]',
     loader: {
       '.wasm': 'file',
@@ -112,8 +113,10 @@ export function createBuildOptions(config: BuildConfig, production = false, sour
   // Configure sourcemaps based on mode
   const shouldGenerateSourceMaps = config.sourcemap !== false && sourcemapsMode !== 'none';
   const isInlineMode = sourcemapsMode === 'inline' || sourcemapsMode === 'inline-optimized';
+  // Links `<outfile>.map`, which is only loaded when it is placed beside the executable
+  const isExternalMode = sourcemapsMode === 'external';
   const sourcemapSetting: esbuild.BuildOptions['sourcemap'] = shouldGenerateSourceMaps
-    ? (isInlineMode ? 'inline' : 'external')
+    ? (isInlineMode ? 'inline' : isExternalMode ? 'linked' : 'external')
     : false;
 
   return {
@@ -128,8 +131,8 @@ export function createBuildOptions(config: BuildConfig, production = false, sour
     ...(config.outfile ? { outfile: config.outfile } : { outdir: config.outdir }),
     minify: config.minify && production,
     sourcemap: sourcemapSetting,
-    sourcesContent: sourcemapsMode !== 'inline-optimized', // Exclude sources for optimized inline mode
-    keepNames: !production,
+    sourcesContent: sourcemapsMode !== 'inline-optimized' && !isExternalMode, // Exclude sources for optimized inline and external modes (stack traces only need mappings)
+    keepNames: config.keepNames ?? !production,
     treeShaking: config.bundle ? true : production,
     external: config.external,
     define: createDefines(config.target, production),
@@ -147,6 +150,8 @@ export function createBuildOptions(config: BuildConfig, production = false, sour
         : !isInlineMode
           ? createSourceMapOptimizationPlugin(sourcemapsMode === 'extended')
           : { name: 'no-sourcemap-plugin', setup() { } }, // Inline sourcemaps don't need post-processing
+      // onEnd callbacks run in order, so the stamp covers the final bundle and map
+      ...(config.bundle && isExternalMode ? [createSourceMapStampPlugin()] : []),
       ...(config.onBuildEnd ? [{
         name: 'build-end-hook',
         setup(build: esbuild.PluginBuild) {

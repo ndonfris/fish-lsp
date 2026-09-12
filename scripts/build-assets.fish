@@ -8,7 +8,8 @@
 #   - fish-lsp.standalone                                  (standalone binary -- bundled dependencies into a single executable, npm package will be smaller)
 #   - fish-lsp.standalone.extra-assets.tar                 (standalone w/ sourcemaps, manpage, completions, and TypeScript declarations)
 #   - fish-lsp.tgz                                         (npm packaged tarball)
-#   - fish-lsp.no-sourcemaps.tgz                           (npm packaged tarball, no sourcemaps)
+#   - fish-lsp.external-sourcemaps.tgz                     (npm packaged tarball, opt-in sourcemaps by adding fish-lsp.map beside dist/fish-lsp)
+#   - fish-lsp.map                                         (external sourcemaps for fish-lsp.external-sourcemaps.tgz)
 #   - fish-lsp.1                                           (man page)
 #   - fish-lsp.fish                                        (shell completions)
 #
@@ -88,11 +89,13 @@ log_info '' '[INFO]' 'Creating npm package tarball...'
 yarn pack --filename release-assets/fish-lsp.tgz --silent
 or fail 'Failed to create npm package tarball.'
 
-log_info '' '[INFO]' 'Creating npm package tarball (no sourcemaps)...'
-yarn build:npm:nosourcemaps &>/dev/null
-or fail 'Failed to build npm package without sourcemaps.'
-yarn pack --filename release-assets/fish-lsp.no-sourcemaps.tgz --silent
-or fail 'Failed to create npm package tarball (no sourcemaps).'
+log_info '' '[INFO]' 'Creating npm package tarball (external sourcemaps)...'
+yarn build:npm:external-sourcemaps &>/dev/null
+or fail 'Failed to build npm package with external sourcemaps.'
+yarn pack --filename release-assets/fish-lsp.external-sourcemaps.tgz --silent
+or fail 'Failed to create npm package tarball (external sourcemaps).'
+command cp dist/fish-lsp.map release-assets/fish-lsp.map
+or fail 'Failed to copy dist/fish-lsp.map to release-assets/fish-lsp.map'
 
 log_info '' '[INFO]' 'Creating standalone binary...'
 yarn build:all &>/dev/null

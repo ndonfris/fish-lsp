@@ -945,6 +945,14 @@ If you encounter any issues with the server, the following commands may be usefu
   $EDITOR ~/.config/fish/config.fish
   ```
 
+  Builds without inline source maps link to an external `fish-lsp.map` beside the executable.
+  If it is missing, download it from this version's GitHub release and save it at the reported path:
+
+  ```fish
+  fish-lsp info --source-maps          # source map type, expected path, and if it matches the executable
+  fish-lsp info --source-maps --url    # download url for this version's fish-lsp.map
+  ```
+
 - <a id="tree-sitter"></a>Show the [tree-sitter](https://github.com/esdmr/tree-sitter-fish) parse tree for a specific file:
 
   ```fish

@@ -12,6 +12,7 @@ import { promisify } from 'util';
 import { exec, spawn } from 'child_process';
 import { SyncFileHelper } from '../src/utils/file-operations';
 import { fail } from 'assert';
+import PackageJSON from '../package.json';
 const execAsync = promisify(exec);
 
 const cliExists = SyncFileHelper.exists('./dist/fish-lsp');
@@ -270,6 +271,23 @@ describe.skipIf(!cliExists)('cli tests', () => {
   });
 
   describe('info', () => {
+    it('fish-lsp info --source-maps --url', async () => {
+      const result = await runFishLspCommand(['info', '--source-maps', '--url']);
+      expect(result.stdout.trim()).toBe(`https://github.com/ndonfris/fish-lsp/releases/download/v${PackageJSON.version}/fish-lsp.map`);
+      expect(result.exitCode).toBe(0);
+    });
+
+    it('fish-lsp info --url (requires --source-maps)', async () => {
+      const result = await runFishLspCommand(['info', '--url'], { expectedExitCodes: [1] });
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toMatch(/requires --source-maps/);
+    });
+
+    it('fish-lsp url --source-map', async () => {
+      const result = await runFishLspCommand(['url', '--source-map']);
+      expect(result.stdout.trim()).toBe(`https://github.com/ndonfris/fish-lsp/releases/download/v${PackageJSON.version}/fish-lsp.map`);
+    });
+
     it('fish-lsp info --time-startup', async () => {
       await timeServerStartup({
         timeOnly: true,
