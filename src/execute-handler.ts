@@ -1,9 +1,11 @@
 import { Connection } from 'vscode-languageserver';
-import { exec } from 'child_process';
+import { exec, execFile } from 'child_process';
 import { execAsyncFish } from './utils/exec';
+import { config } from './config';
 import { promisify } from 'util';
 import { appendFileSync } from 'fs';
 export const execAsync = promisify(exec);
+export const execFileAsync = promisify(execFile);
 
 export type ExecResultKind = 'error' | 'info';
 
@@ -32,6 +34,32 @@ export async function execLineInBuffer(line: string): Promise<ExecResultWrapper>
 }
 
 export const fishLspPromptIcon = '><(((°>';
+
+type FishFileMode = 'execute' | 'source';
+
+function runFishFile(filePath: string, mode: FishFileMode) {
+  if (mode === 'execute') {
+    return execFileAsync(config.fish_lsp_fish_path, [filePath]);
+  }
+
+  return execFileAsync(config.fish_lsp_fish_path, [
+    '-c',
+    'source "$argv[1]"',
+    '--',
+    filePath,
+  ]);
+}
+
+async function getFishFileStatus(filePath: string, mode: FishFileMode) {
+  const command = mode === 'execute' ? 'fish "$argv[1]"' : 'source "$argv[1]"';
+  const result = await execFileAsync(config.fish_lsp_fish_path, [
+    '-c',
+    `${command} 1> /dev/null; echo "\\$status: $status"`,
+    '--',
+    filePath,
+  ]);
+  return result.stdout;
+}
 
 export function buildOutput(line: string, outputMessage: 'error:' | 'stderr:' | 'stdout:', output: string) {
   const tokens = line.trim().split(' ');
@@ -70,8 +98,8 @@ export function buildExecuteNotificationResponse(
 }
 
 export async function execEntireBuffer(bufferName: string): Promise<ExecResultWrapper> {
-  const { stdout, stderr } = await execAsync(`fish ${bufferName}`);
-  const statusOutput = (await execAsync(`fish -c 'fish ${bufferName} 1> /dev/null; echo "\\$status: $status"'`)).stdout;
+  const { stdout, stderr } = await runFishFile(bufferName, 'execute');
+  const statusOutput = await getFishFileStatus(bufferName, 'execute');
   const headerOutput = [
     `${fishLspPromptIcon} executing file:`,
     `${' '.repeat(fishLspPromptIcon.length)} ${bufferName}`,
@@ -99,8 +127,8 @@ export async function execEntireBuffer(bufferName: string): Promise<ExecResultWr
 }
 
 export async function sourceFishBuffer(bufferName: string) {
-  const { stdout, stderr } = await execAsync(`fish -c 'source ${bufferName}'`);
-  const statusOutput = (await execAsync(`fish -c 'source ${bufferName} 1> /dev/null; echo "\\$status: $status"'`)).stdout;
+  const { stdout, stderr } = await runFishFile(bufferName, 'source');
+  const statusOutput = await getFishFileStatus(bufferName, 'source');
   const message = [
     `${fishLspPromptIcon} sourcing file:`,
     `${' '.repeat(fishLspPromptIcon.length)} ${bufferName}`,
