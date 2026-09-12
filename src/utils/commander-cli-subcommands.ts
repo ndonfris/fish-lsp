@@ -13,6 +13,7 @@ import { isBrowserEnvironment } from './environment';
 import { maxWidthForOutput } from './startup';
 import { vfs } from '../virtual-fs';
 import FishServer from '../server';
+import { checkSourceMapStamp, getSourceMapDownloadURL, getSourceMapInfo } from './source-maps';
 
 /**
  * Accumulate the arguments into two arrays, '--enable' and '--disable'
@@ -468,7 +469,7 @@ export const SourcesDict: { [key: string]: string; } = {
   wiki: 'https://github.com/ndonfris/fish-lsp/wiki',
   discussions: 'https://github.com/ndonfris/fish-lsp/discussions',
   clientsRepo: 'https://github.com/ndonfris/fish-lsp-language-clients/',
-  sourceMap: `https://github.com/ndonfris/fish-lsp/releases/download/v${PackageVersion}/sourcemaps.tar.gz`,
+  sourceMap: getSourceMapDownloadURL(PackageVersion),
   sourcesList: [
     'https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#headerPart',
     'https://github.com/microsoft/vscode-extension-samples/tree/main',
@@ -637,6 +638,7 @@ export namespace CommanderSubcommand {
         warning: z.boolean().optional().default(true),
         showFiles: z.boolean().optional().default(false),
         sourceMaps: z.boolean().optional().default(false),
+        url: z.boolean().optional().default(false),
         check: z.boolean().optional().default(false),
         status: z.boolean().optional().default(false),
         dumpParseTree: z.union([z.string(), z.boolean()]).optional().default(''),
@@ -688,6 +690,11 @@ export namespace CommanderSubcommand {
 
     export function handleBadArgs(args: schemaType) {
       const argsCount = countArgsWithValues('info', args);
+
+      if (args.url && !args.sourceMaps) {
+        logger.logToStderr('ERROR: --url requires --source-maps. Use `fish-lsp info --source-maps --url`.');
+        process.exit(1);
+      }
 
       const conflictingSwitchStates = [
         args.short,
@@ -807,59 +814,42 @@ export namespace CommanderSubcommand {
       let exitStatus = 0;
       if (!args.sourceMaps) return exitStatus;
 
-      // check if all sourcemaps are present
-      Object.values(SourceMaps).forEach(v => {
-        if (!fs.existsSync(v) && !fs.readFileSync(getCurrentExecutablePath()).includes('//# sourceMappingURL=')) {
-          exitStatus = 1;
-        }
-      });
+      if (args.url) {
+        logger.logToStdout(getSourceMapDownloadURL(PackageVersion));
+        return 0;
+      }
+
+      const sourceMap = getSourceMapInfo(getCurrentExecutablePath());
+      exitStatus = sourceMap.available ? 0 : 1;
 
       const showSourceMaps = () => {
-        logger.logToStdout('-'.repeat(maxWidthForOutput())); // Add a blank line between maps
-        const hasExternalSourceMaps = () => {
-          for (const v of Object.values(SourceMaps)) {
-            if (fs.existsSync(v)) return true;
-          }
-          return false;
-        };
-        if (!hasExternalSourceMaps() && fs.readFileSync(getCurrentExecutablePath()).includes('//# sourceMappingURL=')) {
-          logger.logToStdoutJoined(chalk.white.bold('Inline Sourcemaps:'), ' ', chalk.blue(getCurrentExecutablePath().replace(homedir(), '~')));
+        logger.logToStdout('-'.repeat(maxWidthForOutput()));
+        if (sourceMap.kind === 'none') {
+          logger.logToStdout('No source maps found.');
+        } else if (sourceMap.kind === 'inline') {
+          logger.logToStdoutJoined(chalk.white.bold('Inline Sourcemaps:'), ' ', chalk.blue(sourceMap.path.replace(homedir(), '~')));
         } else {
-          for (const [k, v] of Object.entries(SourceMaps)) {
-            const exists = fs.existsSync(v);
-            logger.logToStdoutJoined(`${chalk.white('Sourcemap \'')}`, chalk.blue(k), chalk.white("': "), exists ? chalk.green('✅ Available') : chalk.red('❌ Not found'));
-            if (exists) {
-              logger.logToStdout(`${chalk.white('Path:')} ${chalk.blue(v.replace(homedir(), '~'))}`);
-            } else {
-              logger.logToStdout(`${chalk.white('Path:')} ${chalk.blue(v.replace(homedir(), '~'))} ${chalk.red('(not found)')}`);
-            }
+          logger.logToStdoutJoined(chalk.white('Sourcemap at path '), chalk.blue(sourceMap.path.replace(homedir(), '~')), ': ', sourceMap.available ? chalk.green('✅ Available') : chalk.red('❌ Not found'));
+          if (sourceMap.available) {
+            const stamp = checkSourceMapStamp(getCurrentExecutablePath(), sourceMap.path);
+            logger.logToStdoutJoined(chalk.white('Built from: '), chalk.blue(`${stamp.version ?? 'unknown version'} (${stamp.commit ?? 'unknown commit'})`));
+            logger.logToStdoutJoined(chalk.white('Matches executable: '), stamp.matches ? chalk.green('✅ Yes') : chalk.red('❌ No'));
+          } else {
+            logger.logToStdoutJoined(chalk.white('Download: '), chalk.blue(getSourceMapDownloadURL(PackageVersion)));
           }
         }
-        logger.logToStdout('-'.repeat(maxWidthForOutput())); // Add a blank line between maps
+        logger.logToStdout('-'.repeat(maxWidthForOutput()));
       };
 
-      if (args.all && !args.allPaths) {
-        logger.logToStdout('-'.repeat(maxWidthForOutput()));
-        sourcemaps().split('\n').forEach(line => {
-          if (line.includes(' (embedded inline)')) {
-            logger.logToStdoutJoined(chalk.white('Sourcemaps are embedded in the binary at:'), ' ', chalk.blue(line.replace(' (embedded inline)', '').replace(homedir(), '~')));
-            return 0;
-          }
-          const exists = fs.existsSync(line);
-          logger.logToStdoutJoined(`${chalk.white('Sourcemap at path \'')}`, chalk.blue(line.replace(homedir(), '~')), chalk.white("': "), exists ? chalk.green('✅ Available') : chalk.red('❌ Not found'));
-        });
-        logger.logToStdout('-'.repeat(maxWidthForOutput())); // Add a blank line between maps
+      if (args.allPaths) {
+        if (sourceMap.kind !== 'none' && sourceMap.available) {
+          logger.logToStdout(sourceMap.path);
+        }
         return exitStatus;
       }
 
-      if (args.allPaths) {
-        sourcemaps().split('\n').forEach(line => {
-          if (line.includes(' (embedded inline)')) {
-            logger.logToStdout(line.replace(' (embedded inline)', ''));
-          } else {
-            logger.logToStdout(line);
-          }
-        });
+      if (args.all) {
+        showSourceMaps();
         return exitStatus;
       }
 
@@ -876,33 +866,26 @@ export namespace CommanderSubcommand {
       }
 
       if (args.status) {
-        sourcemaps().split('\n').forEach(line => {
-          if (line.includes(' (embedded inline)')) {
-            logger.logToStdoutJoined(line.split(' ').at(0)!, ' ', chalk.blue('(embedded inline)'));
-          } else {
-            logger.logToStdoutJoined(line, ' ', fs.existsSync(line) ? chalk.green('(available)') : chalk.red('(not found)'));
-          }
-        });
+        if (sourceMap.kind === 'none') {
+          logger.logToStdout('No source maps found.');
+        } else {
+          const status = sourceMap.kind === 'inline'
+            ? chalk.blue('(embedded inline)')
+            : sourceMap.available ? chalk.green('(available)') : chalk.red('(not found)');
+          logger.logToStdoutJoined(sourceMap.path, ' ', status);
+        }
         return exitStatus;
       }
 
-      // Default source map path
       showSourceMaps();
       return exitStatus;
     }
 
     export function sourcemaps() {
-      const result: string[] = [];
-      if (fs.readFileSync(getCurrentExecutablePath()).includes('//# sourceMappingURL=')) {
-        result.push(getCurrentExecutablePath() + ' (embedded inline)');
-      } else {
-        for (const v of Object.values(SourceMaps)) {
-          if (fs.existsSync(v)) {
-            result.push(v);
-          }
-        }
-      }
-      return result.join('\n');
+      const sourceMap = getSourceMapInfo(getCurrentExecutablePath());
+      if (sourceMap.kind === 'inline') return 'inline';
+      if (sourceMap.kind === 'external') return `external (${sourceMap.available ? '' : 'not found: '}${sourceMap.path})`;
+      return 'none';
     }
 
     /**

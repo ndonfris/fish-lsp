@@ -3,7 +3,7 @@
   "author": "ndonfris",
   "license": "MIT",
   "name": "fish-lsp",
-  "version": "1.1.5-pre.1",
+  "version": "1.1.5-pre.2",
   "description": "LSP implementation for fish/fish-shell",
   "keywords": [
     "lsp",
@@ -67,7 +67,9 @@
     "build": "run-s -sn build:all sh:relink sh:build-completions",
     "build:watch": "run-s watch",
     "build:npm": "tsx scripts/esbuild/index.ts --npm",
+    "build:npm:external-sourcemaps": "tsx scripts/esbuild/index.ts --npm --external-sourcemaps",
     "build:npm:nosourcemaps": "tsx scripts/esbuild/index.ts --npm --sourcemaps=none",
+    "build:external-sourcemaps": "tsx scripts/esbuild/index.ts --external-sourcemaps",
     "build:types": "tsx scripts/esbuild/index.ts --types",
     "build:all": "tsx scripts/esbuild/index.ts --all",
     "dev": "tsx scripts/esbuild/index.ts",
@@ -196,7 +198,7 @@
   },
   "devDependencies": {
     "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
-    "@esdmr/tree-sitter-fish": "^3.7.0",
+    "@esdmr/tree-sitter-fish": "3.7.1-2",
     "@eslint/js": "^10.0.1",
     "@stylistic/eslint-plugin": "^4.4.1",
     "@tsconfig/node-ts": "^23.6.4",

@@ -85,6 +85,7 @@ show the build info of fish-lsp
   `--no-color`                     disable color output from `--dump-*` output  
   `--no-icons`                     disable icon usage in output from `fish-lsp info --dump-symbol-tree`  
   `--source-maps`                  show the source-maps  
+  `--url`                          used with `--source-maps`, show the download url of the external source map for this version  
   `--check`                        used in combination with `--source-maps`, verifies source-maps are working by throwing an error  
   `--status`                       used in combination with `--source-maps`, shows status of source-maps loading  
 

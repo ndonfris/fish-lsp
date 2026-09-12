@@ -2,7 +2,7 @@ import { createFakeLspDocument, fishLocations, FishLocations, setLogger } from '
 import { Analyzer } from '../src/analyze';
 import { workspaceManager } from '../src/utils/workspace-manager';
 import * as path from 'path';
-import { mkdirSync, rm, writeFileSync } from 'fs';
+import TestWorkspace, { TestFile } from './test-workspace-utils';
 import { Workspace } from '../src/utils/workspace';
 import { pathToUri } from '../src/utils/translation';
 import { testClearDocuments } from './document-test-helpers';
@@ -11,10 +11,8 @@ let locations: FishLocations;
 describe('new-workspace-manager', () => {
   setLogger();
 
-  const testWorkspace1Path = path.join('/tmp', 'test_workspace_1');
-  const testWorkspace2Path = path.join('/tmp', 'test_workspace_2');
-  const testWorkspace3Path = path.join('/tmp', 'test_workspace_3');
-  const testWorkspace4Path = path.join('/tmp', 'test_workspace_4');
+  const fixtures = Array.from({ length: 4 }, () => TestWorkspace.create());
+  const [testWorkspace1Path, testWorkspace2Path, testWorkspace3Path, testWorkspace4Path] = fixtures.map(ws => ws.path) as [string, string, string, string];
   const testWorkspaceSkeleton = [
     {
       dirpath: testWorkspace1Path,
@@ -92,28 +90,14 @@ describe('new-workspace-manager', () => {
     },
   ];
 
-  beforeAll(async () => {
-    locations = await fishLocations();
-    for (const { dirpath, docs } of testWorkspaceSkeleton) {
-      mkdirSync(dirpath, { recursive: true });
-      // make subdirectories for dirs that use them
-      if (![testWorkspace1Path, testWorkspace2Path].includes(dirpath)) {
-        ['conf.d', 'functions', 'completions'].forEach((subdir) => {
-          const subdirPath = path.join(dirpath, subdir);
-          mkdirSync(subdirPath, { recursive: true });
-        });
-      }
-      docs.forEach((doc) => {
-        const filepath = doc.path;
-        writeFileSync(filepath, doc.getText());
-      });
-    }
+  testWorkspaceSkeleton.forEach(({ dirpath, docs }, index) => {
+    fixtures[index]!.addFiles(...docs.map(doc =>
+      TestFile.custom(path.relative(dirpath, doc.path), doc.getText()),
+    )).initializeFiles();
   });
 
-  afterAll(async () => {
-    for (const { dirpath } of testWorkspaceSkeleton) {
-      rm(dirpath, { recursive: true, force: true }, (err) => { });
-    }
+  beforeAll(async () => {
+    locations = await fishLocations();
   });
 
   // beforeEach(async () => {

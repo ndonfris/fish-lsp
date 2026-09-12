@@ -6,9 +6,7 @@ import { analyzer, Analyzer } from '../src/analyze';
 import { getChildNodes, getRange } from '../src/utils/tree-sitter';
 import { isConcatenation, isFunctionDefinitionName } from '../src/utils/node-types';
 import * as LSP from 'vscode-languageserver';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
-/* @ts-ignore */
-import os from 'os';
+import TestWorkspace, { TestFile } from './test-workspace-utils';
 import { join } from 'path';
 import { pathToUri } from '../src/utils/translation';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
@@ -18,7 +16,6 @@ import { getNestedCommandReferenceAtPoint } from '../src/utils/nested-command-po
 import { extractCommands } from '../src/parsing/nested-strings';
 
 let parser: Parser;
-const tmpDir = join(os.tmpdir(), 'fish-lsp-analyzer-tests');
 
 describe('Analyzer class in file: `src/analyze.ts`', () => {
   setLogger();
@@ -201,69 +198,30 @@ describe('Analyzer class in file: `src/analyze.ts`', () => {
   });
 
   describe('analyzePath()', () => {
-    let testFilePath: string;
-
-    // Before all tests run
-    beforeAll(async () => {
-      // Make sure temp directory exists
-      if (!existsSync(tmpDir)) {
-        mkdirSync(tmpDir, { recursive: true });
-      }
-
-      // Initialize parser for analyzer
-      parser = await initializeParser();
-      await setupProcessEnvExecFile();
-    });
-
-    // After all tests run
-    afterAll(() => {
-      // Clean up the temp directory and all its contents
-      if (existsSync(tmpDir)) {
-        rmSync(tmpDir, { recursive: true, force: true });
-      }
-    });
-
-    // Before each test
-    beforeEach(() => {
-      // Ensure test directory exists
-      if (!existsSync(tmpDir)) {
-        mkdirSync(tmpDir, { recursive: true });
-      }
-    });
-
-    // After each test
-    afterEach(() => {
-      // Clean up test file after each test
-      if (existsSync(testFilePath)) {
-        rmSync(testFilePath, { force: true });
-      }
-    });
+    const workspace = TestWorkspace.create()
+      .addFiles(
+        TestFile.custom('foo.fish', 'function foo\nend'),
+        TestFile.custom('baz.fish', [
+          'function foo',
+          'end',
+          'function bar',
+          'end',
+          'function baz',
+          '    foo',
+          '    bar',
+          'end',
+        ].join('\n')),
+      ).initializeFiles();
 
     it('simple', async () => {
-      testFilePath = join(tmpDir, 'foo.fish');
-      const content = [
-        'function foo',
-        'end',
-      ].join('\n');
-      writeFileSync(testFilePath, content);
+      const testFilePath = join(workspace.path, 'foo.fish');
       const result = analyzer.analyzePath(testFilePath);
       expect(result).toBeDefined();
       expect(result?.documentSymbols).toHaveLength(2);
     });
 
     it('multiple functions', async () => {
-      testFilePath = join(tmpDir, 'baz.fish');
-      const content = [
-        'function foo',
-        'end',
-        'function bar',
-        'end',
-        'function baz',
-        '    foo',
-        '    bar',
-        'end',
-      ].join('\n');
-      writeFileSync(testFilePath, content);
+      const testFilePath = join(workspace.path, 'baz.fish');
       const result = analyzer.analyzePath(testFilePath);
       expect(result).toBeDefined();
       expect(result?.documentSymbols).toHaveLength(4);

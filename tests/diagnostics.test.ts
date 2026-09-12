@@ -13,7 +13,6 @@ import { LspDocument } from '../src/document';
 import { createFakeLspDocument, setLogger, createMockConnection } from './helpers';
 import { getDiagnosticsAsync } from '../src/diagnostics/validate';
 import { DiagnosticCommentsHandler } from '../src/diagnostics/comments-handler';
-import { withTempFishFile } from './temp';
 import { workspaceManager } from '../src/utils/workspace-manager';
 // import { Option } from '../src/parsing/options';
 import { getNoExecuteDiagnostics } from '../src/diagnostics/no-execute-diagnostic';
@@ -857,34 +856,29 @@ end
   });
 
   describe.skip('fish --no-execute diagnostics', () => {
-    afterEach(async () => {
+    const workspace = TestWorkspace.create()
+      .addFiles(TestFile.custom('incomplete.fish', '\nfunction foo\n    echo "hi"'))
+      .initializeFiles();
+
+    afterEach(() => {
       workspaceManager.clear();
     });
 
-    it('NODE_TEST: fish --no-execute diagnostic 1', async () => {
-      const input = `
-function foo
-    echo "hi"`;
-      await withTempFishFile(input, async ({ document, path }) => {
-        console.log({ document, path });
-        analyzer.ensureCachedDocument(document);
-        const result = getNoExecuteDiagnostics(document);
-        console.log({ result });
-        expect(result.length).toBe(1);
-      });
+    function incompleteDocument() {
+      const document = LspDocument.createFromUri(`${workspace.uri}/incomplete.fish`);
+      analyzer.ensureCachedDocument(document);
+      return document;
+    }
+
+    it('NODE_TEST: fish --no-execute diagnostic 1', () => {
+      expect(getNoExecuteDiagnostics(incompleteDocument())).toHaveLength(1);
     });
 
-    it('VALIDATE: fish --no-execute diagnostic 2', async () => {
-      const input = `
-function foo
-    echo "hi"`;
-      await withTempFishFile(input, async ({ document, path }) => {
-        console.log({ document, path });
-        analyzer.ensureCachedDocument(document);
-        const result = getNoExecuteDiagnostics(document);
-        const finalRes = getNoExecuteDiagnostics(document);
-        console.log({ finalRes, result });
-      });
+    it('VALIDATE: fish --no-execute diagnostic 2', () => {
+      const document = incompleteDocument();
+      const result = getNoExecuteDiagnostics(document);
+      expect(result).toHaveLength(1);
+      expect(getNoExecuteDiagnostics(document)).toEqual(result);
     });
   });
 

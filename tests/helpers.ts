@@ -324,6 +324,11 @@ export class FakeLspDocument extends LspDocument {
   }
 }
 
+/**
+ * Open an in-memory document at a logical URI, without creating a file there.
+ * Absolute paths such as `/tmp/foo.fish` are safe to use for parsing tests.
+ * Use TestWorkspace for tests that need files readable by external processes.
+ */
 export function createFakeLspDocument(name: string, ...text: string[]): LspDocument {
   logger.setSilent(true);
   const uri = createFakeUriPath(name);

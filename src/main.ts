@@ -15,6 +15,8 @@ import './virtual-fs';
 import './utils/commander-cli-subcommands';
 import { execCLI } from './cli';
 import { isBrowserEnvironment, isNodeRuntime } from './utils/environment';
+import { useRelativeStackTracePaths } from './utils/source-maps';
+import { resolve } from 'path';
 
 function isRunningAsCLI(): boolean {
   return isNodeRuntime() && !isBrowserEnvironment() && require.main === module;
@@ -37,6 +39,9 @@ export type { ConnectionType, ConnectionOptions } from './utils/startup';
 // Default export for CommonJS compatibility
 import FishServer from './server';
 export default FishServer;
+
+// Print stack frames relative to the package root, e.g. `./src/server.ts:1278:11`
+if (isRunningAsCLI()) useRelativeStackTracePaths(resolve(__dirname, '..'));
 
 // Auto-initialization based on environment
 if (isBrowserEnvironment()) {

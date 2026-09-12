@@ -8,7 +8,7 @@ export type BuildConfigTarget = 'binary' | 'development' | 'npm';
 /**
  * Meta targets that control the build process behavior
  */
-export type MetaTarget = 'all' | 'types' | 'library' | 'test' | 'ci' | 'fresh' | 'setup';
+export type MetaTarget = 'all' | 'types' | 'library' | 'test' | 'ci' | 'fresh' | 'setup' | 'external-sourcemaps';
 
 /**
  * All possible build targets that can be passed to the build system
@@ -23,7 +23,7 @@ export type WatchMode = 'dev' | 'binary' | 'npm' | 'types' | 'all' | 'lint' | 't
 /**
  * Sourcemap generation modes
  */
-export type SourcemapMode = 'optimized' | 'extended' | 'none' | 'special';
+export type SourcemapMode = 'optimized' | 'extended' | 'none' | 'special' | 'external';
 
 // ============================================================================
 // TargetInfo — single source of truth for all target metadata
@@ -113,7 +113,7 @@ export const keyboardTargets: readonly TargetInfo[] = targets.filter(t => t.keys
 // ============================================================================
 
 export const VALID_WATCH_MODES: readonly string[] = targets.map(t => t.name);
-export const VALID_SOURCEMAP_MODES: readonly SourcemapMode[] = ['optimized', 'extended', 'none', 'special'];
+export const VALID_SOURCEMAP_MODES: readonly SourcemapMode[] = ['optimized', 'extended', 'none', 'special', 'external'];
 
 // ============================================================================
 // Lookup helpers

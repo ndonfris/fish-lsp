@@ -84,6 +84,7 @@ describe('findReferenceSymbolType()', () => {
     ['`command cmd`', 'command ‸ls -la', 'function'],
     ['`complete -c cmd` value', 'complete -c ‸mycmd -s h', 'function'],
     ['`alias name=value` value', 'alias foo=‸bar', 'function'],
+    ['`alias name=value` inside value', 'alias foo=b‸ar', 'function'],
     ["`bind jj 'cmd'` string", "bind jj '‸mycmd'", 'function'],
     ["`complete -a '(cmd)'` command-sub", "complete -c x -a '‸(mycmd)'", 'function'],
     ["`complete -a '(not cmd)'` command-sub", "complete -c x -a '(not ‸mycmd)'", 'function'],
@@ -109,6 +110,9 @@ describe('findReferenceSymbolType()', () => {
     ['`cmd --value` call-site long option', 'mycmd --‸value', 'variable'],
     ['`cmd -v` call-site short option', 'mycmd -‸v', 'variable'],
     ['`cmd --value=x` call-site option-value', 'mycmd --‸value=something', 'variable'],
+    ['`cmd --value=-x` value is not a flag', 'mycmd --value=-‸x', null],
+    ['unquoted argparse name with value', 'function f\n  argparse ‸name= -- $argv\nend', 'variable'],
+    ['unquoted argparse name with optional value', 'function f\n  argparse n/‸name=? -- $argv\nend', 'variable'],
 
     // ---- set / read / for variants ----
     ['`set -U NAME` universal def', 'set -U ‸myvar value', 'variable'],

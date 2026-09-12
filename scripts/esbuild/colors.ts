@@ -113,15 +113,14 @@ export function enableColors() {
   return String.prototype;
 }
 
-Object.keys(colors).forEach(color => {
-  String.prototype[color] = () => { return `${colors[color]}${this}${colors.reset}` };
+for (const color of Object.keys(colors) as Array<keyof typeof colors>) {
   Object.defineProperty(String.prototype, color, {
-    get: function() {
+    get: function () {
       return colors[color] + this + colors.reset;
     },
     configurable: true // Allows redefinition or deletion
   });
-})
+}
 
 declare global {
   interface String {
@@ -150,4 +149,3 @@ declare global {
     bgBlack: string;
   }
 }
-

@@ -85,6 +85,28 @@ export function isFishShippedFunctionName(node: SyntaxNode): boolean {
 }
 
 /**
+ * Utils for getting before and after '=' sections in a SyntaxNode.text
+ *
+ * input: `alias cmd=my_cmd && var=value cmd --flag=value`
+ *               ^^^ ^^^^^^    ^^^ ^^^^^     ^^^^^^ ^^^^^
+ *               ||| ||||||    ||| |||||     |||||| |||||
+ *            before |||||| before |||||     before |||||
+ *                    after        after            after
+ */
+export namespace SyntaxNodeText {
+  export function beforeEquals(node: SyntaxNode): string {
+    return node.text.includes('=')
+      ? node.text.slice(0, node.text.indexOf('='))
+      : node.text;
+  }
+  export function afterEquals(node: SyntaxNode): string {
+    return node.text.includes('=')
+      ? node.text.slice(node.text.indexOf('='), -1)
+      : node.text;
+  }
+}
+
+/**
  * Get the SyntaxNode that holds the command name for a `command` node.
  *
  * Post tree-sitter-fish PR #41, a `command` node may have one or more
@@ -377,20 +399,54 @@ export function isOption(node: SyntaxNode): boolean {
   return isShortOption(node) || isLongOption(node);
 }
 
+/**
+ * Recognize a possible option value from syntax: `--flag=value` (the whole
+ * argument or its value child) or the argument following `--flag`.
+ * This cannot determine whether a flag takes a value; use
+ * `isMatchingOptionValue` with an `Option` when that information is known.
+ */
 export function isOptionValue(node: SyntaxNode): boolean {
-  if (isEndStdinCharacter(node)) return false;
-  if (isDefinitionName(node)) return false;
-  if (!node.parent) return false;
-  if (isOption(node) && node.text.includes('=') && node.type === 'word') {
-    return true;
+  if (!node.isNamed || !node.parent || isEndStdinCharacter(node) || isDefinitionName(node)) return false;
+
+  // New grammars separate the flag, '=' token, and value into children.
+  if (isConcatenation(node.parent) && isOption(node.parent)) {
+    const equals = node.parent.children.find(child => child.type === '=');
+    return !!equals && node.startIndex >= equals.endIndex;
   }
-  if (isString(node) && node.previousNamedSibling && isOption(node.previousNamedSibling)) {
-    return true;
+
+  // Preserve support for both old word arguments and new concatenations.
+  if (isOption(node)) {
+    return (node.type === 'word' || isConcatenation(node)) && node.text.includes('=');
   }
-  if (node.type === 'word' && node.previousSibling && isOption(node.previousSibling)) {
-    return true;
-  }
-  return false;
+
+  const previous = node.previousNamedSibling;
+  return !!previous && isOption(previous) && !previous.text.includes('=');
+}
+
+/**
+ * Checks if a option/switch/flag is formatted: `--flag=value`
+ *
+ * ---
+ * @example tree-sitter input and parse tree
+ *
+ * ```fish
+ * cmd --flag=value
+ * ```
+ *
+ * (program [0:0, 0:16]
+ *   (command [0:0, 0:16]
+ *     (word [0:0, 0:3] "cmd")
+ *     (concatenation [0:4, 0:16]
+ *       (word [0:4, 0:10] "--flag")
+ *       (= [0:10, 0:11] "=")
+ *       (word [0:11, 0:16] "value")
+ *     )
+ *   )
+ *   (; [0:16, 0:16])
+ * )
+ */
+export function isConcatanatedOption(node: SyntaxNode): boolean {
+  return isConcatenation(node) && isOption(node);
 }
 
 /** careful not to call this on old unix style flags/options */
@@ -781,9 +837,9 @@ export function isArgumentThatCanContainCommandCalls(node: SyntaxNode) {
       return isMatchingOptionValue(node, Option.create('-w', '--wraps').withValue())
         || isMatchingOptionValue(node, Option.create('-c', '--command').withValue())
         ||
-          isMatchingOptionValue(node, Option.create('-a', '--arguments').withValue())
-          && node.text.includes('(')
-          && node.text.includes(')')
+        isMatchingOptionValue(node, Option.create('-a', '--arguments').withValue())
+        && node.text.includes('(')
+        && node.text.includes(')')
 
         || isMatchingOptionValue(node, Option.create('-n', '--condition').withValue());
     case 'export':

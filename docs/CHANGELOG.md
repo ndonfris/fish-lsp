@@ -1,3 +1,12 @@
+## <small>1.1.5-pre.2 (2026-09-12)</small>
+
+* feat(build): add opt-in external source maps ([429d701](https://github.com/ndonfris/fish-lsp/commit/429d701))
+* fix: exec fixes for retrieving command locations on `fish@4.9.X` ([d990af1](https://github.com/ndonfris/fish-lsp/commit/d990af1))
+* fix(parser): support tree-sitter-fish 3.7.1-2 ([1dc8254](https://github.com/ndonfris/fish-lsp/commit/1dc8254))
+* test: migrate `/tmp` fixture writing to `TestWorkspace` ([5eacc36](https://github.com/ndonfris/fish-lsp/commit/5eacc36))
+* chore: bump docs for `1.1.5-pre.2` ([c0f4aee](https://github.com/ndonfris/fish-lsp/commit/c0f4aee))
+* feat(`status --flag`): `6002` diagnostic + quickfix code-action (#182) ([e062918](https://github.com/ndonfris/fish-lsp/commit/e062918)), closes [#182](https://github.com/ndonfris/fish-lsp/issues/182)
+
 ## <small>1.1.5-pre.1 (2026-08-05)</small>
 
 * docs: bump docs for 1.1.5-pre.1 + new contributors ([cf082d4](https://github.com/ndonfris/fish-lsp/commit/cf082d4))

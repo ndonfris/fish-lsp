@@ -1,5 +1,4 @@
 import * as os from 'os';
-import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import * as Parser from 'web-tree-sitter';
 import { analyzer, Analyzer } from '../src/analyze';
@@ -24,8 +23,7 @@ let parser: Parser;
 // let currentWorkspace: CurrentWorkspace = new CurrentWorkspace();
 const canQueryGlobalCommandLocations = (() => {
   try {
-    execCommandLocations('alias');
-    return true;
+    return execCommandLocations('alias').length > 0;
   } catch {
     return false;
   }
@@ -584,17 +582,17 @@ describe('find definition locations of symbols', () => {
           ].join('\n')),
         ).initialize();
 
-      it('should resolve command via fish_function_path when no symbol definition exists', () => {
-        const originalFunctionPath = env.get('fish_function_path');
-        const tempFunctionsDir = join(os.tmpdir(), `fish-lsp-def-loc-${Date.now()}-${Math.random().toString(16).slice(2)}`);
-        const commandPath = join(tempFunctionsDir, `${commandName}.fish`);
-
-        mkdirSync(tempFunctionsDir, { recursive: true });
-        writeFileSync(commandPath, [
+      const externalFiles = TestWorkspace.create()
+        .addFiles(TestFile.function(commandName, [
           `function ${commandName}`,
           '  echo "external"',
           'end',
-        ].join('\n'));
+        ].join('\n'))).initializeFiles();
+
+      it('should resolve command via fish_function_path when no symbol definition exists', () => {
+        const originalFunctionPath = env.get('fish_function_path');
+        const tempFunctionsDir = join(externalFiles.path, 'functions');
+        const commandPath = join(tempFunctionsDir, `${commandName}.fish`);
 
         try {
           env.set('fish_function_path', tempFunctionsDir);
@@ -610,7 +608,6 @@ describe('find definition locations of symbols', () => {
           expect(result[0]?.range.start.character).toBe(0);
         } finally {
           env.set('fish_function_path', originalFunctionPath);
-          rmSync(tempFunctionsDir, { recursive: true, force: true });
         }
       });
     });

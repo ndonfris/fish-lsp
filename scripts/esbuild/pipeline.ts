@@ -149,7 +149,7 @@ const pipeline = new BuildPipeline()
   .register({
     name: 'NPM Package',
     priority: 30,
-    tags: ['all', 'npm', 'dev', 'fresh', "ci"],
+    tags: ['all', 'npm', 'dev', 'fresh', "ci", 'external-sourcemaps'],
     timing: true,
     runner: async (args) => {
       const config = buildConfigs.npm;

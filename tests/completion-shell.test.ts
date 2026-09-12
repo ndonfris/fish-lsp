@@ -283,6 +283,16 @@ describe('check completions', () => {
   });
 
   describe('commands', () => {
+    beforeEach(() => {
+      // Fish versions differ in which built-in variables they suggest.
+      // Use an exported fixture to check variable completion consistently.
+      vi.stubEnv('FISH_LSP_TEST_COMPLETION', 'completion-fixture');
+    });
+
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
     it("''(EMPTY INPUT)", async () => {
       const completions = await shellComplete('');
       // console.log(completions.slice(0, 10));
@@ -310,7 +320,7 @@ describe('check completions', () => {
       items.forEach(name => {
         expect(name.startsWith('$')).toBeTruthy();
       });
-      expect(items).toContain('$PWD');
+      expect(items).toContain('$FISH_LSP_TEST_COMPLETION');
       expect(items).toContain('$HOME');
       expect(items).toContain('$fish_pid');
     });
@@ -325,7 +335,7 @@ describe('check completions', () => {
       console.log(completions);
       const items = completions.map(item => item[0]);
       expect(items.length).toBeGreaterThan(0);
-      expect(items).toContain('$PWD');
+      expect(items).toContain('$FISH_LSP_TEST_COMPLETION');
       expect(items).toContain('$HOME');
       expect(items).toContain('$fish_pid');
     });
@@ -334,7 +344,7 @@ describe('check completions', () => {
       const completions = await shellComplete('echo "$HOME$');
       const items = completions.map(item => item[0]);
       expect(items.length).toBeGreaterThan(0);
-      expect(items).toContain('$HOME$PWD');
+      expect(items).toContain('$HOME$FISH_LSP_TEST_COMPLETION');
       expect(items).toContain('$HOME$HOME');
       expect(items).toContain('$HOME$fish_pid');
     });

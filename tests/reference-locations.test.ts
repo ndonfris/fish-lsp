@@ -723,7 +723,7 @@ describe('find reference locations of symbols', () => {
       const searchDoc = workspace.getDocument('conf.d/alias.fish')!;
       expect(searchDoc).toBeDefined();
       const found = analyzer.findNode((n, document) => {
-        return document!.uri === searchDoc.uri && n.text === 'ls=';
+        return document!.uri === searchDoc.uri && isAliasDefinitionName(n) && n.text.replace(/=$/, '') === 'ls';
       })!;
       expect(found).toBeDefined();
       const symbol = analyzer.findSymbol((s, _) => {
@@ -840,7 +840,7 @@ describe('find reference locations of symbols', () => {
       const searchDoc = workspace.getDocument('functions/local-alias.fish')!;
       expect(searchDoc).toBeDefined();
       const found = analyzer.findNode((n, document) => {
-        return document!.uri === searchDoc.uri && n.text === 'ls=';
+        return document!.uri === searchDoc.uri && isAliasDefinitionName(n) && n.text.replace(/=$/, '') === 'ls';
       })!;
       expect(found).toBeDefined();
       // console.log(searchDoc.getText());

@@ -285,6 +285,11 @@ export function isAliasDefinitionValue(node: SyntaxNode) {
   // concatenation form the name is the first arg, so reject that too.
   const cmdName = getCommandNameNode(parentNode);
   if (cmdName && cmdName.equals(node)) return false;
+  // At the value boundary tree-sitter may return the whole `name=value`
+  // concatenation instead of its value child, just as older grammars
+  // returned a single word for this argument.
+  const firstArg = parentNode.childrenForFieldName('argument').at(0);
+  if (firstArg?.equals(node) && node.text.includes('=')) return true;
   if (isConcatenated) {
     const nameArg = parentNode.childrenForFieldName('argument').at(0);
     if (nameArg && nameArg.equals(node)) return false;

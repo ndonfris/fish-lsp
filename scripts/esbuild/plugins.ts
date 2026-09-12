@@ -8,6 +8,8 @@ import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfil
 import { colorize, colors, toRelativePath } from './colors';
 import { writeFileSync, existsSync, readFileSync } from 'fs';
 import path, { resolve } from 'path';
+import { execSync } from 'child_process';
+import { getSourceMapHash, getSourceMappingURL } from '../../src/utils/source-maps';
 
 export interface PluginOptions {
   target: 'node';
@@ -192,7 +194,7 @@ export function createSourceMapOptimizationPlugin(preserveSourceContent?: boolea
             const bundleContent = readFileSync(outfile, 'utf8');
             const sourcemapRef = `\n//# sourceMappingURL=${resolve(sourcemapFile).split('/').pop()}`;
             
-            if (!bundleContent.includes('//# sourceMappingURL=')) {
+            if (!getSourceMappingURL(bundleContent)) {
               writeFileSync(outfile, bundleContent + sourcemapRef);
             }
             
@@ -248,7 +250,7 @@ export function createSpecialSourceMapPlugin(options: { preserveOnlySrcContent?:
             const bundleContent = readFileSync(outfile, 'utf8');
             const sourcemapRef = `\n//# sourceMappingURL=${resolve(sourcemapFile).split('/').pop()}`;
             
-            if (!bundleContent.includes('//# sourceMappingURL=')) {
+            if (!getSourceMappingURL(bundleContent)) {
               writeFileSync(outfile, bundleContent + sourcemapRef);
             }
             
@@ -319,6 +321,34 @@ export function createSpecialSourceMapPlugin(options: { preserveOnlySrcContent?:
             console.log(`  ${colorize('Warning: Could not process sourcemap - ' + (error as Error).message, colors.white)}`);
           }
         }
+      });
+    },
+  };
+}
+
+/**
+ * Stamps an external source map with the build that produced it, so
+ * `fish-lsp info --source-maps` can check a downloaded `fish-lsp.map`
+ * against the executable it is placed beside.
+ */
+export function createSourceMapStampPlugin(): esbuild.Plugin {
+  return {
+    name: 'sourcemap-stamp',
+    setup(build) {
+      build.onEnd((result) => {
+        const outfile = build.initialOptions.outfile;
+        if (result.errors.length || !outfile) return;
+        const sourcemapFile = outfile + '.map';
+        const sourcemap = JSON.parse(readFileSync(sourcemapFile, 'utf8'));
+        sourcemap.x_fish_lsp_version = JSON.parse(readFileSync(resolve('package.json'), 'utf8')).version;
+        try {
+          sourcemap.x_fish_lsp_commit = execSync('git rev-parse --short HEAD', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+        } catch {
+          // Not a git checkout (e.g. building from a release tarball)
+        }
+        sourcemap.x_fish_lsp_sha256 = getSourceMapHash(readFileSync(outfile));
+        writeFileSync(sourcemapFile, JSON.stringify(sourcemap));
+        console.log(`  Stamped source map: ${colorize(toRelativePath(sourcemapFile), colors.white)} (${sourcemap.x_fish_lsp_commit ?? 'no git commit'})`);
       });
     },
   };
