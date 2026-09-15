@@ -1,3 +1,8 @@
+## <small>1.1.5-pre.3 (2026-09-15)</small>
+
+* test: vitest `clearMocks: false` for keeping `vitest@4` behavior using `vitest@5` ([0068258](https://github.com/ndonfris/fish-lsp/commit/0068258))
+* fix: avoid shell injection in fish file execution for `executeCommandHandler` + deps ([1f10ec0](https://github.com/ndonfris/fish-lsp/commit/1f10ec0))
+
 ## <small>1.1.5-pre.2 (2026-09-12)</small>
 
 * feat(build): add opt-in external source maps ([429d701](https://github.com/ndonfris/fish-lsp/commit/429d701))
