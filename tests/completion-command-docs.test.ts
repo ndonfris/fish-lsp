@@ -6,7 +6,7 @@ import { analyzer } from '../src/analyze';
 import { createFakeLspDocument, createTestServer, TestServerHandle } from './helpers';
 import * as shellModule from '../src/utils/completion/shell';
 import * as execModule from '../src/utils/exec';
-import { FishCompletionItem } from '../src/utils/completion/types';
+import { FishCompletionItem, FishCompletionItemKind } from '../src/utils/completion/types';
 
 import FishServer, { cachedCompletionMap } from '../src/server';
 import { md } from '../src/utils/markdown-builder';
@@ -200,12 +200,22 @@ describe('Command completion documentation', () => {
     };
 
     const result = await server.onCompletion(params);
-    const item = result.items.find(i => i.label === 'string');
+    const item = result.items.find(i =>
+      i.label === 'string'
+      && (i as FishCompletionItem).fishKind === FishCompletionItemKind.BUILTIN,
+    );
+    const snippet = result.items.find(i =>
+      i.label === 'string'
+      && (i as FishCompletionItem).fishKind === FishCompletionItemKind.SNIPPET,
+    );
     const resolvedItem = await server.onCompletionResolve(item!);
     logger.log({ resolvedItem });
 
+    expect(item).toBeDefined();
+    expect(item?.kind).toBe(CompletionItemKind.Keyword);
+    expect(snippet).toBeDefined();
+    expect(snippet?.kind).toBe(CompletionItemKind.Snippet);
     expect(resolvedItem).toBeDefined();
-    expect(resolvedItem?.kind).toBe(14);
     expect(resolvedItem?.documentation).toBeDefined();
     const matchStr = [
       md.bold('STRING'),

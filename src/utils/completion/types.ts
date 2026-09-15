@@ -1,7 +1,7 @@
 import {
   CompletionContext,
   CompletionItem,
-  CompletionItemKind, MarkupContent,
+  CompletionItemKind, InsertTextFormat, InsertTextMode, MarkupContent,
   MarkupKind,
   Position, Range,
   SymbolKind,
@@ -32,6 +32,7 @@ export const FishCompletionItemKind = {
   SHEBANG: 'shebang',
   COMMENT: 'comment',
   DIAGNOSTIC: 'diagnostic',
+  SNIPPET: 'snippet',
 } as const;
 export type FishCompletionItemKind = typeof FishCompletionItemKind[keyof typeof FishCompletionItemKind];
 
@@ -57,6 +58,7 @@ export const toCompletionItemKind: Record<FishCompletionItemKind, CompletionItem
   [FishCompletionItemKind.SHEBANG]: CompletionItemKind.File,
   [FishCompletionItemKind.COMMENT]: CompletionItemKind.Text,
   [FishCompletionItemKind.DIAGNOSTIC]: CompletionItemKind.Text,
+  [FishCompletionItemKind.SNIPPET]: CompletionItemKind.Snippet,
 };
 export type FishCompletionData = {
   uri: string;
@@ -86,6 +88,71 @@ export interface FishCompletionItem extends CompletionItem {
   setLocal(): FishCompletionItem;
   setData(data: FishCompletionData): FishCompletionItem;
   setPriority(priority: number): FishCompletionItem;
+}
+
+/**
+ * The text a snippet inserts when every tabstop keeps its default, for clients
+ * without snippet support:
+ *
+ *    `set ${1:i} (math \$$1 + ${2:1})`   ->  `set i (math $i + 1)`
+ *    `${1|-q,--query|} ${2:variable}`    ->  `-q variable`
+ *    `\x${1:xx}`                          ->  `\xxx`
+ */
+export function snippetToPlainText(snippet: string): string {
+  const values = new Map<string, string>();
+  let index = 0;
+
+  const readUntil = (stop?: string): string => {
+    let out = '';
+    while (index < snippet.length) {
+      const char = snippet[index]!;
+      if (char === stop) return out;
+      // only `\$`, `\}` and `\\` are escapes; any other backslash is literal
+      const next = snippet[index + 1];
+      if (char === '\\' && next && '$}\\'.includes(next)) {
+        out += next;
+        index += 2;
+        continue;
+      }
+      const rest = snippet.slice(index);
+      const bare = /^\$(\d+|[A-Za-z_]\w*)/.exec(rest);
+      if (bare) {
+        index += bare[0].length;
+        out += valueOf(bare[1]!);
+        continue;
+      }
+      const braced = /^\$\{(\d+|[A-Za-z_]\w*)([:|}])/.exec(rest);
+      if (braced) {
+        const [match, id, kind] = braced as unknown as [string, string, string];
+        index += match.length;
+        if (kind === '}') {
+          out += valueOf(id);
+        } else if (kind === ':') {
+          const value = readUntil('}');
+          index += 1;
+          if (!values.has(id)) values.set(id, value);
+          out += value;
+        } else {
+          // `${1|first,second|}`: the first choice
+          const end = snippet.indexOf('|}', index);
+          const choices = snippet.slice(index, end === -1 ? undefined : end);
+          const first = (choices.split(/(?<!\\),/)[0] ?? '').replace(/\\([,|\\])/g, '$1');
+          index = end === -1 ? snippet.length : end + 2;
+          if (!values.has(id)) values.set(id, first);
+          out += first;
+        }
+        continue;
+      }
+      out += char;
+      index += 1;
+    }
+    return out;
+  };
+
+  // a tabstop repeats its placeholder's text; an unknown snippet variable inserts its name
+  const valueOf = (id: string) => values.get(id) ?? (/^\d+$/.test(id) ? '' : id);
+
+  return readUntil();
 }
 
 export function getCompletionDocumentationValue(
@@ -229,6 +296,29 @@ export namespace FishCompletionItem {
         return new FishCompletionItem(label, kind, detail, documentation, examples);
     }
   }
+  /**
+   * Builds a single completion item for one trigger of a snippet. A snippet
+   * with N triggers produces N items that share `name`, `description` and
+   * `body`, and differ only by the `trigger` they match on. The label stays the
+   * snippet name so the menu always shows one canonical (space-free) entry;
+   * `filterText` carries the trigger that the typed word is matched against.
+   */
+  export function createSnippet(
+    name: string,
+    description: string,
+    trigger: string,
+    body: string,
+  ) {
+    const item = create(name, FishCompletionItemKind.SNIPPET, trigger, description)
+      .setUseDocAsDetail();
+    item.insertText = body;
+    item.kind = CompletionItemKind.Snippet;
+    item.filterText = trigger;
+    item.insertTextFormat = InsertTextFormat.Snippet;
+    item.insertTextMode = InsertTextMode.adjustIndentation;
+    return item;
+  }
+
   export function fromSymbol(symbol: FishSymbol) {
     switch (symbol.kind) {
       case SymbolKind.Function: {

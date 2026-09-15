@@ -248,6 +248,15 @@ function fromStaticItem(item: FishCompletionItem, kind: FishCompletionItemKind):
   if (item.insertTextFormat !== undefined) {
     completion.insertTextFormat = item.insertTextFormat;
   }
+  if (item.insertTextMode !== undefined) {
+    completion.insertTextMode = item.insertTextMode;
+  }
+  if (item.preselect !== undefined) {
+    completion.preselect = item.preselect;
+  }
+  if (item.filterText !== undefined) {
+    completion.filterText = item.filterText;
+  }
   if (item.kind !== undefined) {
     completion.kind = item.kind;
   }
