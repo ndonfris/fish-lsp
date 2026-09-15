@@ -1,85 +1,54 @@
 import { Command, Position, Range, TextEdit } from 'vscode-languageserver';
-import { FishCommandCompletionItem, FishCompletionData } from './types';
+import { cloneCompletionItem, FishCompletionItem } from './types';
 import { StaticItems } from './static-items';
-import { SyntaxNode } from 'web-tree-sitter';
 import { DIAGNOSTIC_COMMENT_REGEX, DiagnosticAction, isValidErrorCode } from '../../diagnostics/comments-handler';
-import { FishCompletionList } from './list';
-import { SetupData } from './pager';
 import { ErrorCodes } from '../../diagnostics/error-codes';
 
-export function buildCommentCompletions(
-  line: string,
-  position: Position,
-  node: SyntaxNode,
-  data: SetupData,
-  word: string,
-) {
-  // FishCompletionItem.createData(data.uri, line,  ,detail, documentation)
-  const hashIndex = line.indexOf('#');
+/** retrigger completion after inserting a directive, so its codes are suggested next */
+const retriggerCommand: Command = {
+  title: 'Suggest',
+  command: 'editor.action.triggerSuggest',
+};
 
-  // Create range from the # character to cursor
-  const range = Range.create(
-    Position.create(position.line, hashIndex),
-    position,
-  );
-
-  // Command to retrigger completion
-  const retriggerCommand: Command = {
-    title: 'Suggest',
-    command: 'editor.action.triggerSuggest',
-  };
-
-  const completions: FishCommandCompletionItem[] = [];
+/**
+ * Completions for a comment line: shebangs (first line only), `# @fish-lsp-*`
+ * directives, and the diagnostic codes a directive has not listed yet.
+ */
+export function buildCommentCompletions(line: string, position: Position): FishCompletionItem[] {
+  // replace from the `#` character to the cursor
+  const range = Range.create(Position.create(position.line, line.indexOf('#')), position);
+  const completions: FishCompletionItem[] = [];
 
   if (position.line === 0) {
-    completions.push(
-      ...(StaticItems.shebang ?? []).map(item => {
-        item.textEdit = TextEdit.replace(range, item.label);
-        return item;
-      }),
-    );
+    completions.push(...(StaticItems.shebang ?? []).map((staticItem) => {
+      const item = cloneCompletionItem(staticItem);
+      item.textEdit = TextEdit.replace(range, item.label);
+      return item;
+    }));
   }
 
-  /**
-   * add diagnostic comment strings:
-   * `# @fish-lsp-disable`
-   */
   const diagnosticComment = getCommentDiagnostics(line, position.line);
   if (!diagnosticComment) {
-    completions.push(
-      ...(StaticItems.comment ?? []).map((item) => {
-        item.textEdit = TextEdit.replace(range, `${item.label} `);
+    completions.push(...(StaticItems.comment ?? []).map((staticItem) => {
+      const item = cloneCompletionItem(staticItem);
+      item.textEdit = TextEdit.replace(range, `${item.label} `);
+      item.command = retriggerCommand;
+      return item;
+    }));
+  } else {
+    // `# @fish-lsp-disable 1001 <TAB>` → remaining codes
+    const codeStrings = diagnosticComment.codes.map(code => code.toString());
+    completions.push(...(StaticItems.diagnostic ?? [])
+      .filter(staticItem => !codeStrings.includes(staticItem.label))
+      .map((staticItem) => {
+        const item = cloneCompletionItem(staticItem);
         item.command = retriggerCommand;
+        item.insertText = `${item.label} `;
         return item;
       }));
   }
 
-  /**
-   * add diagnostic codes to the completion list
-   * `# @fish-lsp-disable 1001`
-   */
-  if (diagnosticComment) {
-    if (diagnosticComment?.codes) {
-      const codeStrings = diagnosticComment?.codes.map(code => code.toString());
-      completions.push(
-        ...(StaticItems.diagnostic ?? [])
-          .filter(item => !codeStrings.includes(item.label))
-          .map((item) => {
-            item.command = retriggerCommand;
-            item.insertText = `${item.label} `;
-            return item;
-          }),
-      );
-    }
-  }
-  const completionData: FishCompletionData = {
-    word,
-    position,
-    uri: data.uri,
-    line,
-  };
-
-  return FishCompletionList.create(false, completionData, completions);
+  return completions;
 }
 
 function getCommentDiagnostics(line: string, lineNumber: number) {
