@@ -276,7 +276,7 @@ describe('check completions', () => {
       ];
 
       for (const input of inputs) {
-        const completions = await shellComplete(input, { sanitizeCompletionPath: true });
+        const completions = await shellComplete(input);
         expect(completions.some(([name]) => name === 'commandline')).toBe(true);
       }
     });

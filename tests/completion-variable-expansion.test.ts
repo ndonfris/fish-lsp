@@ -1,10 +1,9 @@
-import { CompletionParams, Range, CompletionItemKind, MarkupContent, Position } from 'vscode-languageserver';
+import { CompletionParams, Range, CompletionItemKind, MarkupContent } from 'vscode-languageserver';
 import { createFakeLspDocument, createMockConnection } from './helpers';
 import { analyzer, Analyzer } from '../src/analyze';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { initializeParser } from '../src/parser';
-import { CompletionPager } from '../src/utils/completion/pager';
-import { InlineParser } from '../src/utils/completion/inline-parser';
+import { CompletionLineParser } from '../src/utils/completion/context';
 import { logger } from '../src/logger';
 
 // Now import FishServer after the mock is set up
@@ -568,24 +567,20 @@ describe('Completion Handler - Variable Expansion', () => {
   });
 });
 
-// Unit tests for the pager's definition-vs-reference decision
-// (`isInVariableDefinitionContext`). The end-to-end insert-text consequences of
+// Unit tests for the definition-vs-reference decision
+// (`CompletionLineParser.isVariableDefinitionSlot`). The end-to-end insert-text consequences of
 // this decision are asserted in the `` `$` prefix for variable items `` block
 // above; here we exercise the decision directly across `set`/`read`/`for`/
 // `function`/`argparse` shapes without standing up a server.
 describe('variable completion definition-context detection', () => {
-  let pager: CompletionPager;
+  let parser: CompletionLineParser;
 
   beforeAll(async () => {
     logger.setSilent(true);
-    const inline = await InlineParser.create();
-    // `isInVariableDefinitionContext` only uses the inline parser, so the items
-    // map is irrelevant here.
-    pager = new CompletionPager(inline, {} as any, logger);
+    parser = await CompletionLineParser.create();
   });
 
-  const isDefinitionSlot = (line: string): boolean =>
-    (pager as any).isInVariableDefinitionContext(line, Position.create(0, line.length));
+  const isDefinitionSlot = (line: string): boolean => parser.isVariableDefinitionSlot(line);
 
   it('treats the `set NAME` slot as a definition (plain name)', () => {
     expect(isDefinitionSlot('set ')).toBe(true);          // empty name slot

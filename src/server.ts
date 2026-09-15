@@ -4,7 +4,7 @@ import './utils/polyfills';
 import './virtual-fs';
 import { SyntaxNode } from 'web-tree-sitter';
 import { analyzer, Analyzer } from './analyze';
-import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent, SelectionRangeParams, SelectionRange, PrepareRenameParams, CancellationToken } from 'vscode-languageserver';
+import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent, SelectionRangeParams, SelectionRange, PrepareRenameParams, CancellationToken } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, documents, rangeOverlapsLineSpan } from './document';
 import { formatDocumentWithIndentComments, formatDocumentContent } from './formatting';
@@ -17,8 +17,7 @@ import { DocumentationCache, initializeDocumentationCache } from './utils/docume
 import { getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspaces } from './utils/workspace';
 import { workspaceManager } from './utils/workspace-manager';
 import { filterLastPerScopeSymbol, FishSymbol } from './parsing/symbol';
-import { CompletionPager, initializeCompletionPager, isInVariableExpansionContext, SetupData } from './utils/completion/pager';
-import { FishCompletionList } from './utils/completion/list';
+import { CompletionHandler } from './utils/completion/handler';
 import { resolveCompletionItemDocumentation } from './utils/completion/resolve-item';
 import { PrebuiltDocumentationMap, warmPrebuiltCommandDescriptions } from './utils/snippets';
 import { findParent, findParentCommand, isAliasDefinitionName, isBraceExpansion, isCommand, isCommandName, isConcatenatedValue, isConcatenation, isDefinitionName, isEndStdinCharacter, isOption, isPathNode, isVariableDefinition } from './utils/node-types';
@@ -29,7 +28,6 @@ import { CompletionItemMap } from './utils/completion/startup-cache';
 import { runSetupItems } from './utils/completion/startup-config';
 import { getDocumentHighlights } from './document-highlight';
 import { semanticTokenHandler } from './semantic-tokens';
-import { buildCommentCompletions } from './utils/completion/comment-completions';
 import { codeActionHandlers } from './code-actions/code-action-handler';
 import { createExecuteCommandHandler } from './command';
 import { getAllInlayHints } from './inlay-hints';
@@ -187,7 +185,7 @@ export default class FishServer {
 
     await Analyzer.initialize();
 
-    const completions = await initializeCompletionPager(logger, completionsMap);
+    const completions = await CompletionHandler.create(completionsMap);
 
     server = new FishServer(
       completions,
@@ -219,7 +217,7 @@ export default class FishServer {
   private registeredConnection: Connection | undefined;
 
   constructor(
-    private completion: CompletionPager,
+    private completion: CompletionHandler,
     private completionMap: CompletionItemMap,
     private documentationCache: DocumentationCache,
     private initializeParams: InitializeParams,
@@ -554,73 +552,39 @@ export default class FishServer {
     return callback(params);
   }
 
-  // @TODO: REFACTOR THIS OUT OF SERVER
-  // https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
-  // https://github.com/microsoft/vscode-languageserver-node/pull/322
-  // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#insertTextModehttps://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#insertTextMode
-  // • clean up into completion.ts file & Decompose to state machine, with a function that gets the state machine in this class.
-  //         DART is best example i've seen for this.
-  //         ~ https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202 ~
-  // • Implement both escapedCompletion script and dump syntax tree script
-  // • Add default CompletionLists to complete.ts
-  // • Add local file items.
-  // • Lastly add parameterInformation items.  [ 1477 : ParameterInformation ]
-  // convert to CompletionItem[]
+  /**
+   * Completion is decided in `src/utils/completion/`: `context.ts` classifies the
+   * cursor position once, `handler.ts` maps that position to the sources
+   * (`sources.ts`) that fill it.
+   */
   async onCompletion(params: CompletionParams): Promise<CompletionList> {
     this.logParams('onCompletion', params);
-    if (!this.backgroundAnalysisComplete) {
-      return await this.completion.completeEmpty([]);
-    }
 
     const { doc, path, current } = this.getDefaults(params);
-    let list: FishCompletionList = FishCompletionList.empty();
-
     if (!path || !doc) {
       logger.logAsJson('onComplete got [NOT FOUND]: ' + path);
-      return this.completion.empty();
+      return { isIncomplete: false, items: [] };
     }
-    const symbols = analyzer.allSymbolsAccessibleAtPosition(doc, params.position);
-    const { line, word } = analyzer.parseCurrentLine(doc, params.position);
-
-    if (!line) return await this.completion.completeEmpty(symbols);
-
-    const fishCompletionData = {
-      uri: doc.uri,
-      position: params.position,
-      context: {
-        triggerKind: params.context?.triggerKind || CompletionTriggerKind.Invoked,
-        triggerCharacter: params.context?.triggerCharacter,
-      },
-    } as SetupData;
 
     try {
-      if (line.trim().startsWith('#') && current) {
-        logger.log('completeComment');
-        return buildCommentCompletions(line, params.position, current, fishCompletionData, word);
-      }
-      if (isInVariableExpansionContext(doc, params.position, line, word, current ?? null)) {
-        logger.log('completeVariables');
-        const variableList = await this.completion.completeVariables(line, word, fishCompletionData, symbols);
-        return variableList;
-      }
+      // No special case while `backgroundAnalysisComplete` is false: the current
+      // document is always analyzed on open, so the normal position-aware path only
+      // misses symbols from other workspace files until background analysis finishes.
+      // (An empty-line fallback here would send items without a `textEdit`, leaving
+      // clients to guess how much to replace — e.g. eating the `)"` in `echo "$(recolor)"`.)
+      return await this.completion.complete({
+        doc,
+        position: params.position,
+        symbols: analyzer.allSymbolsAccessibleAtPosition(doc, params.position),
+        documentWord: analyzer.parseCurrentLine(doc, params.position).word,
+        current: current ?? null,
+        triggerKind: params.context?.triggerKind,
+        triggerCharacter: params.context?.triggerCharacter,
+      });
     } catch (error) {
       logger.warning('ERROR: onComplete ' + error?.toString() || 'error');
+      return { isIncomplete: false, items: [] };
     }
-
-    try {
-      logger.log('complete');
-      list = await this.completion.complete(line, fishCompletionData, symbols);
-    } catch (error) {
-      logger.logAsJson('ERROR: onComplete ' + error?.toString() || 'error');
-    }
-    // don't allow typing more flags after `-`, make list.isIncomplete === false
-    if (!word && list.items.find(item => item.label.startsWith('-'))) {
-      list.isIncomplete = true;
-    }
-    if (word.startsWith('-')) {
-      list.items = list.items.filter(item => item.label.startsWith('-'));
-    }
-    return list;
   }
 
   /**

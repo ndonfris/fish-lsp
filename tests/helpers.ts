@@ -257,7 +257,7 @@ export async function getMockedInitializationFunctions() {
   const docCache = await import('../src/utils/documentation-cache');
   const workspace = await import('../src/utils/workspace');
   const completionCache = await import('../src/utils/completion/startup-cache');
-  const pager = await import('../src/utils/completion/pager');
+  const completionHandler = await import('../src/utils/completion/handler');
   const processEnv = await import('../src/utils/process-env');
 
   return {
@@ -265,7 +265,7 @@ export async function getMockedInitializationFunctions() {
     initializeDefaultFishWorkspaces: workspace.initializeDefaultFishWorkspaces,
     getWorkspacePathsFromInitializationParams: workspace.getWorkspacePathsFromInitializationParams,
     CompletionItemMapInitialize: completionCache.CompletionItemMap.initialize,
-    initializeCompletionPager: pager.initializeCompletionPager,
+    createCompletionHandler: completionHandler.CompletionHandler.create,
     setupProcessEnvExecFile: processEnv.setupProcessEnvExecFile,
   };
 }

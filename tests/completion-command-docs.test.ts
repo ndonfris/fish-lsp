@@ -672,19 +672,21 @@ describe('Command completion documentation', () => {
   });
 
   it('keeps command and builtin items visible for alias quoted values with text', async () => {
-    const content = "alias foo='__";
-    const doc = createFakeLspDocument('/tmp/alias-quoted-value-prefix.fish', content);
-    analyzer.analyze(doc);
+    // the typed text is completed by fish, the same as outside the quotes
+    for (const [content, label] of [["alias foo='se", 'set'], ["alias foo='commandl", 'commandline']] as const) {
+      const doc = createFakeLspDocument('/tmp/alias-quoted-value-prefix.fish', content);
+      analyzer.analyze(doc);
 
-    const params: CompletionParams = {
-      textDocument: { uri: doc.uri },
-      position: { line: 0, character: content.length },
-    };
+      const params: CompletionParams = {
+        textDocument: { uri: doc.uri },
+        position: { line: 0, character: content.length },
+      };
 
-    const result = await server.onCompletion(params);
+      const result = await server.onCompletion(params);
+      const item = result.items.find(i => i.label === label && i.kind === CompletionItemKind.Keyword);
 
-    expect(result.items.some(i => i.label === 'set')).toBe(true);
-    expect(result.items.some(i => i.label === 'commandline')).toBe(true);
+      expect(item, `${label} in ${content}`).toBeDefined();
+    }
   });
 
   it('prefixes variable insert text inside alias quoted values', async () => {
@@ -717,13 +719,14 @@ describe('Command completion documentation', () => {
         ['commandline', 'Set or get the commandline'],
       ]);
 
+    const completionMap = server.completions as any;
+    const originalSkippedMatches = completionMap._skippedMatches;
     try {
       const content = 'my';
       const doc = createFakeLspDocument('/tmp/filter-abbreviations.fish', content);
       analyzer.analyze(doc);
 
-      const completion = (server as any).completion;
-      completion.itemsMap._skippedMatches = new Set(['myabbr']);
+      completionMap._skippedMatches = new Set(['myabbr']);
 
       const params: CompletionParams = {
         textDocument: { uri: doc.uri },
@@ -735,6 +738,7 @@ describe('Command completion documentation', () => {
       expect(result.items.some(i => i.label === 'myabbr')).toBe(false);
       expect(result.items.some(i => i.label === 'commandline')).toBe(true);
     } finally {
+      completionMap._skippedMatches = originalSkippedMatches;
       shellSpy.mockRestore();
     }
   });
