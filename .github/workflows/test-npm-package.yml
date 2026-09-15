@@ -1,6 +1,8 @@
 ## Test that the built npm package can be successfully installed and works correctly
-## This workflow builds the package, packs it, installs it globally, and runs verification commands
-name: Test NPM Package Installation
+## The package is built and packed once (on the `.nvmrc` node version, since devDependencies
+## like `vitest@5` require node >=22), then installed globally and verified on every
+## supported node version, including the minimum supported runtime version.
+name: Verifying NPM Package Installation across versions
 
 on:
   push:
@@ -9,6 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       timestamp:
+        type: 'string'
         description: 'Build timestamp (for reproducible builds)'
         required: false
         default: ''
@@ -16,26 +19,17 @@ on:
     paths:
       - 'src/**'
       - 'package.json'
+      - 'yarn.lock'
+      - '.nvmrc'
       - 'scripts/esbuild/**'
       - '.github/workflows/test-npm-package.yml'
 
 jobs:
-  test-npm-package:
-    name: Test NPM Package (Node ${{ matrix.node-version }}, ${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+  build-npm-package:
+    name: Build NPM Package
+    runs-on: ubuntu-latest
     permissions:
       contents: read
-
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-        node-version:
-          - '20'      # Minimum supported version
-          - '22'      # Current LTS
-          - '24'  # Latest stable
 
     steps:
       - name: Checkout Code
@@ -44,7 +38,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version-file: .nvmrc
 
       - name: Install Fish Shell (v4.x)
         uses: fish-actions/install-fish@v1.2.0
@@ -81,20 +75,51 @@ jobs:
         run: yarn package
 
       - name: Upload Package Artifact
-        if: github.event_name != 'workflow_dispatch' || !env.ACT
         uses: actions/upload-artifact@v4
         with:
-          name: fish-lsp-package-node${{ matrix.node-version }}-${{ matrix.os }}
+          name: fish-lsp-package
           path: fish-lsp.tgz
           retention-days: 7
           if-no-files-found: error
+
+  test-npm-package:
+    name: Test NPM Package (Node ${{ matrix.node-version }}, ${{ matrix.os }})
+    needs: build-npm-package
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+        node-version:
+          - '20'      # Minimum supported version
+          - '22'      # Current LTS
+          - '24'  # Latest stable
+
+    steps:
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install Fish Shell (v4.x)
+        uses: fish-actions/install-fish@v1.2.0
+
+      - name: Download Package Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: fish-lsp-package
 
       - name: Install Package Globally
         shell: fish {0}
         run: |
           set -l package_file (ls fish-lsp.tgz | head -n 1)
           echo "Installing package: $package_file"
-          npm install -g $package_file
+          npm install -g ./$package_file
 
       - name: Verify fish-lsp binary exists
         run: which fish-lsp
