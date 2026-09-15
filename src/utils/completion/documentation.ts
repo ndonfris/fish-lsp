@@ -52,6 +52,7 @@ export async function getDocumentationResolver(item: FishCompletionItem): Promis
         docString = await buildArgumentDocString(item);
         break;
       case FishCompletionItemKind.EMPTY:
+      case FishCompletionItemKind.SNIPPET:
       default:
         break;
     }

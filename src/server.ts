@@ -185,7 +185,9 @@ export default class FishServer {
 
     await Analyzer.initialize();
 
-    const completions = await CompletionHandler.create(completionsMap);
+    const completions = await CompletionHandler.create(completionsMap, {
+      snippetSupport: !!capabilities?.textDocument?.completion?.completionItem?.snippetSupport,
+    });
 
     server = new FishServer(
       completions,

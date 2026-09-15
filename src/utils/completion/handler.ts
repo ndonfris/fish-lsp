@@ -1,8 +1,8 @@
-import { CompletionItemKind, CompletionList } from 'vscode-languageserver';
+import { CompletionItemKind, CompletionList, InsertTextFormat } from 'vscode-languageserver';
 import { logger } from '../../logger';
 import { CompletionContext, CompletionLineParser, CompletionMode, CompletionRequest } from './context';
 import { CompletionItemMap } from './startup-cache';
-import { FishCompletionData, FishCompletionItem } from './types';
+import { FishCompletionData, FishCompletionItem, FishCompletionItemKind, snippetToPlainText } from './types';
 import {
   builtins,
   combinersAndPipes,
@@ -20,6 +20,7 @@ import {
   pipes,
   shellCommandNames,
   shellMatches,
+  snippets,
   wordPrefixItems,
 } from './sources';
 
@@ -34,14 +35,14 @@ const ROUTES: Partial<Record<RouteKey, CompletionSource[]>> = {
   comment: [commentItems],
   variable: [localVariables, globalVariables],
   blocked: [pipes],
-  empty: [localSymbols, builtins, shellCommandNames, commentDirectives, mapFunctions],
-  command: [paths, shellMatches, localFunctions, wordPrefixItems],
+  empty: [localSymbols, builtins, shellCommandNames, commentDirectives, mapFunctions, snippets],
+  command: [paths, shellMatches, localFunctions, wordPrefixItems, snippets],
   argument: [paths, shellMatches, localVariables, commandSyntaxItems, wordPrefixItems],
 
   // a command position inside quotes (`complete -a '(`) takes the same names as one outside them
-  'embedded:empty': [localSymbols, builtins, mapCommands],
+  'embedded:empty': [localSymbols, builtins, mapCommands, snippets],
   // fish already filters a partial name (`complete -n 'not __f`), as it does outside quotes
-  'embedded:command': [paths, shellMatches, localFunctions, localVariables],
+  'embedded:command': [paths, shellMatches, localFunctions, localVariables, snippets],
   'embedded:argument': [paths, shellMatches, localVariables, globalVariables, commandSyntaxItems, wordPrefixItems, combinersAndPipes],
 };
 
@@ -49,14 +50,20 @@ export function routeFor(ctx: CompletionContext): CompletionSource[] {
   return (ctx.embedded ? ROUTES[`embedded:${ctx.mode}`] : undefined) ?? ROUTES[ctx.mode] ?? [];
 }
 
+export type CompletionClientOptions = {
+  /** `capabilities.textDocument.completion.completionItem.snippetSupport` (LSP default: `false`) */
+  snippetSupport: boolean;
+};
+
 export class CompletionHandler {
-  static async create(items: CompletionItemMap) {
-    return new CompletionHandler(await CompletionLineParser.create(), items);
+  static async create(items: CompletionItemMap, client: CompletionClientOptions = { snippetSupport: false }) {
+    return new CompletionHandler(await CompletionLineParser.create(), items, client);
   }
 
   constructor(
     public readonly parser: CompletionLineParser,
     private items: CompletionItemMap,
+    private client: CompletionClientOptions = { snippetSupport: false },
   ) { }
 
   async complete(request: CompletionRequest): Promise<CompletionList> {
@@ -70,7 +77,9 @@ export class CompletionHandler {
       args: ctx.args,
       argIndex: ctx.argIndex,
     });
-    const results = await Promise.all(routeFor(ctx).map(async (source) => {
+    // a client without snippet support would insert `${1:i}` literally
+    const sources = routeFor(ctx).filter(source => this.client.snippetSupport || source !== snippets);
+    const results = await Promise.all(sources.map(async (source) => {
       try {
         return await source(ctx, this.items);
       } catch (error) {
@@ -78,7 +87,7 @@ export class CompletionHandler {
         return [];
       }
     }));
-    return toCompletionList(ctx, results.flat());
+    return toCompletionList(ctx, results.flat(), this.client);
   }
 }
 
@@ -86,15 +95,31 @@ export class CompletionHandler {
  * Dedupes by label (first wins), sorts by priority, attaches the replacement range
  * and the `data` that `onCompletionResolve` reads.
  */
-export function toCompletionList(ctx: CompletionContext, items: FishCompletionItem[]): CompletionList {
+export function toCompletionList(
+  ctx: CompletionContext,
+  items: FishCompletionItem[],
+  client: CompletionClientOptions,
+): CompletionList {
   const seen = new Set<string>();
   const deduped = items.filter((item) => {
-    if (seen.has(item.label)) return false;
-    seen.add(item.label);
+    const key = dedupeKey(item);
+    if (seen.has(key)) return false;
+    seen.add(key);
     return true;
   });
   // comment items keep their authored order (shebangs, then directives)
-  let unique = ctx.mode === 'comment' ? deduped : sortByPriority(deduped);
+  let unique = ctx.mode === 'comment' ? deduped : sortByPriority(deduped, ctx.word);
+
+  // items are per-request copies, so adjusting them never touches the completion map
+  for (const item of unique) {
+    if (!client.snippetSupport && item.insertTextFormat === InsertTextFormat.Snippet) {
+      // `\x${1:xx}` -> `\xxx`: what the template inserts with every tabstop left at its default
+      item.insertText = snippetToPlainText(item.insertText ?? item.label);
+      item.insertTextFormat = InsertTextFormat.PlainText;
+    }
+    // only a snippet whose trigger is exactly the typed word is worth selecting up front
+    item.preselect = snippetMatchRank(item, ctx.word) === 0 || undefined;
+  }
 
   const data: FishCompletionData = {
     uri: ctx.doc.uri,
@@ -147,9 +172,37 @@ function fallbackPriority(item: FishCompletionItem): number {
   }
 }
 
-/** lower priority first, then alphabetical */
-function sortByPriority(items: FishCompletionItem[]): FishCompletionItem[] {
+/**
+ * Snippets may share a label with a command or builtin (`if`, `set`), and every
+ * trigger of one snippet shares its label and body, differing only in `filterText`.
+ * Keep those distinct while every other item dedupes by label.
+ */
+function dedupeKey(item: FishCompletionItem): string {
+  if (item.fishKind !== FishCompletionItemKind.SNIPPET) return item.label;
+  return [item.label, item.fishKind, item.insertText ?? '', item.filterText ?? ''].join('\0');
+}
+
+/**
+ * How well a snippet's trigger matches the word being typed: 0 for an exact
+ * trigger, 1 for a prefix of it, 2 for everything else (non-snippets, no word).
+ */
+function snippetMatchRank(item: FishCompletionItem, word: string): number {
+  if (item.fishKind !== FishCompletionItemKind.SNIPPET || !word) return 2;
+  const trigger = item.filterText ?? item.label;
+  if (trigger === word) return 0;
+  if (trigger.startsWith(word)) return 1;
+  return 2;
+}
+
+/** snippets whose trigger matches `word` first, then lower priority, then alphabetical */
+function sortByPriority(items: FishCompletionItem[], word: string): FishCompletionItem[] {
   return items.sort((a, b) => {
+    // snippets are only reachable through their trigger, so a matching one outranks
+    // the flat priority every snippet shares
+    const matchA = snippetMatchRank(a, word);
+    const matchB = snippetMatchRank(b, word);
+    if (matchA !== matchB) return matchA - matchB;
+
     const priorityA = a.priority ?? fallbackPriority(a);
     const priorityB = b.priority ?? fallbackPriority(b);
     if (priorityA !== priorityB) return priorityA - priorityB;

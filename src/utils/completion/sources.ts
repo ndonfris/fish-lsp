@@ -127,6 +127,9 @@ export const combinersAndPipes: CompletionSource = (_ctx, map) => fromMap(map.al
 
 export const pipes: CompletionSource = (_ctx, map) => fromMap(map.allOfKinds('pipe'), 85);
 
+/** `src/snippets/completionSnippets.json`, one item per trigger (see `static-items.ts`) */
+export const snippets: CompletionSource = (_ctx, map) => fromMap(map.allOfKinds('snippet'), 99);
+
 /* ──────────────────────────────── fish ──────────────────────────────── */
 
 /** every command name fish knows about (`complete --do-complete ' '`) */
@@ -166,7 +169,8 @@ export const shellMatches: CompletionSource = async (ctx, map) => {
     if (map.shouldSkipMatch(name)) continue;
 
     if (ctx.mode === 'command') {
-      const item = map.findLabel(name);
+      // name kinds only: snippets share labels like `if`, `set` and `for`
+      const item = map.findLabel(name, 'alias', 'builtin', 'function', 'command');
       if (item) items.push(cloneCompletionItem(item).setPriority(1));
       continue;
     }

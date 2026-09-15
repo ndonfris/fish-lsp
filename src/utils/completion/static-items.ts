@@ -3,6 +3,7 @@ import { ErrorCodes } from '../../diagnostics/error-codes';
 import { md } from '../markdown-builder';
 import { FishCompletionItem, FishCompletionItemKind, CompletionExample } from './types';
 import { findPrebuiltDoc, formatPrebuiltDocMarkdown, PrebuiltDocumentationMap } from '../snippets';
+import CompletionSnippets from '../../snippets/completionSnippets.json';
 
 const EscapedChars: FishCompletionItem[] = [
   {
@@ -996,6 +997,22 @@ const comments = [
   },
 ] as FishCompletionItem[];
 
+// A snippet is reachable by its `name` or any of its `altTrigger` entries, so
+// every trigger becomes its own item; they share the snippet's name as their
+// label and differ only in `filterText`. A joined trigger string would leave
+// every trigger but the first unmatchable.
+const baseSnippets = CompletionSnippets.flatMap((item) => {
+  const altTriggers = item.altTrigger === undefined ? [] : Array.isArray(item.altTrigger) ? item.altTrigger : [item.altTrigger];
+  const body = Array.isArray(item.body) ? item.body.join('\n') : item.body;
+  const triggers = Array.from(new Set([item.name, ...altTriggers]));
+  return triggers.map((trigger) => FishCompletionItem.createSnippet(
+    item.name,
+    item.description,
+    trigger,
+    body,
+  ));
+}) as FishCompletionItem[];
+
 export const StaticItems: Record<string, FishCompletionItem[]> = {
   [FishCompletionItemKind.ESC_CHARS]: EscapedChars,
   [FishCompletionItemKind.PIPE]: Pipes,
@@ -1009,6 +1026,7 @@ export const StaticItems: Record<string, FishCompletionItem[]> = {
   [FishCompletionItemKind.SHEBANG]: shebangs,
   [FishCompletionItemKind.COMMENT]: comments,
   [FishCompletionItemKind.DIAGNOSTIC]: disableDiagnostics,
+  [FishCompletionItemKind.SNIPPET]: baseSnippets,
   // lazy: see prebuiltVars()/prebuiltFuncs() — avoids an eval-time read of
   // PrebuiltDocumentationMap so the snippets/config module graph stays cycle-safe.
   get [FishCompletionItemKind.VARIABLE]() {
