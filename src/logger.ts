@@ -447,6 +447,25 @@ export class Time {
 }
 export const logger: Logger = new Logger();
 
+/**
+ * Exit the process after every pending `process.stdout` write has been flushed.
+ *
+ * Calling `process.exit()` directly after writing to a pipe (i.e., `fish-lsp complete | source`)
+ * can truncate the output, because node only writes as much as the pipe buffer can hold
+ * (as small as 8KB) before exiting, and drops the rest.
+ *
+ * The returned promise never resolves, so `await exitAfterStdoutFlush()` stops any
+ * code after it from running.
+ *
+ * @param code - the exit code of the process
+ */
+export function exitAfterStdoutFlush(code = 0): Promise<never> {
+  process.exitCode = code;
+  return new Promise<never>(() => {
+    process.stdout.write('', () => process.exit(code));
+  });
+}
+
 export function createServerLogger(logFilePath: string, connectionConsole?: IConsole): Logger {
   return logger
     .setLogFilePath(logFilePath)
