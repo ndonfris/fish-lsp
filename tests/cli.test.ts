@@ -465,6 +465,16 @@ describe.skipIf(!cliExists)('cli tests', () => {
       expect(completions).toContain('function __fish_lsp');
     });
 
+    it('fish-lsp complete output is not truncated when piped', async () => {
+      // `spawn()` stdio uses a socketpair, so run through `sh` to write into a real pipe,
+      // which can be as small as 8KB (i.e., `fish-lsp complete | fish --no-execute`)
+      const { stdout: piped } = await execAsync('./dist/fish-lsp complete 2>/dev/null | cat');
+
+      // the completions script ends with a `### ... ###` banner, so a truncated script won't
+      expect(piped.length).toBeGreaterThan(16384);
+      expect(piped.trimEnd()).toMatch(/###$/);
+    });
+
     it('fish should parse fish-lsp completions without errors', async () => {
       // Generate the completions
       const completions = buildFishLspCompletions(commandBin);

@@ -3,7 +3,7 @@ import PackageJSON from '@package';
 import chalk from 'chalk';
 import { Command, Option } from 'commander';
 import { config, Config, configHandlers, handleEnvOutput, updateHandlers, validHandlers } from './config';
-import { logger } from './logger';
+import { exitAfterStdoutFlush, logger } from './logger';
 import { handleCLiDumpParseTree, handleCLiDumpSemanticTokens, handleCLiDumpSymbolTree } from './utils/cli-dump-tree';
 import { accumulateStartupOptions, BuildCapabilityString, CommanderSubcommand, FishLspHelp, FishLspManPage, getBuildTypeString, PackageLspVersion, PackageVersion, PathObj, PkgJson, SourcesDict, SubcommandEnv } from './utils/commander-cli-subcommands';
 import { buildFishLspAbbreviations, buildFishLspCompletions } from './utils/get-lsp-completions';
@@ -175,7 +175,7 @@ commandBin.command('start')
     if (dumpCmd) {
       logger.logFallbackToStdout({ handlers: configHandlers });
       logger.logFallbackToStdout({ config: config });
-      process.exit(0);
+      await exitAfterStdoutFlush(0);
     }
 
     /* config needs to be used in `startServer()` below */
@@ -249,22 +249,22 @@ commandBin.command('info')
 
     if (args.short) {
       CommanderSubcommand.info.handleShortOutput(args);
-      process.exit(0);
+      await exitAfterStdoutFlush(0);
     }
 
     if (args.dumpParseTree) {
       const status = await handleCLiDumpParseTree(args);
-      process.exit(status);
+      await exitAfterStdoutFlush(status);
     }
 
     if (args.dumpSemanticTokens) {
       const status = await handleCLiDumpSemanticTokens(args);
-      process.exit(status);
+      await exitAfterStdoutFlush(status);
     }
 
     if (args.dumpSymbolTree) {
       const status = await handleCLiDumpSymbolTree(args);
-      process.exit(status);
+      await exitAfterStdoutFlush(status);
     }
 
     // If the user requested specific info, we will try to show only the requested output.
@@ -278,11 +278,11 @@ commandBin.command('info')
           timeOnly: args.timeOnly,
           showFiles: args.showFiles,
         });
-        process.exit(0);
+        await exitAfterStdoutFlush(0);
       }
       if (args.healthCheck || args.checkHealth) {
         await performHealthCheck();
-        process.exit(0);
+        await exitAfterStdoutFlush(0);
       }
 
       // Handle sourcemaps (requires --source-maps or specific sourcemap options)
@@ -349,7 +349,7 @@ commandBin.command('info')
         CommanderSubcommand.info.log(argsCount, 'Capabilities', capabilities, false);
       }
     }
-    process.exit(exitCode);
+    await exitAfterStdoutFlush(exitCode);
   });
 
 // URL
@@ -372,11 +372,11 @@ commandBin.command('url')
     const amount = Object.keys(args).length;
     if (amount === 0) {
       logger.logToStdout('https://fish-lsp.dev');
-      process.exit(0);
+      await exitAfterStdoutFlush(0);
     }
 
     Object.keys(args).forEach(key => logger.logToStdout(SourcesDict[key]?.toString() || ''));
-    process.exit(0);
+    await exitAfterStdoutFlush(0);
   });
 
 // COMPLETE
@@ -397,31 +397,31 @@ commandBin.command('complete')
     await setupProcessEnvExecFile();
     if (args.names) {
       commandBin.commands.forEach(cmd => logger.logToStdout(cmd.name()));
-      process.exit(0);
+      await exitAfterStdoutFlush(0);
     } else if (args.namesWithSummary) {
       commandBin.commands.forEach(cmd => logger.logToStdout(cmd.name() + '\t' + cmd.summary()));
-      process.exit(0);
+      await exitAfterStdoutFlush(0);
     } else if (args.fish) {
       logger.logToStdout(buildFishLspCompletions(commandBin));
-      process.exit(0);
+      await exitAfterStdoutFlush(0);
     } else if (args.features || args.toggles) {
       Object.keys(configHandlers).forEach((name) => logger.logToStdout(name.toString()));
-      process.exit(0);
+      await exitAfterStdoutFlush(0);
     } else if (args.envVariables) {
       Object.entries(Config.envDocs()).forEach(([key, value]) => {
         logger.logToStdout(`${key}\\t'${value}'`);
       });
-      process.exit(0);
+      await exitAfterStdoutFlush(0);
     } else if (args.envVariableNames) {
       Object.keys(Config.envDocs()).forEach((name) => logger.logToStdout(name.toString()));
-      process.exit(0);
+      await exitAfterStdoutFlush(0);
     } else if (args.abbreviations) {
       logger.logToStdout(buildFishLspAbbreviations());
-      if (Object.values(args).filter(v => v === true).length === 1) process.exit(0);
+      if (Object.values(args).filter(v => v === true).length === 1) await exitAfterStdoutFlush(0);
     }
 
     logger.logToStdout(buildFishLspCompletions(commandBin));
-    process.exit(0);
+    await exitAfterStdoutFlush(0);
   });
 
 // ENV
@@ -458,10 +458,10 @@ commandBin.command('env')
         result += args.joined ? `${name} ` : `${name}\n`;
       });
       logger.logToStdout(result.trim());
-      process.exit(0);
+      await exitAfterStdoutFlush(0);
     }
     handleEnvOutput(outputType, logger.logToStdout, opts);
-    process.exit(0);
+    await exitAfterStdoutFlush(0);
   });
 
 // Parsing the command now happens in the `src / main.ts` file, since our bundler
@@ -470,7 +470,8 @@ export function execCLI() {
     logger.logToStderr(chalk.red('[ERROR] No COMMAND provided to `fish - lsp`, displaying `fish - lsp--help` output.\n'));
     commandBin.outputHelp();
     logger.logToStdout('\nFor more help, use `fish - lsp--help - all` to see all commands and options.');
-    process.exit(1);
+    void exitAfterStdoutFlush(1);
+    return;
   }
   // commandBin.parse(process.argv);
   commandBin.parse();
