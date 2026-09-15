@@ -52,8 +52,8 @@ describe('main.ts', () => {
     vi.clearAllMocks();
 
     // Reset global state
-    delete global.window;
-    delete global.self;
+    delete (global as any).window;
+    delete (global as any).self;
 
     // Mock console.error and process.exit
     console.error = vi.fn();

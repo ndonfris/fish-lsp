@@ -59,7 +59,8 @@
     "src",
     "src/types/embedded-assets.d.ts",
     "tests",
-    "eslint.config.ts"
+    "eslint.config.ts",
+    "vitest.config.ts"
   ],
   "exclude": [
     "node_modules",

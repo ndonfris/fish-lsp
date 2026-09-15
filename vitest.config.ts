@@ -8,7 +8,7 @@ function fishLoader(): Plugin {
   return {
     name: 'fish-loader',
     enforce: 'pre',
-    transform(code, id) {
+    transform(_code, id) {
       if (id.endsWith('.fish')) {
         const content = readFileSync(id, 'utf-8')
         return {
@@ -27,12 +27,15 @@ const reporters: (string | [string, Record<string, unknown>])[] = isSilent || is
 if (isCI) reporters.push('github-actions');
 
 export default defineConfig({
-  plugins: [, wasm(), fishLoader()],
+  plugins: [ wasm(), fishLoader()],
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
     globals: true,
     setupFiles: ['tests/setup-mocks.ts'],
+    // vitest@5 defaults to `true`; keep vitest@4 behavior so mock calls made in
+    // `beforeAll()` are still visible inside `it()`
+    clearMocks: false,
     env: isSilent ? { VITEST_SILENT: '1' } : {},
     onConsoleLog: isSilent ? () => false : undefined,
     reporters,
