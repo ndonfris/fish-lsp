@@ -16,14 +16,14 @@ function fail(message?: string): never {
 vi.stubGlobal('fail', fail);
 
 const treeSitterFishWasmPath = process.env.fish_lsp_tree_sitter_wasm_path
-  || resolve(__dirname, '../node_modules/@esdmr/tree-sitter-fish/tree-sitter-fish.wasm');
+  || resolve(__dirname, '../node_modules/tree-sitter-fish/tree-sitter-fish.wasm');
 
 // Use actual WASM files for tree-sitter functionality in tests
 vi.mock('web-tree-sitter/tree-sitter.wasm', () => ({
   default: readFileSync(resolve(__dirname, '../node_modules/web-tree-sitter/tree-sitter.wasm')),
 }));
 
-vi.mock('@esdmr/tree-sitter-fish/tree-sitter-fish.wasm', () => ({
+vi.mock('tree-sitter-fish/tree-sitter-fish.wasm', () => ({
   default: readFileSync(treeSitterFishWasmPath),
 }));
 

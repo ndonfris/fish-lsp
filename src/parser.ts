@@ -1,6 +1,6 @@
 import Parser from 'web-tree-sitter';
 import treeSitterWasmPath from 'web-tree-sitter/tree-sitter.wasm';
-import fishLanguageWasm from '@esdmr/tree-sitter-fish/tree-sitter-fish.wasm';
+import fishLanguageWasm from 'tree-sitter-fish/tree-sitter-fish.wasm';
 import { readFileSync } from 'fs';
 import { logger } from './logger';
 import { config } from './config';

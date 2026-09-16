@@ -25,7 +25,7 @@
 
 import { execSync } from 'child_process';
 import { readFileSync, writeFileSync, existsSync, statSync } from 'fs';
-import { join, dirname, resolve } from 'path';
+import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import fg from 'fast-glob';
 
@@ -62,7 +62,7 @@ function extractUpdateDirectives(content: string): UpdateDirective[] {
   return directives;
 }
 
-function executeCommand(command: string): { output: string; status: number } {
+function executeCommand(command: string): { output: string; status: number; } {
   try {
     const output = execSync(command, {
       encoding: 'utf-8',
@@ -78,10 +78,10 @@ function executeCommand(command: string): { output: string; status: number } {
   }
 }
 
-function processReadme(content: string, filePath: string): { newContent: string; updatesCount: number } {
+function processReadme(content: string, filePath: string): { newContent: string; updatesCount: number; } {
   const lines = content.split('\n');
   const directives = extractUpdateDirectives(content);
-  
+
   if (directives.length === 0) {
     return { newContent: content, updatesCount: 0 };
   }
@@ -106,7 +106,7 @@ function processReadme(content: string, filePath: string): { newContent: string;
       // Find the opening backticks
       while (i < lines.length) {
         const currentLine = lines[i];
-        
+
         if (currentLine.match(/^```/)) {
           // Found opening backticks - preserve them
           const codeblockOpening = currentLine;
@@ -116,21 +116,22 @@ function processReadme(content: string, filePath: string): { newContent: string;
           // Execute command
           console.error(`    Executing: ${directive.command}`);
           const { output: commandOutput, status } = executeCommand(directive.command);
-          
+
           if (status !== 0) {
             console.error(`    ❌ Error: Command exited with status ${status} - skipping update`);
-            
+            console.error(`       └────  ${filePath}`);
+
             // Command failed - keep old content
             while (i < lines.length) {
               const contentLine = lines[i];
               output.push(contentLine);
-              
+
               if (contentLine.match(/^```/)) {
                 // Found closing backticks
                 i++;
                 break;
               }
-              
+
               i++;
             }
             break;
@@ -142,14 +143,14 @@ function processReadme(content: string, filePath: string): { newContent: string;
           // Skip old content until closing backticks
           while (i < lines.length) {
             const contentLine = lines[i];
-            
+
             if (contentLine.match(/^```/)) {
               // Found closing backticks
               output.push(contentLine);
               i++;
               break;
             }
-            
+
             // Skip old content line
             i++;
           }
@@ -157,7 +158,7 @@ function processReadme(content: string, filePath: string): { newContent: string;
           updatesCount++;
           break;
         }
-        
+
         // Line between comment and codeblock
         output.push(currentLine);
         i++;
@@ -181,7 +182,7 @@ function getMarkdownFiles(targetPath?: string): string[] {
     }
 
     const stats = statSync(targetPath);
-    
+
     if (stats.isFile()) {
       // Single file - verify it's a markdown file
       if (!targetPath.endsWith('.md')) {
@@ -207,7 +208,7 @@ function getMarkdownFiles(targetPath?: string): string[] {
   });
 }
 
-function processFile(filePath: string): { updated: boolean; updatesCount: number } {
+function processFile(filePath: string): { updated: boolean; updatesCount: number; } {
   const content = readFileSync(filePath, 'utf-8');
   const directives = extractUpdateDirectives(content);
 
@@ -251,7 +252,7 @@ function main() {
 
   for (const filePath of markdownFiles) {
     const { updated, updatesCount } = processFile(filePath);
-    
+
     if (updated) {
       filesUpdated++;
       totalUpdates += updatesCount;

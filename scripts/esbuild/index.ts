@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 
-import { parseArgs, showCompletions, showHelp } from "./cli";
+import { parseArgs, showCompletions, showHelp } from './cli';
 import { pipeline } from './pipeline';
 import { startFileWatcher } from './file-watcher';
 import { logger } from './colors';
@@ -8,7 +8,7 @@ import { logger } from './colors';
 export async function build(_customArgs?: string[]): Promise<void> {
   const args = parseArgs();
 
-  // Handle help and completions                                               
+  // Handle help and completions
   if (process.argv.includes('--help') || process.argv.includes('-h')) {
     showHelp();
     process.exit(0);
@@ -18,7 +18,7 @@ export async function build(_customArgs?: string[]): Promise<void> {
     process.exit(0);
   }
 
-  // Handle comprehensive file watching                                        
+  // Handle comprehensive file watching
   if (args.watchAll || args.watch) {
     console.log(logger.header('`fish-lsp` comprehensive file watcher'));
     console.log(logger.info('Starting comprehensive file watcher...'));
@@ -27,7 +27,7 @@ export async function build(_customArgs?: string[]): Promise<void> {
   }
 
   try {
-    // Execute the build pipeline for the target                               
+    // Execute the build pipeline for the target
     await pipeline.execute(args.target, args);
   } catch (error) {
     logger.logError('Build failed', error as Error);
@@ -35,4 +35,4 @@ export async function build(_customArgs?: string[]): Promise<void> {
   }
 }
 
-build(); 
+build();

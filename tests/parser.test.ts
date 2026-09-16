@@ -136,7 +136,7 @@ describe('parser test-suite', () => {
     const originalOverride = process.env.fish_lsp_tree_sitter_wasm_path;
 
     mkdirSync(wasmDir, { recursive: true });
-    cpSync(resolve(__dirname, '../node_modules/@esdmr/tree-sitter-fish/tree-sitter-fish.wasm'), wasmFile);
+    cpSync(resolve(__dirname, '../node_modules/tree-sitter-fish/tree-sitter-fish.wasm'), wasmFile);
 
     process.env.HOME = testHome;
     process.env.fish_lsp_tree_sitter_wasm_path = '~/wasm/tree-sitter-fish.wasm';

@@ -63,7 +63,7 @@ export namespace TargetInfo {
       altNames: altNames ?? [],
       label,
       description,
-      keys: [String(_idx), ...(keys ?? [])],
+      keys: [String(_idx), ...keys ?? []],
       type: isBuild ? 'build' : 'meta',
       command,
       helpColor: helpColor ?? 'dim',
@@ -81,7 +81,7 @@ export namespace TargetInfo {
   }
 
   /** Format a help entry with combined index+key: "[4|B]", color name, and description */
-  export function helpEntry(info: TargetInfo): { key: string; color: string; text: string } | undefined {
+  export function helpEntry(info: TargetInfo): { key: string; color: string; text: string; } | undefined {
     const letter = letterKey(info);
     if (!letter) return undefined;
     return { key: `[${info.index}|${letter.toUpperCase()}]`, color: info.helpColor, text: info.description };
@@ -93,16 +93,16 @@ export namespace TargetInfo {
  * and the numeric keyboard shortcut in watch mode.
  */
 export const targets: readonly TargetInfo[] = [
-  TargetInfo.create('dev',    'Full',        'Full Project (yarn build)',           ['dev'],             'cyan',      ['d'], ['development']),
-  TargetInfo.create('npm',    'NPM',         'NPM Build (yarn dev --npm)',          ['dev', '--npm'],    'yellow',    ['n']),
-  TargetInfo.create('lint',   'Lint',         'Lint Fix (yarn lint:fix)',            ['lint:fix'],        'magenta',  ['l']),
-  TargetInfo.create('binary', 'Binary',       'Binary Build (yarn dev --binary)',    ['dev', '--binary'], 'blue',     ['b'], ['bin']),
-  TargetInfo.create('test',   'Test',         'Test Run (yarn test)',                ['test:run'],        'green',    ['t']),
-  TargetInfo.create('types',  'Types',        'Types Build (yarn dev --types)',      ['dev', '--types'],  'white',    ['y']),
-  TargetInfo.create('ci',     'CI/CD',        'CI/CD Test (yarn dev --ci)',          ['dev', '--ci'],     'magenta',  ['c']),
-  TargetInfo.create('all',    'All Targets',  'All Targets (yarn dev --all)',        ['dev', '--all']),
-  TargetInfo.create('fresh',  'Fresh',        'Fresh Install (yarn dev --fresh)',    ['dev', '--fresh']),
-  TargetInfo.create('setup',  'Setup',        'Setup (yarn dev --setup)',            ['dev', '--setup']),
+  TargetInfo.create('dev', 'Full', 'Full Project (yarn build)', ['dev'], 'cyan', ['d'], ['development']),
+  TargetInfo.create('npm', 'NPM', 'NPM Build (yarn dev --npm)', ['dev', '--npm'], 'yellow', ['n']),
+  TargetInfo.create('lint', 'Lint', 'Lint Fix (yarn lint:fix)', ['lint:fix'], 'magenta', ['l']),
+  TargetInfo.create('binary', 'Binary', 'Binary Build (yarn dev --binary)', ['dev', '--binary'], 'blue', ['b'], ['bin']),
+  TargetInfo.create('test', 'Test', 'Test Run (yarn test)', ['test:run'], 'green', ['t']),
+  TargetInfo.create('types', 'Types', 'Types Build (yarn dev --types)', ['dev', '--types'], 'white', ['y']),
+  TargetInfo.create('ci', 'CI/CD', 'CI/CD Test (yarn dev --ci)', ['dev', '--ci'], 'magenta', ['c']),
+  TargetInfo.create('all', 'All Targets', 'All Targets (yarn dev --all)', ['dev', '--all']),
+  TargetInfo.create('fresh', 'Fresh', 'Fresh Install (yarn dev --fresh)', ['dev', '--fresh']),
+  TargetInfo.create('setup', 'Setup', 'Setup (yarn dev --setup)', ['dev', '--setup']),
 ];
 
 /** Targets that have keyboard shortcuts in watch mode (index 1-7) */
@@ -124,7 +124,7 @@ export function findTarget(nameOrKey: string): TargetInfo | undefined {
   return targets.find(t =>
     t.name === nameOrKey ||
     t.altNames.includes(nameOrKey) ||
-    t.keys.includes(nameOrKey)
+    t.keys.includes(nameOrKey),
   );
 }
 
