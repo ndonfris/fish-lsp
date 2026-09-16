@@ -2,7 +2,7 @@
 import esbuild from 'esbuild';
 import { resolve } from 'path';
 import { createPlugins, createDefines, PluginOptions, createSourceMapOptimizationPlugin, createSpecialSourceMapPlugin, createSourceMapStampPlugin } from './plugins';
-import { BuildConfigTarget, SourcemapMode } from "./types";
+import { BuildConfigTarget, SourcemapMode } from './types';
 
 export interface BuildConfig extends esbuild.BuildOptions {
   name: string;
@@ -48,7 +48,7 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
       polyfills: 'minimal', // Provide the minimal globals required by the bundled Node target
       embedAssets: true, // Enable embedded assets for binary builds
     },
-    onBuildEnd: () => { }
+    onBuildEnd: () => { },
   },
 
   development: {
@@ -89,7 +89,7 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
     preserveSymlinks: true,
     // External dependencies - don't bundle these, npm will provide them
     external: [
-      '@esdmr/tree-sitter-fish',
+      'tree-sitter-fish',
       'commander',
       'fast-glob',
       'fs-extra',
@@ -98,7 +98,7 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
       'vscode-languageserver-textdocument',
       'vscode-uri',
       'web-tree-sitter',
-      'zod'
+      'zod',
     ],
     internalPlugins: {
       target: 'node',
@@ -116,7 +116,7 @@ export function createBuildOptions(config: BuildConfig, production = false, sour
   // Links `<outfile>.map`, which is only loaded when it is placed beside the executable
   const isExternalMode = sourcemapsMode === 'external';
   const sourcemapSetting: esbuild.BuildOptions['sourcemap'] = shouldGenerateSourceMaps
-    ? (isInlineMode ? 'inline' : isExternalMode ? 'linked' : 'external')
+    ? isInlineMode ? 'inline' : isExternalMode ? 'linked' : 'external'
     : false;
 
   return {
@@ -128,7 +128,7 @@ export function createBuildOptions(config: BuildConfig, production = false, sour
     loader: config.loader,
     assetNames: config.assetNames,
     preserveSymlinks: config.preserveSymlinks,
-    ...(config.outfile ? { outfile: config.outfile } : { outdir: config.outdir }),
+    ...config.outfile ? { outfile: config.outfile } : { outdir: config.outdir },
     minify: config.minify && production,
     sourcemap: sourcemapSetting,
     sourcesContent: sourcemapsMode !== 'inline-optimized' && !isExternalMode, // Exclude sources for optimized inline and external modes (stack traces only need mappings)
@@ -151,13 +151,13 @@ export function createBuildOptions(config: BuildConfig, production = false, sour
           ? createSourceMapOptimizationPlugin(sourcemapsMode === 'extended')
           : { name: 'no-sourcemap-plugin', setup() { } }, // Inline sourcemaps don't need post-processing
       // onEnd callbacks run in order, so the stamp covers the final bundle and map
-      ...(config.bundle && isExternalMode ? [createSourceMapStampPlugin()] : []),
-      ...(config.onBuildEnd ? [{
+      ...config.bundle && isExternalMode ? [createSourceMapStampPlugin()] : [],
+      ...config.onBuildEnd ? [{
         name: 'build-end-hook',
         setup(build: esbuild.PluginBuild) {
           build.onEnd(config.onBuildEnd!);
         },
-      }] : []),
+      }] : [],
     ],
   };
 }

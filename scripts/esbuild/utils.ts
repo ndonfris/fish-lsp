@@ -1,7 +1,7 @@
 // Build utility functions
 import fs from 'fs-extra';
 import { existsSync, statSync, unlinkSync } from 'fs';
-import { execSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 import { logger, toRelativePath } from './colors';
 
 export function copyDevelopmentAssets(): void {
@@ -63,16 +63,31 @@ export function isFileEmpty(filePath: string): boolean {
   if (!existsSync(filePath)) {
     return true;
   }
-  
+
   const stats = statSync(filePath);
   return stats.size === 0;
 }
 
-export function generateTypeDeclarations(): void {
+/**
+ * Only report the command stdout/stderr when running the command encountered issues
+ */
+export function spawnOnlyReportIfStatusFailure(command: string, shorthand?: string) {
+  const bundle = spawnSync(command, { shell: true, encoding: 'utf8' });
+  if (bundle.error || bundle.status !== 0) {
+    process.stdout.write(`\$ ${command}\n`);
+    process.stdout.write(bundle.stdout ?? '');
+    process.stderr.write(bundle.stderr ?? '');
+    const reason = bundle.error?.message ?? (bundle.signal ? `signal ${bundle.signal}` : `exit status ${bundle.status}`);
+    throw new Error(`${shorthand || command} failed: ${reason}`);
+  }
+}
+
+export function generateTypeDeclarations(outDir = 'dist'): void {
   console.log(logger.info('  Generating TypeScript declarations...'));
 
+  /* eslint-disable @stylistic/quotes, @stylistic/quote-props */
   try {
-    execSync('mkdir -p dist');
+    ensureDirectoryExists(outDir);
 
     // Step 1: Create tsconfig used for declaration emit
     const tsconfigContent = JSON.stringify({
@@ -98,19 +113,19 @@ export function generateTypeDeclarations(): void {
         // Suppress some strict checks for cleaner output
         "noImplicitAny": false,
         "noImplicitReturns": false,
-        "noImplicitThis": false
+        "noImplicitThis": false,
       },
       "include": [
         "src/**/*.ts",
-        "src/types/embedded-assets.d.ts"
+        "src/types/embedded-assets.d.ts",
       ],
       "exclude": [
         "node_modules/**/*",
         "tests/**/*",
         "**/*.test.ts",
         "**/vitest/**/*",
-        "node_modules/vitest/**/*"
-      ]
+        "node_modules/vitest/**/*",
+      ],
     });
 
     fs.writeFileSync('tsconfig.types.json', tsconfigContent);
@@ -137,19 +152,19 @@ export function generateTypeDeclarations(): void {
         "baseUrl": ".",
         "noImplicitAny": false,
         "noImplicitReturns": false,
-        "noImplicitThis": false
+        "noImplicitThis": false,
       },
       "include": [
         "src/**/*.ts",
-        "src/types/embedded-assets.d.ts"
+        "src/types/embedded-assets.d.ts",
       ],
       "exclude": [
         "node_modules/**/*",
         "tests/**/*",
         "**/*.test.ts",
         "**/vitest/**/*",
-        "node_modules/vitest/**/*"
-      ]
+        "node_modules/vitest/**/*",
+      ],
     });
 
     fs.writeFileSync('tsconfig.debug.json', debugTsconfigContent);
@@ -164,12 +179,12 @@ export function generateTypeDeclarations(): void {
     const dtsConfig = {
       "compilationOptions": {
         "preferredConfigPath": "./tsconfig.debug.json",
-        "followSymlinks": false
+        "followSymlinks": false,
       },
       "entries": [
         {
           "filePath": "./temp-types/src/main.d.ts",
-          "outFile": "./dist/fish-lsp.d.ts",
+          "outFile": `${outDir}/fish-lsp.d.ts`,
           "noCheck": true,
           "output": {
             "inlineDeclareExternals": true,
@@ -179,17 +194,17 @@ export function generateTypeDeclarations(): void {
           },
           "libraries": {
             "allowedTypesLibraries": ["web-tree-sitter", "vscode-languageserver", "vscode-languageserver-textdocument", "node"],
-            "importedLibraries": ["web-tree-sitter", "vscode-languageserver", "vscode-languageserver-textdocument"]
-          }
-        }
-      ]
+            "importedLibraries": ["web-tree-sitter", "vscode-languageserver", "vscode-languageserver-textdocument"],
+          },
+        },
+      ],
     };
+    /* eslint-enable @stylistic/quotes, @stylistic/quote-props */
 
     fs.writeFileSync('dts-bundle.config.json', JSON.stringify(dtsConfig, null, 2));
-    execSync('yarn dts-bundle-generator --config dts-bundle.config.json --external-inlines=web-tree-sitter --external-types=web-tree-sitter --disable-symlinks-following', { stdio: 'inherit' });
-
+    // The generator's progress output breaks up the build log, so only show it on failure
+    spawnOnlyReportIfStatusFailure('yarn dts-bundle-generator --config dts-bundle.config.json --external-inlines=web-tree-sitter --external-types=web-tree-sitter --disable-symlinks-following', 'dts-bundle-generator');
     console.log(logger.generated('Successfully generated bundled type declarations'));
-
   } catch (error) {
     console.error(logger.error('Type generation failed:'), error);
     throw error;

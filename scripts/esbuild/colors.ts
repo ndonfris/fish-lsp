@@ -105,7 +105,7 @@ export const logger = {
     if (error && process.env.DEBUG) {
       console.error(colorize(error.stack || error.message, colors.red + colors.dim));
     }
-  }
+  },
 };
 
 // Setup colors
@@ -115,10 +115,10 @@ export function enableColors() {
 
 for (const color of Object.keys(colors) as Array<keyof typeof colors>) {
   Object.defineProperty(String.prototype, color, {
-    get: function () {
+    get: function() {
       return colors[color] + this + colors.reset;
     },
-    configurable: true // Allows redefinition or deletion
+    configurable: true, // Allows redefinition or deletion
   });
 }
 

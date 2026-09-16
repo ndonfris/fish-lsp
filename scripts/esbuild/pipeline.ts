@@ -1,10 +1,16 @@
 import { execSync } from 'child_process';
+import { basename, resolve } from 'path';
 import esbuild from 'esbuild';
 import { BuildArgs } from './cli';
 import { logger } from './colors';
-import { buildConfigs, createBuildOptions } from './configs';
+import { BuildConfig, buildConfigs, createBuildOptions } from './configs';
 import { copyDevelopmentAssets, ensureDirectoryExists, generateTypeDeclarations, isFileEmpty, makeExecutable, showBuildStats, showDirectorySize } from './utils';
 
+/** `--build-target-folder` replaces a build config's default output folder (`dist/` or `bin/`) */
+function withOutputFolder(config: BuildConfig, args: BuildArgs, defaultFolder: string) {
+  const folder = args.buildTargetFolder ?? defaultFolder;
+  return { folder, config: { ...config, outfile: resolve(folder, basename(config.outfile!)) } };
+}
 
 interface BuildStep {
   name: string;
@@ -88,7 +94,7 @@ class BuildPipeline {
 // Build step definitions
 const pipeline = new BuildPipeline()
   .register({
-    name: "Fresh Install",
+    name: 'Fresh Install',
     priority: 3,
     tags: ['fresh', 'ci', 'setup'],
     runner: async () => {
@@ -99,7 +105,7 @@ const pipeline = new BuildPipeline()
   .register({
     name: 'Build Time',
     priority: 5,
-    tags: ['all', 'dev', 'binary', 'npm', 'types', 'lint', "fresh", 'ci', 'setup'],
+    tags: ['all', 'dev', 'binary', 'npm', 'types', 'lint', 'fresh', 'ci', 'setup'],
     timing: true,
     runner: async () => {
       execSync('node ./scripts/build-time', { stdio: 'inherit' });
@@ -108,22 +114,22 @@ const pipeline = new BuildPipeline()
   .register({
     name: 'Required Files',
     priority: 10,
-    tags: ['all', 'dev', 'binary', 'npm', "fresh", "ci", 'setup'],
+    tags: ['all', 'dev', 'binary', 'npm', 'fresh', 'ci', 'setup'],
     runner: async () => {
       ensureDirectoryExists('man');
       ensureDirectoryExists('src/snippets');
-      if (isFileEmpty(`man/fish-lsp.1`) || isFileEmpty('src/snippets/helperCommands.json')) {
+      if (isFileEmpty('man/fish-lsp.1') || isFileEmpty('src/snippets/helperCommands.json')) {
         execSync('yarn generate:man && yarn generate:snippets --write', { stdio: 'inherit' });
         showBuildStats('man/fish-lsp.1', 'Man file');
         showBuildStats('src/snippets/helperCommands.json', 'Helper Commands Snippets');
       }
       console.log(logger.success('  Required files are up to date'));
-    }
+    },
   })
   .register({
     name: 'Development',
     priority: 20,
-    tags: ['all', 'dev', 'development', 'npm', "ci"],
+    tags: ['all', 'dev', 'development', 'npm', 'ci'],
     timing: true,
     runner: async (args) => {
       const config = buildConfigs.development;
@@ -137,34 +143,34 @@ const pipeline = new BuildPipeline()
   .register({
     name: 'TypeScript Declarations',
     priority: 25,
-    tags: ['all', 'types', 'dev', 'npm', 'fresh', "ci"],
+    tags: ['all', 'types', 'dev', 'npm', 'fresh', 'ci'],
     timing: true,
-    runner: async () => {
-      generateTypeDeclarations();
+    runner: async (args) => {
+      generateTypeDeclarations(args.buildTargetFolder);
     },
-    postBuild: async () => {
-      showBuildStats('dist/fish-lsp.d.ts', 'Type Declarations');
+    postBuild: async (args) => {
+      showBuildStats(`${args.buildTargetFolder ?? 'dist'}/fish-lsp.d.ts`, 'Type Declarations');
     },
   })
   .register({
     name: 'NPM Package',
     priority: 30,
-    tags: ['all', 'npm', 'dev', 'fresh', "ci", 'external-sourcemaps'],
+    tags: ['all', 'npm', 'dev', 'fresh', 'ci', 'external-sourcemaps'],
     timing: true,
     runner: async (args) => {
-      const config = buildConfigs.npm;
-      ensureDirectoryExists('dist');
+      const { folder, config } = withOutputFolder(buildConfigs.npm, args, 'dist');
+      ensureDirectoryExists(folder);
       // Only override sourcemaps when explicitly changed from the CLI default
       const sourcemaps = args.sourcemaps !== 'optimized' ? args.sourcemaps : undefined;
       const buildOptions = createBuildOptions(config, args.production || args.minify, sourcemaps);
       await esbuild.build(buildOptions);
     },
-    postBuild: async () => {
-      const config = buildConfigs.npm;
+    postBuild: async (args) => {
+      const { folder, config } = withOutputFolder(buildConfigs.npm, args, 'dist');
       if (config.outfile) {
         makeExecutable(config.outfile);
         showBuildStats(config.outfile, 'NPM Package Binary');
-        showDirectorySize('dist', 'dist/*');
+        showDirectorySize(folder, `${folder}/*`);
       }
     },
   })
@@ -174,25 +180,25 @@ const pipeline = new BuildPipeline()
     tags: ['all', 'binary', 'dev'],
     timing: true,
     runner: async (args) => {
-      const config = buildConfigs.binary;
-      ensureDirectoryExists('bin');
+      const { folder, config } = withOutputFolder(buildConfigs.binary, args, 'bin');
+      ensureDirectoryExists(folder);
       const sourcemaps = args.sourcemaps !== 'optimized' ? args.sourcemaps : undefined;
       const buildOptions = createBuildOptions(config, args.production || args.minify, sourcemaps);
       await esbuild.build(buildOptions);
     },
-    postBuild: async () => {
-      const config = buildConfigs.binary;
+    postBuild: async (args) => {
+      const { folder, config } = withOutputFolder(buildConfigs.binary, args, 'bin');
       if (config.outfile) {
         makeExecutable(config.outfile);
         showBuildStats(config.outfile, 'Universal Binary');
-        showDirectorySize('bin', 'bin/*');
+        showDirectorySize(folder, `${folder}/*`);
       }
     },
   })
   .register({
     name: 'Lint Check',
     priority: 60,
-    tags: ['lint', "ci"],
+    tags: ['lint', 'ci'],
     timing: true,
     runner: async () => {
       try {
@@ -206,7 +212,7 @@ const pipeline = new BuildPipeline()
   .register({
     name: 'Test Suite',
     priority: 70,
-    tags: ['test', "ci"],
+    tags: ['test', 'ci'],
     timing: true,
     runner: async () => {
       execSync('yarn test:run', { stdio: 'inherit' });
@@ -215,4 +221,3 @@ const pipeline = new BuildPipeline()
 
 // Export both the pipeline instance and the BuildPipeline class for extensibility
 export { BuildPipeline, pipeline, type BuildStep };
-

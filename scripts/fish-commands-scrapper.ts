@@ -1,4 +1,4 @@
-/* eslint-disable no-console  */
+
 import { JSDOM } from 'jsdom';
 import fetch from 'node-fetch';
 import * as fs from 'fs/promises';
@@ -66,7 +66,7 @@ const showArgsArray: DatasetType[] = args
   .map(entry => entry.trim())
   .filter((entry): entry is DatasetType => entry.length > 0 && entry in datasetConfig);
 
-const showArgs: Record<keyof typeof datasetConfig, { seen: boolean }> = showArgsArray.reduce((acc, curr) => {
+const showArgs: Record<keyof typeof datasetConfig, { seen: boolean; }> = showArgsArray.reduce((acc, curr) => {
   acc[curr as keyof typeof datasetConfig].seen = true;
   return acc;
 }, {
@@ -74,7 +74,7 @@ const showArgs: Record<keyof typeof datasetConfig, { seen: boolean }> = showArgs
   functions: { seen: false },
   'special-variables': { seen: false },
   'env-variables': { seen: false },
-} as Record<keyof typeof datasetConfig, { seen: boolean }>);
+} as Record<keyof typeof datasetConfig, { seen: boolean; }>);
 
 function printHelp() {
   console.log(`
@@ -376,8 +376,6 @@ async function fetchSpecialVariables(...keys: ('special-variables' | 'env-variab
       // console.log(dt.querySelector('dt>span')?.textContent);
       // console.log(dt.querySelector('dd>p')?.textContent.toString());
 
-
-
       const label = dt.querySelector('dt>span')?.textContent?.trim() || '';
       const desc = dt.querySelector('dd>p')?.textContent?.trim() || '';
 
@@ -387,7 +385,7 @@ async function fetchSpecialVariables(...keys: ('special-variables' | 'env-variab
             name: part.trim(),
             description: desc,
           });
-        })
+        });
         return;
       }
 
@@ -395,8 +393,7 @@ async function fetchSpecialVariables(...keys: ('special-variables' | 'env-variab
         name: label,
         description: desc,
       });
-    })
-
+    });
 
     // The variable name is usually in a <code> tag inside <dt>
     //   const variableCodeElement = dt.querySelector('code');
@@ -440,7 +437,7 @@ async function fetchSpecialVariables(...keys: ('special-variables' | 'env-variab
 
 function stripQuotes(value: string): string {
   const trimmed = value.trim();
-  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith('\'') && trimmed.endsWith('\''))) {
+  if (trimmed.startsWith('"') && trimmed.endsWith('"') || trimmed.startsWith('\'') && trimmed.endsWith('\'')) {
     return trimmed.slice(1, -1);
   }
   return trimmed;
@@ -488,7 +485,7 @@ function tokenizeDefinition(line: string): string[] {
   return tokens.filter(Boolean);
 }
 
-function parseFunctionLine(line: string): { name: string; flags: string[]; description?: string } | null {
+function parseFunctionLine(line: string): { name: string; flags: string[]; description?: string; } | null {
   const match = line.match(/^\s*function\s+(.+)$/);
   if (!match) return null;
   const tokens = tokenizeDefinition(match[1]!.trim());
@@ -655,7 +652,6 @@ async function main() {
       await fs.writeFile(outputPath, jsonOutput);
       console.error(`${target} data written to ${outputPath}`);
     }
-
   } catch (error) {
     console.error('General Error:', error);
     process.exit(1);

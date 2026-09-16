@@ -12,11 +12,13 @@ export interface BuildArgs {
   typesOnly: boolean;
   sourcemaps: SourcemapMode;
   specialSourceMaps: boolean;
+  /** replaces the default `dist/` (npm, types) or `bin/` (binary) output folder */
+  buildTargetFolder?: string;
 }
 
 export function parseArgs(): BuildArgs {
   const program = new Command();
-  
+
   program
     .name('dev-esbuild')
     .description('Fish LSP development build system using esbuild')
@@ -32,6 +34,7 @@ export function parseArgs(): BuildArgs {
     .option('--binary, --bin', 'Create bundled binary in bin/fish-lsp', false)
     .option('--npm', 'Create NPM package build with external dependencies', false)
     .option('--external-sourcemaps', 'Build dist/fish-lsp with a separate, stamped dist/fish-lsp.map (with --npm: the full npm build)', false)
+    .option('--build-target-folder <dir>', 'Output folder for the npm package, binary and type declarations (default: dist/ or bin/)')
     .option('--types', 'Generate TypeScript declaration files only', false)
     .option('--ci', 'Run CI/CD test on fresh install', false)
     .option('--fresh', 'fresh install', false)
@@ -42,8 +45,8 @@ export function parseArgs(): BuildArgs {
   const options = program.opts();
 
   // Check if any target flag was explicitly provided
-  const hasTargetFlag = options.types || options.all || 
-                        options.binary || options.bin || options.npm || options.library || 
+  const hasTargetFlag = options.types || options.all ||
+                        options.binary || options.bin || options.npm || options.library ||
                         options.test;
 
   // Determine target based on flags
@@ -59,11 +62,15 @@ export function parseArgs(): BuildArgs {
   else if (options.ci) target = 'ci';
   else if (options.fresh) target = 'fresh';
   else if (options.setup) target = 'setup';
+  // the npm package and the binary are both named fish-lsp, so one folder can only hold one of them
+  if (options.buildTargetFolder && target === 'all') {
+    throw new Error('--build-target-folder needs a single build target, e.g. --npm or --binary');
+  }
   // Validate sourcemaps option
   let sourcemaps: SourcemapMode = (VALID_SOURCEMAP_MODES as readonly string[]).includes(options.sourcemaps)
     ? options.sourcemaps
     : 'optimized';
-  
+
   // Override sourcemaps if special flag is used
   if (options.specialSourceMaps) {
     sourcemaps = 'special';
@@ -87,6 +94,7 @@ export function parseArgs(): BuildArgs {
     typesOnly: options.types,
     sourcemaps,
     specialSourceMaps: options.specialSourceMaps,
+    buildTargetFolder: options.buildTargetFolder,
   };
 }
 
@@ -101,6 +109,7 @@ Options:
   --binary, --bin     Create bundled binary in bin/fish-lsp (used for GitHub releases)
   --npm               Create NPM package build with external dependencies (used for npm publishing)
   --external-sourcemaps Build dist/fish-lsp with a separate, stamped dist/fish-lsp.map (with --npm: the full npm build)
+  --build-target-folder <dir> Output folder for the npm package, binary and type declarations (default: dist/ or bin/)
   --types             Generate TypeScript declaration files only
   --ci                Run CI/CD test on fresh install (installs from npm and runs test build)
   --fresh             Fresh install (installs from npm and runs test build, same as --ci)
@@ -130,6 +139,7 @@ Examples:
   yarn dev --external-sourcemaps             # Only build dist/fish-lsp + dist/fish-lsp.map
   yarn dev --npm --external-sourcemaps       # NPM build with dist/fish-lsp.map + dist/fish-lsp.d.ts
   yarn dev --special-source-maps             # Build with special sourcemaps (src files only)
+  yarn dev --npm --build-target-folder=npm-build # NPM build into npm-build/ instead of dist/
   
   # Or use yarn scripts:
   yarn dev --binary                          # Create bundled binary
@@ -143,23 +153,24 @@ Examples:
 }
 
 export function showCompletions(): void {
-  console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -f`)
-  console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -s w -l watch -d "Watch for changes and rebuild (esbuild only)"`);
-  console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l watch-all -d "Watch for changes to all relevant files and run full build"`);
-  console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l mode -d "Watch mode type" -x -a "dev lint npm types binary all test ci fresh setup"`);
-  console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l all -d "Build all targets: development, binary, npm"`);
-  console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l binary -d "Create bundled binary in bin/fish-lsp"`);
-  console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l bin -d "Create bundled binary in bin/fish-lsp (alias for --binary)"`);
-  console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l npm -d "Create NPM package build with external dependencies"`);
-  console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l external-sourcemaps -d "Build dist/fish-lsp with a separate dist/fish-lsp.map (with --npm: full npm build)"`);
-  console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l types -d "Generate TypeScript declaration files only"`);
-  console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l ci -d "Run CI/CD tests on fresh install"`);
-  console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l fresh -d "Reinstall with fresh dependencies"`);
-  console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l setup -d "Reinstall with fresh dependencies && build required dependencies (no build targets)"`);
-  console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l production -d "Production build (minified, optimized sourcemaps)"`);
-  console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l minify -d "Minify output"`);
-  console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l sourcemaps -d "Sourcemap type" -x -a "optimized extended none special external"`);
-  console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -l special-source-maps -d "Enable special sourcemap processing (src files only with content)"`);
-  console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -s h -l help -d "Show help message"`);
-  console.log(`complete -c yarn -n "__fish_seen_subcommand_from dev" -s c -l completions -d "Show shell completions for this command"`);
+  console.log('complete -c yarn -n "__fish_seen_subcommand_from dev" -f');
+  console.log('complete -c yarn -n "__fish_seen_subcommand_from dev" -s w -l watch -d "Watch for changes and rebuild (esbuild only)"');
+  console.log('complete -c yarn -n "__fish_seen_subcommand_from dev" -l watch-all -d "Watch for changes to all relevant files and run full build"');
+  console.log('complete -c yarn -n "__fish_seen_subcommand_from dev" -l mode -d "Watch mode type" -x -a "dev lint npm types binary all test ci fresh setup"');
+  console.log('complete -c yarn -n "__fish_seen_subcommand_from dev" -l all -d "Build all targets: development, binary, npm"');
+  console.log('complete -c yarn -n "__fish_seen_subcommand_from dev" -l binary -d "Create bundled binary in bin/fish-lsp"');
+  console.log('complete -c yarn -n "__fish_seen_subcommand_from dev" -l bin -d "Create bundled binary in bin/fish-lsp (alias for --binary)"');
+  console.log('complete -c yarn -n "__fish_seen_subcommand_from dev" -l npm -d "Create NPM package build with external dependencies"');
+  console.log('complete -c yarn -n "__fish_seen_subcommand_from dev" -l external-sourcemaps -d "Build dist/fish-lsp with a separate dist/fish-lsp.map (with --npm: full npm build)"');
+  console.log('complete -c yarn -n "__fish_seen_subcommand_from dev" -l build-target-folder -x -a "(__fish_complete_directories)" -d "Output folder instead of dist/ or bin/"');
+  console.log('complete -c yarn -n "__fish_seen_subcommand_from dev" -l types -d "Generate TypeScript declaration files only"');
+  console.log('complete -c yarn -n "__fish_seen_subcommand_from dev" -l ci -d "Run CI/CD tests on fresh install"');
+  console.log('complete -c yarn -n "__fish_seen_subcommand_from dev" -l fresh -d "Reinstall with fresh dependencies"');
+  console.log('complete -c yarn -n "__fish_seen_subcommand_from dev" -l setup -d "Reinstall with fresh dependencies && build required dependencies (no build targets)"');
+  console.log('complete -c yarn -n "__fish_seen_subcommand_from dev" -l production -d "Production build (minified, optimized sourcemaps)"');
+  console.log('complete -c yarn -n "__fish_seen_subcommand_from dev" -l minify -d "Minify output"');
+  console.log('complete -c yarn -n "__fish_seen_subcommand_from dev" -l sourcemaps -d "Sourcemap type" -x -a "optimized extended none special external"');
+  console.log('complete -c yarn -n "__fish_seen_subcommand_from dev" -l special-source-maps -d "Enable special sourcemap processing (src files only with content)"');
+  console.log('complete -c yarn -n "__fish_seen_subcommand_from dev" -s h -l help -d "Show help message"');
+  console.log('complete -c yarn -n "__fish_seen_subcommand_from dev" -s c -l completions -d "Show shell completions for this command"');
 }

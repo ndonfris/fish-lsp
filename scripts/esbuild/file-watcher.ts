@@ -37,7 +37,7 @@ function killProcessTree(pid: number, signal: string = 'SIGTERM'): void {
 // ============================================================================
 
 const separator = () => {
-  console.log(colorize('━'.repeat(Math.max(90, Number.parseInt(process.env['COLUMNS'] || '89', 10))), colors.blue));
+  console.log(colorize('━'.repeat(Math.max(90, Number.parseInt(process.env.COLUMNS || '89', 10))), colors.blue));
 };
 
 const showHelp = (currentMode?: WatchMode) => {
@@ -63,11 +63,11 @@ const showHelp = (currentMode?: WatchMode) => {
 
 const log = (...args: string[]) => {
   console.log(args.join(' '));
-}
+};
 
 const showKeysReminder = (currentMode?: WatchMode) => {
   const modeText = currentMode ? `[${getTarget(currentMode).description}]` : '';
-  console.log(`Press ${"[H]".bgGreen.black.dim} for help, ${"[M]".bgCyan.black.dim} for mode switch, ${"[Enter]".bgBlue.black.dim} to rebuild ${modeText.bgBlue.black.dim}`);
+  console.log(`Press ${'[H]'.bgGreen.black.dim} for help, ${'[M]'.bgCyan.black.dim} for mode switch, ${'[Enter]'.bgBlue.black.dim} to rebuild ${modeText.bgBlue.black.dim}`);
 };
 
 // ============================================================================
@@ -120,7 +120,7 @@ class BuildManager {
         cwd: process.cwd(),
         shell: true,
         detached: process.platform !== 'win32', // Use process groups on Unix
-        killSignal: 'SIGTERM'
+        killSignal: 'SIGTERM',
       });
 
       // On Unix, create a new process group
@@ -166,13 +166,13 @@ class BuildManager {
     if (success) {
       console.log(`  ${buildName} rebuild completed successfully!`.white);
     } else if (error) {
-      console.log(`  Rebuild failed:`.red, error.message.dim);
+      console.log('  Rebuild failed:'.red, error.message.dim);
     }
 
-    console.log(`  Build timestamp:`.white, new Date().toLocaleTimeString().yellow);
-    console.log(`  Total rebuilds:`.white, `${this.buildCount}`.blue);
-    console.log(`  Trigger:`.white, trigger.magenta);
-    console.log(`  Current mode:`.white, getTarget(this.currentMode).description.cyan);
+    console.log('  Build timestamp:'.white, new Date().toLocaleTimeString().yellow);
+    console.log('  Total rebuilds:'.white, `${this.buildCount}`.blue);
+    console.log('  Trigger:'.white, trigger.magenta);
+    console.log('  Current mode:'.white, getTarget(this.currentMode).description.cyan);
 
     separator();
     showKeysReminder(this.currentMode);
@@ -218,7 +218,6 @@ class BuildManager {
   setMode(mode: WatchMode): void {
     this.currentMode = mode;
   }
-
 }
 
 // ============================================================================
@@ -249,7 +248,7 @@ class FileWatcher {
     console.log(logger.dim(`Watching: ${this.config.watchPaths.join(', ')}`));
     console.log(logger.dim(`Debounce: ${this.config.debounceMs}ms`));
 
-    const toAdd: string[] = []
+    const toAdd: string[] = [];
 
     // Debug: test if patterns match any files
     console.log(logger.dim('Testing glob patterns:'));
@@ -263,7 +262,7 @@ class FileWatcher {
           if (!toAdd.includes(m)) {
             toAdd.push(m);
           }
-        })
+        });
       } catch (e) {
         console.log(logger.dim(`  ${pattern} -> ERROR: ${e.message}`));
       }
@@ -297,23 +296,23 @@ class FileWatcher {
         }
       })
       .on('change', (path: string) => {
-        log(colorize(logger.dim(`  File changed:`), colors.green), colorize(logger.bold(path), colors.yellow));
+        log(colorize(logger.dim('  File changed:'), colors.green), colorize(logger.bold(path), colors.yellow));
         this.handleFileChange('change', path);
       })
       .on('add', (path: string) => {
-        log(colorize(logger.dim(`➕ File added:`), colors.green), logger.bold(path));
+        log(colorize(logger.dim('➕ File added:'), colors.green), logger.bold(path));
         this.handleFileChange('add', path);
       })
       .on('unlink', (path: string) => {
-        log(colorize(logger.dim(`➖ File removed:`), colors.red), (logger.highlight(`${path}`)));
+        log(colorize(logger.dim('➖ File removed:'), colors.red), logger.highlight(`${path}`));
         this.handleFileChange('unlink', path);
       })
       .on('addDir', (path: string) => {
-        log(colorize(logger.dim(`➕ Directory added`), colors.green), logger.bold(path));
+        log(colorize(logger.dim('➕ Directory added'), colors.green), logger.bold(path));
         this.handleFileChange('addDir', path);
       })
       .on('unlinkDir', (path: string) => {
-        log(colorize(logger.dim(`➖ Directory removed`), colors.red), logger.bold(path));
+        log(colorize(logger.dim('➖ Directory removed'), colors.red), logger.bold(path));
         this.handleFileChange('unlinkDir', path);
       })
       .on('error', (error: Error) => {
@@ -344,7 +343,7 @@ class FileWatcher {
       return;
     }
 
-    const watchedPaths: { [regexStr: string]: string[] } = this.watcher.getWatched();
+    const watchedPaths: { [regexStr: string]: string[]; } = this.watcher.getWatched();
     if (!watchedPaths) {
       console.log(logger.warning('No watched paths available'));
       return;
@@ -558,7 +557,7 @@ export async function startFileWatcher(initialMode: WatchMode = 'dev'): Promise<
       'fish_files/*.fish',
       'package.json',
       'tsconfig.json',
-      'vitest.config.ts'
+      'vitest.config.ts',
     ],
     ignorePatterns: [
       '**/node_modules/**',
@@ -577,7 +576,7 @@ export async function startFileWatcher(initialMode: WatchMode = 'dev'): Promise<
       '**/.DS_Store',
       '**/Thumbs.db',
       '**/*.tmp',
-      '**/*.temp'
+      '**/*.temp',
     ],
     debounceMs: 1000,
   }, buildManager);
@@ -624,7 +623,7 @@ export async function startFileWatcher(initialMode: WatchMode = 'dev'): Promise<
   keyboardHandler.setup();
 
   console.log(logger.success('File watcher started!'));
-  console.log([`Current mode:`.underline.green, `${getTarget(buildManager.mode).description.bgBlue.black.underline.b}`].join(' '));
+  console.log(['Current mode:'.underline.green, `${getTarget(buildManager.mode).description.bgBlue.black.underline.b}`].join(' '));
   separator();
   showKeysReminder(buildManager.mode);
   separator();

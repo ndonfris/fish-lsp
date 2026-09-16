@@ -8,7 +8,7 @@ declare module 'web-tree-sitter/tree-sitter.wasm' {
   export default wasmContent;
 }
 
-declare module '@esdmr/tree-sitter-fish/tree-sitter-fish.wasm' {
+declare module 'tree-sitter-fish/tree-sitter-fish.wasm' {
   const wasmContent: string;
   export default wasmContent;
 }

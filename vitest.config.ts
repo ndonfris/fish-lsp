@@ -1,6 +1,6 @@
-import { defineConfig, Plugin } from 'vitest/config'
-import wasm from 'vite-plugin-wasm'
-import * as path from 'path'
+import { defineConfig, Plugin } from 'vitest/config';
+import wasm from 'vite-plugin-wasm';
+import * as path from 'path';
 import { readFileSync } from 'fs';
 
 // Plugin to load .fish files as string exports
@@ -10,14 +10,14 @@ function fishLoader(): Plugin {
     enforce: 'pre',
     transform(_code, id) {
       if (id.endsWith('.fish')) {
-        const content = readFileSync(id, 'utf-8')
+        const content = readFileSync(id, 'utf-8');
         return {
           code: `export default ${JSON.stringify(content)};`,
-          map: null
-        }
+          map: null,
+        };
       }
-    }
-  }
+    },
+  };
 }
 
 const isSilent = process.argv.includes('--silent') || process.argv.some(c => c.startsWith('--silent=true'));
@@ -27,7 +27,7 @@ const reporters: (string | [string, Record<string, unknown>])[] = isSilent || is
 if (isCI) reporters.push('github-actions');
 
 export default defineConfig({
-  plugins: [ wasm(), fishLoader()],
+  plugins: [wasm(), fishLoader()],
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
@@ -53,8 +53,8 @@ export default defineConfig({
         'src/web.ts',
       ],
       reporter: [
-        ['html-spa', { 'projectRoot': './src' }],
-        ['lcov', { 'projectRoot': './src' }],
+        ['html-spa', { projectRoot: './src' }],
+        ['lcov', { projectRoot: './src' }],
         'text',
       ],
       // ignoreEmptyLines: true,
@@ -67,7 +67,7 @@ export default defineConfig({
     teardownTimeout: 70_000,
   },
   oxc: {
-    exclude: ['**/*.fish']
+    exclude: ['**/*.fish'],
   },
   assetsInclude: ['**/*.fish', '**/*.wasm'],
   resolve: {
@@ -76,6 +76,6 @@ export default defineConfig({
       '@package': path.resolve(__dirname, 'package.json'),
       '@embedded_assets/tree-sitter.wasm': path.resolve(__dirname, 'tree-sitter.wasm'),
       // '@fish_files/get-docs.fish': (path.resolve(path.join(__dirname, 'fish_files', 'get-docs.fish')))
-    }
-  }
-})
+    },
+  },
+});

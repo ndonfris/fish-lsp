@@ -34,9 +34,8 @@ export function createPlugins(options: PluginOptions): esbuild.Plugin[] {
         const wasmExists = wasmOverridePath && existsSync(resolve(projectRoot, wasmOverridePath));
         const wasmFile = wasmExists
           ? resolve(projectRoot, wasmOverridePath)
-          : resolve(projectRoot, 'node_modules/@esdmr/tree-sitter-fish/tree-sitter-fish.wasm');
+          : resolve(projectRoot, 'node_modules/tree-sitter-fish/tree-sitter-fish.wasm');
         const coreWasmFile = resolve(projectRoot, 'node_modules/web-tree-sitter/tree-sitter.wasm');
-        const manFile = resolve(projectRoot, 'man', 'fish-lsp.1');
         const buildTimeFile = resolve(projectRoot, 'out', 'build-time.json');
         const pkgJsonFile = resolve(projectRoot, 'package.json');
 
@@ -50,7 +49,7 @@ export function createPlugins(options: PluginOptions): esbuild.Plugin[] {
           namespace: 'wasm-embedded',
         }));
 
-        build.onResolve({ filter: /^@esdmr\/tree-sitter-fish\/tree-sitter-fish\.wasm$/ }, () => ({
+        build.onResolve({ filter: /^tree-sitter-fish\/tree-sitter-fish\.wasm$/ }, () => ({
           path: wasmFile,
           namespace: 'wasm-embedded',
         }));
@@ -120,7 +119,7 @@ export function createPlugins(options: PluginOptions): esbuild.Plugin[] {
       NodeGlobalsPolyfillPlugin({
         buffer: true,
         process: false,
-      })
+      }),
     );
   }
 
@@ -150,7 +149,7 @@ export function createDefines(target: 'node' | 'browser' | string, production = 
       unix: Math.floor(now.getTime() / 1000),
       version: process.env.npm_package_version || 'unknown',
       nodeVersion: process.version,
-      reproducible: !!process.env.SOURCE_DATE_EPOCH
+      reproducible: !!process.env.SOURCE_DATE_EPOCH,
     };
     defines['process.env.FISH_LSP_BUILD_TIME'] = `'${JSON.stringify(fallbackBuildTime)}'`;
   }
@@ -160,13 +159,8 @@ export function createDefines(target: 'node' | 'browser' | string, production = 
     defines['process.env.FISH_LSP_BUNDLED'] = '"true"';
   }
 
-  if (target === 'browser') {
-    defines['global'] = 'globalThis';
-    defines['navigator'] = '{"language":"en-US"}';
-  } else {
-    defines['global'] = 'globalThis';
-    defines['navigator'] = '{"language":"en-US"}';
-  }
+  // `src/web.ts` also runs this bundle in browser workers, which have no `global`
+  defines.global = 'globalThis';
 
   return defines;
 }
@@ -184,37 +178,37 @@ export function createSourceMapOptimizationPlugin(preserveSourceContent?: boolea
         if (!result.outputFiles && build.initialOptions.outfile && build.initialOptions.sourcemap) {
           const outfile = build.initialOptions.outfile;
           const sourcemapFile = outfile + '.map';
-          
+
           try {
             const sourcemapContent = readFileSync(sourcemapFile, 'utf8');
             const originalSize = sourcemapContent.length;
             const sourcemap = JSON.parse(sourcemapContent);
-            
+
             // Ensure the bundle has a sourcemap reference
             const bundleContent = readFileSync(outfile, 'utf8');
             const sourcemapRef = `\n//# sourceMappingURL=${resolve(sourcemapFile).split('/').pop()}`;
-            
+
             if (!getSourceMappingURL(bundleContent)) {
               writeFileSync(outfile, bundleContent + sourcemapRef);
             }
-            
+
             // Remove embedded source content to reduce file size
             // This keeps file references but removes the full source code
             if (preserveSourceContent) {
               console.log(`  Source map: ${colorize(toRelativePath(sourcemapFile), colors.white)}`);
-              console.log(`  Size: ${colorize((originalSize/1024/1024).toFixed(1) + 'MB', colors.white)} (with source content for debugging)`);
+              console.log(`  Size: ${colorize((originalSize / 1024 / 1024).toFixed(1) + 'MB', colors.white)} (with source content for debugging)`);
               console.log(`  Sources: ${colorize(sourcemap.sources.length + ' files', colors.white)}`);
             } else if (sourcemap.sourcesContent) {
               delete sourcemap.sourcesContent;
-              
+
               const optimizedContent = JSON.stringify(sourcemap);
               writeFileSync(sourcemapFile, optimizedContent);
-              
+
               const newSize = optimizedContent.length;
               const reduction = ((originalSize - newSize) / originalSize * 100).toFixed(1);
-              
+
               console.log(`  Optimized source map: ${colorize(toRelativePath(sourcemapFile), colors.white)}`);
-              const reductionSize = colorize(`${reduction}% (${(originalSize/1024/1024).toFixed(1)}MB → ${(newSize/1024/1024).toFixed(1)}MB)`, colors.white);
+              const reductionSize = colorize(`${reduction}% (${(originalSize / 1024 / 1024).toFixed(1)}MB → ${(newSize / 1024 / 1024).toFixed(1)}MB)`, colors.white);
               console.log(`  Size reduction: ${reductionSize}`);
               console.log(`  Sources: ${colorize(sourcemap.sources.length + ' files', colors.white)}`);
             }
@@ -232,7 +226,7 @@ export function createSourceMapOptimizationPlugin(preserveSourceContent?: boolea
  * and validates mappings bounds while preserving sourcesContent for debugging
  * @param options Configuration for the special sourcemap processing
  */
-export function createSpecialSourceMapPlugin(options: { preserveOnlySrcContent?: boolean } = {}): esbuild.Plugin {
+export function createSpecialSourceMapPlugin(options: { preserveOnlySrcContent?: boolean; } = {}): esbuild.Plugin {
   return {
     name: 'special-sourcemap-optimization',
     setup(build) {
@@ -240,32 +234,32 @@ export function createSpecialSourceMapPlugin(options: { preserveOnlySrcContent?:
         if (!result.outputFiles && build.initialOptions.outfile && build.initialOptions.sourcemap) {
           const outfile = build.initialOptions.outfile;
           const sourcemapFile = outfile + '.map';
-          
+
           try {
             const sourcemapContent = readFileSync(sourcemapFile, 'utf8');
             const originalSize = sourcemapContent.length;
             const sourcemap = JSON.parse(sourcemapContent);
-            
+
             // Ensure the bundle has a sourcemap reference
             const bundleContent = readFileSync(outfile, 'utf8');
             const sourcemapRef = `\n//# sourceMappingURL=${resolve(sourcemapFile).split('/').pop()}`;
-            
+
             if (!getSourceMappingURL(bundleContent)) {
               writeFileSync(outfile, bundleContent + sourcemapRef);
             }
-            
+
             if (options.preserveOnlySrcContent && sourcemap.sources && sourcemap.sourcesContent) {
               // Instead of filtering and breaking mappings, we'll selectively remove sourcesContent
               // for non-src files while keeping all sources for valid mappings
               const optimizedSourcesContent: (string | null)[] = [];
               let srcFileCount = 0;
               let removedSourcesSize = 0;
-              
+
               sourcemap.sources.forEach((source: string, index: number) => {
                 // Only preserve sourcesContent for TypeScript files from src/ directory
                 // Remove content for node_modules, embedded assets, and other non-src files
                 if (
-                  source.includes('../src/') && 
+                  source.includes('../src/') &&
                   source.endsWith('.ts') &&
                   !source.includes('node_modules') &&
                   !source.startsWith('embedded-asset:') &&
@@ -281,30 +275,30 @@ export function createSpecialSourceMapPlugin(options: { preserveOnlySrcContent?:
                   optimizedSourcesContent.push(null);
                 }
               });
-              
+
               // Create optimized sourcemap with selective sourcesContent
               const optimizedSourcemap = {
                 ...sourcemap,
-                sourcesContent: optimizedSourcesContent
+                sourcesContent: optimizedSourcesContent,
               };
-              
+
               console.log(`  Special source map: ${colorize(toRelativePath(sourcemapFile), colors.white)}`);
               console.log(`  Total sources: ${colorize(sourcemap.sources.length + ' files', colors.white)}`);
               console.log(`  src/ files with content: ${colorize(srcFileCount + ' files', colors.white)}`);
-              console.log(`  Other sources (content removed): ${colorize((sourcemap.sources.length - srcFileCount) + ' files', colors.white)}`);
-              
+              console.log(`  Other sources (content removed): ${colorize(sourcemap.sources.length - srcFileCount + ' files', colors.white)}, ${colorize((removedSourcesSize / 1024 / 1024).toFixed(1) + 'MB', colors.white)}`);
+
               if (srcFileCount > 0) {
                 const optimizedContent = JSON.stringify(optimizedSourcemap);
                 writeFileSync(sourcemapFile, optimizedContent);
-                
+
                 const newSize = optimizedContent.length;
-                const reduction = originalSize > newSize 
+                const reduction = originalSize > newSize
                   ? ((originalSize - newSize) / originalSize * 100).toFixed(1)
                   : '0';
-                
-                console.log(`  Size reduction: ${colorize(`${reduction}% (${(originalSize/1024/1024).toFixed(1)}MB → ${(newSize/1024/1024).toFixed(1)}MB)`, colors.white)}`);
+
+                console.log(`  Size reduction: ${colorize(`${reduction}% (${(originalSize / 1024 / 1024).toFixed(1)}MB → ${(newSize / 1024 / 1024).toFixed(1)}MB)`, colors.white)}`);
                 console.log(`  Mappings preserved: ${colorize('All mappings intact', colors.white)}`);
-                
+
                 // Note: Shebang modification removed - use NODE_OPTIONS="--enable-source-maps" instead
                 // to avoid process.argv parsing issues
               } else {
@@ -313,7 +307,7 @@ export function createSpecialSourceMapPlugin(options: { preserveOnlySrcContent?:
             } else {
               // Fallback to regular sourcemap optimization
               console.log(`  Source map: ${colorize(toRelativePath(sourcemapFile), colors.white)}`);
-              console.log(`  Size: ${colorize((originalSize/1024/1024).toFixed(1) + 'MB', colors.white)} (preserved for debugging)`);
+              console.log(`  Size: ${colorize((originalSize / 1024 / 1024).toFixed(1) + 'MB', colors.white)} (preserved for debugging)`);
               // console.log(`  Sources: ${colorize(sourcemap.sources.length + ' files', colors.white)}`);
               console.log(`  Sources: ${colorize(sourcemap.sources.length + ' files', colors.white)}`);
             }
@@ -367,7 +361,7 @@ export function createWasmPlugin(): Plugin {
         const isAbsolute = path.isAbsolute(args.path);
 
         // Let other plugins handle embedded or bare module .wasm specifiers
-        if (isEmbedded || (!isRelative && !isAbsolute)) {
+        if (isEmbedded || !isRelative && !isAbsolute) {
           return;
         }
         return {

@@ -1,25 +1,13 @@
 // @ts-check
 
 import eslint from '@eslint/js';
-import tseslint, { type ConfigArray } from 'typescript-eslint';
+import { defineConfig, globalIgnores } from 'eslint/config';
+import tseslint from 'typescript-eslint';
 import stylistic from '@stylistic/eslint-plugin';
 import globals from 'globals';
 
-export default tseslint.config(
-  {
-    ignores: [
-      'scripts/',
-      'dist/',
-      '.bun/',
-      'out/',
-      'build/',
-      'lib/src/',
-      'lib/*.d.ts',
-      'release-assets/',
-      'vitest.config.ts',
-      'eslint.config.ts',
-    ],
-  },
+export default defineConfig(
+  globalIgnores(['dist/', 'build/', 'out/', 'release-assets/']),
   {
     files: ['**/*.ts'],
     extends: [
@@ -120,4 +108,13 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'off',
     },
   },
-) satisfies ConfigArray;
+  {
+    files: ['scripts/**/*.ts'],
+    ...tseslint.configs.disableTypeChecked,
+    rules: {
+      ...tseslint.configs.disableTypeChecked.rules,
+      'no-console': 'off',
+      'no-empty': ['error', { allowEmptyCatch: true }],
+    },
+  },
+);

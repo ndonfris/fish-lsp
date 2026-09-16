@@ -284,11 +284,6 @@
   resolved "https://registry.npmjs.org/@esbuild/win32-x64/-/win32-x64-0.28.1.tgz#10064ee44f4347b90c9a02b446bbf80a91632b12"
   integrity sha512-bm4Mowrv+GXMlpWX++EcXw/iLyd1o3+bJkC2DkWXYVvgZCqD/bSj9ctZeAMC3cIxgjRVR2Dufaiu4YPxr5gW1A==
 
-"@esdmr/tree-sitter-fish@3.7.1-2":
-  version "3.7.1-2"
-  resolved "https://registry.npmjs.org/@esdmr/tree-sitter-fish/-/tree-sitter-fish-3.7.1-2.tgz#4c21db094947b7068ee7f9c26bc4f6dd0491932a"
-  integrity sha512-UtZtAK/yG2NX6MKnCEbHPTTBsjk1vS5HV6tV6zeHpM27fYeJ2K9RhPHdAChjHq3SVCWGId0uxd7NptKzxQmvxg==
-
 "@eslint-community/eslint-utils@^4.8.0", "@eslint-community/eslint-utils@^4.9.1":
   version "4.9.1"
   resolved "https://registry.npmjs.org/@eslint-community/eslint-utils/-/eslint-utils-4.9.1.tgz#4e90af67bc51ddee6cdef5284edf572ec376b595"
@@ -3367,6 +3362,11 @@ tree-dump@^1.0.3, tree-dump@^1.1.0:
   version "1.1.0"
   resolved "https://registry.npmjs.org/tree-dump/-/tree-dump-1.1.0.tgz#ab29129169dc46004414f5a9d4a3c6e89f13e8a4"
   integrity sha512-rMuvhU4MCDbcbnleZTFezWsaZXRFemSqAM+7jPnzUl1fo9w3YEKOxAeui0fz3OI4EU4hf23iyA7uQRVko+UaBA==
+
+"tree-sitter-fish@npm:@ndonfris/tree-sitter-fish@3.7.4":
+  version "3.7.4"
+  resolved "https://registry.npmjs.org/@ndonfris/tree-sitter-fish/-/tree-sitter-fish-3.7.4.tgz#668181b06036b158d656adab717e4dfea544d074"
+  integrity sha512-v1W9X9Lkhc/2UF9BJLYvCKUpv0Hek5N+gcOGuxN9qFQgyVWuhCggcDqy6NVsUPeJKNbQ3ylsVndDvP1tSsUdfw==
 
 ts-api-utils@^2.5.0:
   version "2.5.0"
