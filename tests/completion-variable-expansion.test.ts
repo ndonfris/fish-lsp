@@ -1,9 +1,9 @@
-import { CompletionParams, Range, CompletionItemKind, MarkupContent } from 'vscode-languageserver';
+import { CompletionParams, Range, CompletionItemKind, MarkupContent, TextEdit } from 'vscode-languageserver';
 import { createFakeLspDocument, createMockConnection } from './helpers';
 import { analyzer, Analyzer } from '../src/analyze';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { initializeParser } from '../src/parser';
-import { CompletionLineParser } from '../src/utils/completion/context';
+import { CompletionLineParser } from '../src/completions/context';
 import { logger } from '../src/logger';
 
 // Now import FishServer after the mock is set up
@@ -556,6 +556,72 @@ describe('Completion Handler - Variable Expansion', () => {
       expect(await insertTextFor('set -q ')).toBe('myvar');
       expect(await insertTextFor('set -S ')).toBe('myvar');
       expect(await insertTextFor('set --erase ')).toBe('myvar');
+    });
+
+    it.each([
+      ['cd ./', './'],
+      ['cd src/', 'src/'],
+      ['ls ~/', '~/'],
+      ['cd ./a/b/', './a/b/'],
+    ])('`%s<TAB>` keeps the typed path in front of `$myvar`', async (lastLine, directory) => {
+      const content = ['set -gx myvar 1', lastLine].join('\n');
+      const doc = createFakeLspDocument('test.fish', content);
+      analyzer.analyze(doc);
+      const result = await server.onCompletion({
+        textDocument: { uri: doc.uri },
+        position: { line: 1, character: lastLine.length },
+      });
+      const item = result.items.find(i => i.label === 'myvar')!;
+      const edit = item.textEdit as TextEdit;
+
+      expect(edit.newText).toBe(`${directory}$myvar`);
+      expect(lastLine.slice(0, edit.range.start.character) + edit.newText).toBe(`${lastLine}$myvar`);
+      // clients filter by the replaced text: `./` has to match it
+      expect(item.filterText).toBe(`${directory}myvar`);
+    });
+
+    it.each([
+      ['echo $myvar[myv', 'echo $myvar[$myvar'],
+      ['$myvar[myv', '$myvar[$myvar'],
+      ['echo $myvar[', 'echo $myvar[$myvar'],
+      ['echo $myvar[1..myv', 'echo $myvar[1..$myvar'],
+      ['echo "$myvar[myv', 'echo "$myvar[$myvar'],
+      ['set -l x $myvar[myv', 'set -l x $myvar[$myvar'],
+      ['echo $myvar[$myvar[1]..myv', 'echo $myvar[$myvar[1]..$myvar'],
+      ['echo $myvar[$myv', 'echo $myvar[$myvar'],
+      // the index of a variable being set, erased or queried
+      ['set myvar[', 'set myvar[$myvar'],
+      ['set myvar[myv', 'set myvar[$myvar'],
+      ['set -l myvar[1..myv', 'set -l myvar[1..$myvar'],
+      ['set -e myvar[', 'set -e myvar[$myvar'],
+      ['set -q myvar[myv', 'set -q myvar[$myvar'],
+      ['set myvar[$myv', 'set myvar[$myvar'],
+      // not an index: `foo[` is a plain word
+      ['echo foo[myv', 'echo $myvar'],
+    ])('`%s<TAB>` completes an index term as a `$` expansion', async (lastLine, expected) => {
+      const content = ['set -gx myvar 1', lastLine].join('\n');
+      const doc = createFakeLspDocument('test.fish', content);
+      analyzer.analyze(doc);
+      const result = await server.onCompletion({
+        textDocument: { uri: doc.uri },
+        position: { line: 1, character: lastLine.length },
+      });
+      const item = result.items.find(i => i.label === 'myvar')!;
+      const edit = item.textEdit as TextEdit;
+
+      expect(lastLine.slice(0, edit.range.start.character) + edit.newText).toBe(expected);
+    });
+
+    it('`set myvar[<TAB>` completes the index with global variables too', async () => {
+      const lastLine = 'set myvar[';
+      const doc = createFakeLspDocument('test.fish', ['set -gx myvar 1', lastLine].join('\n'));
+      analyzer.analyze(doc);
+      const result = await server.onCompletion({
+        textDocument: { uri: doc.uri },
+        position: { line: 1, character: lastLine.length },
+      });
+      const edit = result.items.find(i => i.label === 'PATH')!.textEdit as TextEdit;
+      expect(lastLine.slice(0, edit.range.start.character) + edit.newText).toBe('set myvar[$PATH');
     });
 
     it('`echo $<TAB>` -> already `$`-prefixed, no double `$`', async () => {

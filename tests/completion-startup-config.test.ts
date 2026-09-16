@@ -1,10 +1,10 @@
-import { runSetupItems, SetupItem, SetupItemsFromCommandConfig } from '../src/utils/completion/startup-config';
-import { CompletionItemMap } from '../src/utils/completion/startup-cache';
+import { runSetupItems, SetupItem, SetupItemsFromCommandConfig } from '../src/completions/startup-config';
+import { CompletionItemMap } from '../src/completions/startup-cache';
 import { setLogger } from './helpers';
-import { StaticItems } from '../src/utils/completion/static-items';
+import { StaticItems } from '../src/completions/static-items';
 import { execCmd } from '../src/utils/exec';
 import { ConfigSchema } from '../src/config';
-import { FishCompletionItem, FishCompletionItemKind } from '../src/utils/completion/types';
+import { FishCompletionItem, FishCompletionItemKind } from '../src/completions/types';
 
 /**
  * NOTE: since the test suite is dependent on the machine's shell environment, we need to

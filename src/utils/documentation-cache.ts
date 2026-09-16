@@ -2,9 +2,9 @@ import { SymbolKind, MarkupContent } from 'vscode-languageserver';
 import { execCmd, execCommandDocs, execEscapedCommand } from './exec';
 import { isBuiltin } from './builtins';
 import { md } from './markdown-builder';
-import { convertTitleOperatorToToken } from './completion/documentation';
-import { runSetupItems, SetupResult } from './completion/startup-config';
-import { FishCompletionItemKind } from './completion/types';
+import { convertTitleOperatorToToken } from '../completions/documentation';
+import { runSetupItems, SetupResult } from '../completions/startup-config';
+import { FishCompletionItemKind } from '../completions/types';
 
 /****************************************************************************************
  *                                                                                      *

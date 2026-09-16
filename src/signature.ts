@@ -9,10 +9,10 @@ import {
 } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { ExtendedBaseJson, findPrebuiltDoc, PrebuiltDocumentationMap } from './utils/snippets';
-import { FishAliasCompletionItem } from './utils/completion/types';
+import { FishAliasCompletionItem } from './completions/types';
 import * as NodeTypes from './utils/node-types';
 import * as TreeSitter from './utils/tree-sitter';
-import { CompletionItemMap } from './utils/completion/startup-cache';
+import { CompletionItemMap } from './completions/startup-cache';
 import { Option } from './parsing/options';
 import { Analyzer } from './analyze';
 import { md } from './utils/markdown-builder';

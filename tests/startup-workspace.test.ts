@@ -1,7 +1,7 @@
 import * as os from 'os';
 import { vi } from 'vitest';
 import { createTestServer, setLogger, type TestServerHandle } from './helpers';
-import * as startupConfig from '../src/utils/completion/startup-config';
+import * as startupConfig from '../src/completions/startup-config';
 import { FishUriWorkspace, getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspaces } from '../src/utils/workspace';
 import { workspaceManager } from '../src/utils/workspace-manager';
 import { Config, config, ConfigSchema } from '../src/config';

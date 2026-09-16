@@ -1,10 +1,12 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { execFileSync } from 'child_process';
 import { CompletionItemKind, CompletionParams, TextEdit } from 'vscode-languageserver';
 import { analyzer } from '../src/analyze';
-import { CompletionLineParser, getEmbeddedCommandline, tokenizeCommandline } from '../src/utils/completion/context';
-import { excludeCompletionDirsCommand, shellComplete } from '../src/utils/completion/shell';
+import { CompletionContext, CompletionLineParser, getEmbeddedCommandline, tokenizeCommandline } from '../src/completions/context';
+import { wordPrefixItems } from '../src/completions/sources';
+import { excludeCompletionDirsCommand, shellComplete } from '../src/completions/shell';
 import { createFakeLspDocument, createTestServer, TestServerHandle } from './helpers';
 
 describe('completion handler', () => {
@@ -41,6 +43,13 @@ describe('completion handler', () => {
       ["complete -c foo -n '", ''],
       ["complete -c foo -n 'not __fish_seen", 'not __fish_seen'],
       ['complete -c foo -a "(', '('],
+      ["complete -c foo -xa '(", '('],
+      ["complete -c foo -xka '(ls", '(ls'],
+      ['complete -c foo -fa "(', '('],
+      ["complete -c foo -xn 'not __fish_seen", 'not __fish_seen'],
+      ["complete -c foo -n '__fish_seen_subcommand_from bar && not __fish_contains_opt -s s long' -s s -l long -d 's/long' -xa '(", '('],
+      ["complete -c foo -n 'test -a \"$x\"' -a '(ls", '(ls'],
+      ["complete -c foo -d 'it\\'s -a' -a \"(", '('],
       ["complete -c foo --condition 'test -n \"$(cmd", 'test -n "$(cmd'],
       ["    complete -c foo -n 'set -q", 'set -q'],
       ["alias foo='git ch", 'git ch'],
@@ -80,11 +89,39 @@ describe('completion handler', () => {
       ['echo (ls) "a b" ', 'echo', ['(ls)', '"a b"'], ''],
       ['echo \\( ', 'echo', ['\\('], ''],
       ['echo 2>&1 ', 'echo', ['2>&1'], ''],
+      ['echo >/tm', 'echo', [], '/tm'],
+      ['echo 2>>/tm', 'echo', [], '/tm'],
+      ['echo </tm', 'echo', [], '/tm'],
+      ['echo &>/tm', 'echo', [], '/tm'],
+      ['echo >?/tm', 'echo', [], '/tm'],
+      ['echo \\>/tm', 'echo', [], '\\>/tm'],
+      ['echo ">/tm', 'echo', [], '>/tm'],
       ['echo foo && ', null, [], ''],
       ['echo foo | string ', 'string', [], ''],
       ["complete -c foo -x 'fo", 'complete', ['-c', 'foo', '-x'], 'fo'],
+      // an unescaped newline ends a statement, so earlier lines never leak in
+      ['echo hi\nls -', 'ls', [], '-'],
+      ['function foo\n    set -l x\n    echo ', 'echo', [], ''],
+      // a string, a `(` or a `\` continuation carries the statement across lines
+      ['echo "a\nb" ', 'echo', ['"a\nb"'], ''],
+      ['echo "a\nb" arg ', 'echo', ['"a\nb"', 'arg'], ''],
+      ['echo "oops\nfoo ', 'echo', [], 'oops\nfoo '],
+      ["set -l x 'a\nb' ", 'set', ['-l', 'x', "'a\nb'"], ''],
+      ['echo a \\\n    b ', 'echo', ['a', 'b'], ''],
+      ['echo foo\\\nbar ', 'echo', ['foobar'], ''],
+      ['echo (\n    ls ', 'ls', [], ''],
     ])('%j -> command: %j, args: %j, word: %j', (commandline, command, args, word) => {
-      expect(tokenizeCommandline(commandline)).toEqual({ command, args, word });
+      expect(tokenizeCommandline(commandline)).toMatchObject({ command, args, word });
+    });
+
+    it.each([
+      ['ls -', 0],
+      ['echo hi\nls -', 8],
+      ['foo; ls -', 4],
+      ['echo "a\nb" ', 0],
+      ['echo hi\necho (ls ', 8],
+    ])('%j starts the cursor statement at %i', (commandline, start) => {
+      expect(tokenizeCommandline(commandline).start).toBe(start);
     });
   });
 
@@ -198,6 +235,9 @@ describe('completion handler', () => {
     it.each([
       "complete -c foo -a '(",
       'complete -c foo -a "(',
+      "complete -c foo -xa '(",
+      "complete -c foo -xka '(",
+      "complete -c foo -n '__fish_seen_subcommand_from bar && not __fish_contains_opt -s s long' -s s -l long -d 's/long' -xa '(",
       "complete -c foo -n '",
       'echo (',
       '',
@@ -231,12 +271,153 @@ describe('completion handler', () => {
     });
   });
 
+  it.each(['$', '$HO', '$$HO'])('keeps a typed %j in front of a variable from the word prefix', async (word) => {
+    const ctx = { mode: 'argument', word, isDefinitionSlot: false, variables: [], commandline: `echo ${word}` } as unknown as CompletionContext;
+    const item = (await wordPrefixItems(ctx, handle.server.completions)).find(item => item.label === 'HOME');
+    expect(item?.insertText).toBe(`${/^\$+/.exec(word)![0]}HOME`);
+  });
+
   it('does not mutate shared CompletionItemMap entries', async () => {
     await complete('__fish');
     await complete("complete -c foo -n '__fish");
     const mapItems = handle.server.completions.allOfKinds('function', 'builtin');
     expect(mapItems.length).toBeGreaterThan(0);
     expect(mapItems.filter(item => item.textEdit || item.data)).toEqual([]);
+  });
+
+  it.each(['>', '2>', '>>', '2>>', '<', '&>', '>?'])('preserves %s when accepting a path completion', async (operator) => {
+    const content = `echo ${operator}/tm`;
+    const result = await complete(content);
+    const edit = result.items.find(item => item.label === '/tmp/')?.textEdit as TextEdit;
+    expect(edit).toBeDefined();
+    expect(content.slice(0, edit.range.start.character) + edit.newText).toBe(`echo ${operator}/tmp/`);
+    expect(edit.range.end.character).toBe(content.length);
+  });
+
+  describe('operators at command endings', () => {
+    it.each(['fish-lsp ', 'fish-lsp\t', 'set -q PATH; fish-lsp '])('inserts valid combiners and omits negation after %j', async (content) => {
+      const result = await complete(content);
+      const labels = result.items.map(item => item.label);
+      expect(labels).not.toContain('not');
+      expect(labels).not.toContain('!');
+      for (const label of ['and', 'or', '&&', '||']) {
+        const item = result.items.find(item => item.label === label)!;
+        expect(item).toBeDefined();
+        const edit = item.textEdit as TextEdit | undefined;
+        const inserted = edit
+          ? content.slice(0, edit.range.start.character) + edit.newText + content.slice(edit.range.end.character)
+          : content + (item.insertText ?? item.label);
+        expect(inserted).toBe(content + (label === 'and' || label === 'or' ? `; ${label}` : label));
+        expect(() => execFileSync('fish', ['--no-config', '--no-execute', '-c', inserted + ' echo true'], { stdio: 'pipe' })).not.toThrow();
+      }
+    });
+
+    it.each(['', 'set -q PATH\n', 'set -q PATH;\n', 'set -q PATH; '])('keeps word combiners and negation at a new command position: %j', async (content) => {
+      const result = await complete(content);
+      const labels = result.items.map(item => item.label);
+      expect(labels).not.toContain('&&');
+      expect(labels).not.toContain('||');
+      for (const label of ['and', 'or', 'not', '!']) {
+        const item = result.items.find(item => item.label === label && item.kind !== CompletionItemKind.Snippet)!;
+        expect(item).toBeDefined();
+        expect(item.insertText ?? item.label).toBe(label);
+      }
+    });
+
+    it.each([
+      'foo ',
+      'foo arg ',
+      'foo\t',
+      'string match -r pattern ',
+      'echo "hello world" ',
+      'echo {a,b} ',
+      'foo >/tmp/output ',
+      'foo 2>&1 ',
+      'not foo ',
+      'foo && bar ',
+      'echo (foo ',
+      'echo $foo ',
+      '{ ;; } ',
+      '{ ;; }',
+      '{\n;;\n\n} ',
+      'begin\n    echo hi\nend ',
+      'if true\n    echo hi\nend ',
+      'while true; end ',
+      'for x in a b; end ',
+      'switch $x; case a; end ',
+      'function foo; end ',
+      'function foo\n    echo hi ',
+      'foo \\\n    bar ',
+      'foo |\n    bar ',
+      'echo "multi\nline" ',
+      'echo a \\\n    b ',
+    ])('offers pipes and redirects after %j', async (content) => {
+      const result = await complete(content);
+      expect(result.items.map(item => item.label)).toEqual(expect.arrayContaining(['|', '>', '>>', '<', '2>', '&|']));
+      if (content.trimStart().startsWith('{') || content.endsWith('end ')) {
+        const edit = result.items.find(item => item.label === '|')!.textEdit as TextEdit;
+        expect(edit.range.start).toEqual(edit.range.end);
+        expect(edit.range.end.character).toBe(content.split('\n').at(-1)!.length);
+      }
+    });
+
+    it.each([
+      '', 'foo | ', 'foo; ', 'foo > ', 'foo 2> ', 'foo arg > ',
+      'echo "hello ', "echo 'hello ", 'echo escaped\\ ', 'echo "oops\nfoo ',
+      'foo # comment ', 'function foo ', 'for x in ',
+      // variable slots only take names
+      'set ', 'set -q ', 'set -gx name ', 'set value 1 ',
+    ])('does not offer operators in unfinished or non-command slots: %j', async (content) => {
+      const result = await complete(content);
+      const operatorItems = result.items.filter(item => (item as { fishKind?: string; }).fishKind === 'pipe');
+      expect(operatorItems).toEqual([]);
+    });
+  });
+
+  describe('filesystem matches are gated on the typed word', () => {
+    const pathItems = (result: { items: { label: string; }[]; }) =>
+      result.items.filter(item => (item as { fishKind?: string; }).fishKind === 'path').map(item => item.label);
+
+    it.each(['foo ', 'ls ', 'cat ', 'echo ', 'foo arg '])('offers no files or folders at an empty word: %j', async (content) => {
+      const result = await complete(content);
+      expect(pathItems(result)).toEqual([]);
+    });
+
+    it.each([
+      ['foo /tm', '/tmp/'],
+      ['cat CO', 'CODE_OF_CONDUCT.md'],
+      ['cat src/comp', 'src/completions/'],
+    ])('%j offers %j once the word narrows it', async (content, label) => {
+      const result = await complete(content);
+      expect(pathItems(result)).toContain(label);
+    });
+
+    it('asks the client to re-request, so a dropped path returns as the word grows', async () => {
+      expect((await complete('foo ')).isIncomplete).toBe(true);
+    });
+
+    it('offers only paths the word is a prefix of', async () => {
+      const result = await complete('cat src/comp');
+      expect(pathItems(result).every(label => label.startsWith('src/comp'))).toBe(true);
+    });
+
+    it('keeps a described match that a command listed itself', async () => {
+      // `git add` tags its files (`README.md  Modified file`), so they are the
+      // command's own arguments rather than fish falling back to the directory
+      const result = await complete('git add ');
+      const described = result.items.filter(item => /file/i.test(item.detail ?? ''));
+
+      expect(described.length).toBeGreaterThan(0);
+      expect(pathItems(result)).toEqual([]);
+    });
+  });
+
+  it('keeps the directory marker and folder kind on shell argument completions', async () => {
+    const result = await complete('foo /tm');
+    const item = result.items.find(item => item.label === '/tmp/');
+    expect(item?.kind).toBe(CompletionItemKind.Folder);
+    expect((item?.textEdit as TextEdit)?.newText).toBe('/tmp/');
+    expect(result.items.some(item => item.label === '/tmp')).toBe(false);
   });
 
   it('keeps overlapping requests separate', async () => {
@@ -305,10 +486,10 @@ describe('completion handler', () => {
       expect(excluded.map(([label]) => label)).not.toContain('--from-disk');
     });
 
-    it('does not autoload the edited completions file, but still completes other commands', async () => {
+    it.each(['--', ''])('does not autoload the edited completions file at %j, but still completes other commands', async (word) => {
       const filePath = join(completionsDir, 'fishlspdemo.fish');
 
-      const demo = await complete('fishlspdemo --', filePath);
+      const demo = await complete(`fishlspdemo ${word}`, filePath);
       expect(demo.items.map(i => i.label)).not.toContain('--from-disk');
 
       const other = await complete('set -', filePath);

@@ -2,10 +2,11 @@ import { CompletionItem, CompletionItemKind, CompletionParams, InsertTextFormat,
 import { analyzer } from '../src/analyze';
 import { createFakeLspDocument, createTestServer, TestServerHandle } from './helpers';
 import CompletionSnippets from '../src/snippets/completionSnippets.json';
-import { StaticItems } from '../src/utils/completion/static-items';
+import { StaticItems } from '../src/completions/static-items';
 import { execFileSync } from 'child_process';
-import { FishCompletionItem, FishCompletionItemKind, snippetToPlainText } from '../src/utils/completion/types';
+import { FishCompletionItem, FishCompletionItemKind, snippetToPlainText } from '../src/completions/types';
 import FishServer, { cachedCompletionMap } from '../src/server';
+import { config } from '../src/config';
 
 type RawSnippet = {
   name: string;
@@ -206,6 +207,35 @@ describe('completion snippets selection (via server.onCompletion)', () => {
     expect(item?.insertText).toBe('${1:first-expression}${2|; and, &&|} ${3:second-expression}');
   });
 
+  it.each([
+    ['', 'string replace', 'string replace'],
+    ['', 'string rep', 'string replace'],
+    ['', 'set color', 'set color'],
+    ['', 'set ', 'set color'],
+    ['', 'set i -', 'set i - '],
+    ['', 'if else', 'if else'],
+    ['    ', 'set color', 'set color'],
+    ['echo hi; ', 'set color', 'set color'],
+    ['echo hi | ', 'string rep', 'string replace'],
+    ['not ', 'set color', 'set color'],
+    ['echo "$(', 'set color', 'set color'],
+    ["complete -c demo -n '", 'if else', 'if else'],
+  ])('replaces the full multiword trigger in %j + %j', async (prefix, typed, trigger) => {
+    const result = await completeAt(prefix + typed);
+    const item = result.items.find(i => i.kind === CompletionItemKind.Snippet && i.filterText === trigger);
+    expect(item).toBeDefined();
+    const edit = item!.textEdit as TextEdit;
+    expect(edit.range.start.character).toBe(prefix.length);
+    expect(edit.range.end.character).toBe(prefix.length + typed.length);
+    expect((prefix + typed).slice(0, edit.range.start.character) + edit.newText).toBe(prefix + item!.insertText);
+    expect(!!item!.preselect).toBe(typed === trigger);
+  });
+
+  it.each(['echo set color', 'echo "set color', 'echo string replace'])('does not treat arguments as multiword snippet triggers: %j', async (content) => {
+    const result = await completeAt(content);
+    expect(result.items.filter(i => i.kind === CompletionItemKind.Snippet)).toEqual([]);
+  });
+
   it('does not disturb trailing document characters selecting "set-color" inside a nested command substitution', async () => {
     // echo "$(set-color<CURSOR>)"  -- the cursor sits before the closing `)"`,
     // which must survive untouched by the snippet's TextEdit.
@@ -328,6 +358,31 @@ describe('completion snippets selection (via server.onCompletion)', () => {
       expect(textEdit?.range.end.character).toBe(content.length);
     });
 
+    it.each(['', 'i', 'if', 'ife', 's', 'set', 'set i', 'w', 'str', 'echo (', 'not '])('lists each snippet once for %j', async (content) => {
+      const labels = (await completeAt(content)).items.filter(isSnippet).map(i => i.label);
+      expect(labels.length).toBeGreaterThan(0);
+      expect(labels).toEqual([...new Set(labels)]);
+    });
+
+    it.each([
+      ['', 'if-else'], // no word: the name
+      ['if', 'if-else'], // the name and `ife` both extend it: the name
+      ['if-e', 'if-else'],
+      ['ife', 'ife'], // only the altTrigger matches
+      ['if e', 'if else'], // a multiword trigger, through its own range
+    ])('%j keeps the if-else snippet under %j', async (content, trigger) => {
+      const items = (await completeAt(content)).items.filter(i => isSnippet(i) && i.label === 'if-else');
+      expect(items.map(i => i.filterText)).toEqual([trigger]);
+    });
+
+    it('asks again while a dropped trigger still extends the typed word', async () => {
+      // `i` keeps `if`, whose filterText can never become `iff`
+      expect((await completeAt('i')).isIncomplete).toBe(true);
+      const iff = await completeAt('iff');
+      expect(iff.items.filter(i => isSnippet(i) && i.label === 'if').map(i => i.filterText)).toEqual(['iff']);
+      expect(iff.isIncomplete).toBe(false);
+    });
+
     it('preselects only the snippet whose trigger is exactly the typed word', async () => {
       const result = await completeAt('ife');
       const preselected = result.items.filter(i => i.preselect);
@@ -351,8 +406,13 @@ describe('completion snippets selection (via server.onCompletion)', () => {
   });
 });
 
-describe('completion snippets for a client without snippetSupport', () => {
+describe.each([
+  { snippetSupport: false, enableSnippets: true },
+  { snippetSupport: true, enableSnippets: false },
+  { snippetSupport: false, enableSnippets: false },
+])('plain completions with $snippetSupport client support and $enableSnippets configuration', ({ snippetSupport, enableSnippets }) => {
   let handle: TestServerHandle;
+  let originalEnableSnippets: boolean;
 
   async function completeAt(content: string) {
     const doc = createFakeLspDocument('/tmp/completion-snippet-plain-client.fish', content);
@@ -364,17 +424,22 @@ describe('completion snippets for a client without snippetSupport', () => {
   }
 
   beforeAll(async () => {
-    // no `textDocument.completion.completionItem.snippetSupport` (LSP default: false)
-    handle = await createTestServer();
+    originalEnableSnippets = config.fish_lsp_enable_snippets;
+    handle = await createTestServer({ params: {
+      capabilities: { textDocument: { completion: { completionItem: { snippetSupport } } } },
+      initializationOptions: { fish_lsp_enable_snippets: enableSnippets },
+    } });
   });
 
   afterAll(async () => {
     await handle?.shutdown();
+    config.fish_lsp_enable_snippets = originalEnableSnippets;
   });
 
   it('does not offer snippets', async () => {
     const result = await completeAt('ife');
     expect(result.items.filter(i => i.kind === CompletionItemKind.Snippet)).toEqual([]);
+    expect((await completeAt('set color')).items.filter(i => i.kind === CompletionItemKind.Snippet)).toEqual([]);
     expect((await completeAt('if')).items.map(i => i.label)).toContain('if');
   });
 

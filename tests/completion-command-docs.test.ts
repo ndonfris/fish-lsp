@@ -4,9 +4,9 @@ import path from 'path';
 import { vi } from 'vitest';
 import { analyzer } from '../src/analyze';
 import { createFakeLspDocument, createTestServer, TestServerHandle } from './helpers';
-import * as shellModule from '../src/utils/completion/shell';
+import * as shellModule from '../src/completions/shell';
 import * as execModule from '../src/utils/exec';
-import { FishCompletionItem, FishCompletionItemKind } from '../src/utils/completion/types';
+import { FishCompletionItem, FishCompletionItemKind } from '../src/completions/types';
 
 import FishServer, { cachedCompletionMap } from '../src/server';
 import { md } from '../src/utils/markdown-builder';

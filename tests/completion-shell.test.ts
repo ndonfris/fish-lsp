@@ -1,5 +1,5 @@
 import { setLogger, SkipUtils } from './helpers';
-import { escapeCmd, shellComplete } from '../src/utils/completion/shell';
+import { escapeCmd, shellComplete } from '../src/completions/shell';
 
 describe('check completions', () => {
   setLogger();
@@ -332,7 +332,6 @@ describe('check completions', () => {
 
     it('echo \\\\n$', async () => {
       const completions = await shellComplete('echo \\\n$');
-      console.log(completions);
       const items = completions.map(item => item[0]);
       expect(items.length).toBeGreaterThan(0);
       expect(items).toContain('$FISH_LSP_TEST_COMPLETION');

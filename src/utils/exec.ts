@@ -228,30 +228,6 @@ export async function execCompleteSpace(cmd: string): Promise<string[]> {
   return child.stdout.trim().split('\n');
 }
 
-export async function execCompleteCmdArgs(cmd: string): Promise<string[]> {
-  const args = await ExecFishFiles.getCommandOptions(cmd);
-  const results = (args?.stdout.toString().trim().split('\n') || [])
-    .map(line => line.split('\t'))
-    .filter(([label, desc]) => label && !desc?.startsWith('Abbreviation'))
-    .map(line => line.join('\t').trimEnd());
-
-  let i = 0;
-  const fixedResults: string[] = [];
-  while (i < results.length) {
-    const line = results[i] as string;
-    if (cmd === 'test') {
-      fixedResults.push(line);
-    } else if (!line.startsWith('-', 0)) {
-      //fixedResults.slice(i-1, i).join(' ')
-      fixedResults.push(fixedResults.pop() + ' ' + line.trim());
-    } else {
-      fixedResults.push(line);
-    }
-    i++;
-  }
-  return fixedResults;
-}
-
 /**
  * Normalize command args so callers can pass either separate args
  * (`'string', 'split'`) or a space-joined form (`'string split'`).

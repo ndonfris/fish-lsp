@@ -1,5 +1,5 @@
-import { execFileAsync } from '../exec';
-import { config } from '../../config';
+import { execFileAsync } from '../utils/exec';
+import { config } from '../config';
 
 export type ShellCompleteOptions = {
   /**
@@ -9,8 +9,7 @@ export type ShellCompleteOptions = {
    */
   excludeCompletionDirs?: string[];
   /**
-   * Keep fish's raw labels (no stripping of a leading quote or trailing `/`).
-   * Path completions need the trailing `/` to tell directories apart.
+   * Keep fish's raw labels (no stripping of a leading quote).
    */
   raw?: boolean;
 };
@@ -70,7 +69,9 @@ export async function shellComplete(cmd: string, options: ShellCompleteOptions =
 function fixFirst(input: string | undefined): string {
   if (!input) return '';
   if (input.startsWith('"') || input.startsWith("'")) input = input.slice(1);
-  if (input.endsWith('/')) input = input.slice(0, -1);
+  // Fish decorates directory-valued variables too; keep their bare expansion
+  // labels while retaining `/` on actual filesystem candidates.
+  if (/^\$+\w+\/$/.test(input)) input = input.slice(0, -1);
   return input;
 }
 

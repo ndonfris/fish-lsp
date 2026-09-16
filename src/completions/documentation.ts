@@ -1,10 +1,10 @@
 import { MarkupContent, SymbolKind } from 'vscode-languageserver';
 import { FishCompletionItem, FishCompletionItemKind, CompletionExample, getCompletionDocumentationValue, toCompletionMarkdownDocumentation } from './types';
-import { execCmd, execCommandDocs, ExecFishFiles } from '../exec';
+import { execCmd, execCommandDocs, ExecFishFiles } from '../utils/exec';
 import * as os from 'os';
-import { md } from '../markdown-builder';
-import { cachedDocumentation } from '../../server';
-import { PrebuiltDocumentationMap } from '../snippets';
+import { md } from '../utils/markdown-builder';
+import { cachedDocumentation } from '../server';
+import { PrebuiltDocumentationMap } from '../utils/snippets';
 
 export async function getDocumentationResolver(item: FishCompletionItem): Promise<MarkupContent> {
   const docValue = getCompletionDocumentationValue(item.documentation);

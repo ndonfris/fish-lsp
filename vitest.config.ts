@@ -51,7 +51,6 @@ export default defineConfig({
         'src/snippets/**',
         'src/documentation.ts',
         'src/web.ts',
-        'src/utils/completions/**',
       ],
       reporter: [
         ['html-spa', { 'projectRoot': './src' }],

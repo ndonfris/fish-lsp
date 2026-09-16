@@ -1,10 +1,10 @@
-import { config } from '../../config';
+import { config } from '../config';
 import { FishCompletionItemKind } from './types';
 import { spawn } from 'child_process';
 import { Dirent } from 'fs';
 import { readdir, stat } from 'fs/promises';
 import { join } from 'path';
-import { AutoloadedPathVariables } from '../process-env';
+import { AutoloadedPathVariables } from '../utils/process-env';
 
 /**
  * A setup item's `command` is either:

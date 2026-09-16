@@ -109,6 +109,15 @@
     "valueType": "array"
   },
   {
+    "name": "fish_lsp_enable_snippets",
+    "description": "Include snippet completions when the client supports snippets. When false, snippet suggestions are hidden and syntax templates are inserted as plain text. Can also be set through initializationOptions.",
+    "shortDescription": "enable snippet completions",
+    "exactMatchOptions": true,
+    "options": [true, false],
+    "defaultValue": true,
+    "valueType": "boolean"
+  },
+  {
     "name": "fish_lsp_log_file",
     "description": "A path to the fish-lsp's logging file. Empty string disables logging.",
     "shortDescription": "path to the fish-lsp's log file",

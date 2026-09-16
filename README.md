@@ -447,6 +447,11 @@ set -gx fish_lsp_disabled_handlers
 # (Default: ['\t', ';', ' '])
 set -gx fish_lsp_commit_characters '\t' ';' ' '
 
+# Include snippet completions when the client supports snippets.
+# Set false to hide snippets and insert syntax templates as plain text.
+# (Default: true)
+set -gx fish_lsp_enable_snippets true
+
 # $fish_lsp_log_file <STRING>
 # A path to the fish-lsp's logging file. Empty string disables logging.
 # (Example Options: '/tmp/fish_lsp.log', '~/path/to/fish_lsp/logs.txt')
@@ -623,6 +628,10 @@ set -gx fish_lsp_disabled_handlers
 # (Default: ['\t', ';', ' '])
 set -gx fish_lsp_commit_characters 
 
+# Include snippet completions when the client supports snippets.
+# (Default: true)
+set -gx fish_lsp_enable_snippets true
+
 # $fish_lsp_log_file <STRING>
 # A path to the fish-lsp's logging file. Empty string disables logging.
 # (Example Options: '/tmp/fish_lsp.log', '~/path/to/fish_lsp/logs.txt')
@@ -772,6 +781,7 @@ set -gx fish_lsp_show_subcommand_semantic_tokens
 {
   "fish_lsp_enabled_handlers": [],
   "fish_lsp_disabled_handlers": [],
+  "fish_lsp_enable_snippets": true,
   "fish_lsp_commit_characters": [
     "\t",
     ";",

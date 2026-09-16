@@ -256,8 +256,8 @@ export async function createTestServer(
 export async function getMockedInitializationFunctions() {
   const docCache = await import('../src/utils/documentation-cache');
   const workspace = await import('../src/utils/workspace');
-  const completionCache = await import('../src/utils/completion/startup-cache');
-  const completionHandler = await import('../src/utils/completion/handler');
+  const completionCache = await import('../src/completions/startup-cache');
+  const completionHandler = await import('../src/completions/handler');
   const processEnv = await import('../src/utils/process-env');
 
   return {
