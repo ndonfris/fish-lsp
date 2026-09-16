@@ -128,4 +128,4 @@ export function isReservedKeyword(word: string): boolean {
 // `spawnSync` enumerations lived here, but their exports were unused and the work
 // is now done correctly (single bundled `fish -Pc`, honoring
 // `config.fish_lsp_fish_path`, deferred until after config is populated) by
-// `runSetupItems()` in `./completion/startup-config`.
+// `runSetupItems()` in `../completions/startup-config`.

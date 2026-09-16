@@ -7,8 +7,8 @@ import {
   SymbolKind,
   TextEdit,
 } from 'vscode-languageserver';
-import { FishSymbol } from '../../parsing/symbol';
-import { md } from '../markdown-builder';
+import { FishSymbol } from '../parsing/symbol';
+import { md } from '../utils/markdown-builder';
 
 export const FishCompletionItemKind = {
   ABBR: 'abbr',

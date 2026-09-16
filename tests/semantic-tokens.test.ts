@@ -15,8 +15,8 @@ import {
 import { getSemanticTokensSimplest, semanticTokenHandler } from '../src/semantic-tokens';
 import { getRange } from '../src/utils/tree-sitter';
 import { PrebuiltDocumentationMap } from '../src/utils/snippets';
-import { CompletionItemMap } from '../src/utils/completion/startup-cache';
-import { FishCompletionItemKind } from '../src/utils/completion/types';
+import { CompletionItemMap } from '../src/completions/startup-cache';
+import { FishCompletionItemKind } from '../src/completions/types';
 import { logger } from '../src/logger';
 import { pathToUri } from '../src/utils/translation';
 import { existsSync } from 'fs';

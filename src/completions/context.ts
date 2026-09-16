@@ -1,14 +1,14 @@
-import Parser, { SyntaxNode } from 'web-tree-sitter';
+import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import { CompletionTriggerKind, Position, SymbolKind } from 'vscode-languageserver';
-import { initializeParser } from '../../parser';
-import { LspDocument } from '../../document';
-import { FishSymbol } from '../../parsing/symbol';
-import { isVariableDefinitionName } from '../../parsing/barrel';
-import * as SetParser from '../../parsing/set';
-import * as ReadParser from '../../parsing/read';
-import * as ArgparseParser from '../../parsing/argparse';
-import * as FunctionParser from '../../parsing/function';
-import { isCommandWithName, isOption, isVariableExpansion } from '../node-types';
+import { initializeParser } from '../parser';
+import { LspDocument } from '../document';
+import { FishSymbol } from '../parsing/symbol';
+import { isVariableDefinitionName } from '../parsing/barrel';
+import * as SetParser from '../parsing/set';
+import * as ReadParser from '../parsing/read';
+import * as ArgparseParser from '../parsing/argparse';
+import * as FunctionParser from '../parsing/function';
+import { isCommandWithName, isOption, isVariableExpansion } from '../utils/node-types';
 
 /**
  * What kind of position the cursor is at. Decided once per request; the handler's
@@ -38,6 +38,10 @@ export interface CompletionContext {
   mode: CompletionMode;
   /** current token before the cursor (`''` at a fresh slot) */
   word: string;
+  /** Text from each command position in the current segment to the cursor. */
+  snippetPrefixes: string[];
+  /** The cursor follows a complete command or block, rather than an unfinished operand. */
+  canEndCommand: boolean;
   /** command that owns the current token, if any */
   command: string | null;
   /** arguments of `command` before `word` */
@@ -72,6 +76,9 @@ export type CompletionRequest = {
 
 const BLOCKED_COMMANDS = ['end', 'else', 'continue', 'break'];
 
+/** tree-sitter nodes closed by `end` or `}`; their endings take pipes and redirects like a command */
+const BLOCK_NODES = ['begin_statement', 'if_statement', 'while_statement', 'for_statement', 'switch_statement', 'function_definition'];
+
 /**
  * Parses single commandlines for completion. Owns its own tree-sitter parser so the
  * document's tree is never reset by a completion request.
@@ -83,9 +90,10 @@ export class CompletionLineParser {
 
   constructor(private parser: Parser) { }
 
-  private parse(text: string): SyntaxNode {
+  /** the caller owns the returned tree and must `delete()` it */
+  private parse(text: string): Tree {
     this.parser.reset();
-    return this.parser.parse(text).rootNode;
+    return this.parser.parse(text);
   }
 
   buildContext(request: CompletionRequest): CompletionContext {
@@ -102,15 +110,24 @@ export class CompletionLineParser {
       triggerCharacter: request.triggerCharacter,
       variablePrefix: '',
       isDefinitionSlot: false,
+      canEndCommand: false,
     };
 
     if (line.trim().startsWith('#') && current) {
-      return { ...base, commandline: line, embedded: false, mode: 'comment', word: documentWord, command: null, args: [], argIndex: 0, replaceLength: documentWord.length };
+      return { ...base, snippetPrefixes: [], commandline: line, embedded: false, mode: 'comment', word: documentWord, command: null, args: [], argIndex: 0, replaceLength: documentWord.length };
     }
 
     const embeddedText = getEmbeddedCommandline(line);
-    const commandline = embeddedText ?? line;
-    const { command, args, word } = tokenizeCommandline(commandline);
+    // Everything before the cursor, so a quote, a `(` or a `\` continuation opened
+    // on an earlier line is still open here. `tokenizeCommandline` cuts it back to
+    // the statement that owns the cursor.
+    const prefix = embeddedText ?? doc.getText({ start: { line: 0, character: 0 }, end: position });
+    const { command, args, word, snippetPrefixes, start } = tokenizeCommandline(prefix);
+    const commandline = prefix.slice(start);
+    const ending = this.commandEnding(prefix, word);
+    base.canEndCommand = ending !== null;
+    // an unterminated string reaches back over earlier lines; only replace this line's part
+    const wordOnLine = word.slice(word.lastIndexOf('\n') + 1);
 
     // `set <TAB>`, `set -q <TAB>` and `set -gx name <TAB>` only take variables
     const isSetSlot = embeddedText === null && command === 'set' && word === '';
@@ -119,6 +136,7 @@ export class CompletionLineParser {
       const prefix = getVariableCompletionPrefix(line, position.character, documentWord, isDefinitionSlot);
       return {
         ...base,
+        snippetPrefixes,
         commandline: line,
         embedded: false,
         mode: 'variable',
@@ -133,36 +151,71 @@ export class CompletionLineParser {
     }
 
     const mode: CompletionMode =
-      command && BLOCKED_COMMANDS.includes(command) ? 'blocked'
+      ending === 'block' || command && BLOCKED_COMMANDS.includes(command) ? 'blocked'
         : !word && !command ? 'empty'
           : !command ? 'command'
             : 'argument';
 
     return {
       ...base,
+      snippetPrefixes,
       commandline,
       embedded: embeddedText !== null,
       mode,
-      word,
+      word: ending === 'block' ? '' : word,
       command,
       args,
       argIndex: command ? args.length + 1 : 0,
-      replaceLength: word.length,
+      replaceLength: ending === 'block' ? 0 : wordOnLine.length,
       isDefinitionSlot: mode === 'argument' && this.isVariableDefinitionSlot(commandline),
     };
   }
 
   /**
+   * Whether the cursor follows a finished command or block, so pipes and
+   * redirects can extend it. `text` is everything before the cursor (the
+   * document, or an embedded commandline), so continuation lines and an
+   * `end`/`}` closing an earlier line parse in context. A newline is
+   * appended because tree-sitter only closes a bare `foo ` at a line end. The
+   * innermost error-free node ending at the last non-blank character of the
+   * cursor's line decides:
+   * `foo | ` and `foo > ` leave an ERROR there, `foo; ` an anonymous `;`.
+   */
+  private commandEnding(text: string, word: string): 'command' | 'block' | null {
+    // `}` is the only word that can't be extended; `end` could still be a name
+    if (word && word !== '}') return null;
+    // a newline before the cursor already ended the statement
+    const end = text.replace(/[ \t]+$/, '').length;
+    if (!end || text[end - 1] === '\n') return null;
+    const tree = this.parse(text + '\n');
+    try {
+      let node: SyntaxNode | null = tree.rootNode.descendantForIndex(end - 1);
+      if (node.type === 'comment') return null;
+      while (node && node.endIndex === end) {
+        if (!node.hasError) {
+          if (BLOCK_NODES.includes(node.type)) return 'block';
+          if (node.type === 'command') return 'command';
+        }
+        node = node.parent;
+      }
+      return null;
+    } finally {
+      tree.delete();
+    }
+  }
+
+  /**
    * `true` when a variable inserted at the end of `lineBeforeCursor` should be a
    * plain name (a definition or bare-name slot) instead of a `$` expansion.
+   * Indexed rather than row/column, so a commandline spanning lines still works.
    */
   isVariableDefinitionSlot(lineBeforeCursor: string): boolean {
+    const trees: Tree[] = [];
     try {
-      const rootNode = this.parse(lineBeforeCursor);
-      const currentNode = rootNode.descendantForPosition({
-        row: 0,
-        column: Math.max(0, lineBeforeCursor.length - 1),
-      });
+      const tree = this.parse(lineBeforeCursor);
+      trees.push(tree);
+      const rootNode = tree.rootNode;
+      const currentNode = rootNode.descendantForIndex(Math.max(0, lineBeforeCursor.length - 1));
       if (!currentNode) return false;
 
       const endsWithSpace = /\s$/.test(lineBeforeCursor);
@@ -170,9 +223,9 @@ export class CompletionLineParser {
       // `set NAME [VALUE...]`: the first non-option argument is the variable being
       // defined; anything after it is a value. `set -q/-e/-S` only take names.
       // Probe at the last non-whitespace column: on a trailing-space cursor
-      // `descendantForPosition` returns the program root, outside the command.
-      const lastTokenColumn = Math.max(0, lineBeforeCursor.replace(/\s+$/, '').length - 1);
-      let setCommand: SyntaxNode | null = rootNode.descendantForPosition({ row: 0, column: lastTokenColumn });
+      // `descendantForIndex` returns the program root, outside the command.
+      const lastTokenIndex = Math.max(0, lineBeforeCursor.replace(/\s+$/, '').length - 1);
+      let setCommand: SyntaxNode | null = rootNode.descendantForIndex(lastTokenIndex);
       while (setCommand && setCommand.type !== 'command') {
         setCommand = setCommand.parent;
       }
@@ -211,8 +264,9 @@ export class CompletionLineParser {
       // and reuse each command's definition-name detection on it.
       let probeNode = currentNode;
       if (endsWithSpace) {
-        const probed = this.parse(lineBeforeCursor + 'fishLspProbe')
-          .descendantForPosition({ row: 0, column: lineBeforeCursor.length });
+        const probeTree = this.parse(lineBeforeCursor + 'fishLspProbe');
+        trees.push(probeTree);
+        const probed = probeTree.rootNode.descendantForIndex(lineBeforeCursor.length);
         if (probed) probeNode = probed;
       }
 
@@ -236,6 +290,8 @@ export class CompletionLineParser {
       return false;
     } catch {
       return false;
+    } finally {
+      trees.forEach(tree => tree.delete());
     }
   }
 }
@@ -251,13 +307,12 @@ export class CompletionLineParser {
  * an argument list, not a commandline).
  */
 export function getEmbeddedCommandline(line: string): string | null {
-  // the first `-n`/`-a` payload wins: `complete -n 'test -n "$(cmd` completes `test -n "$(cmd`
-  const complete = /(?:^|[\s;(|&])complete\s/.test(line)
-    ? line.match(/(?:^|\s)(?:-n|--condition|-a|--arguments)\s+(['"])(.*)$/)
-    : null;
-  if (complete) {
-    const [, quote, payload = ''] = complete;
-    if (quote && !payload.includes(quote)) return payload.trimStart();
+  // The quote left open is the payload being typed; quotes closed before it
+  // (`-n '…' -d '…' -xa '(`) and quotes inside it (`-n 'test -n "$(cmd`) don't count.
+  // `-a`/`-n` may end a cluster of flags that take no value (`-xa`, `-fka`).
+  const open = /(?:^|[\s;(|&])complete\s/.test(line) ? openQuoteIndex(line) : -1;
+  if (open !== -1 && /(?:^|\s)(?:-[fFrxkeh]*[an]|--condition|--arguments)\s+$/.test(line.slice(0, open))) {
+    return line.slice(open + 1).trimStart();
   }
   const alias = line.match(/^\s*alias\s+\S+\s*=\s*(['"])(.*)$/);
   if (alias) {
@@ -265,6 +320,22 @@ export function getEmbeddedCommandline(line: string): string | null {
     if (quote && !payload.includes(quote)) return payload;
   }
   return null;
+}
+
+/** index of the quote `line` leaves open, skipping escapes and closed strings, or -1 */
+function openQuoteIndex(line: string): number {
+  let open = -1;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '\\') {
+      i++;
+    } else if (open === -1 && (char === '\'' || char === '"')) {
+      open = i;
+    } else if (open !== -1 && char === line[open]) {
+      open = -1;
+    }
+  }
+  return open;
 }
 
 /** keywords after which the next token is a command: `and ec`, `if test`, `not `, `begin ` */
@@ -275,6 +346,10 @@ const COMMAND_PREFIX_KEYWORDS = ['and', 'or', 'not', '!', 'if', 'while', 'begin'
  * its finished arguments, and the word being typed. Quote and `(`/`$(` aware, so
  * it works on unfinished lines that don't parse (`function foo -e `, `break `):
  *
+ * Accepts the whole text before the cursor, so a quote or `(` opened on an earlier
+ * line is still open: an unescaped newline ends a statement exactly like `;`, and
+ * `start` reports where the statement owning the cursor begins.
+ *
  *    commandline               command     args          word
  *    `ls -`                    `ls`        []            `-`
  *    `function foo -e `        `function`  [foo, -e]     ``
@@ -283,21 +358,30 @@ const COMMAND_PREFIX_KEYWORDS = ['and', 'or', 'not', '!', 'if', 'while', 'begin'
  *    `if test -n foo; break `  `break`     []            ``     (`;` `|` `&&` start a new command)
  *    `else if `                null        []            ``     (command prefix keywords are skipped)
  *    `complete -x 'fo`         `complete`  [-x]          `fo`   (an unclosed quote isn't part of the word)
+ *    `echo "a\nb" `            `echo`      ["a\nb"]      ``     (the newline is inside the string)
  */
-export function tokenizeCommandline(commandline: string): { command: string | null; args: string[]; word: string; } {
-  type Frame = { tokens: string[]; current: string; quote: '' | '\'' | '"'; quoteStart: number; };
-  const newFrame = (): Frame => ({ tokens: [], current: '', quote: '', quoteStart: -1 });
+export function tokenizeCommandline(commandline: string): { command: string | null; args: string[]; word: string; snippetPrefixes: string[]; start: number; } {
+  type Frame = { tokens: string[]; tokenStarts: number[]; current: string; currentStart: number; wordStart: number; quote: '' | '\'' | '"'; quoteStart: number; start: number; };
+  const newFrame = (): Frame => ({ tokens: [], tokenStarts: [], current: '', currentStart: 0, wordStart: 0, quote: '', quoteStart: -1, start: 0 });
   const endToken = (frame: Frame) => {
-    if (frame.current) frame.tokens.push(frame.current);
+    if (frame.current) {
+      frame.tokens.push(frame.current);
+      frame.tokenStarts.push(frame.currentStart);
+    }
     frame.current = '';
+    frame.wordStart = 0;
   };
   // one frame per open command substitution; the innermost one owns the cursor
   const stack: Frame[] = [newFrame()];
 
   for (let i = 0; i < commandline.length; i++) {
+    const charStart = i;
     let char = commandline[i]!;
     if (char === '\\' && i + 1 < commandline.length) char += commandline[++i];
+    // `\` before a newline is a continuation: fish joins the lines with nothing between
+    if (char === '\\\n') continue;
     const frame = stack.at(-1)!;
+    if (!frame.current) frame.currentStart = charStart;
     // enclosing commands see a whole substitution as part of their current token
     for (const outer of stack.slice(0, -1)) outer.current += char;
 
@@ -316,19 +400,27 @@ export function tokenizeCommandline(commandline: string): { command: string | nu
       stack.push(newFrame());
     } else if (char === ')' && stack.length > 1) {
       stack.pop();
-    } else if (/^\s$/.test(char)) {
-      endToken(frame);
-    } else if (char === ';' || char === '|' || char === '&' && !frame.current.endsWith('>') && commandline[i + 1] !== '>') {
-      // `&` inside `2>&1` or `&>file` is a redirection, not a separator
+    } else if (char === '\n' || char === ';' || char === '|' || char === '&' && !frame.current.endsWith('>') && commandline[i + 1] !== '>') {
+      // an unescaped newline ends a statement like `;`; `&` inside `2>&1` or
+      // `&>file` is a redirection, not a separator
       endToken(frame);
       frame.tokens = [];
+      frame.tokenStarts = [];
+      frame.start = i + 1;
+    } else if (/^\s$/.test(char)) {
+      endToken(frame);
     } else {
       frame.current += char;
+      // Keep the redirect in the token for context, but only replace its target.
+      // Quoted and escaped operators never reach this branch as a single character.
+      if (char === '>' || char === '<' || char === '?' && frame.current.endsWith('>?')) {
+        frame.wordStart = frame.current.length;
+      }
     }
   }
 
   const frame = stack.at(-1)!;
-  const word = frame.quote ? frame.current.slice(frame.quoteStart + 1) : frame.current;
+  const word = frame.current.slice(frame.quote ? frame.quoteStart + 1 : frame.wordStart);
   let start = 0;
   while (start < frame.tokens.length) {
     const token = frame.tokens[start]!;
@@ -342,7 +434,14 @@ export function tokenizeCommandline(commandline: string): { command: string | nu
     }
   }
   const [command, ...args] = frame.tokens.slice(start);
-  return { command: command ?? null, args, word };
+  // Include prefix keywords as possible snippet starts (`if else`), but never
+  // start at an ordinary argument (`echo set color`) or inside a quoted string.
+  // a prefix reaching back over a newline can't match a trigger, and the snippet
+  // source rewrites a single line, so keep them within the cursor's line
+  const snippetPrefixes = frame.quote ? [] : frame.tokenStarts.slice(0, start + 1)
+    .map(offset => commandline.slice(offset))
+    .filter(text => !text.includes('\n'));
+  return { command: command ?? null, args, word, snippetPrefixes, start: stack[0]!.start };
 }
 
 /**
@@ -384,12 +483,35 @@ function countDollarsBeforeWord(lineBeforeCursor: string, cursorPos: number) {
 }
 
 /**
+ * The term being typed inside the last unclosed `[` of `text` (`$var[1..va` → `va`),
+ * with the `$`s typed before it and the text before that `[`, or `null` outside one.
+ * A nested, closed `[…]` is skipped.
+ */
+export function openIndexTerm(text: string): { before: string; dollars: string; name: string; } | null {
+  let depth = 0;
+  for (let index = text.length - 1; index >= 0; index--) {
+    const char = text[index];
+    if (char === '\n') return null;
+    if (char === ']') {
+      depth++;
+    } else if (char === '[' && depth > 0) {
+      depth--;
+    } else if (char === '[') {
+      const [, dollars = '', name = ''] = /(\$*)(\w*)$/.exec(text.slice(index + 1)) ?? [];
+      return { before: text.slice(0, index), dollars, name };
+    }
+  }
+  return null;
+}
+
+/**
  * The `$` prefix inserted before a variable name, and how much text it replaces:
  *
  *    `echo ${`      →  ''  (replace nothing, the brace is kept)
  *    `echo $`       →  '$' (replaces the typed `$`)
  *    `set -gx `     →  ''  (definition slot)
  *    `set -gx v `   →  '$' (value slot)
+ *    `echo $v[i`    →  '$' (an index term without a `$`: replaces `i`, keeps `$v[`)
  */
 export function getVariableCompletionPrefix(
   lineBeforeCursor: string,
@@ -397,6 +519,13 @@ export function getVariableCompletionPrefix(
   word: string,
   isDefinitionSlot: boolean,
 ): { insertPrefix: string; replaceLength?: number; } {
+  // inside `$var[…]` a variable is read with `$`; a term already holding one
+  // (`$var[$`, `$var[$v`) is handled like any other `$` below
+  const indexTerm = openIndexTerm(lineBeforeCursor.slice(0, cursorPos));
+  if (indexTerm && !indexTerm.dollars && /\$\w+$/.test(indexTerm.before)) {
+    return { insertPrefix: '$', replaceLength: indexTerm.name.length };
+  }
+
   const { wordStartPos, dollarsBeforeWord } = countDollarsBeforeWord(lineBeforeCursor, cursorPos);
   const dollarsInWord = (word.match(/\$/g) || []).length;
   const prefixSlice = lineBeforeCursor.slice(Math.max(wordStartPos - dollarsBeforeWord, 0), cursorPos);

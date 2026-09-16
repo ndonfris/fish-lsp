@@ -12,7 +12,7 @@ import { config, Config } from '../config';
 import { isBuiltin } from '../utils/builtins';
 import { server } from '../server';
 import { analyzer } from '../analyze';
-import { FishCompletionItemKind } from '../utils/completion/types';
+import { FishCompletionItemKind } from '../completions/types';
 import { StatusArgs } from './deprecated-flags';
 
 type startTokenType = 'function' | 'while' | 'if' | 'for' | 'begin' | 'switch' | '[' | '{' | '(' | "'" | '"';

@@ -94,6 +94,9 @@ export const ConfigSchema = z.object({
   /** Characters that completion items will be accepted on */
   fish_lsp_commit_characters: z.array(z.string()).default(['\t', ';', ' ']),
 
+  /** Include snippet completions when the client supports them. */
+  fish_lsp_enable_snippets: z.boolean().default(true),
+
   /** Path to the log files */
   fish_lsp_log_file: z.string().default(''),
 
@@ -169,6 +172,7 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_enabled_handlers: process.env.fish_lsp_enabled_handlers?.split(' '),
     fish_lsp_disabled_handlers: process.env.fish_lsp_disabled_handlers?.split(' '),
     fish_lsp_commit_characters: process.env.fish_lsp_commit_characters?.split(' '),
+    fish_lsp_enable_snippets: toBoolean(process.env.fish_lsp_enable_snippets),
     fish_lsp_log_file: process.env.fish_lsp_log_file || process.env.fish_lsp_logfile,
     fish_lsp_log_level: process.env.fish_lsp_log_level,
     fish_lsp_all_indexed_paths: process.env.fish_lsp_all_indexed_paths?.split(' '),

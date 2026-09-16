@@ -1,9 +1,9 @@
 import { CompletionItemKind } from 'vscode-languageserver';
-import { ErrorCodes } from '../../diagnostics/error-codes';
-import { md } from '../markdown-builder';
+import { ErrorCodes } from '../diagnostics/error-codes';
+import { md } from '../utils/markdown-builder';
 import { FishCompletionItem, FishCompletionItemKind, CompletionExample } from './types';
-import { findPrebuiltDoc, formatPrebuiltDocMarkdown, PrebuiltDocumentationMap } from '../snippets';
-import CompletionSnippets from '../../snippets/completionSnippets.json';
+import { findPrebuiltDoc, formatPrebuiltDocMarkdown, PrebuiltDocumentationMap } from '../utils/snippets';
+import CompletionSnippets from '../snippets/completionSnippets.json';
 
 const EscapedChars: FishCompletionItem[] = [
   {

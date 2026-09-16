@@ -21,7 +21,7 @@ import { FishSymbol } from '../parsing/symbol';
 import { findUnreachableCode, sequenceTerminatesAllPaths } from '../parsing/unreachable';
 import { FishDiagnostic } from './types';
 import { server } from '../server';
-import { FishCompletionItemKind } from '../utils/completion/types';
+import { FishCompletionItemKind } from '../completions/types';
 import { dirname } from 'path';
 
 // Number of nodes to process before yielding to event loop

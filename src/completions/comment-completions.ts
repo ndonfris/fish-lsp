@@ -1,8 +1,8 @@
 import { Command, Position, Range, TextEdit } from 'vscode-languageserver';
 import { cloneCompletionItem, FishCompletionItem } from './types';
 import { StaticItems } from './static-items';
-import { DIAGNOSTIC_COMMENT_REGEX, DiagnosticAction, isValidErrorCode } from '../../diagnostics/comments-handler';
-import { ErrorCodes } from '../../diagnostics/error-codes';
+import { DIAGNOSTIC_COMMENT_REGEX, DiagnosticAction, isValidErrorCode } from '../diagnostics/comments-handler';
+import { ErrorCodes } from '../diagnostics/error-codes';
 
 /** retrigger completion after inserting a directive, so its codes are suggested next */
 const retriggerCommand: Command = {

@@ -17,15 +17,15 @@ import { DocumentationCache, initializeDocumentationCache } from './utils/docume
 import { getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspaces } from './utils/workspace';
 import { workspaceManager } from './utils/workspace-manager';
 import { filterLastPerScopeSymbol, FishSymbol } from './parsing/symbol';
-import { CompletionHandler } from './utils/completion/handler';
-import { resolveCompletionItemDocumentation } from './utils/completion/resolve-item';
+import { CompletionHandler } from './completions/handler';
+import { resolveCompletionItemDocumentation } from './completions/resolve-item';
 import { PrebuiltDocumentationMap, warmPrebuiltCommandDescriptions } from './utils/snippets';
 import { findParent, findParentCommand, isAliasDefinitionName, isBraceExpansion, isCommand, isCommandName, isConcatenatedValue, isConcatenation, isDefinitionName, isEndStdinCharacter, isOption, isPathNode, isVariableDefinition } from './utils/node-types';
 import { config, Config } from './config';
 import { enrichToMarkdown, handleBraceExpansionHover, handleEndStdinHover, handleSourceArgumentHover } from './documentation';
 import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getDefaultSignatures, getFunctionSignatureHelp, isRegexStringSignature } from './signature';
-import { CompletionItemMap } from './utils/completion/startup-cache';
-import { runSetupItems } from './utils/completion/startup-config';
+import { CompletionItemMap } from './completions/startup-cache';
+import { runSetupItems } from './completions/startup-config';
 import { getDocumentHighlights } from './document-highlight';
 import { semanticTokenHandler } from './semantic-tokens';
 import { codeActionHandlers } from './code-actions/code-action-handler';
@@ -555,7 +555,7 @@ export default class FishServer {
   }
 
   /**
-   * Completion is decided in `src/utils/completion/`: `context.ts` classifies the
+   * Completion is decided in `src/completions/`: `context.ts` classifies the
    * cursor position once, `handler.ts` maps that position to the sources
    * (`sources.ts`) that fill it.
    */

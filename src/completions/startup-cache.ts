@@ -1,14 +1,14 @@
 import { FishCompletionItem, FishCompletionItemKind, getCompletionDocumentationValue } from './types';
 import { StaticItems } from './static-items';
 import { runSetupItems, SetupItemsFromCommandConfig, SetupResult } from './startup-config';
-import { md } from '../markdown-builder';
+import { md } from '../utils/markdown-builder';
 import {
   JsonType,
   applyPrebuiltDescription,
   getHydratedPrebuiltDescription,
   getSpecialVariableHoverDoc,
   warmPrebuiltCommandDescriptions,
-} from '../snippets';
+} from '../utils/snippets';
 
 export type ItemMapRecord = Record<FishCompletionItemKind, FishCompletionItem[]>;
 

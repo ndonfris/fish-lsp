@@ -1,6 +1,6 @@
 import { CompletionItem, CompletionItemKind } from 'vscode-languageserver';
 import { getCommandDocString, getDocumentationResolver } from './documentation';
-import { execSubCommandCompletions } from '../exec';
+import { execSubCommandCompletions } from '../utils/exec';
 import {
   FishCompletionItem,
   FishCompletionItemKind,
@@ -8,7 +8,7 @@ import {
   toCompletionMarkdownDocumentation,
 } from './types';
 import { CompletionItemMap } from './startup-cache';
-import { subcommandCache } from '../subcommand-cache';
+import { subcommandCache } from '../utils/subcommand-cache';
 
 type ResolveCompletionMap = Pick<CompletionItemMap, 'findLabel'>;
 

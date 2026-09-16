@@ -1,11 +1,11 @@
+import { readdir } from 'fs/promises';
 import { dirname } from 'path';
-import { SymbolKind } from 'vscode-languageserver';
-import { CompletionContext } from './context';
+import { CompletionItemKind, SymbolKind } from 'vscode-languageserver';
+import { CompletionContext, openIndexTerm } from './context';
 import { CompletionItemMap } from './startup-cache';
 import { cloneCompletionItem, FishCompletionItem, FishCompletionItemKind, getCompletionDocumentationValue } from './types';
 import { shellComplete } from './shell';
 import { buildCommentCompletions } from './comment-completions';
-import { execCompleteCmdArgs } from '../exec';
 
 type Items = FishCompletionItem[];
 
@@ -23,13 +23,45 @@ function fromMap(items: Items, priority?: number): Items {
 }
 
 /**
+ * The start of the word a variable completing an index term keeps: `var[` in
+ * `set var[`, `var[1..` in `set -l var[1..va`. The index reads the variable with
+ * `$`, even in a definition slot. `null` outside an index.
+ */
+function indexTermPrefix(ctx: CompletionContext): string | null {
+  if (ctx.mode !== 'argument') return null;
+  const term = openIndexTerm(ctx.word);
+  if (!term || term.dollars) return null;
+  // `echo foo[` is a plain word, not an index
+  const indexed = /^\$+\w+$/.test(term.before) || ctx.isDefinitionSlot && /^\w+$/.test(term.before);
+  return indexed ? ctx.word.slice(0, ctx.word.length - term.name.length) : null;
+}
+
+/**
  * Text inserted for a variable name: the typed prefix in `variable` mode, a plain
  * name at a definition slot (`set NAME`), otherwise a `$` expansion (`ls $NAME`).
+ *
+ * The item replaces the whole word, so a path or an index typed before it stays in
+ * front of the expansion (`cd ./` -> `cd ./$NAME`, `set var[` -> `set var[$NAME`),
+ * and in the text the client filters by.
  */
-function variableInsertText(ctx: CompletionContext, name: string): string | undefined {
-  if (ctx.mode === 'variable') return ctx.variablePrefix + name;
-  if (ctx.isDefinitionSlot || ctx.word.startsWith('$')) return undefined;
-  return '$' + name;
+function setVariableText(item: FishCompletionItem, ctx: CompletionContext, name: string): FishCompletionItem {
+  const indexPrefix = indexTermPrefix(ctx);
+  if (ctx.mode === 'variable') {
+    item.insertText = ctx.variablePrefix + name;
+  } else if (indexPrefix !== null) {
+    item.insertText = `${indexPrefix}$${name}`;
+    item.filterText = indexPrefix + name;
+  } else if (ctx.isDefinitionSlot) {
+    // `set NAME`: the label is inserted as is
+  } else if (ctx.word.startsWith('$')) {
+    // the item replaces the whole word, so the typed `$` goes back in front
+    item.insertText = /^\$+/.exec(ctx.word)![0] + name;
+  } else {
+    const directory = ctx.word.slice(0, ctx.word.lastIndexOf('/') + 1);
+    item.insertText = `${directory}$${name}`;
+    if (directory) item.filterText = directory + name;
+  }
+  return item;
 }
 
 /**
@@ -39,6 +71,46 @@ function variableInsertText(ctx: CompletionContext, name: string): string | unde
  */
 function excludedCompletionDirs(ctx: CompletionContext): string[] {
   return ctx.doc.isAutoloadedCompletion() ? [dirname(ctx.doc.getFilePath())] : [];
+}
+
+/**
+ * The directory `complete --do-complete` resolves relative paths against. Fish is
+ * spawned without a `cwd`, so it inherits the server process's, which is wherever
+ * the client launched fish-lsp rather than the edited file's directory.
+ */
+function completionDir(): string {
+  return process.cwd();
+}
+
+let dirCache: { dir: string; at: number; entries: Set<string>; } | undefined;
+
+/**
+ * Names in `completionDir()`, so a label fish produced by falling back to file
+ * completion can be told apart from a command's own argument. Cached briefly: a
+ * completion request is a keystroke, and the listing is only a classifier.
+ */
+async function completionDirEntries(): Promise<Set<string>> {
+  const dir = completionDir();
+  const now = Date.now();
+  if (dirCache && dirCache.dir === dir && now - dirCache.at < 2000) return dirCache.entries;
+  try {
+    const entries = new Set(await readdir(dir));
+    dirCache = { dir, at: now, entries };
+    return entries;
+  } catch {
+    dirCache = { dir, at: now, entries: new Set() };
+    return dirCache.entries;
+  }
+}
+
+/**
+ * `true` when fish produced this label by listing the filesystem. Fish leaves
+ * those undescribed, so a described match (`git add` tagging `README.md` as a
+ * `Modified file`) stays an argument of its command.
+ */
+function isFilesystemMatch(name: string, description: string, entries: Set<string>): boolean {
+  if (description) return false;
+  return entries.has(name.replace(/\/$/, ''));
 }
 
 /** index of the last quote that is still open, or -1 */
@@ -76,7 +148,7 @@ export const localSymbols: CompletionSource = (ctx) =>
   ctx.symbols.map((symbol) => {
     const item = FishCompletionItem.fromSymbol(symbol);
     if (symbol.kind === SymbolKind.Variable) {
-      item.insertText = variableInsertText(ctx, symbol.name);
+      setVariableText(item, ctx, symbol.name);
     } else if (symbol.kind === SymbolKind.Function) {
       item.setPriority(LOCAL_FUNCTION_PRIORITY);
     }
@@ -87,12 +159,7 @@ export const localFunctions: CompletionSource = (ctx) =>
   ctx.functions.map((symbol) => FishCompletionItem.fromSymbol(symbol).setPriority(LOCAL_FUNCTION_PRIORITY));
 
 export const localVariables: CompletionSource = (ctx) =>
-  ctx.variables.map((symbol) => {
-    const item = FishCompletionItem.fromSymbol(symbol);
-    const insertText = variableInsertText(ctx, symbol.name);
-    if (insertText !== undefined) item.insertText = insertText;
-    return item;
-  });
+  ctx.variables.map((symbol) => setVariableText(FishCompletionItem.fromSymbol(symbol), ctx, symbol.name));
 
 /* ─────────────────────────── completion map ─────────────────────────── */
 
@@ -108,9 +175,7 @@ export const globalVariables: CompletionSource = (ctx, map) =>
         getCompletionDocumentationValue(item.documentation),
         item.examples,
       );
-      const insertText = variableInsertText(ctx, item.label);
-      if (insertText !== undefined) newItem.insertText = insertText;
-      return newItem;
+      return setVariableText(newItem, ctx, item.label);
     });
 
 export const builtins: CompletionSource = (_ctx, map) => fromMap(map.allOfKinds('builtin'), 10);
@@ -123,12 +188,53 @@ export const mapCommands: CompletionSource = (_ctx, map) => fromMap(map.allCompl
 /** `# @fish-lsp-*` items suggested at an empty command position */
 export const commentDirectives: CompletionSource = (_ctx, map) => fromMap(map.allOfKinds('comment'), 95);
 
-export const combinersAndPipes: CompletionSource = (_ctx, map) => fromMap(map.allOfKinds('combiner', 'pipe'), 29);
+/**
+ * Operators belong to command endings, independently of the command's argument
+ * table. Only an argument slot takes them: a `variable` slot (`set -gx name `)
+ * wants names, and `blocked` positions list pipes through their own route.
+ */
+export const commandEndOperators: CompletionSource = (ctx, map) => {
+  if (ctx.mode !== 'argument' || !ctx.canEndCommand) return [];
+  return fromMap(map.allOfKinds('combiner', 'pipe'), 29)
+    // Negation prefixes a command; it cannot extend the preceding command.
+    .filter(item => item.label !== 'not' && item.label !== '!')
+    .map(item => {
+      // Word combiners start a new statement, unlike the infix &&/|| operators.
+      // Set this on the per-request copy so command-position items stay bare.
+      if (item.label === 'and' || item.label === 'or') item.insertText = `; ${item.label}`;
+      return item;
+    });
+};
 
 export const pipes: CompletionSource = (_ctx, map) => fromMap(map.allOfKinds('pipe'), 85);
 
 /** `src/snippets/completionSnippets.json`, one item per trigger (see `static-items.ts`) */
-export const snippets: CompletionSource = (_ctx, map) => fromMap(map.allOfKinds('snippet'), 99);
+export const snippets: CompletionSource = (ctx, map) => {
+  const atCommand = ctx.mode === 'empty' || ctx.mode === 'command';
+  return fromMap(map.allOfKinds('snippet'), 99).flatMap(item => {
+    const trigger = item.filterText ?? item.label;
+    const prefix = trigger.includes(' ')
+      ? ctx.snippetPrefixes.find(text => text.includes(' ') && trigger.startsWith(text))
+      : undefined;
+    if (prefix) {
+      // Each multiword item owns its range; ordinary completions still replace
+      // only ctx.word. filterText is compared against this full replacement span.
+      item.setData({
+        uri: ctx.doc.uri,
+        position: ctx.position,
+        line: ctx.line.slice(0, -prefix.length) + item.label,
+        word: prefix,
+        command: ctx.command ?? '',
+        context: { triggerKind: ctx.triggerKind, triggerCharacter: ctx.triggerCharacter },
+        replaceLength: prefix.length,
+      });
+      return [item];
+    }
+    // a multiword trigger only matches through its own range (above); unmatched,
+    // it would just repeat the snippet under the same label
+    return atCommand && !trigger.includes(' ') ? [item] : [];
+  });
+};
 
 /* ──────────────────────────────── fish ──────────────────────────────── */
 
@@ -151,17 +257,13 @@ export const shellMatches: CompletionSource = async (ctx, map) => {
   const unmatchedQuote = !ctx.embedded && ctx.command === 'complete' ? findLastUnmatchedQuoteIndex(ctx.commandline) : -1;
   const input = unmatchedQuote === -1 ? ctx.commandline : ctx.commandline.slice(0, unmatchedQuote);
 
-  const [matches, options] = await Promise.all([
+  const [matches, options, dirEntries] = await Promise.all([
     shellComplete(input, { excludeCompletionDirs }),
     // `string split <TAB>` also lists the subcommand's own flags
     ctx.mode === 'argument' && !ctx.word && ctx.commandline.endsWith(' ')
-      ? execCompleteCmdArgs(ctx.commandline.trim()).then(lines => lines
-        .map((line) => {
-          const [name, ...rest] = line.split('\t');
-          return [name || '', rest.join('\t')] as [string, string];
-        })
-        .filter(([name]) => name.length > 0))
+      ? shellComplete(`${input.trimEnd()} -`, { excludeCompletionDirs })
       : [] as [string, string][],
+    completionDirEntries(),
   ]);
 
   const items: Items = [];
@@ -179,7 +281,10 @@ export const shellMatches: CompletionSource = async (ctx, map) => {
     if ((ctx.command === 'return' || ctx.command === 'exit') && map.findLabel(name, 'status')) continue;
 
     const shellText = [ctx.commandline.slice(0, ctx.commandline.lastIndexOf(' ')), name].join(' ').trim();
-    items.push(FishCompletionItem.create(name, 'argument', description, shellText).setPriority(1));
+    const isPath = name.endsWith('/') || isFilesystemMatch(name, description, dirEntries);
+    const item = FishCompletionItem.create(name, isPath ? 'path' : 'argument', description, shellText).setPriority(1);
+    if (isPath) item.kind = name.endsWith('/') ? CompletionItemKind.Folder : CompletionItemKind.File;
+    items.push(item);
   }
   return items;
 };
@@ -188,9 +293,11 @@ export const shellMatches: CompletionSource = async (ctx, map) => {
 export const paths: CompletionSource = async (ctx) => {
   if (!ctx.word.includes('/')) return [];
   const results = await shellComplete(`__fish_complete_path ${ctx.word}`, { raw: true });
-  return results.map(([name, description]) =>
-    FishCompletionItem.create(name, 'path', description, [name, description].join(' ')).setPriority(1),
-  );
+  return results.map(([name, description]) => {
+    const item = FishCompletionItem.create(name, 'path', description, [name, description].join(' ')).setPriority(1);
+    if (name.endsWith('/')) item.kind = CompletionItemKind.Folder;
+    return item;
+  });
 };
 
 /* ──────────────────────────── fish syntax ──────────────────────────── */
@@ -213,7 +320,7 @@ const FIRST_ARGUMENT_KINDS: Record<string, FishCompletionItemKind[]> = {
   exit: ['status', 'variable'],
 };
 
-/** static item kinds offered for later arguments; commands not listed get combiners and pipes */
+/** static item kinds offered for later arguments */
 const LATER_ARGUMENT_KINDS: Record<string, (args: string[]) => FishCompletionItemKind[]> = {
   return: () => ['status', 'variable'],
   exit: () => ['status', 'variable'],
@@ -232,11 +339,12 @@ const LATER_ARGUMENT_KINDS: Record<string, (args: string[]) => FishCompletionIte
 export const commandSyntaxItems: CompletionSource = (ctx, map) => {
   const command = ctx.command;
   if (!command) return [];
-  if (ctx.argIndex === 1) {
-    return fromMap(map.allOfKinds(...FIRST_ARGUMENT_KINDS[command] ?? []), 25);
-  }
-  const kinds = LATER_ARGUMENT_KINDS[command]?.(ctx.args) ?? ['combiner', 'pipe'];
-  return fromMap(map.allOfKinds(...kinds), 24);
+  const items = ctx.argIndex === 1
+    ? fromMap(map.allOfKinds(...FIRST_ARGUMENT_KINDS[command] ?? []), 25)
+    : fromMap(map.allOfKinds(...LATER_ARGUMENT_KINDS[command]?.(ctx.args) ?? []), 24);
+  // `set var[`: a variable completes the index term
+  if (indexTermPrefix(ctx) === null) return items;
+  return items.map(item => item.fishKind === FishCompletionItemKind.VARIABLE ? setVariableText(item, ctx, item.label) : item);
 };
 
 /** items implied by the first character of the word: `$` variables, `/` wildcards */
@@ -244,8 +352,8 @@ export const wordPrefixItems: CompletionSource = (ctx, map) => {
   switch (ctx.word.charAt(0)) {
     case '$':
       return [
-        ...fromMap(map.allOfKinds('variable'), 55),
-        ...ctx.variables.map((symbol) => FishCompletionItem.fromSymbol(symbol)),
+        ...fromMap(map.allOfKinds('variable'), 55).map(item => setVariableText(item, ctx, item.label)),
+        ...ctx.variables.map((symbol) => setVariableText(FishCompletionItem.fromSymbol(symbol), ctx, symbol.name)),
       ];
     case '/':
       return fromMap(map.allOfKinds('wildcard'));

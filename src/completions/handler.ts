@@ -1,11 +1,12 @@
 import { CompletionItemKind, CompletionList, InsertTextFormat } from 'vscode-languageserver';
-import { logger } from '../../logger';
+import { logger } from '../logger';
+import { config } from '../config';
 import { CompletionContext, CompletionLineParser, CompletionMode, CompletionRequest } from './context';
 import { CompletionItemMap } from './startup-cache';
 import { FishCompletionData, FishCompletionItem, FishCompletionItemKind, snippetToPlainText } from './types';
 import {
   builtins,
-  combinersAndPipes,
+  commandEndOperators,
   commandSyntaxItems,
   commentDirectives,
   commentItems,
@@ -33,17 +34,17 @@ type RouteKey = CompletionMode | `embedded:${CompletionMode}`;
  */
 const ROUTES: Partial<Record<RouteKey, CompletionSource[]>> = {
   comment: [commentItems],
-  variable: [localVariables, globalVariables],
+  variable: [localVariables, globalVariables, snippets],
   blocked: [pipes],
   empty: [localSymbols, builtins, shellCommandNames, commentDirectives, mapFunctions, snippets],
   command: [paths, shellMatches, localFunctions, wordPrefixItems, snippets],
-  argument: [paths, shellMatches, localVariables, commandSyntaxItems, wordPrefixItems],
+  argument: [paths, shellMatches, localVariables, commandSyntaxItems, wordPrefixItems, snippets],
 
   // a command position inside quotes (`complete -a '(`) takes the same names as one outside them
   'embedded:empty': [localSymbols, builtins, mapCommands, snippets],
   // fish already filters a partial name (`complete -n 'not __f`), as it does outside quotes
   'embedded:command': [paths, shellMatches, localFunctions, localVariables, snippets],
-  'embedded:argument': [paths, shellMatches, localVariables, globalVariables, commandSyntaxItems, wordPrefixItems, combinersAndPipes],
+  'embedded:argument': [paths, shellMatches, localVariables, globalVariables, commandSyntaxItems, wordPrefixItems, snippets],
 };
 
 export function routeFor(ctx: CompletionContext): CompletionSource[] {
@@ -78,7 +79,8 @@ export class CompletionHandler {
       argIndex: ctx.argIndex,
     });
     // a client without snippet support would insert `${1:i}` literally
-    const sources = routeFor(ctx).filter(source => this.client.snippetSupport || source !== snippets);
+    const client = { snippetSupport: this.client.snippetSupport && config.fish_lsp_enable_snippets };
+    const sources = [...routeFor(ctx), commandEndOperators].filter(source => client.snippetSupport || source !== snippets);
     const results = await Promise.all(sources.map(async (source) => {
       try {
         return await source(ctx, this.items);
@@ -87,7 +89,7 @@ export class CompletionHandler {
         return [];
       }
     }));
-    return toCompletionList(ctx, results.flat(), this.client);
+    return toCompletionList(ctx, results.flat(), client);
   }
 }
 
@@ -100,8 +102,9 @@ export function toCompletionList(
   items: FishCompletionItem[],
   client: CompletionClientOptions,
 ): CompletionList {
+  const snippetTriggers = pickSnippetTriggers(items, ctx.word);
   const seen = new Set<string>();
-  const deduped = items.filter((item) => {
+  const deduped = snippetTriggers.items.filter((item) => {
     const key = dedupeKey(item);
     if (seen.has(key)) return false;
     seen.add(key);
@@ -109,6 +112,11 @@ export function toCompletionList(
   });
   // comment items keep their authored order (shebangs, then directives)
   let unique = ctx.mode === 'comment' ? deduped : sortByPriority(deduped, ctx.word);
+  const withPaths = unique.length;
+  unique = unique.filter(item => keepPathItem(item, ctx.word));
+  // the client caches a complete list and filters it itself, so a dropped path
+  // would never come back as the word grows
+  const droppedPaths = unique.length !== withPaths;
 
   // items are per-request copies, so adjusting them never touches the completion map
   for (const item of unique) {
@@ -133,18 +141,21 @@ export function toCompletionList(
 
   if (shouldAttachTextEdits(ctx)) {
     for (const item of unique) {
+      if (item.textEdit) continue;
       item.setData({
         ...data,
-        line: ctx.line.slice(0, ctx.line.length - ctx.word.length) + item.label,
+        line: ctx.line.slice(0, ctx.line.length - ctx.replaceLength) + item.label,
       });
     }
   }
 
-  let isIncomplete = false;
+  let isIncomplete = droppedPaths || snippetTriggers.incomplete;
   if (ctx.mode !== 'comment' && ctx.mode !== 'variable') {
-    // after `-` only flags make sense; at a fresh slot, typing `-` must re-request
+    // After `-`, keep flags and snippets matching a whole phrase such as `set i -`.
+    // At a fresh slot, typing `-` must re-request.
     if (ctx.word.startsWith('-')) {
-      unique = unique.filter(item => item.label.startsWith('-'));
+      unique = unique.filter(item => item.label.startsWith('-')
+        || item.fishKind === FishCompletionItemKind.SNIPPET && (item.data?.replaceLength ?? 0) > ctx.replaceLength);
     } else if (!ctx.word && unique.some(item => item.label.startsWith('-'))) {
       isIncomplete = true;
     }
@@ -153,9 +164,20 @@ export function toCompletionList(
   return { isIncomplete, items: unique, itemDefaults: { data } };
 }
 
+/**
+ * A path item is only worth offering once the typed word narrows it. Fish falls
+ * back to listing the whole directory, so a bare `cmd <TAB>` would otherwise bury
+ * the command's own arguments under every neighbouring file.
+ */
+function keepPathItem(item: FishCompletionItem, word: string): boolean {
+  if (item.fishKind !== FishCompletionItemKind.PATH) return true;
+  return word !== '' && item.label.startsWith(word);
+}
+
 function shouldAttachTextEdits(ctx: CompletionContext): boolean {
   // comment items carry their own edits; a fresh slot has nothing to replace
-  if (ctx.mode === 'comment' || ctx.mode === 'blocked') return false;
+  if (ctx.mode === 'comment') return false;
+  if (ctx.mode === 'blocked') return ctx.canEndCommand;
   if (ctx.mode === 'empty' && !ctx.embedded) return false;
   return !ctx.line.endsWith(' ');
 }
@@ -173,13 +195,50 @@ function fallbackPriority(item: FishCompletionItem): number {
 }
 
 /**
- * Snippets may share a label with a command or builtin (`if`, `set`), and every
- * trigger of one snippet shares its label and body, differing only in `filterText`.
- * Keep those distinct while every other item dedupes by label.
+ * Snippets may share a label with a command or builtin (`if`, `set`); keep those
+ * distinct while every other item dedupes by label.
  */
 function dedupeKey(item: FishCompletionItem): string {
   if (item.fishKind !== FishCompletionItemKind.SNIPPET) return item.label;
-  return [item.label, item.fishKind, item.insertText ?? '', item.filterText ?? ''].join('\0');
+  return [item.label, item.fishKind, item.insertText ?? ''].join('\0');
+}
+
+/** the word a snippet item is reached by: its name or one of its `altTrigger`s */
+function snippetTrigger(item: FishCompletionItem): string {
+  return item.filterText ?? item.label;
+}
+
+/**
+ * Every trigger of a snippet is its own item under the snippet's label (see
+ * `static-items.ts`), which a client would list as duplicates. Keep one item per
+ * snippet: the trigger the typed word matches best, otherwise its name (the first).
+ *
+ * `incomplete` when a dropped trigger still extends the typed word but the kept one
+ * doesn't lead to it (`i` keeps `if` and drops `iff`): the client only filters the
+ * list it has, so it must ask again for `iff` to come back.
+ */
+function pickSnippetTriggers(items: FishCompletionItem[], word: string): { items: FishCompletionItem[]; incomplete: boolean; } {
+  const kept = new Map<string, FishCompletionItem>();
+  for (const item of items) {
+    if (item.fishKind !== FishCompletionItemKind.SNIPPET) continue;
+    const key = dedupeKey(item);
+    const best = kept.get(key);
+    if (!best || snippetMatchRank(item, word) < snippetMatchRank(best, word)) kept.set(key, item);
+  }
+
+  let incomplete = false;
+  const picked = items.filter((item) => {
+    if (item.fishKind !== FishCompletionItemKind.SNIPPET) return true;
+    const best = kept.get(dedupeKey(item))!;
+    if (item === best) return true;
+    const typed = item.data?.word ?? word;
+    const trigger = snippetTrigger(item);
+    if (typed && trigger.startsWith(typed) && !snippetTrigger(best).startsWith(trigger)) {
+      incomplete = true;
+    }
+    return false;
+  });
+  return { items: picked, incomplete };
 }
 
 /**
@@ -187,8 +246,9 @@ function dedupeKey(item: FishCompletionItem): string {
  * trigger, 1 for a prefix of it, 2 for everything else (non-snippets, no word).
  */
 function snippetMatchRank(item: FishCompletionItem, word: string): number {
+  word = item.data?.word ?? word;
   if (item.fishKind !== FishCompletionItemKind.SNIPPET || !word) return 2;
-  const trigger = item.filterText ?? item.label;
+  const trigger = snippetTrigger(item);
   if (trigger === word) return 0;
   if (trigger.startsWith(word)) return 1;
   return 2;
