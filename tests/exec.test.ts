@@ -1,6 +1,7 @@
 import { setLogger } from './helpers';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import { execSync } from 'child_process';
 import {
   execEscapedCommand,
@@ -12,6 +13,7 @@ import {
   ExecFishFiles,
   EmbeddedFishResult,
   runEmbeddedFish,
+  documentCommandDescription,
 } from '../src/utils/exec';
 
 function hasManPage(name: string): boolean {
@@ -108,6 +110,45 @@ describe('src/utils/exec.ts tests', () => {
     const output = await execCommandType('end');
     // console.log('docs: ', output.split('\n').length);
     expect(output).toEqual('builtin');
+  });
+
+  describe('runEmbeddedFish() arg quoting', () => {
+    const printArgs = 'printf "<%s>\\n" $argv';
+
+    it.each([
+      ['plain {a,b} $HOME (echo hi)'],
+      ['back\\\\slash \\n'],
+      ["it's"],
+      ['trailing \\'],
+      ['multi\nline'],
+      ['--no-execute'], // one of fish's own options
+    ])('passes %j through verbatim', async (arg) => {
+      const { stdout } = await runEmbeddedFish(printArgs, [arg]);
+      expect(stdout).toBe(`<${arg}>\n`);
+    });
+
+    it('an arg holding `\\\'` can not close its quotes to run a command', async () => {
+      const marker = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'fish-lsp-exec-')), 'ran');
+      const arg = `x\\';touch ${marker};#`;
+      const { stdout } = await runEmbeddedFish(printArgs, [arg]);
+      const ran = fs.existsSync(marker);
+      fs.rmSync(path.dirname(marker), { recursive: true, force: true });
+      expect(stdout).toBe(`<${arg}>\n`);
+      expect(ran).toBe(false);
+    });
+  });
+
+  it('documentCommandDescription() never runs its arg as code', async () => {
+    const marker = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'fish-lsp-exec-')), 'ran');
+    const results = [
+      await documentCommandDescription(`x";touch ${marker};#`), // was a `/bin/sh` string
+      await documentCommandDescription(`$(touch ${marker})`),
+    ];
+    const ran = fs.existsSync(marker);
+    fs.rmSync(path.dirname(marker), { recursive: true, force: true });
+    expect(ran).toBe(false);
+    // nothing describes these, so each falls back to itself
+    expect(results).toEqual([`x";touch ${marker};#`, `$(touch ${marker})`]);
   });
 
   describe('ExecFishFiles namespace', () => {

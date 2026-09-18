@@ -257,17 +257,16 @@ export const shellMatches: CompletionSource = async (ctx, map) => {
   const unmatchedQuote = !ctx.embedded && ctx.command === 'complete' ? findLastUnmatchedQuoteIndex(ctx.commandline) : -1;
   const input = unmatchedQuote === -1 ? ctx.commandline : ctx.commandline.slice(0, unmatchedQuote);
 
-  const [matches, options, dirEntries] = await Promise.all([
+  // Complete the commandline exactly as fish's `complete --do-complete` would for the
+  // requested input — nothing appended. (A bare `string split <TAB>` therefore lists no
+  // flags until a `-` is typed, matching fish; it used to append ` -` to force them.)
+  const [matches, dirEntries] = await Promise.all([
     shellComplete(input, { excludeCompletionDirs }),
-    // `string split <TAB>` also lists the subcommand's own flags
-    ctx.mode === 'argument' && !ctx.word && ctx.commandline.endsWith(' ')
-      ? shellComplete(`${input.trimEnd()} -`, { excludeCompletionDirs })
-      : [] as [string, string][],
     completionDirEntries(),
   ]);
 
   const items: Items = [];
-  for (const [name, description] of [...matches, ...options]) {
+  for (const [name, description] of matches) {
     if (map.shouldSkipMatch(name)) continue;
 
     if (ctx.mode === 'command') {

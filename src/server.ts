@@ -20,14 +20,14 @@ import { filterLastPerScopeSymbol, FishSymbol } from './parsing/symbol';
 import { CompletionHandler } from './completions/handler';
 import { resolveCompletionItemDocumentation } from './completions/resolve-item';
 import { PrebuiltDocumentationMap, warmPrebuiltCommandDescriptions } from './utils/snippets';
-import { findParent, findParentCommand, isAliasDefinitionName, isBraceExpansion, isCommand, isCommandName, isConcatenatedValue, isConcatenation, isDefinitionName, isEndStdinCharacter, isOption, isPathNode, isVariableDefinition } from './utils/node-types';
+import { findParent, findParentCommand, isAliasDefinitionName, isBraceExpansion, isCommand, isCommandName, isConcatenation, isDefinitionName, isEndStdinCharacter, isOption, isPathNode, isVariableDefinition } from './utils/node-types';
 import { config, Config } from './config';
 import { enrichToMarkdown, handleBraceExpansionHover, handleEndStdinHover, handleSourceArgumentHover } from './documentation';
 import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getDefaultSignatures, getFunctionSignatureHelp, isRegexStringSignature } from './signature';
 import { CompletionItemMap } from './completions/startup-cache';
 import { runSetupItems } from './completions/startup-config';
 import { getDocumentHighlights } from './document-highlight';
-import { semanticTokenHandler } from './semantic-tokens';
+import { isSetQueryEraseOrShowTargetNode, semanticTokenHandler } from './semantic-tokens';
 import { codeActionHandlers } from './code-actions/code-action-handler';
 import { createExecuteCommandHandler } from './command';
 import { getAllInlayHints } from './inlay-hints';
@@ -793,33 +793,38 @@ export default class FishServer {
       if (result) return result;
     }
 
+    // Preview what fish expands the word under the cursor to: `{a,b}`, `pre{a,b}`,
+    // `{\⏎a,\⏎b}`. Inside a brace that's the brace, or the `concatenation` around it
+    // (`pre{a,b}`), never the nearest `concatenation`: a multiline brace wraps each
+    // `\⏎a` item in its own one.
+    //
     // A variable definition name can sit inside a `concatenation` node — e.g.
     // `PATH=` in `export PATH="/bin:$PATH"`. That is a real symbol, so prefer its
     // definition hover (resolved further down) over the brace/concatenation
-    // expansion preview.
-    if (isConcatenatedValue(current) && !isDefinitionName(current)) {
-      logger.log('isConcatenatedValue', { text: current.text, type: current.type });
-      const parent = findParent(current, isConcatenation);
-      const brace = findParent(current, isBraceExpansion);
-      if (parent) {
-        const res = await handleBraceExpansionHover(parent);
-        if (res) return res;
-      }
-      if (brace) {
+    // expansion preview. So can a variable `set -q/-e/-S` names: `var` in `var[2]`.
+    const brace = findParent(current, isBraceExpansion);
+    const expansion = brace?.parent && isConcatenation(brace.parent)
+      ? brace.parent
+      : brace ?? findParent(current, isConcatenation);
+    // A quoted or escaped piece only previews a word that has a brace to expand
+    // (`"$HOME"/{a,b}`); otherwise it's plain text: `'fish'` in `alias ff='fish'`,
+    // `'ff'` in `-w='ff'`, or a `$name` fish expands later (`alias ff='echo $name'`).
+    const isQuotedPart = ['escape_sequence', 'double_quote_string', 'single_quote_string'].includes(current.type);
+    const hasBrace = !!brace || !!expansion && expansion.descendantsOfType('brace_expansion').length > 0;
+    const isExpansionPart = ['word', 'integer', 'variable_expansion', 'brace_expansion', 'concatenation'].includes(current.type)
+      || isQuotedPart && hasBrace
+      // the brace's own `{` `,` `}` tokens
+      || !current.isNamed && current.parent !== null && isBraceExpansion(current.parent);
+    if (expansion && isExpansionPart && !isDefinitionName(current) && !isSetQueryEraseOrShowTargetNode(current)) {
+      logger.log('expansion hover', { text: expansion.text, type: expansion.type });
+      const res = await handleBraceExpansionHover(expansion);
+      if (res) return res;
+      // the whole word can expand to nothing (e.g. an unset `$var` prefix), so
+      // still preview the brace under the cursor on its own
+      if (brace && expansion !== brace) {
         const res = await handleBraceExpansionHover(brace);
         if (res) return res;
       }
-    }
-    // handle brace expansion hover
-    if (isBraceExpansion(current)) {
-      logger.log('isBraceExpansion', { text: current.text, type: current.type });
-      const res = await handleBraceExpansionHover(current);
-      if (res) return res;
-    }
-    if (current.parent && isBraceExpansion(current.parent)) {
-      logger.log('isBraceExpansion: parent', { text: current.parent.text, type: current.parent.type });
-      const res = await handleBraceExpansionHover(current.parent);
-      if (res) return res;
     }
 
     if (isEndStdinCharacter(current)) {

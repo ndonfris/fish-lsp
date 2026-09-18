@@ -47,14 +47,15 @@ end
 # │ special processing │
 # └────────────────────┘
 # argparse --strict-longopts --move-unknown --unknown-arguments=none --stop-nonopt \
-#     'function=&' 'builtin=&' 'command=&' 'use-help=&' 'h/help=&' -- $argv &>/dev/null 
+#     'function=&' 'builtin=&' 'command=&' 'h/help=&' -- $argv &>/dev/null 
 # or 
+#
+# fish-lsp calls this with `--` first: its arguments are names from a document,
+# and one like `--u` would otherwise be read as an (abbreviated) option.
 argparse --ignore-unknown --stop-nonopt \
     'function=&' \
     'builtin=&' \
     'command=&' \
-    'use-help' \
-    'with-col' \
     'h/help=&' \
     -- $argv &>/dev/null
 or return 0
@@ -71,8 +72,6 @@ Options:
   --function         Retrieve documentation for a fish function
   --builtin          Retrieve documentation for a fish builtin
   --command          Retrieve documentation for a system command
-  --use-help         Use help documentation if available
-  --with-col         Make sure pager is not used (pipes output through 'col -bx')
   -h, --help         Show this help message and exit
 
 Examples:
@@ -80,7 +79,6 @@ Examples:
   >_ get-docs.fish complete
   >_ get-docs.fish --function my_custom_function
   >_ get-docs.fish --builtin set
-  >_ get-docs.fish --use-help --with-col set
 "
     return 0
 end
@@ -88,15 +86,6 @@ end
 # ┌────────────┐
 # │ core logic │
 # └────────────┘
-
-if set -ql _flag_use_help
-    set cmd $argv --help
-    if set -ql _flag_with_col
-        set -a cmd \| col -bx
-    end
-    eval $cmd 2>/dev/null 
-    return $status
-end
 
 if set -ql _flag_builtin || builtin -q $argv[1] 2>/dev/null
     __handle_builtin (string join '-' --no-empty -- (validate_args $argv))

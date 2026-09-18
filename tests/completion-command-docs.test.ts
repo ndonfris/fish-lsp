@@ -475,42 +475,36 @@ describe('Command completion documentation', () => {
     expect(result.items.some(i => i.label === '--help')).toBe(true);
   });
 
-  it('includes subcommand flags when completing at trailing space with no current word', async () => {
+  it('does not eagerly list subcommand flags at a trailing space (matches `complete --do-complete`)', async () => {
+    // At `string split ` fish's own `complete --do-complete='string split '` returns
+    // nothing — flags only appear once a `-` is typed. The handler completes the line
+    // exactly as-is, so it must not surface flags here either.
     const content = 'string split ';
     const doc = createFakeLspDocument('/tmp/string-split-trailing-space.fish', content);
     analyzer.analyze(doc);
 
-    // await server.onInitialized({})
     const params: CompletionParams = {
       textDocument: { uri: doc.uri },
       position: { line: 0, character: content.length },
     };
 
-    // `string split -` switches/flags
-    const expectedFlags: string[] = [
-      '--fields',
-      '--help',
-      '--max',
-      '--no-empty',
-      '--quiet',
-      '--right',
-      '-f',
-      '-h',
-      '-m',
-      '-n',
-      '-q',
-      '-r',
-    ];
+    const result = await server.onCompletion(params);
+    expect(result.items.some(item => item.label.startsWith('-'))).toBe(false);
+  });
+
+  it('lists subcommand flags once a `-` is typed', async () => {
+    const content = 'string split -';
+    const doc = createFakeLspDocument('/tmp/string-split-dash.fish', content);
+    analyzer.analyze(doc);
+
+    const params: CompletionParams = {
+      textDocument: { uri: doc.uri },
+      position: { line: 0, character: content.length },
+    };
 
     const result = await server.onCompletion(params);
-    expect(result.items.some(i => i.label === '-f')).toBe(true);
-    expect(result.items.some(i => i.label === '--help')).toBe(true);
-    expect(result.items.some(i => i.label === '--max')).toBe(true);
-
-    const completionItemFlags = result.items.filter(item => item.label.startsWith('-'));
-    expect(completionItemFlags.length).toBeGreaterThanOrEqual(expectedFlags.length);
-    for (const flag of expectedFlags) {
-      expect(completionItemFlags.some(item => item.label === flag)).toBeTruthy();
+    for (const flag of ['-f', '--help', '--max', '-r']) {
+      expect(result.items.some(item => item.label === flag)).toBe(true);
     }
   });
 

@@ -97,8 +97,8 @@ export async function getFunctionDocString(name: string): Promise<string | undef
   }
 
   const [title, body] = await Promise.all([
-    execCmd(`functions -D -v ${name}`),
-    execCmd(`functions --no-details ${name}`),
+    execCmd('functions -D -v -- $argv', { args: [name] }),
+    execCmd('functions --no-details -- $argv', { args: [name] }),
   ]);
   const value = cachedDocumentation?.find(name, SymbolKind.Function);
   if (value?.resolved && value.formattedDocs) {
@@ -237,8 +237,8 @@ export async function getEventHandlerDocString(documentation: string): Promise<s
  * builds MarkupString for global variable documentation
  */
 export async function getVariableDocString(name: string): Promise<string | undefined> {
-  const vName = name.startsWith('$') ? name.slice(name.lastIndexOf('$')) : name;
-  const out = await execCmd(`set --show --long ${vName}`);
+  const vName = name.startsWith('$') ? name.slice(name.lastIndexOf('$') + 1) : name;
+  const out = await execCmd('set --show --long -- $argv', { args: [vName] });
   const { first, middle, last } = out.reduce((acc, curr, idx, arr) => {
     if (idx === 0) {
       acc.first = curr;

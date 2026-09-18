@@ -5,33 +5,16 @@
 #       $argv[1] = '1' | '2' | '3'
 #       $argv[2] =  string to be completed from the shell
 #
+# $argv[2] can be text from a document: it is only ever the value of
+# `--do-complete`, never pasted into code that gets `eval`'d.
 ##
 
-
-
-function build_cmd --argument-names input
-    set --local input_arr (string split --right --max 1 ' ' -- "$input")
-    #switch "$input_arr[2]"
-        ##case '-*'
-            ##printf "complete --escape --do-complete '$input' | uniq | string match --regex --entire '^\-'"
-        ##case ''
-            ##string match -req '^\s?\$' -- "$input_arr[1]";
-            ##printf "complete --escape --do-complete '$input' | uniq ";
-            ##or printf "complete --escape --do-complete '$input -' | uniq | string match --regex --entire '^\-' && complete --escape --do-complete '$input ' | uniq";
-        #case '*'
-    #end
-    printf "complete --escape --do-complete '$argv' | uniq"
-end
-
-# taken from my fish_config
 function get-completions
-    set --local cmd (build_cmd "$argv")
-    eval $cmd
+    complete --escape --do-complete="$argv" | uniq
 end
 
-function get-subcommand-completions 
-    set --local cmd (printf "complete --escape --do-complete '$argv ' | uniq")
-    eval $cmd
+function get-subcommand-completions
+    complete --escape --do-complete="$argv " | uniq
 end
 
 function get-variable-completions

@@ -3,10 +3,13 @@ import { CodeAction, CreateFile, TextDocumentEdit, TextEdit, VersionedTextDocume
 import { SyntaxNode } from 'web-tree-sitter';
 import { getRange } from '../utils/tree-sitter';
 import { LspDocument } from '../document';
-import { execAsyncF } from '../utils/exec';
+import { runEmbeddedFish } from '../utils/exec';
 import { join } from 'path';
 import { SupportedCodeActionKinds } from './action-kinds';
 import { pathToUri } from '../utils/translation';
+import { isOption } from '../utils/node-types';
+import { safeFishSource } from '../utils/safe-fish-source';
+import AliasFunction from '../../fish_files/alias-function.fish';
 
 /**
  * Extracts the function name from an alias node
@@ -35,6 +38,20 @@ function extractFunctionName(node: SyntaxNode): string {
 }
 
 /**
+ * The function (fish_indent-ed, without its `# Defined via` line) that the `alias`
+ * command `node` would define. Never runs the file's `alias` line: `alias` `source`s
+ * its body, so `alias x='end; rm …; function y'` would run `rm`. Each argument reaches
+ * fish as `safeFishSource()`, and `alias-function.fish` prints what `alias` would source.
+ */
+async function aliasFunctionText(node: SyntaxNode): Promise<string> {
+  const args = node.childrenForFieldName('argument')
+    .filter(arg => !isOption(arg)) // e.g. `--save` (writing the function to disk)
+    .map(arg => safeFishSource(arg));
+  const { stdout } = await runEmbeddedFish(AliasFunction, args);
+  return stdout.trim();
+}
+
+/**
  * Creates a quick-fix code action to convert an alias to a function inline
  * This action will replace the alias line with the function content.
  */
@@ -42,14 +59,13 @@ export async function createAliasInlineAction(
   doc: LspDocument,
   node: SyntaxNode,
 ): Promise<CodeAction | undefined> {
-  const aliasCommand = node.text;
   const funcName = extractFunctionName(node);
 
   if (!funcName) {
     return undefined;
   }
 
-  const stdout = await execAsyncF(`${aliasCommand} && functions ${funcName} | tail +2 | fish_indent`);
+  const stdout = await aliasFunctionText(node);
   const edit = TextEdit.replace(
     getRange(node),
     `\n${stdout}\n`,
@@ -92,11 +108,10 @@ export async function createAliasSaveActionNewFile(
   doc: LspDocument,
   node: SyntaxNode,
 ): Promise<CodeAction> {
-  const aliasCommand = node.text;
   const funcName = extractFunctionName(node);
 
   // Get function content but remove first line (function declaration) and indent
-  const functionContent = await execAsyncF(`${aliasCommand} && functions ${funcName} | tail +2 | fish_indent`);
+  const functionContent = await aliasFunctionText(node);
 
   // Create path for new function file
   const functionPath = join(os.homedir(), '.config', 'fish', 'functions', `${funcName}.fish`);
