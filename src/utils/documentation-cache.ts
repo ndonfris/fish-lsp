@@ -1,5 +1,5 @@
 import { SymbolKind, MarkupContent } from 'vscode-languageserver';
-import { execCmd, execCommandDocs, execEscapedCommand } from './exec';
+import { execCmd, execCommandDocs } from './exec';
 import { isBuiltin } from './builtins';
 import { md } from './markdown-builder';
 import { convertTitleOperatorToToken } from '../completions/documentation';
@@ -88,7 +88,7 @@ export async function resolveItem(name: string, item: CachedGlobalItem, uri?: st
  * just a getter for the absolute path to a function defined
  */
 async function getFunctionUri(name: string): Promise<string | undefined> {
-  const uriString = await execEscapedCommand(`type -ap ${name}`);
+  const uriString = await execCmd('type -ap -- $argv', { args: [name] });
   const uri = uriString.join('\n').trim();
   if (!uri) {
     return undefined;
@@ -100,7 +100,7 @@ async function getFunctionUri(name: string): Promise<string | undefined> {
  * builds FunctionDocumentation string
  */
 export async function getFunctionDocString(name: string): Promise<string | undefined> {
-  const functionDoc = await execCmd(`functions ${name}`);
+  const functionDoc = await execCmd('functions -- $argv', { args: [name] });
   if (!functionDoc) return;
   return [
     `${md.italic('(function)')} - ${md.inlineCode(name)}`,
@@ -138,8 +138,8 @@ export async function getBuiltinDocString(name: string): Promise<string | undefi
  * builds MarkupString for global variable documentation
  */
 export async function getVariableDocString(name: string): Promise<string | undefined> {
-  const vName = name.startsWith('$') ? name.slice(name.lastIndexOf('$')) : name;
-  const out = await execCmd(`set --show --long ${vName}`);
+  const vName = name.startsWith('$') ? name.slice(name.lastIndexOf('$') + 1) : name;
+  const out = await execCmd('set --show --long -- $argv', { args: [vName] });
   const { first, middle, last } = out.reduce((acc, curr, idx, arr) => {
     if (idx === 0) {
       acc.first = curr;

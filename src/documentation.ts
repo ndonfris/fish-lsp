@@ -5,10 +5,11 @@ import { execCommandDocs, execCommandType, execExpandBraceExpansion } from './ut
 import { md } from './utils/markdown-builder';
 import { Analyzer } from './analyze';
 import { getExpandedSourcedFilenameNode } from './parsing/source';
-import { isCommand, isOption } from './utils/node-types';
+import { isOption } from './utils/node-types';
 import { LspDocument } from './document';
 import { uriToPath } from './utils/translation';
 import { findPrebuiltDoc } from './utils/snippets';
+import { childrenWithGaps, fishLiteral, safeFishSource } from './utils/safe-fish-source';
 
 export type markdownFiletypes = 'fish' | 'man';
 
@@ -63,26 +64,46 @@ export function handleSourceArgumentHover(analyzer: Analyzer, current: SyntaxNod
   };
 }
 
+/** `--opt={a,b}` → the source for just the value after the first `=`, `{'a','b'}` */
+function optionValuePreviewSource(node: SyntaxNode): string | null {
+  const parts = childrenWithGaps(node);
+  const eq = parts.findIndex(part => (typeof part === 'string' ? part : part.text).includes('='));
+  const part = parts[eq];
+  if (!part) return null;
+  // only split a `--opt=x` word or the `=` token itself, not e.g. a `"a=b"` string
+  if (typeof part !== 'string' && part.isNamed && part.type !== 'word') return null;
+  const text = typeof part === 'string' ? part : part.text;
+  const value = text.slice(text.indexOf('=') + 1);
+  return (value ? fishLiteral(value) : '') + parts.slice(eq + 1).map(safeFishSource).join('');
+}
+
 export async function handleBraceExpansionHover(current: SyntaxNode): Promise<Hover | null> {
-  let text = current.text;
-  if (isOption(current) || isCommand(current)) {
-    if (text.includes('=')) {
-      text = text.slice(text.indexOf('=') + 1).trim();
-    }
-  }
-  const expanded = await execExpandBraceExpansion(text);
+  const source = isOption(current) && optionValuePreviewSource(current) || safeFishSource(current);
+  const expanded = await execExpandBraceExpansion(source);
   if (expanded.trim() === '' || expanded.trim() === '1  |``|') {
     return null; // No expansion found, return null
   }
-  const isBraceExpansion = text.includes('{') && text.includes('}');
+  const isBraceExpansion = current.type === 'brace_expansion'
+    || current.children.some(child => child.type === 'brace_expansion');
   const headerLines = isBraceExpansion ? [
     `${md.boldItalic('BRACE EXPANSION')} - ${md.italic('https://fishshell.com/docs/current/language.html#brace-expansion')}`,
     md.separator(),
   ] : [];
+  // a multiline word's `\`+newline continuation lines keep the file's indentation
+  // (`z/{\⏎        1/a,\⏎        2/b}`), which drifts right once the word is shown
+  // on its own, so cap it at 4 spaces. Tabs are left alone: fish keeps them as part
+  // of a brace item (`z/{\⏎<TAB>1/a}` → `z/<TAB>1/a`), unlike spaces.
+  const shownText = current.text.replace(
+    /\\(\r?\n)( {5,})/g,
+    (_, newline: string) => `\\${newline}    `,
+  );
   return {
     contents: enrichToMarkdown([
       ...headerLines,
-      md.codeBlock('fish', current.text),
+      md.codeBlock('txt', shownText),
+      // the preview still quotes whatever the error left behind, but fish itself
+      // would reject or split the word differently
+      ...current.hasError ? [md.italic('has a syntax error: fish may not expand it like this')] : [],
       md.separator(),
       md.codeBlock('markdown', expanded),
     ].join(md.newline())),

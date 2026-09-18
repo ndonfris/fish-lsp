@@ -22,22 +22,16 @@ export type EmbeddedFishResult = {
 
 export function runEmbeddedFish(script: string, args: string[] = []): Promise<EmbeddedFishResult> {
   return new Promise((resolve, reject) => {
-    // Use fish's psub (process substitution) to source from stdin and pass arguments correctly
-    // This approach properly handles arguments with spaces, quotes, and special characters
-    const argsEscaped = args.map(arg => {
-      // Escape single quotes by replacing ' with '\''
-      const escaped = arg.replace(/'/g, "'\\''");
-      return `'${escaped}'`;
-    }).join(' ');
-
-    const fishCommand = args.length > 0
-      ? `source (command cat | psub) ${argsEscaped}`
-      : 'source (command cat | psub)';
-
+    // Use fish's psub (process substitution) to source the script from stdin.
+    // The args never become part of the `-c` code: fish puts everything after `--`
+    // into `$argv` verbatim, which is forwarded to the script. (They used to be
+    // quoted into the code, where an arg holding `\'` could close its quote and run
+    // the rest: `x\';cmd;#`.)
+    //
     // Honor a user-configured fish binary (`fish_lsp_fish_path`) like the other
     // exec paths do, instead of hardcoding `fish` from PATH. `config` is populated
     // with the schema default (`'fish'`) at module load, so this is always defined.
-    const child = spawn(config.fish_lsp_fish_path, ['-c', fishCommand], {
+    const child = spawn(config.fish_lsp_fish_path, ['-c', 'source (command cat | psub) $argv', '--', ...args], {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
@@ -64,7 +58,8 @@ export namespace ExecFishFiles {
   }
 
   export function getDocs(...args: string[]): Promise<EmbeddedFishResult> {
-    return runEmbeddedFish(GetDocs, args);
+    // `--`: `args` are names from a document, never options for the script
+    return runEmbeddedFish(GetDocs, ['--', ...args]);
   }
 
   export function getType(...args: string[]): Promise<EmbeddedFishResult> {
@@ -128,6 +123,12 @@ export async function execEscapedCommand(cmd: string): Promise<string[]> {
 export async function execCmd(cmd: string, options?: {
   interactiveMode?: boolean;
   shellCommand?: string;
+  /**
+   * `$argv` for `cmd`. Anything from a document (a function or variable name…)
+   * belongs here, never inside `cmd`, where fish would run it as code:
+   * `execCmd('functions -- $argv', { args: [name] })`
+   */
+  args?: string[];
 }): Promise<string[]> {
   const shellCmd = options?.shellCommand || config.fish_lsp_fish_path || 'fish';
   const prefixOpts = [
@@ -135,6 +136,7 @@ export async function execCmd(cmd: string, options?: {
     options?.interactiveMode ? '--interactive' : '',
     '--command',
   ].filter(Boolean);
+  const args = options?.args ? ['--', ...options.args] : [];
 
   // execFileAsync rejects when fish exits non-zero (e.g. `functions -D -v
   // unknown_fn`). Treat that the same as the empty-stdout/stderr path so
@@ -142,7 +144,7 @@ export async function execCmd(cmd: string, options?: {
   let stdout: string | Buffer = '';
   let stderr: string | Buffer = '';
   try {
-    ({ stdout, stderr } = await execFileAsync(shellCmd, [...prefixOpts, cmd]));
+    ({ stdout, stderr } = await execFileAsync(shellCmd, [...prefixOpts, cmd, ...args]));
   } catch (err) {
     const errStdout = (err as { stdout?: string | Buffer; }).stdout;
     if (errStdout !== undefined) stdout = errStdout;
@@ -203,10 +205,8 @@ export async function execSubCommandCompletions(...cmd: string[]): Promise<strin
 }
 
 export async function execCompleteLine(cmd: string): Promise<string[]> {
-  const escapedCmd = cmd.replace(/(["'`\\])/g, '\\$1');
-  const completeString = `${config.fish_lsp_fish_path} -c "complete --do-complete='${escapedCmd}'"`;
-
-  const child = await execAsync(completeString);
+  // `cmd` is only ever `$argv[1]`: never part of the code, and no `/bin/sh` in between
+  const child = await execFileAsync(config.fish_lsp_fish_path, ['-c', 'complete --do-complete=$argv[1]', '--', cmd]);
 
   if (child.stderr) {
     return [''];
@@ -216,10 +216,7 @@ export async function execCompleteLine(cmd: string): Promise<string[]> {
 }
 
 export async function execCompleteSpace(cmd: string): Promise<string[]> {
-  const escapedCommand = cmd.replace(/(["'$`\\])/g, '\\$1');
-  const completeString = `${config.fish_lsp_fish_path} -c "complete --do-complete='${escapedCommand} '"`;
-
-  const child = await execAsync(completeString);
+  const child = await execFileAsync(config.fish_lsp_fish_path, ['-c', 'complete --do-complete="$argv[1] "', '--', cmd]);
 
   if (child.stderr) {
     return [''];
@@ -265,7 +262,8 @@ export interface CompletionArguments {
 }
 
 export async function documentCommandDescription(cmd: string): Promise<string> {
-  const cmdDescription = await execAsync(`${config.fish_lsp_fish_path} -c "__fish_describe_command ${cmd}" | head -n1`);
+  // `cmd` is only ever `$argv[1]`: never part of the code, and no `/bin/sh` in between
+  const cmdDescription = await execFileAsync(config.fish_lsp_fish_path, ['-c', '__fish_describe_command $argv[1] | head -n1', '--', cmd]);
   return cmdDescription.stdout.trim() || cmd;
 }
 
