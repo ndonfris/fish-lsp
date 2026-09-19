@@ -18,6 +18,7 @@ import { getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspa
 import { workspaceManager } from './utils/workspace-manager';
 import { filterLastPerScopeSymbol, FishSymbol } from './parsing/symbol';
 import { CompletionHandler } from './completions/handler';
+import { refreshShellCompletions, stopShellCompletions, warmShellCompletions } from './completions/shell';
 import { resolveCompletionItemDocumentation } from './completions/resolve-item';
 import { PrebuiltDocumentationMap, warmPrebuiltCommandDescriptions } from './utils/snippets';
 import { findParent, findParentCommand, isAliasDefinitionName, isBraceExpansion, isCommand, isCommandName, isConcatenation, isDefinitionName, isEndStdinCharacter, isOption, isPathNode, isVariableDefinition } from './utils/node-types';
@@ -149,6 +150,10 @@ export default class FishServer {
     // Autoloaded fish vars ($__fish_config_dir, …) are required to expand the
     // workspace index paths, so this must finish before workspace discovery.
     await setupProcessEnvExecFile();
+
+    // Start the long-running completion fish (it loads the user's config once) and
+    // list the command names now, after the env above, so completing never waits on it.
+    warmShellCompletions();
 
     // rootUri/rootPath are deprecated in LSP, but we still log/support them for older clients.
     const legacyRoots = params as unknown as { rootUri?: string | null; rootPath?: string | null; };
@@ -382,6 +387,8 @@ export default class FishServer {
     if (!document) return;
 
     const { uri } = this.analyzeDocument(document);
+    // the completion fish keeps what it loaded: the saved file may be a function or completion
+    refreshShellCompletions();
 
     await workspaceManager.analyzePendingDocuments();
     analyzer.diagnostics.requestUpdate(uri, true); // immediate on save
@@ -406,6 +413,7 @@ export default class FishServer {
    */
   async onShutdown() {
     this.dispose();
+    stopShellCompletions();
     analyzer.cancelReferenceWarm();
     analyzer.diagnostics.clear();
     workspaceManager.clear();

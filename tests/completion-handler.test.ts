@@ -38,6 +38,17 @@ describe('completion handler', () => {
     return handle.server.onCompletion(params);
   }
 
+  // Prints what a client receives: drop `.skip`, then run with `-t "raw completion output"`
+  describe.skip('raw completion output', () => {
+    it.each(['string ', 'string s', 'path '])('%j', async (content) => {
+      console.table((await complete(content)).items.map(({ sortText, kind, label, filterText, textEdit, insertText }) => ({
+        sortText, kind: Object.entries(CompletionItemKind).find(([, value]) => value === kind)?.[0], label, filterText,
+        range: textEdit && 'range' in textEdit ? `${textEdit.range.start.character}-${textEdit.range.end.character}` : '',
+        inserts: (textEdit?.newText ?? insertText ?? '').replace(/\n/g, '⏎'),
+      })));
+    });
+  });
+
   describe('getEmbeddedCommandline()', () => {
     it.each([
       ["complete -c foo -n '", ''],
@@ -110,6 +121,17 @@ describe('completion handler', () => {
       ['echo a \\\n    b ', 'echo', ['a', 'b'], ''],
       ['echo foo\\\nbar ', 'echo', ['foobar'], ''],
       ['echo (\n    ls ', 'ls', [], ''],
+      ["# don't modify this\nstring sp", 'string', [], 'sp'],
+      ['echo hi # " ( ) ; | & \\\nstring sp', 'string', [], 'sp'],
+      ["echo (# don't close )\nstring sp", 'string', [], 'sp'],
+      ['echo "$(# ignore ")\nstring sp', 'string', [], 'sp'],
+      ["echo (# don't close )\ntrue) arg ", 'echo', ["(# don't close )\ntrue)", 'arg'], ''],
+      ['echo # unfinished " (', 'echo', [], ''],
+      ['echo foo#bar ', 'echo', ['foo#bar'], ''],
+      ['echo "#quoted" ', 'echo', ['"#quoted"'], ''],
+      ["echo '#quoted' ", 'echo', ["'#quoted'"], ''],
+      ['echo \\#escaped ', 'echo', ['\\#escaped'], ''],
+      ["echo ># don't quote\nstring sp", 'string', [], 'sp'],
     ])('%j -> command: %j, args: %j, word: %j', (commandline, command, args, word) => {
       expect(tokenizeCommandline(commandline)).toMatchObject({ command, args, word });
     });
@@ -120,6 +142,8 @@ describe('completion handler', () => {
       ['foo; ls -', 4],
       ['echo "a\nb" ', 0],
       ['echo hi\necho (ls ', 8],
+      ["# don't modify this\nstring sp", 20],
+      ["echo (# don't close )\nstring sp", 0],
     ])('%j starts the cursor statement at %i', (commandline, start) => {
       expect(tokenizeCommandline(commandline).start).toBe(start);
     });
@@ -130,6 +154,18 @@ describe('completion handler', () => {
 
     beforeAll(async () => {
       parser = await CompletionLineParser.create();
+    });
+
+    it('ignores quotes in preceding comments when determining the replacement length', () => {
+      const doc = createFakeLspDocument('/tmp/completion-comment-context.fish', "# don't modify this\nstring sp");
+      analyzer.analyze(doc);
+      const position = { line: 1, character: 9 };
+      const ctx = parser.buildContext({
+        doc, position, symbols: [],
+        documentWord: analyzer.parseCurrentLine(doc, position).word,
+        current: analyzer.nodeAtPoint(doc.uri, 1, 8),
+      });
+      expect(ctx).toMatchObject({ command: 'string', word: 'sp', replaceLength: 2, mode: 'argument', commandline: 'string sp' });
     });
 
     it.each([
@@ -169,6 +205,15 @@ describe('completion handler', () => {
       });
       expect(ctx.mode).toBe(mode);
       expect(ctx.embedded).toBe(embedded);
+    });
+  });
+
+  it('replaces only the current argument after a comment containing an unmatched quote', async () => {
+    const result = await complete("# don't modify this\nstring sp");
+    const edit = result.items.find(item => item.label === 'split')?.textEdit as TextEdit;
+    expect(edit).toMatchObject({
+      range: { start: { line: 1, character: 7 }, end: { line: 1, character: 9 } },
+      newText: 'split',
     });
   });
 
@@ -420,6 +465,30 @@ describe('completion handler', () => {
     expect(result.items.some(item => item.label === '/tmp')).toBe(false);
   });
 
+  it.each(['string ', 'path ', 'status ', 'set -l var value; string '])('orders %j: the subcommands, then snippets, variables and pipes', async (content) => {
+    const command = content.trim().split(/[\s;]+/).at(-1)!;
+    const subcommands = execFileSync('fish', ['--no-config', '-c', `complete --do-complete '${command} '`], { encoding: 'utf8' })
+      .trim().split('\n').map(line => line.split('\t')[0]!);
+    const items = (await complete(content)).items;
+    expect(items.slice(0, subcommands.length).map(item => item.label).sort()).toEqual([...subcommands].sort());
+    // each type in one block, in this order
+    const typeOf: Record<number, string> = {
+      [CompletionItemKind.Property]: 'property', [CompletionItemKind.Snippet]: 'snippet', [CompletionItemKind.Variable]: 'variable',
+      [CompletionItemKind.Operator]: 'pipe', [CompletionItemKind.Keyword]: 'pipe',
+    };
+    const types = items.map(item => typeOf[item.kind!]).filter(Boolean);
+    const blocks = types.filter((type, i) => type !== types[i - 1]);
+    expect(blocks).toEqual(['property', 'snippet', 'variable', 'pipe'].filter(type => blocks.includes(type)));
+    // clients keep this order through sortText, but score an item by the text in its range first,
+    // so nothing may replace the typed command name
+    expect([...items].sort((x, y) => x.sortText!.localeCompare(y.sortText!))).toEqual(items);
+    expect(items.filter(item => ((item.textEdit as TextEdit | undefined)?.range.start.character ?? content.length) < content.length)).toEqual([]);
+  });
+
+  it('a snippet matched by an exact trigger still comes first where no argument competes', async () => {
+    expect((await complete('ife')).items[0]?.label).toBe('if-else');
+  });
+
   it('keeps overlapping requests separate', async () => {
     const [ls, set] = await Promise.all([
       complete('ls -', '/tmp/completion-handler-ls.fish'),
@@ -442,6 +511,14 @@ describe('completion handler', () => {
     expect(edit.range.end).toEqual({ line: 1, character: line.length });
   });
 
+  it('re-requests flags when an empty argument initially has none', async () => {
+    const initial = await complete('string split ');
+    expect(initial.items.some(item => item.label.startsWith('--'))).toBe(false);
+    expect(initial.isIncomplete).toBe(true);
+    const flags = await complete('string split -');
+    expect(flags.items.map(item => item.label)).toContain('--right');
+  });
+
   describe('completions/<cmd>.fish being edited', () => {
     let root: string;
     let completionsDir: string;
@@ -456,7 +533,7 @@ describe('completion handler', () => {
       // fish only autoloads completions for a command it can find
       const binDir = join(root, 'bin');
       mkdirSync(binDir);
-      writeFileSync(join(binDir, 'fishlspdemo'), '#!/bin/sh\n', { mode: 0o755 });
+      writeFileSync(join(binDir, 'fishlspdemo'), '#!/bin/sh\n', { mode: 0o700 });
       process.env.PATH = `${binDir}:${originalPath}`;
       process.env.fish_complete_path = completionsDir;
     });

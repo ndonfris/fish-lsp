@@ -8,7 +8,7 @@
   {
     "name": "shebang-with-arguments",
     "altTrigger": [
-      "#! "
+      "#!args"
     ],
     "description": "shebang with arguments",
     "body": "#!/usr/bin/env ${1|-S,--split-string|} fish ${2:argument ...}"
@@ -19,7 +19,7 @@
       "and",
       "&&"
     ],
-    "description": "run the second command just if the first one succeded",
+    "description": "run the second command just if the first one succeeded",
     "body": "${1:first-expression}${2|; and, &&|} ${3:second-expression}"
   },
   {
@@ -64,7 +64,7 @@
     ],
     "description": "check if the first file is [n]ewer [t]han the second one, or the first file exists and the second doesn't, and if true run the specified set of commands",
     "body": [
-      "if test \"${1:first-file}\" -nt \"${2:second-file}\"",
+      "if test ${1:first-file} -nt ${2:second-file}",
       "\t${3:command ...}$0",
       "end"
     ]
@@ -77,7 +77,7 @@
     ],
     "description": "check if the first file is [o]lder [t]han the second one, or the first file doesn't exist and the second does, and if true run the specified set of commands",
     "body": [
-      "if test \"${1:first-file}\" -ot \"${2:second-file}\"",
+      "if test ${1:first-file} -ot ${2:second-file}",
       "\t${3:command ...}$0",
       "end"
     ]
@@ -90,8 +90,61 @@
     ],
     "description": "check if two [f]ile references are [e]qual (refer to the same file), and if true run the specified set of commands",
     "body": [
-      "if test \"${1:first-file}\" -ef \"${2:second-file}\"",
+      "if test ${1:first-file} -ef ${2:second-file}",
       "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  {
+    "name": "if-file-exists",
+    "altTrigger": [
+      "if file exists",
+      "ifex"
+    ],
+    "description": "check if the path [ex]ists (a file, directory or anything else) and if true run the specified set of commands",
+    "body": [
+      "if test -e ${1:path}",
+      "\t${2:command ...}$0",
+      "end"
+    ]
+  },
+  {
+    "name": "if-directory",
+    "altTrigger": [
+      "if directory",
+      "if dir",
+      "ifdir"
+    ],
+    "description": "check if the path is a [dir]ectory and if true run the specified set of commands",
+    "body": [
+      "if test -d ${1:path}",
+      "\t${2:command ...}$0",
+      "end"
+    ]
+  },
+  {
+    "name": "if-file",
+    "altTrigger": [
+      "if file",
+      "ifreg"
+    ],
+    "description": "check if the path is a [reg]ular file and if true run the specified set of commands",
+    "body": [
+      "if test -f ${1:path}",
+      "\t${2:command ...}$0",
+      "end"
+    ]
+  },
+  {
+    "name": "if-executable",
+    "altTrigger": [
+      "if executable",
+      "ifx"
+    ],
+    "description": "check if the path is e[x]ecutable and if true run the specified set of commands",
+    "body": [
+      "if test -x ${1:path}",
+      "\t${2:command ...}$0",
       "end"
     ]
   },
@@ -226,12 +279,26 @@
     ]
   },
   {
+    "name": "if-string-regex-match",
+    "altTrigger": [
+      "if string regex match",
+      "if string match",
+      "ifsrm"
+    ],
+    "description": "check if the [s]tring matches the [r]egex and if true run the specified set of commands",
+    "body": [
+      "if string match ${1|-rq,--regex --quiet|} -- '${2:regex}' ${3:\\$variable}",
+      "\t${4:command ...}$0",
+      "end"
+    ]
+  },
+  {
     "name": "if-defined",
     "altTrigger": [
       "if defined",
       "ifd"
     ],
-    "description": "check if the variable [d]efined and if true run the specified set of commands",
+    "description": "check if the variable is [d]efined and if true run the specified set of commands",
     "body": [
       "if set ${1|-q,--query|} ${2:variable}",
       "\t${3:command ...}$0",
@@ -244,10 +311,65 @@
       "if not defined",
       "ifnd"
     ],
-    "description": "check if the variable [n]ot [d]efined and if true run the specified set of commands",
+    "description": "check if the variable is [n]ot [d]efined and if true run the specified set of commands",
     "body": [
       "if not set ${1|-q,--query|} ${2:variable}",
       "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  {
+    "name": "if-set",
+    "altTrigger": [
+      "if set",
+      "ifset",
+      "ifs"
+    ],
+    "description": "store a command's output in a local variable, and run the specified set of commands if the command succeeded",
+    "body": [
+      "if set -l ${1:var} (${2:command})",
+      "\t$3",
+      "end$0"
+    ]
+  },
+  {
+    "name": "if-interactive",
+    "altTrigger": [
+      "if interactive",
+      "ifi"
+    ],
+    "description": "run the specified set of commands only in an [i]nteractive shell, the usual config.fish guard",
+    "body": [
+      "if status is-interactive",
+      "\t${1:command ...}$0",
+      "end"
+    ]
+  },
+  {
+    "name": "if-login",
+    "altTrigger": [
+      "if login",
+      "ifl"
+    ],
+    "description": "run the specified set of commands only in a [l]ogin shell",
+    "body": [
+      "if status is-login",
+      "\t${1:command ...}$0",
+      "end"
+    ]
+  },
+  {
+    "name": "if-no-arguments",
+    "altTrigger": [
+      "if no arguments",
+      "if no args",
+      "ifna"
+    ],
+    "description": "print a usage message and return when [n]o [a]rguments were given",
+    "body": [
+      "if not set -q argv[1]",
+      "\techo \"${1:usage: name argument ...}\" >&2",
+      "\treturn 1$0",
       "end"
     ]
   },
@@ -269,7 +391,7 @@
     ],
     "description": "while the first file is [n]ewer [t]han the second one, or the first file exists and the second doesn't, run the specified set of commands",
     "body": [
-      "while test \"${1:first-file}\" -nt \"${2:second-file}\"",
+      "while test ${1:first-file} -nt ${2:second-file}",
       "\t${3:command ...}$0",
       "end"
     ]
@@ -282,7 +404,7 @@
     ],
     "description": "while the first file is [o]lder [t]han the second one, or the first file doesn't exist and the second does, run the specified set of commands",
     "body": [
-      "while test \"${1:first-file}\" -ot \"${2:second-file}\"",
+      "while test ${1:first-file} -ot ${2:second-file}",
       "\t${3:command ...}$0",
       "end"
     ]
@@ -295,7 +417,7 @@
     ],
     "description": "while two [f]ile references are [e]qual (refer to the same file), run the specified set of commands",
     "body": [
-      "while test \"${1:first-file}\" -ef \"${2:second-file}\"",
+      "while test ${1:first-file} -ef ${2:second-file}",
       "\t${3:command ...}$0",
       "end"
     ]
@@ -436,7 +558,7 @@
       "while defined",
       "whiled"
     ],
-    "description": "while the variable [d]efined run the specified set of commands",
+    "description": "while the variable is [d]efined run the specified set of commands",
     "body": [
       "while set ${1|-q,--query|} ${2:variable}",
       "\t${3:command ...}$0",
@@ -449,7 +571,7 @@
       "while not defined",
       "whilend"
     ],
-    "description": "while the variable [n]ot [d]efined run the specified set of commands",
+    "description": "while the variable is [n]ot [d]efined run the specified set of commands",
     "body": [
       "while not set ${1|-q,--query|} ${2:variable}",
       "\t${3:command ...}$0",
@@ -459,7 +581,7 @@
   {
     "name": "for",
     "altTrigger": "for",
-    "description": "run the specified commands iterating thought items",
+    "description": "run the specified commands iterating through items",
     "body": [
       "for ${1:item} in ${2:expression}",
       "\t${3:command ...}$0",
@@ -506,9 +628,35 @@
     ]
   },
   {
-    "name": "switch",
-    "altTrigger": "switch2",
-    "description": "find the first matching pattern out of 2 available (including the default fallback) and run the specified commands corresponding to it",
+    "name": "for-enumerate",
+    "altTrigger": ["for enumerate", "enumerate"],
+    "description": "run the specified set of commands iterating over items and their index",
+    "body": [
+      "set -l ${1:i} 1",
+      "for ${2:item} in ${3:\\$list}",
+      "\t${4:command ...}",
+      "\tset $1 (math \\$$1 + 1)",
+      "end$0"
+    ]
+  },
+  {
+    "name": "for-argv",
+    "altTrigger": [
+      "for argv",
+      "for arguments",
+      "fora"
+    ],
+    "description": "run the specified set of commands for each [a]rgument",
+    "body": [
+      "for ${1:arg} in \\$argv",
+      "\t${2:command \\$$1}",
+      "end$0"
+    ]
+  },
+  {
+    "name": "switch-case",
+    "altTrigger": "switch case",
+    "description": "find the first matching pattern available (including the default fallback) and run the specified commands corresponding to it",
     "body": [
       "switch \"${1:expression}\"",
       "\tcase ${2:pattern}",
@@ -539,7 +687,7 @@
     ],
     "description": "define the [f]unction with the specified [d]escription",
     "body": [
-      "function ${1:name} ${2|-d,--description|} ${3:explanation}",
+      "function ${1:name} ${2|-d,--description|} '${3:explanation}'",
       "\t${4:command ...}$0",
       "end"
     ]
@@ -566,7 +714,7 @@
     ],
     "description": "define the [f]unction with the specified [d]escription and [a]rguments",
     "body": [
-      "function ${1:name} ${2|-d,--description|} ${3:explanation} ${4|-a,--argument-names|} ${5:argument ...}",
+      "function ${1:name} ${2|-d,--description|} '${3:explanation}' ${4|-a,--argument-names|} ${5:argument ...}",
       "\t${6:command ...}$0",
       "end"
     ]
@@ -606,6 +754,7 @@
   {
     "name": "set-show",
     "altTrigger": [
+      "set show",
       "sets",
       "set-s"
     ],
@@ -640,40 +789,96 @@
     "body": "set ${1|-p,--prepend|} ${2:variable} ${3:value}"
   },
   {
-    "name": "seti",
+    "name": "set-counter",
     "altTrigger": [
-      "set i"
+      "set counter",
+      "seti"
     ],
     "description": "set the variable to the specified value or to 1 if no value is specified",
     "body": "set ${1:i} ${2:1}$0"
   },
   {
-    "name": "setii",
-    "altTrigger": [
-      "set i + 1"
-    ],
-    "description": "increment the variable by 1",
-    "body": "set ${1:i} (math \\$$1 + ${2:1})$0"
-  },
-  {
-    "name": "setinc",
+    "name": "set-increment",
     "altTrigger": [
       "set increment",
-      "set i + ",
-      "set+"
+      "setii",
+      "set i +",
+      "set+",
+      "setinc"
     ],
     "description": "increment the variable",
     "body": "set ${1:i} (math \\$$1 + ${2:1})$0"
   },
   {
-    "name": "setdec",
+    "name": "set-decrement",
     "altTrigger": [
       "set decrement",
-      "set i - ",
-      "set-"
+      "set i -",
+      "set-",
+      "setdec"
     ],
-    "description": "dec the variable",
+    "description": "decrement the variable",
     "body": "set ${1:i} (math \\$$1 - ${2:1})$0"
+  },
+  {
+    "name": "set-default-value",
+    "altTrigger": ["set default value", "set-default"],
+    "description": "set the variable value if the variable hasn't been set yet",
+    "body": "set -q ${1:variable}; or set ${2|-l,-lx,-f,-fx,-g,-gx,-U,-Ux,-x|} $1 ${3:default_value}$0"
+  },
+  {
+    "name": "set-math",
+    "altTrigger": ["set math", "setm"],
+    "description": "set the variable to the result of a [m]ath expression",
+    "body": "set ${1:variable} (math \"${2:expression}\")$0"
+  },
+  {
+    "name": "math",
+    "altTrigger": "math",
+    "description": "evaluate a math expression, quoted so `*` and `()` reach math instead of the shell",
+    "body": "math \"${1:expression}\"$0"
+  },
+  {
+    "name": "math-scale",
+    "altTrigger": ["math scale", "maths"],
+    "description": "evaluate a math expression, rounded to the given number of decimal places ([s]cale)",
+    "body": "math ${1|-s,--scale|} ${2:2} \"${3:expression}\"$0"
+  },
+  {
+    "name": "math-scale-mode",
+    "altTrigger": ["math scale mode", "mathm"],
+    "description": "evaluate a math expression, rounding to the scale with the given [m]ode",
+    "body": "math ${1|-s,--scale|} ${2:0} ${3|-m,--scale-mode|} ${4|floor,ceiling,round,truncate|} \"${5:expression}\"$0"
+  },
+  {
+    "name": "math-base",
+    "altTrigger": ["math base", "math hex", "math octal", "mathb"],
+    "description": "evaluate a math expression and print the integer result in hex or octal ([b]ase)",
+    "body": "math ${1|-b,--base|} ${2|hex,octal|} \"${3:expression}\"$0"
+  },
+  {
+    "name": "math-function",
+    "altTrigger": ["math function", "mathf"],
+    "description": "call one of math's [f]unctions, quoted so its parentheses reach math",
+    "body": "math \"${1|abs,acos,asin,atan,atan2,bitand,bitor,bitxor,ceil,cos,cosh,exp,fac,floor,ln,log,log10,log2,max,min,ncr,npr,pow,round,sin,sinh,sqrt,tan,tanh|}(${2:x})\"$0"
+  },
+  {
+    "name": "random",
+    "altTrigger": [
+      "random",
+      "rand"
+    ],
+    "description": "a random integer in the given range",
+    "body": "random ${1:1} ${2:10}$0"
+  },
+  {
+    "name": "random-choice",
+    "altTrigger": [
+      "random choice",
+      "randc"
+    ],
+    "description": "a random item of the list",
+    "body": "random choice ${1:\\$list}$0"
   },
   {
     "name": "string",
@@ -695,7 +900,7 @@
   },
   {
     "name": "string-not-match",
-    "altTrigger": "string not match",
+    "altTrigger": ["string not match", "strmv"],
     "description": "string filtering (in[v]ert)",
     "body": "string match ${1|-v,--invert|} -- '${2:pattern}' ${3:argument ...}"
   },
@@ -721,7 +926,7 @@
     "name": "string-replace",
     "altTrigger": ["string replace", "strrep" ],
     "description": "string replacement",
-    "body": "string replace -- '${1:pattern}' '${2:replacement}' ${2:argument ...}"
+    "body": "string replace -- '${1:pattern}' '${2:replacement}' ${3:argument ...}"
   },
   {
     "name": "string-regex-replace",
@@ -736,35 +941,84 @@
     "body": "string replace ${1|-a,--all|} ${2|-r,--regex|} -- '${3:pattern}' '${4:replacement}' ${5:argument ...}"
   },
   {
-    "name": "file-newer-than",
+    "name": "string-split",
     "altTrigger": [
+      "string split",
+      "strsp"
+    ],
+    "description": "split the string at each separator",
+    "body": "string split ${1:,} -- ${2:string}$0"
+  },
+  {
+    "name": "string-join",
+    "altTrigger": [
+      "string join",
+      "strj"
+    ],
+    "description": "join the list with the separator",
+    "body": "string join ${1:,} -- ${2:\\$list}$0"
+  },
+  {
+    "name": "string-trim",
+    "altTrigger": [
+      "string trim",
+      "strt"
+    ],
+    "description": "remove leading and trailing whitespace",
+    "body": "string trim -- ${1:string}$0"
+  },
+  {
+    "name": "string-trim-chars",
+    "altTrigger": [
+      "string trim chars",
+      "strtc"
+    ],
+    "description": "remove the given leading and trailing [c]haracters",
+    "body": "string trim ${1|-c,--chars|} '${2:/}' -- ${3:string}$0"
+  },
+  {
+    "name": "string-match-groups",
+    "altTrigger": [
+      "string match groups",
+      "strmg"
+    ],
+    "description": "print only the capture [g]roups of a [r]egex match (fish 3.6+)",
+    "body": "string match ${1|-rg,--regex --groups-only|} -- '${2:(\\w+)}' ${3:string}$0"
+  },
+  {
+    "name": "test-file-newer-than",
+    "altTrigger": [
+      "file-newer-than",
       "file newer than",
       "nt"
     ],
     "description": "test if the first file is [n]ewer [t]han the second one, or the first file exists and the second doesn't",
-    "body": "test \"${1:first-file}\" -nt \"${2:second-file}\""
+    "body": "test ${1:first-file} -nt ${2:second-file}"
   },
   {
-    "name": "file-older-than",
+    "name": "test-file-older-than",
     "altTrigger": [
+      "file-older-than",
       "file older than",
       "ot"
     ],
     "description": "test if the first file is [o]lder [t]han the second one, or the first file doesn't exist and the second does",
-    "body": "test \"${1:first-file}\" -ot \"${2:second-file}\""
+    "body": "test ${1:first-file} -ot ${2:second-file}"
   },
   {
-    "name": "file-equal-to",
+    "name": "test-file-equal-to",
     "altTrigger": [
+      "file-equal-to",
       "file equal to",
       "ef"
     ],
     "description": "test if two [f]ile references are [e]qual (refer to the same file)",
-    "body": "test \"${1:first-file}\" -ef \"${2:second-file}\""
+    "body": "test ${1:first-file} -ef ${2:second-file}"
   },
   {
-    "name": "less-than",
+    "name": "test-less-than",
     "altTrigger": [
+      "less-than",
       "less than",
       "lt"
     ],
@@ -772,8 +1026,9 @@
     "body": "test \"${1:first-number}\" -lt \"${2:second-number}\""
   },
   {
-    "name": "greater-than",
+    "name": "test-greater-than",
     "altTrigger": [
+      "greater-than",
       "greater than",
       "gt"
     ],
@@ -781,8 +1036,9 @@
     "body": "test \"${1:first-number}\" -gt \"${2:second-number}\""
   },
   {
-    "name": "less-or-equal",
+    "name": "test-less-or-equal",
     "altTrigger": [
+      "less-or-equal",
       "less or equal",
       "le"
     ],
@@ -790,8 +1046,9 @@
     "body": "test \"${1:first-number}\" -le \"${2:second-number}\""
   },
   {
-    "name": "greater-or-equal",
+    "name": "test-greater-or-equal",
     "altTrigger": [
+      "greater-or-equal",
       "greater or equal",
       "ge"
     ],
@@ -799,8 +1056,9 @@
     "body": "test \"${1:first-number}\" -ge \"${2:second-number}\""
   },
   {
-    "name": "equal-to",
+    "name": "test-equal-to",
     "altTrigger": [
+      "equal-to",
       "equal to",
       "eq"
     ],
@@ -808,8 +1066,9 @@
     "body": "test \"${1:first-number}\" -eq \"${2:second-number}\""
   },
   {
-    "name": "not-equal-to",
+    "name": "test-not-equal-to",
     "altTrigger": [
+      "not-equal-to",
       "not equal to",
       "ne"
     ],
@@ -817,113 +1076,105 @@
     "body": "test \"${1:first-number}\" -ne \"${2:second-number}\""
   },
   {
-    "name": "string-equal-to",
+    "name": "test-string-equal",
     "altTrigger": [
+      "string-equal-to",
       "string equal to",
-      "seq"
+      "seq",
+      "streq"
     ],
     "description": "test if the first [s]tring is [eq]ual to the second one",
     "body": "test \"${1:first-string}\" = \"${2:second-string}\""
   },
   {
-    "name": "string-not-equal-to",
+    "name": "test-string-not-equal",
     "altTrigger": [
+      "string-not-equal-to",
       "string not equal to",
-      "sne"
+      "sne",
+      "strneq"
     ],
     "description": "test if the first [s]tring is [n]ot [e]qual to the second one",
     "body": "test \"${1:first-string}\" != \"${2:second-string}\""
   },
   {
-    "name": "string-empty",
+    "name": "test-string-empty",
     "altTrigger": [
+      "string-empty",
       "string empty",
-      "z"
+      "testz",
+      "strempty"
     ],
     "description": "test if the string has [z]ero characters inside it (empty)",
     "body": "test -z \"${1:string}\""
   },
   {
-    "name": "string-not-empty",
+    "name": "test-string-not-empty",
     "altTrigger": [
+      "string-not-empty",
       "string not empty",
-      "n"
+      "testn",
+      "strnempty"
     ],
     "description": "test if the string is [n]ot empty",
     "body": "test -n \"${1:string}\""
   },
   {
-    "name": "defined",
+    "name": "set-query",
     "altTrigger": [
       "defined",
-      "d"
+      "setq",
+      "set-defined"
     ],
-    "description": "test if the variable [d]efined",
+    "description": "test if the variable is [d]efined",
     "body": "set ${1|-q,--query|} ${2:variable}"
   },
   {
-    "name": "not-defined",
+    "name": "not-set-query",
     "altTrigger": [
+      "not-defined",
       "not defined",
-      "nd"
+      "nd",
+      "set-not-defined"
     ],
-    "description": "test if the variable [n]ot [d]efined",
+    "description": "test if the variable is [n]ot [d]efined",
     "body": "not set ${1|-q,--query|} ${2:variable}"
   },
   {
-    "name": "parse",
-    "altTrigger": "parse",
-    "description": "parse options with h/help and v/version included and brief program or function explanation",
+    "name": "argparse-option",
+    "altTrigger": ["parse-set", "parse set", "parses", "argparse set", "argparse-set"],
+    "description": "parse an option and check if it's set",
     "body": [
-      "argparse ${1|-n,--name|} ${2:name} 'h/help' 'v/version' ${3:option ...} -- \\$argv${4|; or, \\|\\||} return",
+      "argparse ${1:o}${2:/}${3:option} -- \\$argv",
+      "or return",
       "",
-      "if set ${5|-q,--query|} _flag_help",
-      "\techo ${6:help}",
-      "\treturn 0",
-      "end",
-      "if set $5 _flag_version",
-      "\techo '${7:major}.${8:minor}.${9:patch}'",
+      "if set -ql _flag_$3",
+      "\t${4:# stuff to do on _flag_$3}",
       "\treturn 0",
       "end"
     ]
   },
   {
-    "name": "parse-with-functions",
+    "name": "argparse-help",
     "altTrigger": [
-      "parse with functions",
-      "parsef"
+      "parse-help",
+      "parse help",
+      "parseh"
     ],
-    "description": "parse options with h/help and v/version included via [f]unctions and detailed program or function explanation",
+    "description": "parse -h/--help options from argv",
     "body": [
-      "function help",
-      "\techo 'Usage: ${6:explanation}",
+      "argparse h/help ${1:o/other} -- \\$argv",
+      "or return",
       "",
-      "Options:",
-      "\t--help|-h  Print help.",
-      "\t--version|-v  Print version.",
-      "\t${7:option ...}'",
-      "end",
-      "",
-      "function version",
-      "\techo '${8:major}.${9:minor}.${10:patch}'",
-      "end",
-      "",
-      "argparse ${1|-n,--name|} ${2:name} 'h/help' 'v/version' ${3:option ...} -- \\$argv${4|; or, \\|\\||} exit",
-      "",
-      "if set ${5|-q,--query|} _flag_help",
-      "\thelp",
-      "\texit 0",
-      "end",
-      "if set $5 _flag_version",
-      "\tversion",
-      "\texit 0",
-      "end"
+      "if set -ql _flag_help",
+      "\techo \"Usage: ${2:my_function} [-h | --help]\"",
+      "\treturn 0",
+      "end$0"
     ]
   },
   {
     "name": "_flag",
     "altTrigger": [
-      "_flag",
       "_f"
     ],
     "description": "refer to the specified flag",
@@ -932,10 +1183,36 @@
     ]
   },
   {
-    "name": "complete",
-    "altTrigger": "complete",
-    "description": "complete option",
-    "body": "complete ${1|-c,--command|} ${2:executable} ${3|-s,-l,-o,--short-option,--long-option,--old-option|} ${4:option} ${5|-d,--description|} '${6:explanation}'"
+    "name": "if-flag-defined",
+    "altTrigger": ["if flag defined", "flag defined"],
+    "description": "if a flag is defined",
+    "body": [
+      "if set -ql _flag_${1:name}",
+      "\t${2:command ...}$0",
+      "end"
+    ]
+  },
+  {
+    "name": "complete-subcommands",
+    "altTrigger": ["complete subcommands"],
+    "description": "complete the [subcommands] of a command, until one is given",
+    "body": [
+      "complete -c ${1:command} -f -n __fish_use_subcommand -a \"",
+      "${2:subcommand}\\t'${3:description}'",
+      "${4:subcommand}\\t'${5:description}'\"$0"
+    ]
+  },
+  {
+    "name": "complete-subcommand-option",
+    "altTrigger": ["complete subcommand option", "complete subcommand flag"],
+    "description": "complete an option of one [subcommand]",
+    "body": "complete -c ${1:command} -n '__fish_seen_subcommand_from ${2:subcommand}' -s ${3:s} -l ${4:long} -d \"${5:description}\"$0"
+  },
+  {
+    "name": "complete-short-long",
+    "altTrigger": ["complete short long"],
+    "description": "complete an option with both a [short] and a [long] name",
+    "body": "complete -c ${1:command} -s ${2:s} -l ${3:long} -d \"${4:description}\"$0"
   },
   {
     "name": "complete-required",
@@ -958,7 +1235,7 @@
   {
     "name": "complete-if",
     "altTrigger": "complete if",
-    "description": "complete option if",
+    "description": "complete an option only when the [condition] succeeds",
     "body": "complete ${1|-c,--command|} ${2:executable} ${3|-s,-l,-o,--short-option,--long-option,--old-option|} ${4:option} ${5|-n,--condition|} '${6:expression}' ${7|-d,--description|} '${8:explanation}'"
   },
   {
@@ -982,10 +1259,17 @@
   {
     "name": "complete-help",
     "altTrigger": "complete help",
-    "description": "complete -h/--help and -v/--version",
+    "description": "complete -h/--help",
     "body": [
-      "complete ${1|-c,--command|} ${2:executable} ${3|-s,--short-option|} h ${4|-l,-o,--long-option,--old-option|} help ${5|-d,--description|} 'Show help'",
-      "complete $1 $2 $3 v $4 version $5 'Show version'"
+      "complete ${1|-c,--command|} ${2:executable} ${3|-s,--short-option|} h ${4|-l,--long-option|} help ${5|-d,--description|} '${6:Show help}'"
+    ]
+  },
+  {
+    "name": "complete-no-files",
+    "altTrigger": ["complete no files"],
+    "description": "complete the command without file completions",
+    "body": [
+      "complete -c ${1:command} -f"
     ]
   },
   {
@@ -995,16 +1279,7 @@
       "skf"
     ],
     "description": "[sk]ip the first li[n]es or [b]ytes",
-    "body": "tail ${1|-n,-c,--lines,--bytes|} +${2:count}"
-  },
-  {
-    "name": "skip-last",
-    "altTrigger": [
-      "skip last",
-      "skl"
-    ],
-    "description": "[sk]ip the last li[n]es or [b]ytes",
-    "body": "head ${1|-n,-c,--lines,--bytes|} -${2:count}"
+    "body": "tail ${1|-n,-c,--lines,--bytes|} +(math ${2:count} + 1)"
   },
   {
     "name": "take-first",
@@ -1032,15 +1307,6 @@
     ],
     "description": "[ta]ke the specified line range",
     "body": "sed ${1|-n,--quiet|} '${2:from},${3:to}p'"
-  },
-  {
-    "name": "take-stepped-range",
-    "altTrigger": [
-      "take stepped range",
-      "tasr"
-    ],
-    "description": "[ta]ke each n-th line in the specified range",
-    "body": "sed ${1|-n,--quiet|} '${2:from},${3:to}p' | sed $1 '1~${4:step}p'"
   },
   {
     "name": "set-color",
@@ -1087,8 +1353,37 @@
       "readln",
       "readl"
     ],
-    "description": "read a line from the specified file and store it in the specified variable",
+    "description": "read a line from stdin and store it in the specified variable",
     "body": "read -l ${1:line}$0"
+  },
+  {
+    "name": "read-prompt",
+    "altTrigger": [
+      "read prompt",
+      "readp"
+    ],
+    "description": "read a line into the variable, showing the [p]rompt",
+    "body": "read -l ${1|-P,--prompt-str|} '${2:> }' ${3:answer}$0"
+  },
+  {
+    "name": "read-confirm",
+    "altTrigger": [
+      "read confirm",
+      "confirm",
+      "yes no"
+    ],
+    "description": "ask a yes/no question and run the commands of the answer's case",
+    "body": [
+      "read -l -n 1 -P '${1:Continue? [y/N] }' ${2:reply}",
+      "switch \\$$2",
+      "\tcase y Y",
+      "\t\t$3",
+      "\tcase n N",
+      "\t\t$4",
+      "\tcase '*'",
+      "\t\t$5",
+      "end$0"
+    ]
   },
   {
     "name": "while-read-line",
@@ -1098,7 +1393,7 @@
       "whrln",
       "whrl"
     ],
-    "description": "while reading a line from the specified file, run the specified set of commands",
+    "description": "while reading a line from stdin, run the specified set of commands",
     "body": [
       "while read -l ${1:line}",
       "\t${2:command \\$$1}",
@@ -1106,14 +1401,44 @@
     ]
   },
   {
-    "name": "echo2",
+    "name": "echo-stderr",
     "altTrigger": [
+      "echo stderr",
+      "output-stderr",
       "echo2",
-      "ec2",
-      "output-stderr"
+      "ec2"
     ],
     "description": "echo the output to stderr",
     "body": "echo \"${1}\" >&2"
+  },
+  {
+    "name": "error-return",
+    "altTrigger": [
+      "error return",
+      "err"
+    ],
+    "description": "print the error to stderr and return a failure status",
+    "body": [
+      "echo \"${1:error}\" >&2",
+      "return ${2:1}$0"
+    ]
+  },
+  {
+    "name": "printf",
+    "altTrigger": [
+      "printf",
+      "printfn"
+    ],
+    "description": "print each argument with the format",
+    "body": "printf '${1:%s}\\n' ${2:\\$argv}$0"
+  },
+  {
+    "name": "process-substitution",
+    "altTrigger": [
+      "psub"
+    ],
+    "description": "pass the output of a command as a file path, like bash's `<(command)`",
+    "body": "(${1:command} | psub)$0"
   },
   {
     "name": "comment",
@@ -1138,15 +1463,140 @@
     ]
   },
   {
-    "name": "exists",
-    "altTrigger": ["typeq", "cmd exists"],
-    "description": "to see if a command, function or builtin exists",
-    "body": "type -q ${1:cmd}"
+    "name": "command-exists",
+    "altTrigger": [
+      "command exists",
+      "typeq",
+      "cmd exists"
+    ],
+    "description": "check if a command, function or builtin exists",
+    "body": "type -aq ${1:cmd}"
   },
   {
     "name": "bind-key",
     "altTrigger": ["bind key", "keyboard shortcut"],
     "description": "write a custom fish key binding",
     "body": "bind ${1:keybinding} '${2:function}'$0"
+  },
+  {
+    "name": "abbr",
+    "altTrigger": [
+      "abbr",
+      "abbr add"
+    ],
+    "description": "define an abbreviation, expanded when typed as a command",
+    "body": "abbr ${1|-a,--add|} ${2:name} ${3:expansion}$0"
+  },
+  {
+    "name": "abbr-anywhere",
+    "altTrigger": [
+      "abbr anywhere",
+      "abbra"
+    ],
+    "description": "define an abbreviation expanded in any position, not only as a command (fish 3.6+)",
+    "body": "abbr --add --position anywhere ${1:name} ${2:expansion}$0"
+  },
+  {
+    "name": "abbr-cursor",
+    "altTrigger": [
+      "abbr cursor",
+      "abbr set cursor",
+      "abbrc"
+    ],
+    "description": "define an abbreviation that places the cursor at the % in its expansion (fish 3.6+)",
+    "body": "abbr --add ${1:name} --set-cursor '${2:echo %}'$0"
+  },
+  {
+    "name": "abbr-regex-function",
+    "altTrigger": [
+      "abbr regex function",
+      "abbr-regex",
+      "abbr regex",
+      "abbrrf"
+    ],
+    "description": "define abbreviations matching the regex, expanded by the output of a function (fish 3.6+)",
+    "body": "abbr --add ${1:name} --regex '${2:^\\.\\.+\\$}' --function ${3:function_name}$0"
+  },
+  {
+    "name": "abbr-function",
+    "altTrigger": [
+      "abbr function",
+      "abbrf"
+    ],
+    "description": "define abbreviations, expanded by the output of a function (fish 3.6+)",
+    "body": "abbr --add ${1:name} --function ${2:function_name}$0"
+  },
+  {
+    "name": "abbr-command",
+    "altTrigger": [
+      "abbr command",
+      "abbr subcommand",
+      "abbrcmd"
+    ],
+    "description": "define an abbreviation expanded only as an argument of the command (fish 4.0+)",
+    "body": "abbr --add --command ${1:git} ${2:co} ${3:checkout}$0"
+  },
+  {
+    "name": "fish-contains-opt",
+    "altTrigger": ["contains-option", "contains-opt", "contains option"],
+    "description": "test if the commandline already has a short or long option",
+    "body": "__fish_contains_opt -s ${1:s} ${2:long}$0"
+  },
+  {
+    "name": "status-current-file",
+    "altTrigger": ["status current file", "current file"],
+    "description": "the absolute path of the file being run or sourced",
+    "body": "status current-filename | path resolve"
+  },
+  {
+    "name": "status-current-dir",
+    "altTrigger": ["status-current-folder", "status current folder", "status current dir", "current folder"],
+    "description": "the absolute path of the directory of the file being run or sourced",
+    "body": "status dirname | path resolve"
+  },
+  {
+    "name": "commandline-expanded-tokens-with-current",
+    "altTrigger": [
+      "xpcct",
+      "tokens-with-current"
+    ],
+    "description": "an array of the tokens expanded from the current process to the cursor, and include the token for the current cursor (which can be incomplete) (fish 4.0+)",
+    "body": [
+      "(commandline -xpc) (commandline -ct)"
+    ]
+  },
+  {
+    "name": "commandline-expanded-tokens-up-to-cursor",
+    "altTrigger": ["commandline expanded tokens up to cursor", "commandline tokens", "xpc"],
+    "description": "the expanded tokens of the current process, up to the one the cursor is in (fish 4.0+)",
+    "body": "commandline -xpc"
+  },
+  {
+    "name": "commandline-current-token",
+    "altTrigger": ["commandline current token", "ct"],
+    "description": "the token the cursor is in",
+    "body": "commandline -ct"
+  },
+  {
+    "name": "set-tokens-up-to-cursor",
+    "altTrigger": ["tokens-expanded-up-to-cursor", "tokens expanded up to cursor"],
+    "description": "set an array for the (commandline -xpc) (fish 4.0+)",
+    "body": [
+      "set -l ${1:tokens} (commandline -xpc)$0"
+    ]
+  },
+  {
+    "name": "set-tokens-with-current",
+    "altTrigger": ["tokens-expanded-with-cursor", "tokens expanded with cursor"],
+    "description": "set an array for the (commandline -xpc) (commandline -ct) (fish 4.0+)",
+    "body": [
+      "set -l ${1:tokens} (commandline -xpc) (commandline -ct)$0"
+    ]
+  },
+  {
+    "name": "commandline-repaint",
+    "altTrigger": ["commandline repaint", "repaint"],
+    "description": "redraw the prompt and the commandline, e.g. from a key binding",
+    "body": "commandline -f repaint"
   }
 ]

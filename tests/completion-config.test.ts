@@ -29,3 +29,15 @@ describe('snippet configuration', () => {
     expect(config.fish_lsp_enable_snippets).toBe(true);
   });
 });
+
+describe('multiword snippet configuration', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it('is off by default, documented, and read from the environment', () => {
+    vi.stubEnv('fish_lsp_enable_multiword_snippets', undefined);
+    expect(ConfigSchema.parse({}).fish_lsp_enable_multiword_snippets).toBe(false);
+    expect(Config.getDocsForKey('fish_lsp_enable_multiword_snippets')).toContain('snippet');
+    vi.stubEnv('fish_lsp_enable_multiword_snippets', 'true');
+    expect(getConfigFromEnvironmentVariables().config.fish_lsp_enable_multiword_snippets).toBe(true);
+  });
+});

@@ -381,6 +381,15 @@ export function tokenizeCommandline(commandline: string): { command: string | nu
     // `\` before a newline is a continuation: fish joins the lines with nothing between
     if (char === '\\\n') continue;
     const frame = stack.at(-1)!;
+    if (char === '#' && !frame.quote && frame.current.length === frame.wordStart) {
+      // Comments start at a token boundary (also after a redirect). Keep their
+      // text in enclosing substitutions, but never interpret their contents.
+      const newline = commandline.indexOf('\n', i);
+      const end = newline === -1 ? commandline.length : newline;
+      for (const outer of stack.slice(0, -1)) outer.current += commandline.slice(i, end);
+      i = end - 1; // let the newline take the normal statement-ending path
+      continue;
+    }
     if (!frame.current) frame.currentStart = charStart;
     // enclosing commands see a whole substitution as part of their current token
     for (const outer of stack.slice(0, -1)) outer.current += char;
