@@ -909,6 +909,116 @@ export LANG=en_US.UTF-8`;
       expect(numberTokens.length).toBeGreaterThanOrEqual(1);
     });
 
+    it.each([
+      ['range', 'echo $var[$var2..-1]', [['var', 6], ['var2', 11]]],
+      ['range end', 'echo $var[1..$var2]', [['var', 6], ['var2', 14]]],
+      ['nested index', 'echo $var[$var2[1..2]]', [['var', 6], ['var2', 11]]],
+      ['command position', '$var[$var2..-1]', [['var', 1], ['var2', 6]]],
+      ['quoted', 'echo "$var[$var2..-1]"', [['var', 7], ['var2', 12]]],
+      ['followed by its prefix', 'echo $var[$var2..-1]$var', [['var', 6], ['var2', 11], ['var', 21]]],
+      ['defined above', 'set -l var a b\nset -l var2 1\necho $var[$var2..-1]', [['var', 6], ['var2', 11]]],
+      // `set -q/-e/-S` targets
+      ['set --show', 'set --show $var[$var2 1]', [['var', 12], ['var2', 17]]],
+      ['set -q', 'set -q $var[$var2..-1]', [['var', 8], ['var2', 13]]],
+      ['set -e', 'set -e var[$var2]', [['var', 7], ['var2', 12]]],
+      ['set -S', 'set -S var', [['var', 7]]],
+    ] as const)('should highlight each variable of an index expression (%s) by its whole name', (name, content, expected) => {
+      const doc = new FakeLspDocument({
+        uri: `test://index-expression-${name.replace(/\W+/g, '-')}.fish`,
+        languageId: 'fish',
+        version: 1,
+        text: content,
+      });
+      analyzer.analyze(doc);
+      const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
+
+      const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
+      const lastLine = content.split('\n').length - 1;
+      const variables = findTokensByType(decodeSemanticTokens(result, content), 'variable')
+        .filter(t => t.line === lastLine)
+        .map(t => [t.text, t.startChar]);
+
+      // `var` must not claim the start of `$var2`
+      expect(variables).toEqual(expected.map(([text, start]) => [text, start]));
+    });
+
+    describe('`$var[$var2..-1]` and `$var[$var2 -1]` wherever they appear', () => {
+      // `X` is replaced by each expression
+      const contexts = [
+        'echo X', 'X', 'echo "X"', 'echo "a X b"', 'echo fooXbar', 'echo X$var', 'echo $X', 'echo x X y',
+        'set -l x X', 'set -gx x X', 'set -q X', 'set -e X', 'set --show X', 'set -S X', 'if set -q X; end',
+        'for x in X; end', 'if test -n X; end', 'test X = 1', '[ X = 1 ]', 'while test X; end',
+        'switch X; case "*"; end', 'switch 1; case X; end',
+        'echo (echo X)', 'echo $(echo X)', 'echo "$(echo X)"', 'echo (count X)', 'set -l x (string split , X)',
+        'echo X | cat', 'cat < X', 'echo x > X', 'echo X 2>&1', 'not echo X', 'true; and echo X', 'false || echo X', 'true && echo X',
+        'begin; echo X; end', 'function f\n    echo X\nend', 'command echo X', 'builtin echo X',
+        'math X + 1', 'string join , X', 'echo {X,x}', 'echo X # comment', 'export Y=X', 'alias x "echo X"', 'complete -c x -n "test X"',
+        'return X', 'exit X', 'printf "%s" X', 'read -l x < X', 'argparse h -- X', 'eval X', 'source X',
+      ];
+      // the indexed variable's own name: `set var[…] x`, `set -q var[…]`
+      const nameContexts = [
+        'set X x', 'set -l X x', 'set -gx X x', 'set -U X x', 'set -a X x', 'set -p X x', 'set -l X', 'set X', 'set -l X x y z',
+        'set -e X', 'set -q X', 'set -S X', 'set --show X', 'set --erase X', 'set --query X', 'if set -q X; end', 'set -q X; or echo',
+        'function f\n    set -l X x\nend',
+      ];
+      const cases = [
+        ...['$var[$var2..-1]', '$var[$var2 -1]'].flatMap(expr => contexts.map(context => [context.replace('X', expr), expr] as const)),
+        ...['var[$var2..-1]', 'var[$var2 -1]'].flatMap(expr => nameContexts.map(context => [context.replace('X', expr), expr] as const)),
+      ];
+      let count = 0;
+
+      it.each(cases)('%j highlights `var` and `var2` whole', (content, expr) => {
+        const doc = new FakeLspDocument({
+          uri: `test://index-expression-context-${count++}.fish`,
+          languageId: 'fish',
+          version: 1,
+          text: content,
+        });
+        analyzer.analyze(doc);
+        const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
+
+        const result = getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root));
+        const lines = content.split('\n');
+        const line = lines.findIndex(text => text.includes(expr));
+        const column = lines[line]!.indexOf(expr);
+        const variables = findTokensByType(decodeSemanticTokens(result, content), 'variable')
+          .filter(t => t.line === line)
+          .map(t => [t.text, t.startChar]);
+
+        expect(variables).toContainEqual(['var', column + (expr.startsWith('$') ? 1 : 0)]);
+        expect(variables).toContainEqual(['var2', column + expr.indexOf('$var2') + 1]);
+      });
+    });
+
+    it.each([
+      'set --query var[2] && echo has idx 2',
+      'set --query var',
+      'set -e var[2]',
+      'set -S var[1..2]',
+      'set --query var[$i]',
+      'set var[2] x',
+      'set -l var[2] x',
+      'echo $var[2]',
+    ])('`%s` highlights `var` as the local `var` it names', (line) => {
+      const content = ['set -l var (seq 1 10)', line].join('\n');
+      const doc = new FakeLspDocument({
+        uri: `test://set-target-${line.replace(/\W+/g, '-')}.fish`,
+        languageId: 'fish',
+        version: 1,
+        text: content,
+      });
+      analyzer.analyze(doc);
+      const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
+      const tokens = decodeSemanticTokens(getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root)), content);
+
+      const definition = tokens.find(t => t.line === 0 && t.text === 'var')!;
+      const named = tokens.find(t => t.line === 1 && t.startChar === line.search(/\bvar\b/))!;
+      expect(named.text).toBe('var');
+      expect(named.tokenType).toBe('variable');
+      expect(named.modifiers).toContain('local');
+      expect(named.modifiers).toEqual(definition.modifiers);
+    });
+
     it('should highlight for loop variable as variable token', () => {
       const content = 'for item in $list; echo $item; end';
       const doc = new FakeLspDocument({
@@ -1894,15 +2004,37 @@ set incomplete`;
       });
 
       expect(colonToken).toBeDefined();
-      expect(trueTokens).toHaveLength(4);
-      expect(falseTokens).toHaveLength(4);
+      // `echo \'true\' \'false\'` only prints text, so only `set` values, `:` and the `false` command
+      expect(trueTokens).toHaveLength(3);
+      expect(falseTokens).toHaveLength(3);
       expect(trueTokens.every(token => token.tokenType === 'function')).toBe(true);
       expect(falseTokens.every(token => token.tokenType === 'function')).toBe(true);
       expect(trueTokens.every(token => token.modifiers.includes('defaultLibrary'))).toBe(true);
       expect(falseTokens.every(token => token.modifiers.includes('defaultLibrary'))).toBe(true);
 
-      expect(trueTokens.map(t => t.text)).toEqual(['true', 'true', ':', 'true']);
-      expect(falseTokens.map(t => t.text)).toEqual(['false', 'false', 'false', 'false']);
+      expect(trueTokens.map(t => t.text)).toEqual(['true', 'true', ':']);
+      expect(falseTokens.map(t => t.text)).toEqual(['false', 'false', 'false']);
+    });
+
+    it.each([
+      ['echo is true', []],
+      ['printf "%s\\n" false', []],
+      ['my_func true', []],
+      ['set -q true', []],
+      ['set -e false', []],
+      ['set -l var (echo true)', []],
+      ['set -l var true', ['true']],
+      ['set -gx var --append false', ['false']],
+      ['test "$var" = true', ['true']],
+      ['[ "$var" = false ]', ['false']],
+    ])('highlights true/false only where a command reads a value: %j', (content, expected) => {
+      const doc = new FakeLspDocument({ uri: 'test://bool-values.fish', languageId: 'fish', version: 1, text: content });
+      analyzer.analyze(doc);
+      const analyzed = analyzer.cache.getDocument(doc.uri)?.ensureParsed();
+      const tokens = decodeSemanticTokens(getSemanticTokensSimplest(analyzed!, getRange(analyzed!.root)), content);
+      // skip the command names `true`/`false`: only arguments are in question
+      const literals = tokens.filter(t => t.tokenType === 'function' && ['true', 'false'].includes(t.text!) && t.startChar > 0);
+      expect(literals.map(t => t.text)).toEqual(expected);
     });
 
     it('should highlight `not` and `!` the same', () => {

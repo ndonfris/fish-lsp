@@ -215,12 +215,14 @@ const isBuiltinFunction = (n: SyntaxNode): boolean => {
  * than a command name. This is a bit tricky since `true` and `false` can either commands
  * or literal values depending on context.
  *
- * We want to highlight them as literals when used as arguments for either case:
+ * We want to highlight them as literals only where the command reads them as values:
  *
  * - `set var true` (true is a literal value, not a command)
  * - `set var false` (false is a literal value, not a command)
  * - `set var 'true' 'false'` (true is a literal value for the command, not a command itself, and same for false)
+ * - `test "$var" = true` and `[ "$var" = false ]` (operands being compared)
  *
+ * Other arguments are only text: `echo is true` prints the word `true`.
  */
 export const isBooleanLiteral = (n: SyntaxNode): boolean => {
   if (isCommandName(n) && n.parent && isCommandWithName(n.parent, ':')) {
@@ -248,7 +250,11 @@ export const isBooleanLiteral = (n: SyntaxNode): boolean => {
   if (commandName.equals(n)) return false;
   if (n.parent && commandName.equals(n.parent)) return false;
 
-  return true;
+  if (isCommandWithName(parentCommand, 'test', '[')) return true;
+  if (!isCommandWithName(parentCommand, 'set')) return false;
+  // `set` values follow the variable name: `set -l var true`, but not `set -q true`
+  const values = parentCommand.childrenForFieldName('argument').filter(arg => !isOption(arg)).slice(1);
+  return values.some(value => value.equals(n) || n.parent && value.equals(n.parent));
 };
 
 /**
@@ -289,6 +295,21 @@ export const isSetQueryEraseOrShowTargetNode = (n: SyntaxNode): boolean => {
 
   const args = parentCommand.childrenForFieldName('argument').filter(arg => !isOption(arg));
   return args.some(arg => arg.equals(n) || arg.type === 'concatenation' && arg.firstNamedChild?.equals(n));
+};
+
+/**
+ * The name in `set NAME[INDEX] VALUE…`: the word in front of the `[` of the first
+ * argument. Setting an index changes a variable rather than defining one, so no
+ * symbol highlights it.
+ */
+export const isIndexedSetDefinitionName = (n: SyntaxNode): boolean => {
+  if (n.type !== 'word' || n.nextSibling?.type !== '[') return false;
+  const concatenation = n.parent;
+  if (concatenation?.type !== 'concatenation' || !concatenation.firstNamedChild?.equals(n)) return false;
+  const parentCommand = concatenation.parent;
+  if (!parentCommand || !isSetDefinition(parentCommand)) return false;
+  const name = parentCommand.childrenForFieldName('argument').find(arg => !isOption(arg));
+  return !!name?.equals(concatenation);
 };
 
 /**
@@ -497,12 +518,21 @@ const nodeToTokenHandler: NodeToToken[] = [
   [isSetQueryEraseOrShowTargetNode, (n, ctx) => {
     const variableName = extractVariableNameFromNode(n);
     if (!variableName) return;
+    // only the name the target starts with: searching its text for `var` would also
+    // match `$var2` in `set -q $var[$var2]`, which highlights on its own. Its
+    // modifiers are those of a `$var` reading the same variable.
+    const modifiers = getVariableModifiers(variableName, ctx.document.uri);
+    const token = variableExpansionNodeToSemanticToken(n, modifiers);
+    if (token) {
+      ctx.tokens.push(token);
+    }
+  }],
+
+  // `set var[$i] value`: the variable whose element is set
+  [isIndexedSetDefinitionName, (n, ctx) => {
+    const modifiers = getVariableModifiers(n.text, ctx.document.uri);
     ctx.tokens.push(
-      ...createTokensFromMatches(
-        getTextMatchPositions(n, variableName),
-        FishSemanticTokens.types.variable,
-        0,
-      ),
+      SemanticToken.fromNode(n, FishSemanticTokens.types.variable, modifiers),
     );
   }],
 
