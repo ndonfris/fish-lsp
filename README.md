@@ -447,10 +447,17 @@ set -gx fish_lsp_disabled_handlers
 # (Default: ['\t', ';', ' '])
 set -gx fish_lsp_commit_characters '\t' ';' ' '
 
-# Include snippet completions when the client supports snippets.
-# Set false to hide snippets and insert syntax templates as plain text.
-# (Default: true)
+# $fish_lsp_enable_snippets <BOOLEAN>
+# Include snippet completions when the client supports snippets. When false, snippet suggestions are hidden and syntax templates are inserted as plain text. Can also be set through initializationOptions.
+# (Options: 'true', 'false')
+# (Default: 'true')
 set -gx fish_lsp_enable_snippets true
+
+# $fish_lsp_enable_multiword_snippets <BOOLEAN>
+# Match snippet triggers spanning several words, such as `string split` or `if else`. Off by default: a multiword snippet replaces the typed command name, so completion clients rank it above that command's own arguments (`string <TAB>`). Snippets stay reachable by their one-word triggers. Can also be set through initializationOptions.
+# (Options: 'true', 'false')
+# (Default: 'false')
+set -gx fish_lsp_enable_multiword_snippets false
 
 # $fish_lsp_log_file <STRING>
 # A path to the fish-lsp's logging file. Empty string disables logging.
@@ -628,9 +635,17 @@ set -gx fish_lsp_disabled_handlers
 # (Default: ['\t', ';', ' '])
 set -gx fish_lsp_commit_characters 
 
-# Include snippet completions when the client supports snippets.
-# (Default: true)
-set -gx fish_lsp_enable_snippets true
+# $fish_lsp_enable_snippets <BOOLEAN>
+# Include snippet completions when the client supports snippets. When false, snippet suggestions are hidden and syntax templates are inserted as plain text. Can also be set through initializationOptions.
+# (Options: 'true', 'false')
+# (Default: 'true')
+set -gx fish_lsp_enable_snippets 
+
+# $fish_lsp_enable_multiword_snippets <BOOLEAN>
+# Match snippet triggers spanning several words, such as `string split` or `if else`. Off by default: a multiword snippet replaces the typed command name, so completion clients rank it above that command's own arguments (`string <TAB>`). Snippets stay reachable by their one-word triggers. Can also be set through initializationOptions.
+# (Options: 'true', 'false')
+# (Default: 'false')
+set -gx fish_lsp_enable_multiword_snippets 
 
 # $fish_lsp_log_file <STRING>
 # A path to the fish-lsp's logging file. Empty string disables logging.
@@ -781,12 +796,13 @@ set -gx fish_lsp_show_subcommand_semantic_tokens
 {
   "fish_lsp_enabled_handlers": [],
   "fish_lsp_disabled_handlers": [],
-  "fish_lsp_enable_snippets": true,
   "fish_lsp_commit_characters": [
     "\t",
     ";",
     " "
   ],
+  "fish_lsp_enable_snippets": true,
+  "fish_lsp_enable_multiword_snippets": false,
   "fish_lsp_log_file": "",
   "fish_lsp_log_level": "",
   "fish_lsp_all_indexed_paths": [

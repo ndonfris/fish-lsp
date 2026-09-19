@@ -1,51 +1,8 @@
 import { setLogger, SkipUtils } from './helpers';
-import { escapeCmd, shellComplete } from '../src/completions/shell';
+import { shellComplete } from '../src/completions/shell';
 
 describe('check completions', () => {
   setLogger();
-
-  describe('test escaping input', () => {
-    it("echo '", () => {
-      const cmd = 'echo \'';
-      const escapedCmd = escapeCmd(cmd);
-      // console.log({ cmd, escapedCmd });
-      expect(escapedCmd.length).toBeGreaterThan(cmd.length);
-    });
-
-    it('echo "', async () => {
-      const cmd = 'echo \"';
-      const escapedCmd = escapeCmd(cmd);
-      // console.log({ cmd, escapedCmd });
-      expect(escapedCmd.length).toBeGreaterThan(cmd.length);
-    });
-
-    it('echo $', async () => {
-      const cmd = 'echo $';
-      const escapedCmd = escapeCmd(cmd);
-      // console.log({ cmd, escapedCmd });
-      expect(escapedCmd).toBe(cmd);
-    });
-
-    it('echo $', async () => {
-      const cmd = 'echo $';
-      const escapedCmd = escapeCmd(cmd);
-      // console.log({ cmd, escapedCmd });
-      expect(escapedCmd).toBe(cmd);
-    });
-    it('echo \\"$', async () => {
-      const cmd = 'echo \"$';
-      const escapedCmd = escapeCmd(cmd);
-      // console.log({ cmd, escapedCmd });
-      expect(escapedCmd.length).toBeGreaterThan(cmd.length);
-    });
-
-    it('echo \\\\n$', async () => {
-      const cmd = 'echo \\\n$';
-      const escapedCmd = escapeCmd(cmd);
-      // console.log({ cmd, escapedCmd });
-      expect(escapedCmd.length).toBeGreaterThan(cmd.length);
-    });
-  });
 
   describe.skipIf(!SkipUtils.hasCommand('fish-lsp'))('fish-lsp', () => {
     it('fish-lsp --', async () => {

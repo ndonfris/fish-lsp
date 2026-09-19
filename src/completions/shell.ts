@@ -1,5 +1,7 @@
 import { execFileAsync } from '../utils/exec';
 import { config } from '../config';
+import { logger } from '../logger';
+import { completeInWorker, refreshFishCompletionWorkers, startFishCompletionWorker, stopFishCompletionWorkers } from './fish-worker';
 
 export type ShellCompleteOptions = {
   /**
@@ -13,14 +15,6 @@ export type ShellCompleteOptions = {
    */
   raw?: boolean;
 };
-
-export function escapeCmd(cmd: string): string {
-  return cmd
-    .replace(/\\/g, '\\\\')  // Escape backslashes first!
-    .replace(/'/g, "\\'")    // Then escape quotes
-    .replace(/`/g, '\\`')
-    .replace(/"/g, '\\"');
-}
 
 /** quote a literal for a fish single-quoted string */
 function fishQuote(value: string): string {
@@ -43,20 +37,17 @@ export function excludeCompletionDirsCommand(dirs: string[]): string {
 }
 
 export async function shellComplete(cmd: string, options: ShellCompleteOptions = {}): Promise<[string, string][]> {
-  const escapedCmd = escapeCmd(cmd).toString();
-
   const excludeDirs = options.excludeCompletionDirs?.filter(Boolean) ?? [];
-  const fishArgs = [
-    ...excludeDirs.length > 0 ? ['-C', excludeCompletionDirsCommand(excludeDirs)] : [],
-    '-c',
-    `complete --do-complete='${escapedCmd}'`,
-  ];
-  // Using the `--escape` flag will include extra backslashes in the output
-  // for example, 'echo "$' -> ['\"$PATH', '\"$PWD', ...]
+  // a worker never unloads a completion file, so excluding its directory has to
+  // happen before the worker's fish starts: one worker per set of excluded dirs
+  const initCommand = excludeDirs.length > 0 ? excludeCompletionDirsCommand(excludeDirs) : undefined;
 
-  const child = await execFileAsync(config.fish_lsp_fish_path, fishArgs);
+  const stdout = await completeInWorker(cmd, initCommand).catch((error) => {
+    logger.debug('fish completion worker unavailable, spawning fish for this request', error);
+    return completeOnce(cmd, initCommand);
+  });
 
-  return child.stdout.toString().trim()
+  return stdout.trim()
     .split('\n')
     .filter((line) => line.trim() !== '')
     .map(line => options.raw ? splitRawLine(line) : fixLine(line))
@@ -84,6 +75,78 @@ const fixLine = (line: string): [string, string] => {
   const [first, ...rest] = line.split('\t');
   return [fixFirst(first), fixLast(rest)] as [string, string];
 };
+
+/**
+ * a fresh fish for one request, when no worker can answer. `cmd` is passed as data,
+ * so fish completes exactly the typed text: `cat "foo b` is one word inside `"`.
+ */
+async function completeOnce(cmd: string, initCommand?: string): Promise<string> {
+  const fishArgs = [
+    ...initCommand ? ['-C', initCommand] : [],
+    '-c',
+    'complete --do-complete="$argv[1]"',
+    '--',
+    cmd,
+  ];
+  // Using the `--escape` flag will include extra backslashes in the output
+  // for example, 'echo "$' -> ['\"$PATH', '\"$PWD', ...]
+  const child = await execFileAsync(config.fish_lsp_fish_path, fishArgs);
+  return child.stdout.toString();
+}
+
+/** how long a listing of every command name is served before it is refreshed */
+const COMMAND_NAMES_TTL_MS = 30_000;
+
+const commandNamesCache = new Map<string, { at: number; names: Promise<[string, string][]>; }>();
+
+/**
+ * Every command name fish knows (`complete --do-complete ' '`, thousands of them).
+ * They only change with `$PATH` or the functions, so the last listing is served
+ * while an older-than-`COMMAND_NAMES_TTL_MS` one is refreshed in the background.
+ */
+export function shellCommandNameList(excludeCompletionDirs: string[] = []): Promise<[string, string][]> {
+  const key = excludeCompletionDirs.join('\0');
+  const cached = commandNamesCache.get(key);
+  if (cached && Date.now() - cached.at < COMMAND_NAMES_TTL_MS) return cached.names;
+
+  const names = shellComplete(' ', { raw: true, excludeCompletionDirs });
+  if (!cached) {
+    const entry = { at: Date.now(), names };
+    commandNamesCache.set(key, entry);
+    names.catch(() => {
+      if (commandNamesCache.get(key) === entry) commandNamesCache.delete(key);
+    });
+    return names;
+  }
+  // one refresh at a time; the stale listing is still served
+  cached.at = Date.now();
+  names.then(
+    (fresh) => {
+      if (commandNamesCache.get(key) === cached) {
+        commandNamesCache.set(key, { at: Date.now(), names: Promise.resolve(fresh) });
+      }
+    },
+    (error) => logger.debug('refreshing the command name list failed', error),
+  );
+  return cached.names;
+}
+
+/** starts a completion worker and lists the command names, before the first request needs them */
+export function warmShellCompletions(): void {
+  startFishCompletionWorker();
+  shellCommandNameList().catch(() => { /* retried by the first request */ });
+}
+
+/** after a save: the config, a function or a completion file may have changed */
+export function refreshShellCompletions(): void {
+  refreshFishCompletionWorkers();
+  commandNamesCache.clear();
+}
+
+export function stopShellCompletions(): void {
+  stopFishCompletionWorkers();
+  commandNamesCache.clear();
+}
 
 const splitRawLine = (line: string): [string, string] => {
   const [first, ...rest] = line.split('\t');

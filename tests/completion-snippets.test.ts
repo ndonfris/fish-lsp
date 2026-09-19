@@ -90,16 +90,80 @@ describe('completion snippets (src/snippets/completionSnippets.json)', () => {
     });
 
     it.each(bodies)('%s: a mirrored variable name is expanded with `\\$`', (_name, body) => {
-      // `set ${1:i} (math \$$1 + 1)` -> `set i (math $i + 1)`; a bare `$1` would insert `i`
-      const nameTabstops = [...body.matchAll(/\b(?:set(?:\s+-\S+)*|for|read(?:\s+-\S+)*)\s+\$\{(\d+):/g)].map(m => m[1]!);
-      const bareMirrors = nameTabstops.flatMap(n => [...body.matchAll(new RegExp(`(?<!\\\\\\$)\\$${n}(?!\\d)`, 'g'))].map(m => m[0]));
+      // `set ${1:i} (math \$$1 + 1)` -> `set i (math $i + 1)`; a bare `$1` would insert `i`,
+      // which only belongs where a name goes: `set $1 (math \$$1 + 1)`
+      // a flag is literal (`-l`) or a choice placeholder (`${2|-l,-g|}`)
+      const flag = String.raw`(?:\s+(?:-\S+|\$\{\d+\|[^}]*\|\}))*`;
+      const namePosition = String.raw`(?<!\b(?:set${flag}|for|read${flag})\s+)`;
+      const nameTabstops = [...body.matchAll(new RegExp(String.raw`\b(?:set${flag}|for|read${flag})\s+\$\{(\d+):`, 'g'))].map(m => m[1]!);
+      const bareMirrors = nameTabstops.flatMap(n => [...body.matchAll(new RegExp(`${namePosition}(?<!\\\\\\$)\\$${n}(?!\\d)`, 'g'))].map(m => m[0]));
       expect(bareMirrors).toEqual([]);
     });
 
     it.each(bodies)('%s: the default expansion is valid fish', (_name, body) => {
       const plain = snippetToPlainText(body);
       expect(plain).not.toMatch(/\$\{\d/);
-      expect(() => execFileSync('fish', ['--no-execute', '-c', plain], { stdio: 'pipe' })).not.toThrow();
+      // a body starting with `(` is only offered as an argument, see isArgumentSnippet()
+      const inserted = plain.startsWith('(') ? `echo ${plain}` : plain;
+      expect(() => execFileSync('fish', ['--no-execute', '-c', inserted], { stdio: 'pipe' })).not.toThrow();
+    });
+  });
+
+  describe('what a snippet inserts runs as intended', () => {
+    const plainBody = (name: string) => snippetToPlainText(expectedBody(snippets.find(raw => raw.name === name)!));
+    const fish = (script: string, input?: string) => execFileSync('fish', ['--no-config', '-c', script], { encoding: 'utf8', input });
+    const yes: [string, string] = ['command ...', 'echo yes'];
+
+    // [snippet, [default text, filled-in text] in order, script around the inserted text `%`, output, stdin]
+    it.each<[string, [string, string][], string, string, string?]>([
+      ['string-replace', [['pattern', 'old'], ['replacement', 'new'], ['argument ...', 'old-value']], '%', 'new-value\n'],
+      ['function-described', [['explanation', 'two words'], ['command ...', 'echo ran']], '%\nname', 'ran\n'],
+      ['function-described-with-arguments', [['explanation', 'two words'], ['argument ...', 'arg'], ['command ...', 'echo ran']], '%\nname', 'ran\n'],
+      ['argparse-help', [], 'function demo\n%\necho continued\nend\ndemo -h; echo status=$status', 'Usage: my_function [-h | --help]\nstatus=0\n'],
+      ['argparse-help', [], 'function demo\n%\necho continued\nend\ndemo --help; echo status=$status', 'Usage: my_function [-h | --help]\nstatus=0\n'],
+      ['skip-first', [['count', '1']], '%', 'b\nc\n', 'a\nb\nc\n'],
+      ['skip-first', [['count', '3']], '%', '', 'a\nb\nc\n'],
+      ['skip-first', [['-n', '-c'], ['count', '1']], '%', 'bc', 'abc'],
+      ['for-enumerate', [['command ...', 'echo $i $item']], 'set -l list a b c\n%', '1 a\n2 b\n3 c\n'],
+      ['for-argv', [['command ', 'echo ']], 'function f\n%\nend\nf a b', 'a\nb\n'],
+      ['math', [['expression', '10 * (1 + 3) / 16']], '%', '2.5\n'],
+      ['math-scale', [['expression', '10 / 3']], '%', '3.33\n'],
+      // -s 0 -m floor: -3.5 rounds down, where the default truncate gives -3
+      ['math-scale-mode', [['expression', '-7 / 2']], '%', '-4\n'],
+      ['math-base', [['expression', '255']], '%', '0xff\n'],
+      ['math-function', [['(x)', '(-3)']], '%', '3\n'],
+      ['set-math', [['expression', '6 * 7']], '%; echo $variable', '42\n'],
+      ['random', [['1 10', '5 5']], '%', '5\n'],
+      ['random-choice', [], 'set -l list a\n%', 'a\n'],
+      ['if-file-exists', [['path', '/fish-lsp-no-such-path'], yes], '%', ''],
+      ['if-directory', [['path', '/etc/passwd'], yes], '%', ''],
+      ['if-file', [['path', '/'], yes], '%', ''],
+      ['if-executable', [['path', '/etc/passwd'], yes], '%', ''],
+      ['if-string-regex-match', [['regex', '^a.c$'], yes], 'set -l variable abc\n%', 'yes\n'],
+      ['if-string-regex-match', [['regex', '^a.c$'], yes], 'set -l variable abd\n%', ''],
+      ['if-set', [['(command)', '(echo found)'], ['\t\n', '\techo $var\n']], '%', 'found\n'],
+      ['if-set', [['(command)', '(false)'], ['\t\n', '\techo $var\n']], '%', ''],
+      ['if-no-arguments', [], 'function f\n%\necho ran\nend\nf 2>&1; echo status $status; f x', 'usage: name argument ...\nstatus 1\nran\n'],
+      ['string-split', [['-- string', '-- a,b']], '%', 'a\nb\n'],
+      ['string-join', [], 'set -l list a b\n%', 'a,b\n'],
+      ['string-trim', [['-- string', "-- '  x  '"]], '%', 'x\n'],
+      ['string-trim-chars', [['-- string', '-- /x/']], '%', 'x\n'],
+      ['string-match-groups', [['-- \'(\\w+)\' string', "-- '(\\w+)' key=val"]], '%', 'key\n'],
+      ['error-return', [], 'function f\n%\nend\nf 2>&1; echo $status', 'error\n1\n'],
+      ['printf', [], 'function f\n%\nend\nf a b', 'a\nb\n'],
+      ...['abbr', 'abbr-anywhere', 'abbr-cursor', 'abbr-function'].map((name): [string, [string, string][], string, string] =>
+        [name, [], '%\nabbr --query name; and echo defined', 'defined\n']),
+      ['abbr-command', [], '%\nabbr --query co; and echo defined', 'defined\n'],
+    ])('%s (%#)', (name, fills, script, expected, input) => {
+      const inserted = fills.reduce((text, [from, to]) => text.replace(from, () => to), plainBody(name));
+      expect(fish(script.replace('%', () => inserted), input)).toBe(expected);
+    });
+
+    it('complete-subcommands describes each subcommand, until one is given', () => {
+      const complete = plainBody('complete-subcommands').replace('-c command ', '-c fishlspdemo ');
+      const [before, after] = fish(`function fishlspdemo; end\n${complete}\ncomplete --do-complete='fishlspdemo '; echo SPLIT; complete --do-complete='fishlspdemo subcommand '`).split('SPLIT\n');
+      expect(before).toBe('subcommand\tdescription\n');
+      expect(after).not.toContain('subcommand\t');
     });
   });
 
@@ -132,6 +196,7 @@ describe('completion snippets (src/snippets/completionSnippets.json)', () => {
 describe('completion snippets selection (via server.onCompletion)', () => {
   let handle: TestServerHandle;
   let server: FishServer;
+  const multiwordSnippets = config.fish_lsp_enable_multiword_snippets;
 
   async function completeAt(content: string, filePath = '/tmp/completion-snippet-selection.fish') {
     const doc = createFakeLspDocument(filePath, content);
@@ -158,9 +223,11 @@ describe('completion snippets selection (via server.onCompletion)', () => {
       } as any,
     });
     server = handle.server;
+    config.fish_lsp_enable_multiword_snippets = true;
   });
 
   afterAll(async () => {
+    config.fish_lsp_enable_multiword_snippets = multiwordSnippets;
     await handle?.shutdown();
   });
 
@@ -212,7 +279,7 @@ describe('completion snippets selection (via server.onCompletion)', () => {
     ['', 'string rep', 'string replace'],
     ['', 'set color', 'set color'],
     ['', 'set ', 'set color'],
-    ['', 'set i -', 'set i - '],
+    ['', 'set i -', 'set i -'],
     ['', 'if else', 'if else'],
     ['    ', 'set color', 'set color'],
     ['echo hi; ', 'set color', 'set color'],
@@ -233,7 +300,28 @@ describe('completion snippets selection (via server.onCompletion)', () => {
 
   it.each(['echo set color', 'echo "set color', 'echo string replace'])('does not treat arguments as multiword snippet triggers: %j', async (content) => {
     const result = await completeAt(content);
-    expect(result.items.filter(i => i.kind === CompletionItemKind.Snippet)).toEqual([]);
+    // only snippets inserted as an argument, like `(command | psub)`, belong here
+    expect(result.items.filter(i => i.kind === CompletionItemKind.Snippet && !i.insertText?.startsWith('('))).toEqual([]);
+  });
+
+  describe('with fish_lsp_enable_multiword_snippets off (the default)', () => {
+    beforeAll(() => {
+      config.fish_lsp_enable_multiword_snippets = false;
+    });
+    afterAll(() => {
+      config.fish_lsp_enable_multiword_snippets = true;
+    });
+
+    it.each(['string ', 'string s', 'set color', 'math sc', 'if e'])('matches no multiword trigger in %j', async (content) => {
+      const snippets = (await completeAt(content)).items.filter(i => i.kind === CompletionItemKind.Snippet);
+      // nothing matched through a phrase, so nothing replaces text before the typed word
+      const wordStart = content.length - (content.split(/\s/).at(-1) ?? '').length;
+      expect(snippets.filter(i => i.filterText?.includes(' ') || ((i.textEdit as TextEdit | undefined)?.range.start.character ?? wordStart) < wordStart)).toEqual([]);
+    });
+
+    it.each([['ife', 'if-else'], ['strsp', 'string-split'], ['set-color', 'set-color']])('still matches the one-word trigger %j', async (content, label) => {
+      expect((await completeAt(content)).items.filter(i => i.kind === CompletionItemKind.Snippet).map(i => i.label)).toContain(label);
+    });
   });
 
   it('does not disturb trailing document characters selecting "set-color" inside a nested command substitution', async () => {
@@ -338,7 +426,6 @@ describe('completion snippets selection (via server.onCompletion)', () => {
     });
 
     it.each([
-      'ls ',
       'string match -',
       'end ',
       '# ',
@@ -346,6 +433,34 @@ describe('completion snippets selection (via server.onCompletion)', () => {
     ])('does not offer snippets in %j', async (content) => {
       const result = await completeAt(content);
       expect(result.items.some(isSnippet)).toBe(false);
+    });
+
+    describe('snippets inserted as an argument (a body starting with `(`)', () => {
+      const isArgumentSnippet = (item: CompletionItem) => isSnippet(item) && !!item.insertText?.startsWith('(');
+
+      it.each(['diff psu', 'diff proc', 'diff (sort a | psub) ps'])('offers only them once the argument names them: %j', async (content) => {
+        const snippets = (await completeAt(content)).items.filter(isSnippet);
+        expect(snippets.map(i => i.label)).toContain('process-substitution');
+        expect(snippets.every(isArgumentSnippet)).toBe(true);
+      });
+
+      it.each(['ls ', 'cat ', 'diff (sort a | psub) ', 'diff p', "argparse 'h/help=!_validate_int --min 0 "])('does not list them at an argument that does not name them: %j', async (content) => {
+        const snippets = (await completeAt(content)).items.filter(isSnippet);
+        expect(snippets.some(isArgumentSnippet)).toBe(false);
+      });
+
+      it.each(['diff (', 'cat a (', 'echo ('])('finishes the `(` just typed in an argument: %j', async (content) => {
+        const item = (await completeAt(content)).items.find(i => i.label === 'process-substitution');
+        expect(item).toBeDefined();
+        // the typed `(` stays, so the body drops its own
+        expect(item!.insertText).toBe('${1:command} | psub)$0');
+      });
+
+      it.each(['', 'psu', 'echo hi; ', 'not ', '('])('never offers them at the command position %j', async (content) => {
+        const snippets = (await completeAt(content)).items.filter(isSnippet);
+        expect(snippets.length).toBeGreaterThan(0);
+        expect(snippets.some(isArgumentSnippet)).toBe(false);
+      });
     });
 
     it("replaces only the typed trigger inside `complete -c foo -a '(ife`", async () => {

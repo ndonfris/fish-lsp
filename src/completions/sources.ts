@@ -1,11 +1,12 @@
 import { readdir } from 'fs/promises';
 import { dirname } from 'path';
 import { CompletionItemKind, SymbolKind } from 'vscode-languageserver';
-import { CompletionContext, openIndexTerm } from './context';
+import { CompletionContext, openIndexTerm, tokenizeCommandline } from './context';
 import { CompletionItemMap } from './startup-cache';
 import { cloneCompletionItem, FishCompletionItem, FishCompletionItemKind, getCompletionDocumentationValue } from './types';
-import { shellComplete } from './shell';
+import { shellCommandNameList, shellComplete } from './shell';
 import { buildCommentCompletions } from './comment-completions';
+import { config } from '../config';
 
 type Items = FishCompletionItem[];
 
@@ -208,12 +209,37 @@ export const commandEndOperators: CompletionSource = (ctx, map) => {
 
 export const pipes: CompletionSource = (_ctx, map) => fromMap(map.allOfKinds('pipe'), 85);
 
+/**
+ * A snippet whose body starts with `(` inserts a command substitution, which fish
+ * only accepts as an argument: `diff (command | psub)`, never `(command | psub)`.
+ */
+function isArgumentSnippet(item: FishCompletionItem): boolean {
+  return (item.insertText ?? '').startsWith('(');
+}
+
 /** `src/snippets/completionSnippets.json`, one item per trigger (see `static-items.ts`) */
 export const snippets: CompletionSource = (ctx, map) => {
   const atCommand = ctx.mode === 'empty' || ctx.mode === 'command';
+  const atArgument = ctx.mode === 'argument';
+  // see `fish_lsp_enable_multiword_snippets` in fishlspEnvVariables.json
+  const multiword = config.fish_lsp_enable_multiword_snippets;
+  // `diff (`: a `(` just typed in an argument, which a `(` snippet can finish
+  const afterParen = ctx.mode === 'empty' && ctx.line.endsWith('(')
+    && tokenizeCommandline(ctx.line.slice(0, -1)).command !== null;
   return fromMap(map.allOfKinds('snippet'), 99).flatMap(item => {
     const trigger = item.filterText ?? item.label;
-    const prefix = trigger.includes(' ')
+    // A `(` snippet only fits an argument, and an empty word would list it first
+    // everywhere: offer it after a typed `(`, or once the word names it (`pro`).
+    const asArgument = isArgumentSnippet(item);
+    if (asArgument) {
+      if (afterParen) {
+        item.insertText = item.insertText!.slice(1);
+        return [item];
+      }
+      if (!atArgument || ctx.word.length < 2 || !trigger.startsWith(ctx.word)) return [];
+    }
+    const fitsSlot = asArgument || atCommand;
+    const prefix = multiword && !asArgument && trigger.includes(' ')
       ? ctx.snippetPrefixes.find(text => text.includes(' ') && trigger.startsWith(text))
       : undefined;
     if (prefix) {
@@ -232,7 +258,7 @@ export const snippets: CompletionSource = (ctx, map) => {
     }
     // a multiword trigger only matches through its own range (above); unmatched,
     // it would just repeat the snippet under the same label
-    return atCommand && !trigger.includes(' ') ? [item] : [];
+    return fitsSlot && !trigger.includes(' ') ? [item] : [];
   });
 };
 
@@ -240,7 +266,7 @@ export const snippets: CompletionSource = (ctx, map) => {
 
 /** every command name fish knows about (`complete --do-complete ' '`) */
 export const shellCommandNames: CompletionSource = async (ctx, map) => {
-  const results = await shellComplete(' ', { raw: true, excludeCompletionDirs: excludedCompletionDirs(ctx) });
+  const results = await shellCommandNameList(excludedCompletionDirs(ctx));
   return results
     .filter(([name]) => !map.shouldSkipMatch(name))
     .map(([name, description]) => FishCompletionItem.create(name, 'command', description, name).setPriority(30));

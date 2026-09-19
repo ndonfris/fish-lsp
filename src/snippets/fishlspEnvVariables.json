@@ -118,6 +118,15 @@
     "valueType": "boolean"
   },
   {
+    "name": "fish_lsp_enable_multiword_snippets",
+    "description": "Match snippet triggers spanning several words, such as `string split` or `if else`. Off by default: a multiword snippet replaces the typed command name, so completion clients rank it above that command's own arguments (`string <TAB>`). Snippets stay reachable by their one-word triggers. Can also be set through initializationOptions.",
+    "shortDescription": "match multiword snippet triggers",
+    "exactMatchOptions": true,
+    "options": [true, false],
+    "defaultValue": false,
+    "valueType": "boolean"
+  },
+  {
     "name": "fish_lsp_log_file",
     "description": "A path to the fish-lsp's logging file. Empty string disables logging.",
     "shortDescription": "path to the fish-lsp's log file",

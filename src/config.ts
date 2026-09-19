@@ -97,6 +97,9 @@ export const ConfigSchema = z.object({
   /** Include snippet completions when the client supports them. */
   fish_lsp_enable_snippets: z.boolean().default(true),
 
+  /** Match snippet triggers spanning several words (`string split`, `if else`). */
+  fish_lsp_enable_multiword_snippets: z.boolean().default(false),
+
   /** Path to the log files */
   fish_lsp_log_file: z.string().default(''),
 
@@ -173,6 +176,7 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_disabled_handlers: process.env.fish_lsp_disabled_handlers?.split(' '),
     fish_lsp_commit_characters: process.env.fish_lsp_commit_characters?.split(' '),
     fish_lsp_enable_snippets: toBoolean(process.env.fish_lsp_enable_snippets),
+    fish_lsp_enable_multiword_snippets: toBoolean(process.env.fish_lsp_enable_multiword_snippets),
     fish_lsp_log_file: process.env.fish_lsp_log_file || process.env.fish_lsp_logfile,
     fish_lsp_log_level: process.env.fish_lsp_log_level,
     fish_lsp_all_indexed_paths: process.env.fish_lsp_all_indexed_paths?.split(' '),

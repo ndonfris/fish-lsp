@@ -111,12 +111,19 @@ export function toCompletionList(
     return true;
   });
   // comment items keep their authored order (shebangs, then directives)
-  let unique = ctx.mode === 'comment' ? deduped : sortByPriority(deduped, ctx.word);
+  let unique = ctx.mode === 'comment' ? deduped : sortByPriority(deduped, ctx.word, ctx.mode === 'argument');
   const withPaths = unique.length;
   unique = unique.filter(item => keepPathItem(item, ctx.word));
   // the client caches a complete list and filters it itself, so a dropped path
   // would never come back as the word grows
   const droppedPaths = unique.length !== withPaths;
+
+  // Clients sort by `sortText`, falling back to the label, so without it they would
+  // list `&&` before `string`'s subcommands. Record this order for ties in their scoring.
+  const width = String(unique.length).length;
+  unique.forEach((item, index) => {
+    item.sortText = String(index).padStart(width, '0');
+  });
 
   // items are per-request copies, so adjusting them never touches the completion map
   for (const item of unique) {
@@ -156,7 +163,9 @@ export function toCompletionList(
     if (ctx.word.startsWith('-')) {
       unique = unique.filter(item => item.label.startsWith('-')
         || item.fishKind === FishCompletionItemKind.SNIPPET && (item.data?.replaceLength ?? 0) > ctx.replaceLength);
-    } else if (!ctx.word && unique.some(item => item.label.startsWith('-'))) {
+    } else if (!ctx.word && (ctx.mode === 'argument' || unique.some(item => item.label.startsWith('-')))) {
+      // Fish may only return flags once `-` is typed (e.g. `string split`).
+      // An empty argument's list must not be cached as exhaustive in that case.
       isIncomplete = true;
     }
   }
@@ -254,9 +263,33 @@ function snippetMatchRank(item: FishCompletionItem, word: string): number {
   return 2;
 }
 
-/** snippets whose trigger matches `word` first, then lower priority, then alphabetical */
-function sortByPriority(items: FishCompletionItem[], word: string): FishCompletionItem[] {
+/**
+ * The order of item types in an argument slot: the command's own arguments from fish
+ * (`string <TAB>` -> `split`, `join`, ...), its other syntax (printf templates, status
+ * numbers, paths), snippets, variables, then the pipes and combiners ending it.
+ */
+function argumentSlotTier(item: FishCompletionItem): number {
+  switch (item.fishKind) {
+    case FishCompletionItemKind.ARGUMENT: return 0;
+    case FishCompletionItemKind.SNIPPET: return 2;
+    case FishCompletionItemKind.VARIABLE: return 3;
+    case FishCompletionItemKind.PIPE:
+    case FishCompletionItemKind.COMBINER: return 4;
+    default: return 1;
+  }
+}
+
+/**
+ * In an argument slot, by `argumentSlotTier()` first. Then snippets whose trigger
+ * matches `word`, then lower priority, then alphabetical.
+ */
+function sortByPriority(items: FishCompletionItem[], word: string, argumentSlot: boolean): FishCompletionItem[] {
   return items.sort((a, b) => {
+    if (argumentSlot) {
+      const tierA = argumentSlotTier(a);
+      const tierB = argumentSlotTier(b);
+      if (tierA !== tierB) return tierA - tierB;
+    }
     // snippets are only reachable through their trigger, so a matching one outranks
     // the flat priority every snippet shares
     const matchA = snippetMatchRank(a, word);
