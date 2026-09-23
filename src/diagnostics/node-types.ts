@@ -91,6 +91,180 @@ export function isExtraEnd(node: SyntaxNode) {
   return node.type === 'command' && node.text === 'end';
 }
 
+export type MissingCloser = {
+  /** the unclosed openers, outermost first: `"` and `(` of `"$(true` */
+  openers: SyntaxNode[];
+  /** where the closers go */
+  offset: number;
+  /** the closers, innermost first: `)"` */
+  tokens: string;
+  /** `tokens`, escaped from an odd trailing backslash that would escape them */
+  newText: string;
+};
+
+/**
+ * The closers an ERROR node's unmatched `"`, `'`, `(`, `[` and `{` need, one
+ * entry per insertion. Each opener closes at the end of its own line:
+ * `echo "$var` -> `echo "$var"`, and `{1,2,3` above `set -q $var[1 2` closes
+ * both lines. Openers closing at the same spot share an entry, so
+ * `"$(true` -> `"$(true)"`. An opener that ends its line starts a multiline
+ * string, which is closed after the last text of the ERROR node.
+ */
+export function findMissingClosers(errorNode: SyntaxNode, doc: LspDocument): MissingCloser[] {
+  // Complete strings and escaped literals are named nodes. Only unmatched
+  // syntax tokens exposed by recovery belong on this delimiter stack.
+  const openers: SyntaxNode[] = [];
+  const visit = (node: SyntaxNode) => {
+    for (const child of node.children) {
+      if (child.isError || child.hasError) {
+        visit(child); continue;
+      }
+      if (child.isNamed) continue;
+      const opener = openers.at(-1);
+      if (opener && ErrorNodeTypes[opener.type as startTokenType] === child.type) openers.pop();
+      else if (['"', "'", '(', '[', '{'].includes(child.type)) openers.push(child);
+    }
+  };
+  visit(errorNode);
+  if (openers.length === 0) return [];
+
+  const text = doc.getText();
+  const lines = text.split('\n');
+  const errorEnd = errorNode.startIndex + text.slice(errorNode.startIndex, errorNode.endIndex).trimEnd().length;
+  // `[` starting a statement is the test command, closed by a ` ]` argument;
+  // after a word (`$var[1 2`, `(cmd)[1`) it opens an index.
+  const isTestCommand = (opener: SyntaxNode) =>
+    opener.type === '[' && (opener.startIndex === 0 || /[\s;|&(]/.test(text[opener.startIndex - 1]!));
+  const closeAt = (opener: SyntaxNode) => {
+    const { row: openRow, column } = opener.endPosition;
+    // Only strings and command substitutions can continue onto later lines.
+    const canSpanLines = ['"', "'", '('].includes(opener.type);
+    if (canSpanLines && !lines[openRow]!.slice(column).trim()) return errorEnd;
+    let row = openRow;
+    // A line continuation keeps the string going onto the next line.
+    while (row + 1 < lines.length && doc.offsetAt({ line: row + 1, character: 0 }) < errorEnd
+      && (lines[row]!.replace(/\r$/, '').match(/\\+$/)?.[0].length ?? 0) % 2) {
+      row++;
+    }
+    const content = lines[row]!.replace(/\r$/, '');
+    const trimmed = row === openRow ? Math.max(content.trimEnd().length, column) : content.trimEnd().length;
+    return Math.min(errorEnd, doc.offsetAt({ line: row, character: trimmed }));
+  };
+
+  // Innermost first, so openers sharing a spot close in nesting order.
+  const closers: MissingCloser[] = [];
+  for (const opener of openers.reverse()) {
+    const offset = closeAt(opener);
+    const token = isTestCommand(opener) ? ' ]' : ErrorNodeTypes[opener.type as startTokenType];
+    const closer = closers.find(c => c.offset === offset);
+    if (closer) {
+      closer.openers.unshift(opener);
+      closer.tokens += token;
+    } else {
+      closers.push({ openers: [opener], offset, tokens: token, newText: '' });
+    }
+  }
+  for (const closer of closers) {
+    const trailingSlashes = text.slice(errorNode.startIndex, closer.offset).match(/\\+$/)?.[0].length ?? 0;
+    closer.newText = `${trailingSlashes % 2 ? '\\' : ''}${closer.tokens}`;
+  }
+  return closers.sort((a, b) => a.offset - b.offset);
+}
+
+export type UnclosedBlock = {
+  /** the block's opening keyword: `function`, `for`, `if`, ... */
+  keyword: SyntaxNode;
+  /** the row of an `end` belonging to an enclosing block, which this `end` must precede */
+  beforeRow?: number;
+};
+
+/**
+ * The block keywords (`function`, `for`, `if`, ...) an ERROR node leaves
+ * without an `end`, outermost first. A later unclosed block is always inside
+ * an earlier one, so this is also their nesting order.
+ *
+ * Recovery gives each `end` to the innermost open block, but indentation
+ * shows which block the author meant. So every block keyword and `end` in
+ * the ERROR node, including those of blocks recovery completed, is matched
+ * again: an `end` starting its line closes the innermost open keyword at its
+ * indentation, and any other `end` the innermost open keyword. Below, the
+ * `end`s close `for` and `function`, so `if` is the unclosed block. A block
+ * left open closes before the `end`, `else` or `case` of the block around it.
+ *
+ * ```fish
+ * function foo
+ *     for i in 1 2
+ *         if true
+ *             echo $i
+ *     end
+ * end
+ * ```
+ */
+export function findUnclosedBlocks(errorNode: SyntaxNode, doc: LspDocument): UnclosedBlock[] {
+  const lines = doc.getText().split('\n');
+  const indentOf = (node: SyntaxNode) => lines[node.startPosition.row]!.match(/^[\t ]*/)![0].length;
+
+  const tokens: SyntaxNode[] = [];
+  const collect = (node: SyntaxNode) => {
+    for (const child of node.children) {
+      if (child.isNamed) {
+        // inside an unclosed block, recovery parses `else` and `case` as commands
+        const name = child.type === 'command' ? child.firstNamedChild : null;
+        if (name && (name.text === 'else' || name.text === 'case')) tokens.push(name);
+        collect(child);
+      } else if (child.type === 'end' || child.type === 'else' || child.type === 'case') {
+        tokens.push(child);
+      } else if (ErrorNodeTypes[child.type as startTokenType] === 'end' && !(child.type === 'if' && child.previousSibling?.type === 'else')) {
+        // `else if` continues its `if` rather than opening a block
+        tokens.push(child);
+      }
+    }
+  };
+  collect(errorNode);
+
+  const blocks: UnclosedBlock[] = [];
+  for (const token of tokens) {
+    if (token.text === 'else' || token.text === 'case') {
+      // A branch of an enclosing `if` or `switch`: blocks opened deeper than
+      // it, in the previous branch, close before it.
+      if (token.startPosition.column === indentOf(token)) {
+        for (const block of blocks) {
+          if (indentOf(block.keyword) > token.startPosition.column) block.beforeRow ??= token.startPosition.row;
+        }
+      }
+      continue;
+    }
+    if (token.type !== 'end') {
+      blocks.push({ keyword: token });
+      continue;
+    }
+    let opener = blocks.length - 1;
+    if (token.startPosition.column === indentOf(token)) {
+      for (let i = blocks.length - 1; i >= 0; i--) {
+        if (indentOf(blocks[i]!.keyword) === token.startPosition.column) {
+          opener = i;
+          break;
+        }
+      }
+    }
+    if (opener === -1) continue;
+    // blocks opened inside the one this `end` closes stay open, before it
+    for (const inner of blocks.slice(opener + 1)) inner.beforeRow ??= token.startPosition.row;
+    blocks.splice(opener, 1);
+  }
+  return blocks;
+}
+
+/** `$var[1 2` followed by another line: recovery closes it with a zero-width token */
+export function hasMissingClosingToken(node: SyntaxNode) {
+  return node.children.some(child => child.isMissing && [']', ')', '}', '"', "'"].includes(child.type));
+}
+
+/** `[ -n "$str"` parses as a complete command, but `[` needs a final `]` argument */
+export function isTestBracketWithoutClose(node: SyntaxNode) {
+  return isCommandWithName(node, '[') && node.childrenForFieldName('argument').at(-1)?.text !== ']';
+}
+
 export function isZeroIndex(node: SyntaxNode) {
   return node.type === 'index' && node.text === '0';
 }

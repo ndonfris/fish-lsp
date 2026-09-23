@@ -3,7 +3,7 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
 import { getRange, namedNodesGen } from '../utils/tree-sitter';
 import { isMatchingOption, Option } from '../parsing/options';
-import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage, isDotSourceCommand, isMatchingAbbrFunction, isFunctionWithEventHookCallback, isVariableDefinitionWithExpansionCharacter, isPosixCommandInsteadOfFishCommand, getFishBuiltinEquivalentCommandName, getAutoloadedFunctionsWithoutDescription, isWrapperFunction, /*isKnownCommand*/
+import { findErrorCause, findMissingClosers, findUnclosedBlocks, hasMissingClosingToken, isExtraEnd, isTestBracketWithoutClose, isZeroIndex, isSingleQuoteVariableExpansion, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage, isDotSourceCommand, isMatchingAbbrFunction, isFunctionWithEventHookCallback, isVariableDefinitionWithExpansionCharacter, isPosixCommandInsteadOfFishCommand, getFishBuiltinEquivalentCommandName, getAutoloadedFunctionsWithoutDescription, isWrapperFunction, /*isKnownCommand*/
   isFishStatusDeprecatedFlag,
   getFishStatusDeprecatedFlagMessage } from './node-types';
 import { ErrorCodes } from './error-codes';
@@ -241,10 +241,33 @@ export async function getDiagnosticsAsync(
     }
 
     if (node.isError) {
-      const found: SyntaxNode | null = findErrorCause(node.children);
-      if (found && handler.isCodeEnabled(ErrorCodes.missingEnd)) {
-        if (addDiagnostics(FishDiagnostic.create(ErrorCodes.missingEnd, node))) return diagnostics;
+      const closers = findMissingClosers(node, doc);
+      const blocks = findUnclosedBlocks(node, doc);
+      if (closers.length || blocks.length) {
+        // Anchor each on its openers, not the ERROR node: recovery can make the
+        // whole program one ERROR node. Nested ERROR nodes share the outermost's.
+        if (!(node.parent && findParent(node.parent, n => n.isError)) && handler.isCodeEnabled(ErrorCodes.missingEnd)) {
+          const missing = closers.map(({ openers }) => {
+            const diagnostic = FishDiagnostic.create(ErrorCodes.missingEnd, openers[0]!);
+            const last = openers.at(-1)!;
+            diagnostic.range.end = { line: last.endPosition.row, character: last.endPosition.column };
+            return diagnostic;
+          });
+          missing.push(...blocks.map(({ keyword }) => FishDiagnostic.create(ErrorCodes.missingEnd, keyword)));
+          if (addDiagnostics(...missing)) return diagnostics;
+        }
+      } else {
+        const found: SyntaxNode | null = findErrorCause(node.children);
+        if (found && handler.isCodeEnabled(ErrorCodes.missingEnd)) {
+          if (addDiagnostics(FishDiagnostic.create(ErrorCodes.missingEnd, node))) return diagnostics;
+        }
       }
+    }
+
+    // inside an ERROR node, its openers already report these
+    if ((hasMissingClosingToken(node) || isTestBracketWithoutClose(node)) && !findParent(node, n => n.isError)
+      && handler.isCodeEnabled(ErrorCodes.missingEnd)) {
+      if (addDiagnostics(FishDiagnostic.create(ErrorCodes.missingEnd, node))) return diagnostics;
     }
 
     if (isExtraEnd(node) && handler.isCodeEnabled(ErrorCodes.extraEnd)) {
