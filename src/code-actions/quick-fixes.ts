@@ -778,6 +778,15 @@ export async function getQuickFixes(
   logger.info('getQuickFixes', { code: diagnostic.code, message: diagnostic.message, node: node?.text });
 
   switch (diagnostic.code) {
+    case ErrorCodes.leadingConditionalOperator: {
+      const operator = document.getText(diagnostic.range);
+      if (operator !== '&&' && operator !== '||') return [];
+      const replacement = operator === '&&' ? 'and' : 'or';
+      return [createQuickFix(`Replace '${operator}' with '${replacement}'`, diagnostic, {
+        [document.uri]: [TextEdit.replace(diagnostic.range, replacement)],
+      })];
+    }
+
     case ErrorCodes.missingEnd:
       action = handleMissingEndFix(document, diagnostic, analyzer);
       if (action) actions.push(action);

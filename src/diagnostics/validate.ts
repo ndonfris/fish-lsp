@@ -23,6 +23,7 @@ import { FishDiagnostic } from './types';
 import { server } from '../server';
 import { FishCompletionItemKind } from '../completions/types';
 import { dirname } from 'path';
+import { commandSyntaxDiagnostics } from './command-syntax';
 
 // Number of nodes to process before yielding to event loop
 const CHUNK_SIZE = 100;
@@ -452,6 +453,13 @@ export async function getDiagnosticsAsync(
 
   // allow nodes outside of the loop, to retrieve the old state
   handler.finalizeStateMap(root.text.split('\n').length + 1);
+
+  for (const diagnostic of commandSyntaxDiagnostics(root)) {
+    if (signal?.aborted) return diagnostics;
+    if (handler.isCodeEnabledAtNode(diagnostic.code as ErrorCodes.CodeTypes, diagnostic.data.node)) {
+      if (addDiagnostics(diagnostic)) return diagnostics;
+    }
+  }
 
   const isMissingAutoloadedFunction = docType === 'functions'
     ? autoloadedFunctions.length === 0
