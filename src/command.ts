@@ -34,6 +34,7 @@ export const CommandNames = {
   CHECK_HEALTH: 'fish-lsp.checkHealth',
   SHOW_REFERENCES: 'fish-lsp.showReferences',
   SHOW_INFO: 'fish-lsp.showInfo',
+  SELECT_QUICK_FIX_POSITION: 'fish-lsp.selectQuickFixPosition',
 } as const;
 
 export const LspCommands = [...Array.from(Object.values(CommandNames))];
@@ -56,6 +57,7 @@ export type CommandArgs = {
   [CommandNames.GENERATE_ENV_VARIABLES]: string[];  // [path]
   [CommandNames.SHOW_REFERENCES]: string[];  // [symbolName] or [path, line, char] or [path, "line,char"]
   [CommandNames.SHOW_INFO]: [];
+  [CommandNames.SELECT_QUICK_FIX_POSITION]: [uri: string, position: Position];
   [CommandNames.SHOW_ENV_VARIABLES]: string[];  // [...opts]
 };
 
@@ -304,6 +306,7 @@ function parseNumberPair(
 // Function to create the command handler with dependencies injected
 export function createExecuteCommandHandler(
   connection: Connection,
+  supportsShowDocument = false,
 ) {
   const showMessage = (message: string, type: MessageType = MessageType.Info) => {
     if (type === MessageType.Info) {
@@ -1156,6 +1159,11 @@ export function createExecuteCommandHandler(
 
   // Command handler mapping
   const commandHandlers: Record<string, (...args: any[]) => Promise<void> | void | Promise<Location[]> | Promise<Location[] | undefined>> = {
+    [CommandNames.SELECT_QUICK_FIX_POSITION]: async (uri: unknown, position: unknown) => {
+      if (!supportsShowDocument || typeof uri !== 'string' || !documents.get(uri) || !Position.is(position)) return;
+      if (!Number.isInteger(position.line) || !Number.isInteger(position.character) || position.line < 0 || position.character < 0) return;
+      await connection.window.showDocument({ uri, takeFocus: true, selection: Range.create(position, position) });
+    },
     [CommandNames.EXECUTE_RANGE]: executeRange,
     [CommandNames.EXECUTE_LINE]: executeLine,
     [CommandNames.EXECUTE_BUFFER]: executeBuffer,

@@ -12,6 +12,9 @@ import { pathToRelativeFunctionName, uriToPath, uriToReadablePath } from '../uti
 import { FishString } from '../parsing/string';
 import { findParentCommand, isAliasDefinitionName, isArgparseVariableDefinitionName, isConditionalCommand, isFunctionDefinition, isFunctionDefinitionName, isVariableDefinitionName } from '../utils/node-types';
 import { StatusArgs } from '../diagnostics/deprecated-flags';
+import { CommandNames } from '../command';
+import { server } from '../server';
+import { configHandlers } from '../config';
 
 /**
  * These quick-fixes are separated from the other diagnostic quick-fixes because
@@ -785,6 +788,24 @@ export async function getQuickFixes(
       return [createQuickFix(`Replace '${operator}' with '${replacement}'`, diagnostic, {
         [document.uri]: [TextEdit.replace(diagnostic.range, replacement)],
       })];
+    }
+
+    case ErrorCodes.missingOptionValue: {
+      const option = document.getText(diagnostic.range);
+      if (option !== '--description' && !/^-[^-]*d$/.test(option)) return [];
+      const action = createQuickFix('Add an empty description', diagnostic, {
+        [document.uri]: [TextEdit.insert(diagnostic.range.end, ' ""')],
+      });
+      // A standard WorkspaceEdit cannot contain snippet tabstops. Clients that
+      // support showDocument can place the cursor after applying the edit.
+      if (server?.clientSupportsShowDocument && configHandlers.executeCommand) {
+        action.command = {
+          title: 'Edit description',
+          command: CommandNames.SELECT_QUICK_FIX_POSITION,
+          arguments: [document.uri, { ...diagnostic.range.end, character: diagnostic.range.end.character + 2 }],
+        };
+      }
+      return [action];
     }
 
     case ErrorCodes.missingEnd:

@@ -233,7 +233,7 @@ export default class FishServer {
 
   ) {
     this.features = this.updateFeatures();
-    this.clientSupportsShowDocument = false;
+    this.clientSupportsShowDocument = !!initializeParams.capabilities?.window?.showDocument?.support;
     this.backgroundAnalysisComplete = false;
     this.backgroundAnalysisInProgress = false;
   }
@@ -271,7 +271,7 @@ export default class FishServer {
     const documentHighlightHandler = getDocumentHighlights(analyzer);
     // Semantic tokens handler using simplified unified handler
     // The semanticTokenHandler handles both full document and range requests internally
-    const commandCallback = createExecuteCommandHandler(connection);
+    const commandCallback = createExecuteCommandHandler(connection, this.clientSupportsShowDocument);
 
     // register the handlers
     connection.onDidSaveTextDocument(this.didSaveTextDocument.bind(this));
