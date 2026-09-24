@@ -54,6 +54,8 @@ export interface CompletionContext {
   replaceLength: number;
   /** Normalized part of a continued word retained on earlier lines. */
   continuedWordPrefix?: string;
+  /** inside an `argparse 'n/name=!…` validation script, which sees `$_flag_value` and friends */
+  argparseValidation?: boolean;
   /** `word` is inside an open `"` (`cat "fo`), so inserted text escapes only `"`, `$` and `\` */
   doubleQuoted?: boolean;
   /** `word` is inside an open `'` (`cat '/tm`), so inserted text escapes only `'` and `\` */
@@ -119,6 +121,7 @@ export class CompletionLineParser {
       variablePrefix: '',
       isDefinitionSlot: false,
       canEndCommand: false,
+      argparseValidation: false,
     };
 
     if (line.trim().startsWith('#') && current) {
@@ -127,6 +130,7 @@ export class CompletionLineParser {
 
     const embedded = getEmbeddedPayload(line);
     const embeddedText = embedded?.text ?? null;
+    base.argparseValidation = !!embedded?.argparseValidation;
     // Everything before the cursor, so a quote, a `(` or a `\` continuation opened
     // on an earlier line is still open here. `tokenizeCommandline` cuts it back to
     // the statement that owns the cursor.
@@ -351,7 +355,7 @@ export function getEmbeddedCommandline(line: string): string | null {
  * The payload `getEmbeddedCommandline()` returns, and whether it is a
  * `complete -a` argument list (`jack $names (cmd)`) rather than a commandline.
  */
-export function getEmbeddedPayload(line: string): { text: string; argumentList: boolean; } | null {
+export function getEmbeddedPayload(line: string): { text: string; argumentList: boolean; argparseValidation?: boolean; } | null {
   // The quote left open is the payload being typed; quotes closed before it
   // (`-n '…' -d '…' -xa '(`) and quotes inside it (`-n 'test -n "$(cmd`) don't count.
   // `-a`/`-n` may end a cluster of flags that take no value (`-xa`, `-fka`).
@@ -360,6 +364,15 @@ export function getEmbeddedPayload(line: string): { text: string; argumentList: 
     : /(?:^|\s)(-[fFrxkeh]*[an]|--condition|--arguments)\s+$/.exec(line.slice(0, open))?.[1];
   if (flag) {
     return { text: line.slice(open + 1).trimStart(), argumentList: flag === '--arguments' || flag.endsWith('a') };
+  }
+  // `argparse 'n/name=!_validate_int --min 0`: the script after `!` validates the
+  // flag's value (`=`, `=?` or `=+`). Only a single-quoted spec holds one.
+  const spec = /(?:^|[\s;(|&])argparse\s/.test(line) ? openQuoteIndex(line) : -1;
+  const validation = spec !== -1 && line[spec] === '\''
+    ? /^[^\s'"=!]+=[?+]?!/.exec(line.slice(spec + 1))
+    : null;
+  if (validation) {
+    return { text: line.slice(spec + 1 + validation[0].length).trimStart(), argumentList: false, argparseValidation: true };
   }
   const alias = line.match(/^\s*alias\s+\S+\s*=\s*(['"])(.*)$/);
   if (alias) {

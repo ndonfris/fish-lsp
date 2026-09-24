@@ -5,6 +5,7 @@ import { Option, isMatchingOption, isMatchingOptionOrOptionValue, isMatchingOpti
 import { isVariableDefinitionName, isFunctionDefinitionName, isAliasDefinitionName, isExportVariableDefinitionName, isArgparseVariableDefinitionName } from '../parsing/barrel';
 import { isBuiltin as checkBuiltinName, BuiltInList } from './builtins';
 import { findPrebuiltDoc } from './snippets';
+import { FishString } from '../parsing/string';
 
 // use the `../parsing/barrel` barrel file's imports for finding the definition names
 export {
@@ -817,7 +818,21 @@ export function isCommandWithName(node: SyntaxNode, ...commandNames: string[]) {
   return !!name && commandNames.includes(name);
 }
 
+/**
+ * An argparse spec with a validation script: `'n/num=!_validate_int --min 0'`.
+ * It defines the flag and runs the script after `!`, which only a single-quoted
+ * spec can hold.
+ */
+export function isArgparseValidationSpec(node: SyntaxNode) {
+  if (node.type !== 'single_quote_string') return false;
+  const command = findParentCommand(node);
+  return !!command && isCommandWithName(command, 'argparse')
+    && FishString.argparseValidationOffset(FishString.fromNode(node)) > 0;
+}
+
 export function isArgumentThatCanContainCommandCalls(node: SyntaxNode) {
+  // also a definition name (the flag), so it's checked before those are rejected
+  if (isArgparseValidationSpec(node)) return true;
   if (
     isDefinitionName(node)
     || isCommand(node)

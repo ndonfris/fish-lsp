@@ -66,8 +66,11 @@ export function extractCommandLocations(
     }];
   }
 
-  const cleanedText = cleanQuotes(nodeText);
-  const quoteOffset = getQuoteOffset(nodeText);
+  const unquoted = cleanQuotes(nodeText);
+  // `'n/name=!_validate_int'`: only the argparse validation script holds commands
+  const validationOffset = FishString.argparseValidationOffset(unquoted);
+  const cleanedText = unquoted.slice(validationOffset);
+  const quoteOffset = getQuoteOffset(nodeText) + validationOffset;
 
   return findCommandsWithOffsets(cleanedText, config)
     .map(({ command, offset }) => ({
@@ -208,7 +211,8 @@ function findParenthesizedCommandOffsets(text: string): Array<{ command: string;
 }
 
 function parseOptionArgument(text: string): string | null {
-  const optionArgRegex = /^(?:-[a-zA-Z]|--[a-zA-Z][a-zA-Z0-9-]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_-]*)/;
+  // the value may be quoted: `--wraps='cmd'`
+  const optionArgRegex = /^(?:-[a-zA-Z]|--[a-zA-Z][a-zA-Z0-9-]*)\s*=\s*['"]?([a-zA-Z_][a-zA-Z0-9_-]*)/;
   const match = text.match(optionArgRegex);
 
   if (match && match[1]) {

@@ -37,6 +37,7 @@ import { buildScopeSpans, isNodeExcluded, ScopeSpan } from './utils/skippable-sc
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { FishServer } from './server'; // @ts-ignore
 import { captureNameAtPosition } from './parsing/string-regex';
+import { stringVariableAtPoint } from './parsing/string-variables';
 import { getImplementationLocations } from './implementation';
 
 /*************************************************************/
@@ -973,8 +974,9 @@ export class Analyzer {
     const word = this.wordAtPoint(document.uri, position.line, position.character);
     if (!word) return [];
     const node = this.nodeAtPoint(document.uri, position.line, position.character);
+    const nodeType = referenceTypeAtPoint(node, position);
     return this.symbols.allSymbolsByName.find(word)
-      .filter(symbol => symbolMatchesNodeContext(symbol, node));
+      .filter(symbol => symbolMatchesNodeContext(symbol, node, nodeType));
   }
 
   /**
@@ -987,7 +989,10 @@ export class Analyzer {
     if (!word || !node) return [];
 
     const namedSymbols = this.findSymbolsForPosition(document, position);
-    const localNamedSymbols = this.symbols.findDocumentNamedSymbols(document.uri, word);
+    // a `$name` inside an evaluated string only names a variable
+    const inString = !!stringVariableAtPoint(node, position);
+    const localNamedSymbols = this.symbols.findDocumentNamedSymbols(document.uri, word)
+      .filter(s => !inString || s.isVariable());
 
     // Resolve a definition only at positions that could plausibly reference a
     // symbol: a direct identifier node (variable / command name / declaration),
@@ -1001,7 +1006,7 @@ export class Analyzer {
     // (operators, plain strings, builtin commands with no matching symbol) fall
     // through to the man-page/command-doc hover.
     if (
-      !isVariable(node) && !isCommandName(node) && !isDefinitionName(node)
+      !isVariable(node) && !isCommandName(node) && !isDefinitionName(node) && !inString
       && !namedSymbols.some(s => s.isReference(document, node))
     ) {
       return [];
@@ -1877,7 +1882,7 @@ export class Analyzer {
 
     if (!tree || !node) return null;
 
-    const nodeType = findReferenceSymbolType(node);
+    const nodeType = referenceTypeAtPoint(node, position);
 
     // Candidates, most-precise first: the resolved definition (understands
     // cross-file / sourced / argparse-option references), then every same-name
@@ -2365,6 +2370,10 @@ export class Analyzer {
       return node.text.trim();
     }
 
+    // `$name` inside a single-quoted string fish evaluates later (`complete -a '$x'`)
+    const stringVariable = stringVariableAtPoint(node, { line, character: column });
+    if (stringVariable) return stringVariable.name;
+
     // If the cursor is on an AST-parsed command name (e.g. `no_color` in
     // `(_fish_alt_greeting | no_color)`), trust the node directly.
     // The nested-command path walks up to the enclosing `(...)` carrier and
@@ -2610,9 +2619,12 @@ class AnalyzedDocumentCache {
  * are legitimately referenced by bare command names and inside string carriers
  * (`alias`/`complete` values); `isReference` validates those downstream.
  */
-function symbolMatchesNodeContext(symbol: FishSymbol, node: SyntaxNode | null): boolean {
+function symbolMatchesNodeContext(
+  symbol: FishSymbol,
+  node: SyntaxNode | null,
+  nodeType: ReferenceSymbolType | null = node ? findReferenceSymbolType(node) : null,
+): boolean {
   if (!node) return true;
-  const nodeType = findReferenceSymbolType(node);
   const symbolType = symbolReferenceType(symbol);
   // Variables must sit at an actual variable usage (`$var`, a definition name, a
   // `set -q/-e/-S` target) — never a carrier word/string. This keeps a bare
@@ -2626,6 +2638,16 @@ function symbolMatchesNodeContext(symbol: FishSymbol, node: SyntaxNode | null): 
   // node whose context is unambiguously a *different* category. `isReference`
   // arbitrates the remaining cases downstream.
   return nodeType === null || nodeType === symbolType;
+}
+
+/**
+ * {@link findReferenceSymbolType} for the position inside `node`: a single-quoted
+ * `complete -a/-n` value or alias body is one string node, yet the `$name` under the
+ * cursor there is a variable reference.
+ */
+function referenceTypeAtPoint(node: SyntaxNode | null, position: Position): ReferenceSymbolType | null {
+  if (!node) return null;
+  return stringVariableAtPoint(node, position) ? 'variable' : findReferenceSymbolType(node);
 }
 
 export function findCommandLocations(cmd: string) {
