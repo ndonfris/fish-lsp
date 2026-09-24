@@ -55,14 +55,34 @@ export const VariableDefinitionKeywords = [
  * - `for i in _ `              -> i
  * - `export foo=bar`           -> foo
  */
-export function isVariableDefinitionName(node: SyntaxNode) {
-  return SetParser.isSetVariableDefinitionName(node) ||
-    ReadParser.isReadVariableDefinitionName(node) ||
-    ArgparseParser.isArgparseVariableDefinitionName(node) ||
-    ForParser.isForVariableDefinitionName(node) ||
-    FunctionParser.isFunctionVariableDefinitionName(node) ||
-    ExportParser.isExportVariableDefinitionName(node) ||
-    StringRegexParser.isStringRegexCaptureDefinitionName(node);
+export function isVariableDefinitionName(node: SyntaxNode): boolean {
+  // A definition name sits right under the node that defines it, or one level down
+  // in a `concatenation` (`set -e PATH[1]`, `export foo=bar`, `argparse n/name=`).
+  // One look at the parent picks the only parser that can match; asking all seven
+  // re-read the parent and its command name for every node of every document.
+  const parent = node.parent;
+  if (!parent) return false;
+  switch (parent.type) {
+    case 'for_statement':
+      return ForParser.isForVariableDefinitionName(node);
+    case 'function_definition':
+      return FunctionParser.isFunctionVariableDefinitionName(node);
+    case 'command':
+    case 'concatenation':
+      break;
+    default:
+      return false;
+  }
+  const command = parent.type === 'command' ? parent : parent.parent;
+  if (command?.type !== 'command') return false;
+  switch (command.childForFieldName('name')?.text) {
+    case 'set': return !!SetParser.isSetVariableDefinitionName(node);
+    case 'read': return ReadParser.isReadVariableDefinitionName(node);
+    case 'argparse': return ArgparseParser.isArgparseVariableDefinitionName(node);
+    case 'export': return ExportParser.isExportVariableDefinitionName(node);
+    case 'string': return StringRegexParser.isStringRegexCaptureDefinitionName(node);
+    default: return false;
+  }
 }
 
 /**

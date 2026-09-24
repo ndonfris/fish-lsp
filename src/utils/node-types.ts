@@ -523,11 +523,8 @@ export function isVariableExpansionWithName(node: SyntaxNode, variableName: stri
 }
 
 export function isVariable(node: SyntaxNode) {
-  if (isVariableDefinition(node)) {
-    return true;
-  } else {
-    return ['variable_expansion', 'variable_name'].includes(node.type);
-  }
+  // the node type is free to read; a definition name needs its parent
+  return ['variable_expansion', 'variable_name'].includes(node.type) || isVariableDefinition(node);
 }
 
 export function isCompleteFlagCommandName(node: SyntaxNode) {

@@ -20,6 +20,7 @@ import { filterLastPerScopeSymbol, FishSymbol } from './parsing/symbol';
 import { CompletionHandler } from './completions/handler';
 import { refreshShellCompletions, stopShellCompletions, warmShellCompletions } from './completions/shell';
 import { resolveCompletionItemDocumentation } from './completions/resolve-item';
+import { FishCompletionData, FishCompletionItemKind } from './completions/types';
 import { PrebuiltDocumentationMap, warmPrebuiltCommandDescriptions } from './utils/snippets';
 import { findParent, findParentCommand, isAliasDefinitionName, isArgparseValidationSpec, isBraceExpansion, isCommand, isCommandName, isConcatenation, isDefinitionName, isEndStdinCharacter, isOption, isPathNode, isVariableDefinition } from './utils/node-types';
 import { config, Config } from './config';
@@ -605,6 +606,19 @@ export default class FishServer {
    */
   async onCompletionResolve(item: CompletionItem): Promise<CompletionItem> {
     try {
+      // a local symbol's item points at its definition instead of carrying its docs
+      const data = item.data as FishCompletionData | undefined;
+      const symbol = data?.symbol;
+      if (symbol) {
+        const named = analyzer.getFlatDocumentSymbols(symbol.uri).filter(s => s.name === item.label);
+        // the file may have changed since the completion: then any same-kind symbol
+        // of that name in it, rather than no docs at all
+        const definition = named.find(s =>
+          s.selectionRange.start.line === symbol.line
+          && s.selectionRange.start.character === symbol.character)
+          ?? named.find(s => data.fishKind === FishCompletionItemKind.FUNCTION ? s.isFunction() : s.isVariable());
+        if (definition) item.data = { ...item.data, documentation: definition.detail };
+      }
       return await resolveCompletionItemDocumentation(item, this.completionMap);
     } catch (err) {
       logger.error('onCompletionResolve', err);
