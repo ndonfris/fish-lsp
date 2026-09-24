@@ -434,8 +434,8 @@ describe('Command completion documentation', () => {
 
     const result = await server.onCompletion(params);
 
-    expect(result.items.length).toBeGreaterThan(0);
-    expect(result.items.some(i => i.label === 'abbr')).toBe(true);
+    // only `-a`/`-n` payloads are commandlines; any other single-quoted text is literal
+    expect(result.items).toEqual([]);
   });
 
   it('completes inside complete -n at eof even when the target completion file is autoloadable', async () => {

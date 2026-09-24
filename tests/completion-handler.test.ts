@@ -190,6 +190,12 @@ describe('completion handler', () => {
       ['    set -q ', 'variable', false],
       ['begin; set -l foo ', 'variable', false],
       ["complete -c foo -a '(", 'empty', true],
+      ["complete -c foo -a '", 'variable', true],
+      ["complete -c foo -kxa 'jack $na", 'variable', true],
+      ["complete -c foo --arguments '$", 'variable', true],
+      ["complete -c foo -a 'jac", 'quoted', true],
+      ["complete -c foo -a 'jack (ec", 'command', true],
+      ["complete -c foo -a '(ls) $na", 'variable', true],
       ["complete -c foo -n 'not __f", 'command', true],
       ["alias foo='git ", 'argument', true],
     ])('%j -> %s (embedded: %s)', (line, mode, embedded) => {
@@ -339,6 +345,159 @@ describe('completion handler', () => {
     expect(edit.range.end.character).toBe(content.length);
   });
 
+  it.each(['cat /t\\\nmp', 'cat /t\\\nm\\\np', 'cat >/t\\\nmp'])('completes continued words without duplicating their prefix: %j', async (content) => {
+    const result = await complete(content);
+    const edit = result.items.find(item => item.label === '/tmp/')?.textEdit as TextEdit;
+    expect(edit).toBeDefined();
+    const lines = content.split('\n');
+    expect(edit.range).toEqual({
+      start: { line: lines.length - 1, character: 0 },
+      end: { line: lines.length - 1, character: lines.at(-1)!.length },
+    });
+    lines[lines.length - 1] = edit.newText;
+    expect(lines.join('\n').replace(/\\\n/g, '')).toBe(content.replace(/\\\n/g, '') + '/');
+  });
+
+  it.each([
+    "echo '", "echo '$", "echo '$v", "echo 'fo", "set -l x '$", "cat '",
+    "echo 'a\nb", "complete -c foo -d '", "alias foo=\"echo '$",
+    // quoted text is literal: no `~`, `$` or glob expansion to complete from
+    "cat '~/", "cat '$HOME/", "ls '/tmp/*",
+  ])('offers nothing inside single-quoted literal text: %j', async (content) => {
+    const result = await complete(content);
+    expect(result.items).toEqual([]);
+  });
+
+  describe('`complete -a` word lists only complete variables', () => {
+    const prefix = 'set -l names jack jill\n';
+
+    it.each([
+      ["complete -c foo -a '", ''],
+      ["complete -c foo -kxa 'jack $na", '$na'],
+      ["complete -c foo -kxa 'jack $$na", '$$na'],
+    ])('%j', async (line, typed) => {
+      const content = prefix + line;
+      const result = await complete(content);
+      expect(result.items.length).toBeGreaterThan(0);
+      expect(result.items.every(item => (item as { fishKind?: string; }).fishKind === 'variable')).toBe(true);
+      const item = result.items.find(item => item.label === 'names');
+      const edit = item?.textEdit as TextEdit;
+      expect(edit).toBeDefined();
+      expect(edit.range.start.character).toBe(line.length - typed.length);
+      expect(edit.newText).toBe(`${/^\$*/.exec(typed)![0] || '$'}names`);
+    });
+
+    it("offers nothing for a plain word: `complete -a 'jac`", async () => {
+      expect((await complete(prefix + "complete -c foo -a 'jac")).items).toEqual([]);
+    });
+  });
+
+  it.each([
+    ["string match -r -- '", 'regex'],
+    ["string match -r '\\\\d", 'regex'],
+    ["string replace --regex 'a", 'regex'],
+    ["printf '", 'format_str'],
+    ["printf '%s", 'format_str'],
+  ])('offers the command\'s own syntax inside single quotes: %j', async (content, kind) => {
+    const result = await complete(content);
+    const kinds = new Set(result.items.map(item => (item as { fishKind?: string; }).fishKind));
+    expect(kinds.has(kind)).toBe(true);
+    expect([...kinds].every(k => k === kind || k === 'esc_chars')).toBe(true);
+    expect(result.isIncomplete).toBe(true);
+  });
+
+  it.each(["string match '", "printf '%s\\n' '", "string split -- '"])('offers nothing for other single-quoted `string`/`printf` arguments: %j', async (content) => {
+    expect((await complete(content)).items).toEqual([]);
+  });
+
+  it.each(["complete -c foo -a '(", "complete -c foo -xn '", "alias foo='"])('still completes the commandline in %j', async (content) => {
+    const result = await complete(content);
+    expect(result.items.length).toBeGreaterThan(0);
+  });
+
+  it.each([
+    ['echo "$HO', 'echo "$HOME'],
+    ['echo "a$HO', 'echo "a$HOME'],
+    ["complete -c foo -n 'test -n \"$HO", "complete -c foo -n 'test -n \"$HOME"],
+    ["complete -c foo -n 'test -n $HO", "complete -c foo -n 'test -n $HOME"],
+  ])('keeps the `$` of a variable in double quotes: %j', async (content, expected) => {
+    const result = await complete(content);
+    const item = result.items.find(item => item.label === 'HOME');
+    expect(item?.textEdit).toBeDefined();
+    const edit = item!.textEdit as TextEdit;
+    expect(content.slice(0, edit.range.start.character) + edit.newText + content.slice(edit.range.end.character)).toBe(expected);
+  });
+
+  describe('accepted items insert valid fish text', () => {
+    const applyEdit = (content: string, edit: TextEdit) => {
+      const lines = content.split('\n');
+      const offset = ({ line, character }: { line: number; character: number; }) =>
+        lines.slice(0, line).reduce((sum, text) => sum + text.length + 1, 0) + character;
+      return content.slice(0, offset(edit.range.start)) + edit.newText + content.slice(offset(edit.range.end));
+    };
+    let dir: string;
+    beforeAll(() => {
+      dir = mkdtempSync(join(tmpdir(), 'fish-lsp-accepted-'));
+      mkdirSync(join(dir, 'foo bar'));
+      mkdirSync(join(dir, 'foo$bar'));
+      mkdirSync(join(dir, 'foo(bar)'));
+      mkdirSync(join(dir, 'it\'s'));
+      writeFileSync(join(dir, 'probe.txt'), '');
+    });
+    afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+    it.each([
+      ['foo bar', 'foo\\ '],
+      ['foo bar', 'foo\\ b'],
+      ['foo$bar', 'foo\\$b'],
+      ['foo(bar)', 'foo\\(b'],
+    ])('escapes the path %j when completing %j', async (name, typed) => {
+      const content = `cat ${dir}/${typed}`;
+      const result = await complete(content);
+      const item = result.items.find(item => item.label === `${dir}/${name}/`);
+      expect(item?.textEdit).toBeDefined();
+      const escaped = name.replace(/([ ()$\\])/g, '\\$1');
+      expect(applyEdit(content, item!.textEdit as TextEdit)).toBe(`cat ${dir}/${escaped}/`);
+    });
+
+    it.each([
+      ['"', 'foo b', 'foo bar/'],
+      ['"', 'foo(b', 'foo(bar)/'],
+      ['"', 'foo\\$b', 'foo\\$bar/'],
+      // inside `'` only `'` and `\` are special
+      ['\'', 'foo b', 'foo bar/'],
+      ['\'', 'foo$b', 'foo$bar/'],
+      ['\'', 'foo(b', 'foo(bar)/'],
+      ['\'', 'it', 'it\\\'s/'],
+    ])('only escapes what %s quotes need: %j', async (quote, typed, expected) => {
+      const content = `cat ${quote}${dir}/${typed}`;
+      const result = await complete(content);
+      const item = result.items.find(item => item.label === `${dir}/${expected.replace(/\\/g, '')}`);
+      expect(item?.textEdit).toBeDefined();
+      expect(applyEdit(content, item!.textEdit as TextEdit)).toBe(`cat ${quote}${dir}/${expected}`);
+    });
+
+    // a file (no trailing `/`) is only known as a path by looking in its directory
+    it.each([
+      ['outside the working directory', () => [`cat '${dir}/pro`, `${dir}/probe.txt`]],
+      ['relative, in a subdirectory', () => ["cat 'scripts/relink-loc", 'scripts/relink-locally.fish']],
+    ])('completes a single-quoted file %s', async (_, paths) => {
+      const [content, label] = paths();
+      const result = await complete(content!);
+      const item = result.items.find(item => item.label === label);
+      expect((item as { fishKind?: string; } | undefined)?.fishKind).toBe('path');
+      expect(applyEdit(content!, item!.textEdit as TextEdit)).toBe(`cat '${label}`);
+    });
+
+    it('does not duplicate an escaped continued word', async () => {
+      const content = `cat ${dir}/foo\\ \\\nb`;
+      const result = await complete(content);
+      const item = result.items.find(item => item.label === `${dir}/foo bar/`);
+      expect(item?.textEdit).toBeDefined();
+      expect(applyEdit(content, item!.textEdit as TextEdit).replace(/\\\n/g, '')).toBe(`cat ${dir}/foo\\ bar/`);
+    });
+  });
+
   describe('operators at command endings', () => {
     it.each(['fish-lsp ', 'fish-lsp\t', 'set -q PATH; fish-lsp '])('inserts valid combiners and omits negation after %j', async (content) => {
       const result = await complete(content);
@@ -422,6 +581,18 @@ describe('completion handler', () => {
   describe('filesystem matches are gated on the typed word', () => {
     const pathItems = (result: { items: { label: string; }[]; }) =>
       result.items.filter(item => (item as { fishKind?: string; }).fishKind === 'path').map(item => item.label);
+
+    it.each(['foo bar', 'foo(bar)', 'foo$bar', 'foo\\bar'])('keeps escaped path matches for %j', async (name) => {
+      const dir = mkdtempSync(join(tmpdir(), 'fish-lsp-escaped-path-'));
+      try {
+        mkdirSync(join(dir, name));
+        const escaped = name.replace(/([ ()$\\])/g, '\\$1');
+        const result = await complete(`cat ${dir}/${escaped}`);
+        expect(pathItems(result)).toContain(`${dir}/${name}/`);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
 
     it.each(['foo ', 'ls ', 'cat ', 'echo ', 'foo arg '])('offers no files or folders at an empty word: %j', async (content) => {
       const result = await complete(content);

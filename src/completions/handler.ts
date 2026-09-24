@@ -19,6 +19,8 @@ import {
   mapFunctions,
   paths,
   pipes,
+  quotedPaths,
+  quotedSyntaxItems,
   shellCommandNames,
   shellMatches,
   snippets,
@@ -39,12 +41,17 @@ const ROUTES: Partial<Record<RouteKey, CompletionSource[]>> = {
   empty: [localSymbols, builtins, shellCommandNames, commentDirectives, mapFunctions, snippets],
   command: [paths, shellMatches, localFunctions, wordPrefixItems, snippets],
   argument: [paths, shellMatches, localVariables, commandSyntaxItems, wordPrefixItems, snippets],
+  // single-quoted literal text (`echo '$v`), except a command's own syntax (`string -r '`)
+  // and the paths the typed text starts (`cat '/tm`)
+  quoted: [quotedSyntaxItems, quotedPaths],
 
   // a command position inside quotes (`complete -a '(`) takes the same names as one outside them
   'embedded:empty': [localSymbols, builtins, mapCommands, snippets],
   // fish already filters a partial name (`complete -n 'not __f`), as it does outside quotes
   'embedded:command': [paths, shellMatches, localFunctions, localVariables, snippets],
   'embedded:argument': [paths, shellMatches, localVariables, globalVariables, commandSyntaxItems, wordPrefixItems, snippets],
+  // a `complete -a '…` word list (`jack $na`) outside any `(…)` only expands variables
+  'embedded:variable': [localVariables, globalVariables],
 };
 
 export function routeFor(ctx: CompletionContext): CompletionSource[] {
@@ -80,7 +87,9 @@ export class CompletionHandler {
     });
     // a client without snippet support would insert `${1:i}` literally
     const client = { snippetSupport: this.client.snippetSupport && config.fish_lsp_enable_snippets };
-    const sources = [...routeFor(ctx), commandEndOperators].filter(source => client.snippetSupport || source !== snippets);
+    // nothing ends a command inside quotes
+    const endings = ctx.mode === 'quoted' ? [] : [commandEndOperators];
+    const sources = [...routeFor(ctx), ...endings].filter(source => client.snippetSupport || source !== snippets);
     const results = await Promise.all(sources.map(async (source) => {
       try {
         return await source(ctx, this.items);
@@ -127,6 +136,9 @@ export function toCompletionList(
 
   // items are per-request copies, so adjusting them never touches the completion map
   for (const item of unique) {
+    if (item.fishKind === FishCompletionItemKind.PATH) {
+      item.insertText = item.filterText = escapedPath(item.label, ctx);
+    }
     if (!client.snippetSupport && item.insertTextFormat === InsertTextFormat.Snippet) {
       // `\x${1:xx}` -> `\xxx`: what the template inserts with every tabstop left at its default
       item.insertText = snippetToPlainText(item.insertText ?? item.label);
@@ -149,6 +161,14 @@ export function toCompletionList(
   if (shouldAttachTextEdits(ctx)) {
     for (const item of unique) {
       if (item.textEdit) continue;
+      const insertion = item.insertText ?? item.label;
+      // fish returns the retained part unescaped (`foo\ ` comes back as `foo `)
+      const kept = ctx.continuedWordPrefix;
+      const retained = kept && [kept, unescapeWord(kept)].find(prefix => insertion.startsWith(prefix));
+      if (retained) {
+        item.insertText = insertion.slice(retained.length);
+        item.filterText = (item.filterText ?? item.label).slice(retained.length);
+      }
       item.setData({
         ...data,
         line: ctx.line.slice(0, ctx.line.length - ctx.replaceLength) + item.label,
@@ -156,8 +176,9 @@ export function toCompletionList(
     }
   }
 
-  let isIncomplete = droppedPaths || snippetTriggers.incomplete;
-  if (ctx.mode !== 'comment' && ctx.mode !== 'variable') {
+  // closing a single quote must ask again
+  let isIncomplete = droppedPaths || snippetTriggers.incomplete || ctx.mode === 'quoted';
+  if (ctx.mode !== 'comment' && ctx.mode !== 'variable' && ctx.mode !== 'quoted') {
     // After `-`, keep flags and snippets matching a whole phrase such as `set i -`.
     // At a fresh slot, typing `-` must re-request.
     if (ctx.word.startsWith('-')) {
@@ -180,7 +201,25 @@ export function toCompletionList(
  */
 function keepPathItem(item: FishCompletionItem, word: string): boolean {
   if (item.fishKind !== FishCompletionItemKind.PATH) return true;
-  return word !== '' && item.label.startsWith(word);
+  return word !== '' && item.label.startsWith(unescapeWord(word));
+}
+
+function unescapeWord(word: string): string {
+  return word.replace(/\\([^a-zA-Z0-9])/g, '$1');
+}
+
+/**
+ * Fish lists paths unescaped (`foo bar/`). Keep the typed word as written, since it
+ * may hold a `~` or an escape of its own, and escape the rest for its quoting.
+ */
+function escapedPath(label: string, ctx: CompletionContext): string {
+  const rest = label.slice(unescapeWord(ctx.word).length);
+  if (ctx.doubleQuoted) return ctx.word + rest.replace(/["$\\]/g, '\\$&');
+  if (ctx.singleQuoted) return ctx.word + rest.replace(/['\\]/g, '\\$&');
+  return ctx.word + rest
+    .replace(/[ $()\\'";&|<>*[\]{}~%]/g, '\\$&')
+    .replace(/\t/g, '\\t')
+    .replace(/\n/g, '\\n');
 }
 
 function shouldAttachTextEdits(ctx: CompletionContext): boolean {
@@ -188,7 +227,8 @@ function shouldAttachTextEdits(ctx: CompletionContext): boolean {
   if (ctx.mode === 'comment') return false;
   if (ctx.mode === 'blocked') return ctx.canEndCommand;
   if (ctx.mode === 'empty' && !ctx.embedded) return false;
-  return !ctx.line.endsWith(' ');
+  // an escaped or quoted space (`cat foo\ `) still belongs to the word
+  return ctx.word !== '' || !ctx.line.endsWith(' ');
 }
 
 const DEFAULT_PRIORITY = 1000;
@@ -242,7 +282,7 @@ function pickSnippetTriggers(items: FishCompletionItem[], word: string): { items
     if (item === best) return true;
     const typed = item.data?.word ?? word;
     const trigger = snippetTrigger(item);
-    if (typed && trigger.startsWith(typed) && !snippetTrigger(best).startsWith(trigger)) {
+    if (trigger.startsWith(typed) && !snippetTrigger(best).startsWith(trigger)) {
       incomplete = true;
     }
     return false;

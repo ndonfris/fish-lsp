@@ -1,5 +1,6 @@
 import { readdir } from 'fs/promises';
-import { dirname } from 'path';
+import { homedir } from 'os';
+import { basename, dirname, isAbsolute, join } from 'path';
 import { CompletionItemKind, SymbolKind } from 'vscode-languageserver';
 import { CompletionContext, openIndexTerm, tokenizeCommandline } from './context';
 import { CompletionItemMap } from './startup-cache';
@@ -83,35 +84,41 @@ function completionDir(): string {
   return process.cwd();
 }
 
-let dirCache: { dir: string; at: number; entries: Set<string>; } | undefined;
+const dirCache = new Map<string, { at: number; entries: Set<string>; }>();
 
 /**
- * Names in `completionDir()`, so a label fish produced by falling back to file
- * completion can be told apart from a command's own argument. Cached briefly: a
- * completion request is a keystroke, and the listing is only a classifier.
+ * Names in `dir`, so a label fish produced by falling back to file completion can be
+ * told apart from a command's own argument. Cached briefly: a completion request is
+ * a keystroke, and the listing is only a classifier.
  */
-async function completionDirEntries(): Promise<Set<string>> {
-  const dir = completionDir();
+async function directoryEntries(dir: string): Promise<Set<string>> {
   const now = Date.now();
-  if (dirCache && dirCache.dir === dir && now - dirCache.at < 2000) return dirCache.entries;
+  const cached = dirCache.get(dir);
+  if (cached && now - cached.at < 2000) return cached.entries;
+  if (dirCache.size > 32) dirCache.clear();
+  let entries: Set<string>;
   try {
-    const entries = new Set(await readdir(dir));
-    dirCache = { dir, at: now, entries };
-    return entries;
+    entries = new Set(await readdir(dir));
   } catch {
-    dirCache = { dir, at: now, entries: new Set() };
-    return dirCache.entries;
+    entries = new Set();
   }
+  dirCache.set(dir, { at: now, entries });
+  return entries;
 }
 
 /**
  * `true` when fish produced this label by listing the filesystem. Fish leaves
  * those undescribed, so a described match (`git add` tagging `README.md` as a
- * `Modified file`) stays an argument of its command.
+ * `Modified file`) stays an argument of its command. The label is looked up in its
+ * own directory (`/tmp/probe.txt`, `src/a.ts`, `~/x`), relative ones from `completionDir()`.
  */
-function isFilesystemMatch(name: string, description: string, entries: Set<string>): boolean {
+async function isFilesystemMatch(name: string, description: string): Promise<boolean> {
   if (description) return false;
-  return entries.has(name.replace(/\/$/, ''));
+  const bare = name.replace(/\/$/, '');
+  if (!bare) return false;
+  const expanded = bare === '~' || bare.startsWith('~/') ? join(homedir(), bare.slice(1)) : bare;
+  const full = isAbsolute(expanded) ? expanded : join(completionDir(), expanded);
+  return (await directoryEntries(dirname(full))).has(basename(full));
 }
 
 /** index of the last quote that is still open, or -1 */
@@ -286,10 +293,7 @@ export const shellMatches: CompletionSource = async (ctx, map) => {
   // Complete the commandline exactly as fish's `complete --do-complete` would for the
   // requested input — nothing appended. (A bare `string split <TAB>` therefore lists no
   // flags until a `-` is typed, matching fish; it used to append ` -` to force them.)
-  const [matches, dirEntries] = await Promise.all([
-    shellComplete(input, { excludeCompletionDirs }),
-    completionDirEntries(),
-  ]);
+  const matches = await shellComplete(input, { excludeCompletionDirs });
 
   const items: Items = [];
   for (const [name, description] of matches) {
@@ -306,12 +310,22 @@ export const shellMatches: CompletionSource = async (ctx, map) => {
     if ((ctx.command === 'return' || ctx.command === 'exit') && map.findLabel(name, 'status')) continue;
 
     const shellText = [ctx.commandline.slice(0, ctx.commandline.lastIndexOf(' ')), name].join(' ').trim();
-    const isPath = name.endsWith('/') || isFilesystemMatch(name, description, dirEntries);
+    const isPath = name.endsWith('/') || await isFilesystemMatch(name, description);
     const item = FishCompletionItem.create(name, isPath ? 'path' : 'argument', description, shellText).setPriority(1);
     if (isPath) item.kind = name.endsWith('/') ? CompletionItemKind.Folder : CompletionItemKind.File;
     items.push(item);
   }
   return items;
+};
+
+/**
+ * Paths fish completes inside `'…'` (`cat '/tm`), once something is typed. Fish is
+ * given the quote, so it keeps the text literal: `'~/`, `'$HOME/` and `'/tmp/*` match
+ * nothing, as in the shell.
+ */
+export const quotedPaths: CompletionSource = async (ctx, map) => {
+  if (!ctx.word) return [];
+  return (await shellMatches(ctx, map)).filter(item => item.fishKind === FishCompletionItemKind.PATH);
 };
 
 /** file system paths for a word containing `/` */
@@ -370,6 +384,18 @@ export const commandSyntaxItems: CompletionSource = (ctx, map) => {
   // `set var[`: a variable completes the index term
   if (indexTermPrefix(ctx) === null) return items;
   return items.map(item => item.fishKind === FishCompletionItemKind.VARIABLE ? setVariableText(item, ctx, item.label) : item);
+};
+
+/**
+ * Single-quoted text reaches the command unexpanded, so only a command that reads
+ * its own syntax from it gets items: `string -r '` regexes, `printf '` templates.
+ */
+export const quotedSyntaxItems: CompletionSource = (ctx, map) => {
+  const kinds: FishCompletionItemKind[] =
+    ctx.command === 'string' && hasFlag(ctx.args, 'r', 'regex') ? ['regex', 'esc_chars']
+      : ctx.command === 'printf' && ctx.argIndex === 1 ? ['format_str', 'esc_chars']
+        : [];
+  return fromMap(map.allOfKinds(...kinds), 25);
 };
 
 /** items implied by the first character of the word: `$` variables, `/` wildcards */
