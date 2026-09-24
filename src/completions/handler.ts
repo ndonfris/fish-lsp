@@ -5,6 +5,7 @@ import { CompletionContext, CompletionLineParser, CompletionMode, CompletionRequ
 import { CompletionItemMap } from './startup-cache';
 import { FishCompletionData, FishCompletionItem, FishCompletionItemKind, snippetToPlainText } from './types';
 import {
+  argparseValidationVariables,
   builtins,
   commandEndOperators,
   commandSyntaxItems,
@@ -36,7 +37,7 @@ type RouteKey = CompletionMode | `embedded:${CompletionMode}`;
  */
 const ROUTES: Partial<Record<RouteKey, CompletionSource[]>> = {
   comment: [commentItems],
-  variable: [localVariables, globalVariables, snippets],
+  variable: [argparseValidationVariables, localVariables, globalVariables, snippets],
   blocked: [pipes],
   empty: [localSymbols, builtins, shellCommandNames, commentDirectives, mapFunctions, snippets],
   command: [paths, shellMatches, localFunctions, wordPrefixItems, snippets],
@@ -49,7 +50,7 @@ const ROUTES: Partial<Record<RouteKey, CompletionSource[]>> = {
   'embedded:empty': [localSymbols, builtins, mapCommands, snippets],
   // fish already filters a partial name (`complete -n 'not __f`), as it does outside quotes
   'embedded:command': [paths, shellMatches, localFunctions, localVariables, snippets],
-  'embedded:argument': [paths, shellMatches, localVariables, globalVariables, commandSyntaxItems, wordPrefixItems, snippets],
+  'embedded:argument': [argparseValidationVariables, paths, shellMatches, localVariables, globalVariables, commandSyntaxItems, wordPrefixItems, snippets],
   // a `complete -a '…` word list (`jack $na`) outside any `(…)` only expands variables
   'embedded:variable': [localVariables, globalVariables],
 };

@@ -27,6 +27,7 @@ import { getRange } from '../utils/tree-sitter';
 import { isAliasDefinitionValue } from './alias';
 import { isReadVariableDefinitionName } from './read';
 import { extractCommandLocations, extractMatchingCommandLocations } from './nested-strings';
+import { stringVariables } from './string-variables';
 
 export const REFERENCE_CANDIDATE_NODE_TYPES = [
   'word',
@@ -366,6 +367,7 @@ export function extractReferenceCandidateNames(node: SyntaxNode): string[] {
 
   if (isString(node) || node.type === 'concatenation') {
     const names = new Set<string>(FishString.extractCommands(node));
+    stringVariables(node).forEach(v => names.add(v.name));
     if (node.text.startsWith('-')) {
       const equalsIndex = node.text.indexOf('=');
       if (equalsIndex > 0) {
@@ -421,7 +423,7 @@ export function isReferenceCandidateNode(node: SyntaxNode): boolean {
   if (!node || !node.isNamed) return false;
 
   if (isString(node) || node.type === 'concatenation') {
-    return FishString.extractCommands(node).length > 0;
+    return FishString.extractCommands(node).length > 0 || stringVariables(node).length > 0;
   }
   if (isOption(node)) return true;
 
@@ -451,8 +453,9 @@ export function referenceCandidateNamesFor(node: SyntaxNode): string[] {
 
   if (isString(node) || node.type === 'concatenation') {
     const cmds = FishString.extractCommands(node);
-    if (cmds.length === 0) return []; // gate: not a reference candidate
-    const names = new Set<string>(cmds);
+    const variables = stringVariables(node).map(v => v.name);
+    if (cmds.length === 0 && variables.length === 0) return []; // gate: not a reference candidate
+    const names = new Set<string>([...cmds, ...variables]);
     if (node.text.startsWith('-')) {
       const equalsIndex = node.text.indexOf('=');
       if (equalsIndex > 0) names.add(node.text.slice(0, equalsIndex));
@@ -537,6 +540,10 @@ export function getLocationWrapper(symbol: FishSymbol, node: SyntaxNode, uri: Do
     // range covers exactly `name`. (The old `+= 1` was an off-by-one that
     // ate the trailing space during rename of the space-form usage.)
     return [Locations.Location.create(uri, range)];
+  }
+  if (symbol.isVariable() && isString(node)) {
+    const inString = stringVariables(node).filter(v => v.name === symbol.name);
+    if (inString.length > 0) return inString.map(v => Locations.Location.create(uri, v.range));
   }
   if (isAliasDefinitionValue(node) || isBindCall(symbol, node) || isCompleteConditionCall(symbol, node)) {
     return extractMatchingCommandLocations(symbol, node, uri);

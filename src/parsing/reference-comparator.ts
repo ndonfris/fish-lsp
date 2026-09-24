@@ -16,6 +16,7 @@ import { isBindFunctionCall } from './bind';
 import { isSetReferenceTargetNode } from './reference-candidates';
 import { isAliasDefinitionValue } from './alias';
 import { isFunctionsReference } from './function';
+import { stringVariables } from './string-variables';
 
 type ReferenceContext = {
   symbol: FishSymbol;
@@ -493,14 +494,17 @@ function isValidCrossFileVariableReference(symbol: FishSymbol, node: SyntaxNode,
 
 // Variable-specific reference checking
 const checkVariableReference: ReferenceCheck = ({ symbol, document, node }) => {
-  if (!symbol.isVariable() || node.text !== symbol.name) return false;
+  if (!symbol.isVariable()) return false;
+  // `complete -a '$name'` / `alias ff='echo $name'`: expanded when fish evaluates the string
+  const inString = stringVariables(node).some(v => v.name === symbol.name);
+  if (node.text !== symbol.name && !inString) return false;
 
   // Bare command names (e.g. `foo`) are command/function references, not
   // variable references. `$foo` is still handled through variable nodes.
   if (isCommandName(node)) return false;
 
   // Check if the node is a variable definition or reference with the same name
-  if (isVariable(node) || isVariableDefinitionName(node)) {
+  if (isVariable(node) || isVariableDefinitionName(node) || inString) {
     // Same-file: scope was already validated by isInValidScope
     if (symbol.scopeContainsNode(node)) return true;
     // Node is inside a --no-scope-shadowing callee called from symbol's scope.
@@ -615,7 +619,8 @@ export const isSymbolReference = (
 
   // Check complete command references
   const parentNode = node.parent ? findParentCommand(node) : null;
-  if (parentNode && isCommandWithName(parentNode, 'complete') && !isVariable(node)) {
+  const variableInString = symbol.isVariable() && stringVariables(node).some(v => v.name === symbol.name);
+  if (parentNode && isCommandWithName(parentNode, 'complete') && !isVariable(node) && !variableInString) {
     return checkCompleteCommandReference(ctx);
   }
 

@@ -137,6 +137,15 @@ export namespace FishString {
    * owns precise range extraction. Use this when you only need the command
    * names, not their exact positions.
    */
+  /**
+   * Where the validation script starts in an unquoted argparse spec
+   * (`n/name=!_validate_int --min 0` → after `!`), or 0 for any other text.
+   * The flag's value form (`=`, `=?`, `=+`) comes before the `!`.
+   */
+  export function argparseValidationOffset(text: string): number {
+    return /^[^\s'"=!]+=[?+]?!/.exec(text)?.[0].length ?? 0;
+  }
+
   export function extractCommands(
     input: SyntaxNode | string,
     config: CommandExtractConfig = DEFAULT_COMMAND_EXTRACT_CONFIG,
@@ -149,7 +158,9 @@ export namespace FishString {
       return [optionCommand];
     }
 
-    const cleanedText = parse(input);
+    const parsed = parse(input);
+    // `n/name=!_validate_int`: only the argparse validation script holds commands
+    const cleanedText = parsed.slice(argparseValidationOffset(parsed));
     const commands = new Set<string>();
 
     const directCommands = parseDirectCommands(cleanedText, config);
@@ -184,7 +195,8 @@ const FISH_OPERATORS = new Set([
 ]);
 
 function parseOptionArgument(text: string): string | null {
-  const optionArgRegex = /^(?:-[a-zA-Z]|--[a-zA-Z][a-zA-Z0-9-]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_-]*)/;
+  // the value may be quoted: `--wraps='cmd'`
+  const optionArgRegex = /^(?:-[a-zA-Z]|--[a-zA-Z][a-zA-Z0-9-]*)\s*=\s*['"]?([a-zA-Z_][a-zA-Z0-9_-]*)/;
   const match = text.match(optionArgRegex);
 
   if (match && match[1]) {

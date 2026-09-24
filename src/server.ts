@@ -21,7 +21,7 @@ import { CompletionHandler } from './completions/handler';
 import { refreshShellCompletions, stopShellCompletions, warmShellCompletions } from './completions/shell';
 import { resolveCompletionItemDocumentation } from './completions/resolve-item';
 import { PrebuiltDocumentationMap, warmPrebuiltCommandDescriptions } from './utils/snippets';
-import { findParent, findParentCommand, isAliasDefinitionName, isBraceExpansion, isCommand, isCommandName, isConcatenation, isDefinitionName, isEndStdinCharacter, isOption, isPathNode, isVariableDefinition } from './utils/node-types';
+import { findParent, findParentCommand, isAliasDefinitionName, isArgparseValidationSpec, isBraceExpansion, isCommand, isCommandName, isConcatenation, isDefinitionName, isEndStdinCharacter, isOption, isPathNode, isVariableDefinition } from './utils/node-types';
 import { config, Config } from './config';
 import { enrichToMarkdown, handleBraceExpansionHover, handleEndStdinHover, handleSourceArgumentHover } from './documentation';
 import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getDefaultSignatures, getFunctionSignatureHelp, isRegexStringSignature } from './signature';
@@ -36,6 +36,7 @@ import { setupProcessEnvExecFile } from './utils/process-env';
 import { flattenNested } from './utils/flatten';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { isSourceCommandArgumentName } from './parsing/source';
+import { argparseValidationVariableAtPoint, argparseValidationVariableDocs } from './parsing/argparse-validation';
 import { getRenames } from './renames';
 import { getReferenceCountCodeLenses } from './code-lens';
 import { getSelectionRanges } from './selection-range';
@@ -781,8 +782,18 @@ export default class FishServer {
 
     if (isArgparseVariableDefinitionName(current)) {
       logger.log('isArgparseDefinition');
+      // `$_flag_value` in `'n/name=!test -n "$_flag_value"'`: set only while the script runs
+      const validationVariable = isArgparseValidationSpec(current)
+        && argparseValidationVariableAtPoint(current, params.position);
+      if (validationVariable) {
+        return {
+          contents: { kind: MarkupKind.Markdown, value: argparseValidationVariableDocs(validationVariable.name)! },
+          range: validationVariable.range,
+        };
+      }
       result = analyzer.getDefinition(doc, params.position)?.toHover(doc.uri) || null;
-      return result;
+      // past the flag of `'n/num=!_validate_int'` is a script, hovered like any command
+      if (result || !isArgparseValidationSpec(current)) return result;
     }
 
     if (isOption(current)) {

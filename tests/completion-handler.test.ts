@@ -58,6 +58,10 @@ describe('completion handler', () => {
       ["complete -c foo -xka '(ls", '(ls'],
       ['complete -c foo -fa "(', '('],
       ["complete -c foo -xn 'not __fish_seen", 'not __fish_seen'],
+      ["argparse 'n/name=!", ''],
+      ["argparse 'n/num=!_validate_int --min 0", '_validate_int --min 0'],
+      ["argparse h/help 'p/path=?!test -d", 'test -d'],
+      ["argparse 'l/list=+!string match -rq \\'^a", "string match -rq \\'^a"],
       ["complete -c foo -n '__fish_seen_subcommand_from bar && not __fish_contains_opt -s s long' -s s -l long -d 's/long' -xa '(", '('],
       ["complete -c foo -n 'test -a \"$x\"' -a '(ls", '(ls'],
       ["complete -c foo -d 'it\\'s -a' -a \"(", '('],
@@ -74,6 +78,12 @@ describe('completion handler', () => {
       "complete -c foo -n 'closed' -",
       "echo -n '",
       'alias foo=bar',
+      // a validation script is only read from a single-quoted `=!` spec
+      'argparse "n/name=!',
+      "argparse 'n/name=",
+      "argparse 'n/name",
+      "argparse 'h/help' 'n/name!",
+      "echo 'n/name=!",
     ])('%s -> null', (line) => {
       expect(getEmbeddedCommandline(line)).toBeNull();
     });
@@ -366,6 +376,52 @@ describe('completion handler', () => {
   ])('offers nothing inside single-quoted literal text: %j', async (content) => {
     const result = await complete(content);
     expect(result.items).toEqual([]);
+  });
+
+  describe('`argparse \'n/name=!…` validation scripts', () => {
+    const prefix = 'function _completion_handler_validator\nend\n';
+    const labels = async (content: string) => (await complete(prefix + content)).items.map(item => item.label);
+    const argparseVariables = ['_argparse_cmd', '_flag_name', '_flag_value'];
+
+    it.each(["argparse 'n/name=!", "argparse h/help 'n/name=?!"])('complete commands and functions at %j', async (content) => {
+      const found = await labels(content);
+      expect(found).toContain('_completion_handler_validator');
+      expect(found).toContain('test');
+    });
+
+    it.each([
+      ["argparse 'n/name=!test -n ", ''],
+      ["argparse 'n/name=!test -n \"$_fl", '$_fl'],
+      ["argparse 'p/path=!test -d $", '$'],
+    ])('offer the validation variables in %j', async (content, typed) => {
+      const result = await complete(prefix + content);
+      for (const name of argparseVariables) {
+        const item = result.items.find(item => item.label === name);
+        expect(item, name).toBeDefined();
+        const edit = item!.textEdit as TextEdit | undefined;
+        const accepted = edit
+          ? content.slice(0, edit.range.start.character) + edit.newText
+          : content + item!.insertText;
+        expect(accepted).toBe(content.slice(0, content.length - typed.length) + `$${name}`);
+      }
+    });
+
+    it.each(argparseVariables)('document %s before and after resolve', async (name) => {
+      const result = await complete(prefix + "argparse 'n/name=!test -n $");
+      const item = result.items.find(item => item.label === name)!;
+      const docs = (item: { documentation?: unknown; }) => JSON.stringify(item.documentation ?? '');
+      expect(docs(item)).toContain('argparse');
+      const resolved = await handle.server.onCompletionResolve(item);
+      expect(docs(resolved)).toContain('argparse');
+      expect(docs(resolved)).toContain(name);
+    });
+
+    it.each(['echo $_fl', "complete -c foo -n 'test -n $_fl", 'argparse "n/name=!test -n $_fl'])('never offer them outside a validation script: %j', async (content) => {
+      const found = await labels(content);
+      expect(found.filter(label => argparseVariables.includes(label) && label !== '_flag_value')).toEqual([]);
+      const flagValue = (await complete(prefix + content)).items.find(item => item.label === '_flag_value');
+      expect(flagValue?.detail).not.toBe('argparse validation');
+    });
   });
 
   describe('`complete -a` word lists only complete variables', () => {

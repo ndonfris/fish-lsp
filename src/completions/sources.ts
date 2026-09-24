@@ -8,6 +8,7 @@ import { cloneCompletionItem, FishCompletionItem, FishCompletionItemKind, getCom
 import { shellCommandNameList, shellComplete } from './shell';
 import { buildCommentCompletions } from './comment-completions';
 import { config } from '../config';
+import { ARGPARSE_VALIDATION_VARIABLES, argparseValidationVariableDocs } from '../parsing/argparse-validation';
 
 type Items = FishCompletionItem[];
 
@@ -384,6 +385,22 @@ export const commandSyntaxItems: CompletionSource = (ctx, map) => {
   // `set var[`: a variable completes the index term
   if (indexTermPrefix(ctx) === null) return items;
   return items.map(item => item.fishKind === FishCompletionItemKind.VARIABLE ? setVariableText(item, ctx, item.label) : item);
+};
+
+/**
+ * The variables an `argparse 'n/name=!…` validation script runs with (local and
+ * exported), offered only inside that script. Local, so resolving keeps their docs.
+ */
+export const argparseValidationVariables: CompletionSource = (ctx) => {
+  if (!ctx.argparseValidation) return [];
+  return Object.keys(ARGPARSE_VALIDATION_VARIABLES).map(name =>
+    setVariableText(
+      FishCompletionItem.create(name, FishCompletionItemKind.VARIABLE, 'argparse validation', argparseValidationVariableDocs(name)!)
+        .setLocal()
+        .setPriority(5),
+      ctx,
+      name,
+    ));
 };
 
 /**
