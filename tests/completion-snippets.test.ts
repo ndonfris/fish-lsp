@@ -491,6 +491,7 @@ describe('completion snippets selection (via server.onCompletion)', () => {
     });
 
     it('asks again while a dropped trigger still extends the typed word', async () => {
+      expect((await completeAt('')).isIncomplete).toBe(true);
       // `i` keeps `if`, whose filterText can never become `iff`
       expect((await completeAt('i')).isIncomplete).toBe(true);
       const iff = await completeAt('iff');

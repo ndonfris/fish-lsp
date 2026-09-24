@@ -20,8 +20,10 @@ import { isCommandWithName, isOption, isVariableExpansion } from '../utils/node-
  *  - `command`   a command position with a partial word (`ec`, `(comman`)
  *  - `argument`  anything after a command (`ls -`, `string sp`, `function foo -e `)
  *  - `blocked`   after `end`/`else`/`continue`/`break`, where only pipes make sense
+ *  - `quoted`    inside a single-quoted string (`echo '$v`), which is literal text,
+ *                unless it holds an embedded commandline (`complete -a '(`, `alias foo='`)
  */
-export type CompletionMode = 'comment' | 'variable' | 'empty' | 'command' | 'argument' | 'blocked';
+export type CompletionMode = 'comment' | 'variable' | 'empty' | 'command' | 'argument' | 'blocked' | 'quoted';
 
 export interface CompletionContext {
   doc: LspDocument;
@@ -50,6 +52,12 @@ export interface CompletionContext {
   argIndex: number;
   /** characters before the cursor replaced by an inserted item */
   replaceLength: number;
+  /** Normalized part of a continued word retained on earlier lines. */
+  continuedWordPrefix?: string;
+  /** `word` is inside an open `"` (`cat "fo`), so inserted text escapes only `"`, `$` and `\` */
+  doubleQuoted?: boolean;
+  /** `word` is inside an open `'` (`cat '/tm`), so inserted text escapes only `'` and `\` */
+  singleQuoted?: boolean;
   /** `$`-prefix inserted before variable names (`variable` mode) */
   variablePrefix: string;
   /** cursor is a variable definition slot (`set NAME`, `read NAME`, `for NAME`) */
@@ -117,44 +125,70 @@ export class CompletionLineParser {
       return { ...base, snippetPrefixes: [], commandline: line, embedded: false, mode: 'comment', word: documentWord, command: null, args: [], argIndex: 0, replaceLength: documentWord.length };
     }
 
-    const embeddedText = getEmbeddedCommandline(line);
+    const embedded = getEmbeddedPayload(line);
+    const embeddedText = embedded?.text ?? null;
     // Everything before the cursor, so a quote, a `(` or a `\` continuation opened
     // on an earlier line is still open here. `tokenizeCommandline` cuts it back to
     // the statement that owns the cursor.
     const prefix = embeddedText ?? doc.getText({ start: { line: 0, character: 0 }, end: position });
-    const { command, args, word, snippetPrefixes, start } = tokenizeCommandline(prefix);
+    const { command, args, word, sourceWord, quote, inSubstitution, snippetPrefixes, start } = tokenizeCommandline(prefix);
     const commandline = prefix.slice(start);
     const ending = this.commandEnding(prefix, word);
     base.canEndCommand = ending !== null;
     // an unterminated string reaches back over earlier lines; only replace this line's part
-    const wordOnLine = word.slice(word.lastIndexOf('\n') + 1);
+    const wordOnLine = sourceWord.slice(sourceWord.lastIndexOf('\n') + 1);
+    const beforeLine = sourceWord.slice(0, sourceWord.lastIndexOf('\n') + 1);
+
+    // `complete -a 'jack $na`: a list of words fish only expands, so outside a
+    // `(…)` the only completions are `$` variables; a plain word is literal text
+    if (embedded?.argumentList && !inSubstitution && quote !== '\'') {
+      const dollars = /^\$*/.exec(word)![0];
+      return {
+        ...base,
+        snippetPrefixes: [],
+        commandline,
+        embedded: true,
+        mode: word && !dollars ? 'quoted' : 'variable',
+        word: word.slice(dollars.length),
+        command: null,
+        args: [],
+        argIndex: 0,
+        replaceLength: wordOnLine.length,
+        variablePrefix: dollars || '$',
+      };
+    }
 
     // `set <TAB>`, `set -q <TAB>` and `set -gx name <TAB>` only take variables
     const isSetSlot = embeddedText === null && command === 'set' && word === '';
-    if (isSetSlot || isInVariableExpansionContext(line, position, documentWord, current)) {
+    // The document tree sees an embedded commandline as one string, so take the
+    // variable ending the tokenizer's word: `$_fl` in `"$_fl`, `$` in `$argv[$`.
+    const variableWord = embeddedText === null ? documentWord : /\$*\w*$/.exec(word)![0];
+    // `$` expands nothing inside single quotes (`echo '$v`)
+    if (quote !== '\'' && (isSetSlot || isInVariableExpansionContext(line, position, variableWord, current))) {
       const isDefinitionSlot = this.isVariableDefinitionSlot(line);
-      const prefix = getVariableCompletionPrefix(line, position.character, documentWord, isDefinitionSlot);
+      const prefix = getVariableCompletionPrefix(line, position.character, variableWord, isDefinitionSlot);
       return {
         ...base,
         snippetPrefixes,
         commandline: line,
         embedded: false,
         mode: 'variable',
-        word: documentWord,
+        word: variableWord,
         command: null,
         args: [],
         argIndex: 0,
-        replaceLength: prefix.replaceLength ?? (documentWord ? documentWord.length : 1),
+        replaceLength: prefix.replaceLength ?? (variableWord ? variableWord.length : 1),
         variablePrefix: prefix.insertPrefix,
         isDefinitionSlot,
       };
     }
 
     const mode: CompletionMode =
-      ending === 'block' || command && BLOCKED_COMMANDS.includes(command) ? 'blocked'
-        : !word && !command ? 'empty'
-          : !command ? 'command'
-            : 'argument';
+      quote === '\'' ? 'quoted'
+        : ending === 'block' || command && BLOCKED_COMMANDS.includes(command) ? 'blocked'
+          : !word && !command ? 'empty'
+            : !command ? 'command'
+              : 'argument';
 
     return {
       ...base,
@@ -167,6 +201,9 @@ export class CompletionLineParser {
       args,
       argIndex: command ? args.length + 1 : 0,
       replaceLength: ending === 'block' ? 0 : wordOnLine.length,
+      continuedWordPrefix: beforeLine.endsWith('\\\n') ? beforeLine.replace(/\\\n/g, '') : undefined,
+      doubleQuoted: quote === '"',
+      singleQuoted: quote === '\'',
       isDefinitionSlot: mode === 'argument' && this.isVariableDefinitionSlot(commandline),
     };
   }
@@ -307,17 +344,27 @@ export class CompletionLineParser {
  * an argument list, not a commandline).
  */
 export function getEmbeddedCommandline(line: string): string | null {
+  return getEmbeddedPayload(line)?.text ?? null;
+}
+
+/**
+ * The payload `getEmbeddedCommandline()` returns, and whether it is a
+ * `complete -a` argument list (`jack $names (cmd)`) rather than a commandline.
+ */
+export function getEmbeddedPayload(line: string): { text: string; argumentList: boolean; } | null {
   // The quote left open is the payload being typed; quotes closed before it
   // (`-n '…' -d '…' -xa '(`) and quotes inside it (`-n 'test -n "$(cmd`) don't count.
   // `-a`/`-n` may end a cluster of flags that take no value (`-xa`, `-fka`).
   const open = /(?:^|[\s;(|&])complete\s/.test(line) ? openQuoteIndex(line) : -1;
-  if (open !== -1 && /(?:^|\s)(?:-[fFrxkeh]*[an]|--condition|--arguments)\s+$/.test(line.slice(0, open))) {
-    return line.slice(open + 1).trimStart();
+  const flag = open === -1 ? null
+    : /(?:^|\s)(-[fFrxkeh]*[an]|--condition|--arguments)\s+$/.exec(line.slice(0, open))?.[1];
+  if (flag) {
+    return { text: line.slice(open + 1).trimStart(), argumentList: flag === '--arguments' || flag.endsWith('a') };
   }
   const alias = line.match(/^\s*alias\s+\S+\s*=\s*(['"])(.*)$/);
   if (alias) {
     const [, quote, payload = ''] = alias;
-    if (quote && !payload.includes(quote)) return payload;
+    if (quote && !payload.includes(quote)) return { text: payload, argumentList: false };
   }
   return null;
 }
@@ -360,9 +407,9 @@ const COMMAND_PREFIX_KEYWORDS = ['and', 'or', 'not', '!', 'if', 'while', 'begin'
  *    `complete -x 'fo`         `complete`  [-x]          `fo`   (an unclosed quote isn't part of the word)
  *    `echo "a\nb" `            `echo`      ["a\nb"]      ``     (the newline is inside the string)
  */
-export function tokenizeCommandline(commandline: string): { command: string | null; args: string[]; word: string; snippetPrefixes: string[]; start: number; } {
-  type Frame = { tokens: string[]; tokenStarts: number[]; current: string; currentStart: number; wordStart: number; quote: '' | '\'' | '"'; quoteStart: number; start: number; };
-  const newFrame = (): Frame => ({ tokens: [], tokenStarts: [], current: '', currentStart: 0, wordStart: 0, quote: '', quoteStart: -1, start: 0 });
+export function tokenizeCommandline(commandline: string): { command: string | null; args: string[]; word: string; sourceWord: string; quote: '' | '\'' | '"'; inSubstitution: boolean; snippetPrefixes: string[]; start: number; } {
+  type Frame = { tokens: string[]; tokenStarts: number[]; current: string; currentStart: number; wordStart: number; sourceWordStart: number; quote: '' | '\'' | '"'; quoteStart: number; sourceQuoteStart: number; start: number; };
+  const newFrame = (): Frame => ({ tokens: [], tokenStarts: [], current: '', currentStart: 0, wordStart: 0, sourceWordStart: 0, quote: '', quoteStart: -1, sourceQuoteStart: -1, start: 0 });
   const endToken = (frame: Frame) => {
     if (frame.current) {
       frame.tokens.push(frame.current);
@@ -390,7 +437,7 @@ export function tokenizeCommandline(commandline: string): { command: string | nu
       i = end - 1; // let the newline take the normal statement-ending path
       continue;
     }
-    if (!frame.current) frame.currentStart = charStart;
+    if (!frame.current) frame.currentStart = frame.sourceWordStart = charStart;
     // enclosing commands see a whole substitution as part of their current token
     for (const outer of stack.slice(0, -1)) outer.current += char;
 
@@ -403,6 +450,7 @@ export function tokenizeCommandline(commandline: string): { command: string | nu
     if (char === '\'' || char === '"') {
       frame.quote = char;
       frame.quoteStart = frame.current.length;
+      frame.sourceQuoteStart = charStart;
       frame.current += char;
     } else if (char === '(') {
       frame.current += char;
@@ -424,12 +472,14 @@ export function tokenizeCommandline(commandline: string): { command: string | nu
       // Quoted and escaped operators never reach this branch as a single character.
       if (char === '>' || char === '<' || char === '?' && frame.current.endsWith('>?')) {
         frame.wordStart = frame.current.length;
+        frame.sourceWordStart = i + 1;
       }
     }
   }
 
   const frame = stack.at(-1)!;
   const word = frame.current.slice(frame.quote ? frame.quoteStart + 1 : frame.wordStart);
+  const sourceWord = word ? commandline.slice(frame.quote ? frame.sourceQuoteStart + 1 : frame.sourceWordStart) : '';
   let start = 0;
   while (start < frame.tokens.length) {
     const token = frame.tokens[start]!;
@@ -450,7 +500,7 @@ export function tokenizeCommandline(commandline: string): { command: string | nu
   const snippetPrefixes = frame.quote ? [] : frame.tokenStarts.slice(0, start + 1)
     .map(offset => commandline.slice(offset))
     .filter(text => !text.includes('\n'));
-  return { command: command ?? null, args, word, snippetPrefixes, start: stack[0]!.start };
+  return { command: command ?? null, args, word, sourceWord, quote: frame.quote, inSubstitution: stack.length > 1, snippetPrefixes, start: stack[0]!.start };
 }
 
 /**
@@ -476,16 +526,23 @@ export function isInVariableExpansionContext(lineBeforeCursor: string, position:
 }
 
 function countDollarsBeforeWord(lineBeforeCursor: string, cursorPos: number) {
+  const escaped = (index: number) => {
+    let backslashes = 0;
+    while (index > 0 && lineBeforeCursor[--index] === '\\') {
+      backslashes++;
+    }
+    return backslashes % 2 === 1;
+  };
   let wordStartPos = cursorPos;
   while (wordStartPos > 0) {
     const char = lineBeforeCursor[wordStartPos - 1];
-    if (char === ' ' || char === '\t' || char === '\n' || char === '$') {
+    if (char === ' ' || char === '\t' || char === '\n' || char === '$' && !escaped(wordStartPos - 1)) {
       break;
     }
     wordStartPos--;
   }
   let dollarsBeforeWord = 0;
-  for (let i = wordStartPos - 1; i >= 0 && lineBeforeCursor[i] === '$'; i--) {
+  for (let i = wordStartPos - 1; i >= 0 && lineBeforeCursor[i] === '$' && !escaped(i); i--) {
     dollarsBeforeWord++;
   }
   return { wordStartPos, dollarsBeforeWord };
