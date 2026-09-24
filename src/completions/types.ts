@@ -73,6 +73,8 @@ export type FishCompletionData = {
   documentation?: string | MarkupContent;
   local?: boolean;
   useDocAsDetail?: boolean;
+  /** where a local symbol is defined; `onCompletionResolve` reads its docs from there */
+  symbol?: { uri: string; line: number; character: number; };
 };
 
 export interface FishCompletionItem extends CompletionItem {
@@ -320,20 +322,25 @@ export namespace FishCompletionItem {
   }
 
   export function fromSymbol(symbol: FishSymbol) {
+    // A symbol's docs hold its whole definition (a function's body), so an item only
+    // points at the symbol and `onCompletionResolve` reads the docs of the one picked.
+    const data = {
+      symbol: { uri: symbol.uri, line: symbol.selectionRange.start.line, character: symbol.selectionRange.start.character },
+    } as FishCompletionData;
     switch (symbol.kind) {
       case SymbolKind.Function: {
         const item = create(symbol.name, FishCompletionItemKind.FUNCTION, 'function', '').setLocal().setPriority(50);
-        item.data = { documentation: symbol.detail } as FishCompletionData;
+        item.data = data;
         return item;
       }
       case SymbolKind.Variable: {
         const item = create(symbol.name, FishCompletionItemKind.VARIABLE, 'variable', '').setLocal().setPriority(60);
-        item.data = { documentation: symbol.detail } as FishCompletionData;
+        item.data = data;
         return item;
       }
       default: {
         const item = create(symbol.name, FishCompletionItemKind.EMPTY, 'empty', '').setLocal().setPriority(70);
-        item.data = { documentation: symbol.detail } as FishCompletionData;
+        item.data = data;
         return item;
       }
     }

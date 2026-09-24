@@ -37,8 +37,9 @@ export class ProgressNotification implements WorkDoneProgressReporter {
     const token = `fish-lsp-${caller || 'progress'}-${Date.now()}`;
     const progress = new ProgressNotification(token);
     progress.caller = caller || 'unknown';
-    const stack = new Error().stack?.split('\n')[2]?.trim() || 'unknown';
-    logger.debug(`[PROGRESS-${progress.instanceId}] CREATE from ${progress.caller} | ${stack}`);
+    // `caller` names the call site; a stack trace for this line made source-map-support
+    // parse the whole bundle's source map at every startup (~250ms)
+    logger.debug(`[PROGRESS-${progress.instanceId}] CREATE from ${progress.caller}`);
     logger.debug(`SHOULD CREATE \`progress\` NOTIFICATION: ${ProgressNotification.isSupported()}`);
 
     if (ProgressNotification.isSupported()) {

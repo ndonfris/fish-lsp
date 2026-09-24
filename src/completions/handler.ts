@@ -1,4 +1,4 @@
-import { CompletionItemKind, CompletionList, InsertTextFormat } from 'vscode-languageserver';
+import { CompletionItem, CompletionItemKind, CompletionList, InsertTextFormat } from 'vscode-languageserver';
 import { logger } from '../logger';
 import { config } from '../config';
 import { CompletionContext, CompletionLineParser, CompletionMode, CompletionRequest } from './context';
@@ -192,7 +192,37 @@ export function toCompletionList(
     }
   }
 
-  return { isIncomplete, items: unique, itemDefaults: { data } };
+  return { isIncomplete, items: unique.map(toWireItem), itemDefaults: { data } };
+}
+
+/**
+ * The item as a plain `CompletionItem` with only what clients and
+ * `onCompletionResolve` read. `FishCompletionItem` carries server-side fields
+ * (`priority`, `local`, the `data` that built `textEdit`, a copy of `detail` and
+ * `documentation` in `data`), which an empty line sent for 5000 items: about 2MB.
+ */
+function toWireItem(item: FishCompletionItem): CompletionItem {
+  const {
+    label, kind, detail, documentation, sortText, filterText, insertText, insertTextFormat,
+    insertTextMode, textEdit, preselect, labelDetails, tags, command, additionalTextEdits,
+    commitCharacters, fishKind, local, useDocAsDetail, data,
+  } = item;
+  const hasDocumentation = typeof documentation === 'string' ? documentation !== '' : !!documentation;
+  return {
+    label, kind, detail, sortText, filterText, insertText, insertTextFormat, insertTextMode,
+    textEdit, preselect, labelDetails, tags, command, additionalTextEdits, commitCharacters,
+    ...hasDocumentation ? { documentation } : {},
+    fishKind,
+    data: {
+      fishKind,
+      ...data?.command ? { command: data.command } : {},
+      ...local ? { local } : {},
+      ...useDocAsDetail ? { useDocAsDetail } : {},
+      ...data?.symbol ? { symbol: data.symbol } : {},
+      // a local item keeps any docs it didn't get from a symbol
+      ...!hasDocumentation && data?.documentation ? { documentation: data.documentation } : {},
+    },
+  } as CompletionItem;
 }
 
 /**

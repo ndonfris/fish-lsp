@@ -504,8 +504,11 @@ export class Analyzer {
 
     const step = () => {
       if (handle.cancelled) return;
+      // a few milliseconds per tick: a request waits for one chunk at each of its
+      // event-loop turns, so a chunk of 20 documents (~50ms) made each one wait ~1s
+      const deadline = performance.now() + 8;
       const end = Math.min(i + chunkSize, uris.length);
-      for (; i < end; i++) {
+      for (; i < end && performance.now() < deadline; i++) {
         const uri = uris[i]!;
         if (this.referenceCandidates.hasIndexed(uri)) continue;
         const analyzed = this.cache.getDocument(uri);
@@ -1300,24 +1303,50 @@ export class Analyzer {
    * Prioritizes callers in the same document as the target function.
    */
   private findCallerFunction(targetFunc: FishSymbol, visited: Set<string>, preferUri?: string): FishSymbol | null {
-    const workspaceFunctions = [...this.symbols.allFunctionSymbols()];
+    // only functions whose body calls `targetFunc`, in workspace order
+    const callers = [...this.callersOf(targetFunc.name)];
     if (preferUri) {
-      workspaceFunctions.sort((a, b) => a.uri === preferUri ? -1 : b.uri === preferUri ? 1 : 0);
+      callers.sort((a, b) => a.uri === preferUri ? -1 : b.uri === preferUri ? 1 : 0);
     }
 
-    for (const callerFunc of workspaceFunctions) {
+    for (const callerFunc of callers) {
       if (visited.has(this.functionSymbolKey(callerFunc))) continue;
       if (!this.isFunctionVisibleFrom(targetFunc, callerFunc, callerFunc.uri)) continue;
-
-      // Scan the caller's scope node for command calls matching funcName
-      for (const node of nodesGen(callerFunc.scopeNode)) {
-        if (isCommand(node) && getCommandNameText(node) === targetFunc.name) {
-          return callerFunc;
-        }
-      }
+      return callerFunc;
     }
 
     return null;
+  }
+
+  /** command name -> functions whose body calls it, rebuilt when the symbol caches change */
+  private callerIndex: { generation: number; callers: Map<string, FishSymbol[]>; } | null = null;
+
+  /**
+   * The functions whose scope calls `name`, in `allFunctionSymbols()` order. Walking
+   * every function body once per symbol-cache change replaces a walk of every body
+   * per lookup, which diagnostics made for each variable of a `--no-scope-shadowing`
+   * function.
+   */
+  private callersOf(name: string): FishSymbol[] {
+    if (this.callerIndex?.generation !== this.symbols.generation) {
+      const callers = new Map<string, FishSymbol[]>();
+      for (const func of this.symbols.allFunctionSymbols()) {
+        const called = new Set<string>();
+        // the node types `isCommand()` accepts, found inside tree-sitter instead of
+        // marshalling every node of the body to JavaScript
+        for (const node of func.scopeNode.descendantsOfType(['command', 'test_command', 'command_substitution'])) {
+          const command = getCommandNameText(node);
+          if (command) called.add(command);
+        }
+        for (const command of called) {
+          const list = callers.get(command);
+          if (list) list.push(func);
+          else callers.set(command, [func]);
+        }
+      }
+      this.callerIndex = { generation: this.symbols.generation, callers };
+    }
+    return this.callerIndex.callers.get(name) ?? [];
   }
 
   /**
@@ -1779,6 +1808,10 @@ export class Analyzer {
       return false;
     }
     const rootSymbol = this.resolveNoScopeShadowingDefinition(symbol);
+    // No caller defines it, so the root is the symbol itself, which the caller of
+    // this check already found unused in its document. A callee reading it, or an
+    // `--inherit-variable`, is checked separately.
+    if (rootSymbol === symbol) return false;
     const rootRefs = this.getReferences(rootSymbol.document, rootSymbol.selectionRange.start);
     return rootRefs.some(loc =>
       loc.uri !== rootSymbol.uri

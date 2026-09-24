@@ -113,6 +113,13 @@ export class FishSymbolCaches {
   /** Top-level helper functions in autoloaded files whose name does not match the filename. */
   public readonly autoloadedHelperFunctions = new FishSymbolNameCache();
 
+  private _generation = 0;
+
+  /** Changes whenever symbols are added or removed, so derived indexes know to rebuild. */
+  get generation(): number {
+    return this._generation;
+  }
+
   private readonly uriIndexedCaches = [
     this.allSymbolsByName,
     this.globalOrRootSymbols,
@@ -142,6 +149,7 @@ export class FishSymbolCaches {
   };
 
   removeByUri(uri: string): void {
+    this._generation++;
     for (const cache of this.uriIndexedCaches) {
       cache.removeSymbolsByUri(uri);
     }
@@ -196,6 +204,7 @@ export class FishSymbolCaches {
   }
 
   addSymbol(symbol: FishSymbol): void {
+    this._generation++;
     const subsets = this.getSubsetsOfSymbol(symbol);
 
     for (const subset of subsets) {
