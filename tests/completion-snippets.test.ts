@@ -156,7 +156,7 @@ describe('completion snippets (src/snippets/completionSnippets.json)', () => {
       ['abbr-command', [], '%\nabbr --query co; and echo defined', 'defined\n'],
     ])('%s (%#)', (name, fills, script, expected, input) => {
       const inserted = fills.reduce((text, [from, to]) => text.replace(from, () => to), plainBody(name));
-      expect(fish(script.replace('%', () => inserted), input)).toBe(expected);
+      expect(fish(script.replace(/%/g, () => inserted), input)).toBe(expected);
     });
 
     it('complete-subcommands describes each subcommand, until one is given', () => {
