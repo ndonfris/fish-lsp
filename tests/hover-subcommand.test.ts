@@ -235,3 +235,40 @@ describe('server onHover - option value matching a command name', () => {
     expect(hoverText(hover)).not.toContain('cmds/time.html');
   });
 });
+
+// A flag after a subcommand is described by the subcommand's completions: fish lists
+// subcommands as `name<TAB>description`, and a `\`+newline between words is its own
+// argument, so neither may keep `filter` out of the command the flag is looked up for.
+describe('server onHover - flag after a subcommand', () => {
+  let handle: TestServerHandle;
+  let server: FishServer;
+
+  beforeAll(async () => {
+    handle = await createTestServer();
+    server = handle.server;
+  });
+
+  afterAll(async () => {
+    await handle?.shutdown();
+  });
+
+  const lines = {
+    'single line': 'path filter -d x',
+    'continued before the flag': 'path filter \\\n    -d x',
+    'continued before the subcommand': 'path \\\n    filter -d x',
+  };
+  const workspace = TestWorkspace.create().addFiles(
+    ...Object.entries(lines).map(([name, content]) => ({ relativePath: `conf.d/${name.replace(/ /g, '-')}.fish`, content })),
+  ).initialize();
+
+  it.each(Object.entries(lines))('describes `-d` of `path filter` (%s)', async (name, content) => {
+    const doc = workspace.getDocument(`conf.d/${name.replace(/ /g, '-')}.fish`)!;
+    const text = content.split('\n');
+    const line = text.findIndex(l => l.includes(' -d'));
+    const hover = await server.onHover({
+      textDocument: { uri: doc.uri },
+      position: { line, character: text[line]!.indexOf(' -d') + 2 },
+    });
+    expect(hoverText(hover)).toContain('Filter directories');
+  });
+});
