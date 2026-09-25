@@ -148,6 +148,8 @@ export async function getHoverForFlag(current: Parser.SyntaxNode): Promise<LSP.H
     ? commandNode.childrenForFieldName('argument')
     : commandNode?.children || [];
   for (const child of flagSearchChildren) {
+    // a `\`+newline between words is an argument of its own
+    if (child.type === 'escape_sequence') continue;
     if (!hasFlags && !child.text.startsWith('-')) {
       commandStr = await appendToCommand(commandStr, child.text);
     } else if (child.text.startsWith('-')) {
@@ -199,7 +201,8 @@ function spiltShortFlags(flags: string[], shouldSplit: boolean): string[] {
 }
 
 async function appendToCommand(commands: string[], subCommand: string): Promise<string[]> {
-  const completions = await execSubCommandCompletions(...commands, ' '); // HERE
+  // fish lists `name<TAB>description`: the name alone is the subcommand
+  const completions = (await execSubCommandCompletions(...commands, ' ')).map(line => line.split('\t')[0]);
   if (completions.includes(subCommand)) {
     commands.push(subCommand);
     return commands;
