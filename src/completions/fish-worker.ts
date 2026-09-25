@@ -98,8 +98,9 @@ export class FishCompletionWorker {
 
     // an idle worker must not keep the server, or a test run, alive
     this.child.unref();
-    (this.child.stdin as Socket).unref();
-    (this.child.stdout as Socket).unref();
+    // Node pipes are sockets; Bun's pipe streams do not expose unref().
+    (this.child.stdin as Partial<Socket>).unref?.();
+    (this.child.stdout as Partial<Socket>).unref?.();
   }
 
   get isClosed(): boolean {

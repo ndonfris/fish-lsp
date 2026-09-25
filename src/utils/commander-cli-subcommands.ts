@@ -859,7 +859,9 @@ export namespace CommanderSubcommand {
           FishServer.throwError('Source map checking `fish-lsp info --source-maps --check`');
         } catch (error) {
           logger.logToStdoutJoined(chalk.dim('(Should throw error) '), chalk.red.underline.bold('Sourcemap check:'), ' ', chalk.red.dim((error as Error).message));
-          FishServer.throwError('Source map checking passed `fish-lsp info --source-maps --check`');
+          // Print the mapped stack explicitly: Bun's uncaught-error renderer can
+          // show bundle locations instead of the source-map-support formatter.
+          logger.logToStderr((error as Error).stack ?? String(error));
           exitStatus = 1;
         }
         return exitStatus;
