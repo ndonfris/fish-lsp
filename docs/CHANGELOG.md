@@ -1,7 +1,22 @@
-## <small>1.1.5-pre.3 (2026-09-15)</small>
+## <small>1.1.5-pre.3 (2026-09-25)</small>
 
-* test: vitest `clearMocks: false` for keeping `vitest@4` behavior using `vitest@5` ([0068258](https://github.com/ndonfris/fish-lsp/commit/0068258))
+* fix: `fish-lsp complete` is not truncated on pipe ([600a77f](https://github.com/ndonfris/fish-lsp/commit/600a77f))
 * fix: avoid shell injection in fish file execution for `executeCommandHandler` + deps ([1f10ec0](https://github.com/ndonfris/fish-lsp/commit/1f10ec0))
+* fix: never expand or run untrusted text from a hovered or completed fish document ([a082d84](https://github.com/ndonfris/fish-lsp/commit/a082d84))
+* fix(completion): keep continued words, escape paths, and treat single quotes as literal ([79e4ec0](https://github.com/ndonfris/fish-lsp/commit/79e4ec0))
+* fix(hover): describe a flag that follows a subcommand ([5a654c1](https://github.com/ndonfris/fish-lsp/commit/5a654c1))
+* fix(semantic-tokens): highlight both variables of `$var[$var2]`, and `true`/`false` only as values ([477fec5](https://github.com/ndonfris/fish-lsp/commit/477fec5))
+* perf: unblock startup diagnostics, keep requests responsive, and slim completion items ([d536d74](https://github.com/ndonfris/fish-lsp/commit/d536d74))
+* feat: resolve fish code inside `complete`, `alias` and `argparse` strings ([758de2a](https://github.com/ndonfris/fish-lsp/commit/758de2a))
+* feat(completion): complete from a long-running fish, add snippets, list own arguments first ([4a3aaca](https://github.com/ndonfris/fish-lsp/commit/4a3aaca))
+* feat(completion): integrate snippets from #171 ([1cfa6eb](https://github.com/ndonfris/fish-lsp/commit/1cfa6eb)), closes [#171](https://github.com/ndonfris/fish-lsp/issues/171)
+* feat(completion): multiword triggers, multiline input, paths, `fish_lsp_enable_snippets` ([230874d](https://github.com/ndonfris/fish-lsp/commit/230874d))
+* build: lint `scripts/`, add esbuild `--build-target-folder`, alias the tree-sitter-fish grammar ([f274892](https://github.com/ndonfris/fish-lsp/commit/f274892))
+* Add snippets from https://github.com/Emilanchiki-industries/vscode-fish/blob/main/snippets/snippets. ([b3ab18c](https://github.com/ndonfris/fish-lsp/commit/b3ab18c))
+* refactor(completion): classify the cursor once and route to completion sources ([5764b41](https://github.com/ndonfris/fish-lsp/commit/5764b41))
+* ci: `test-npm-package.yml` fixes ([c6d8a7f](https://github.com/ndonfris/fish-lsp/commit/c6d8a7f))
+* chore: bump version to `fish-lsp@1.1.5-pre.3` ([8ed7084](https://github.com/ndonfris/fish-lsp/commit/8ed7084))
+* test: vitest `clearMocks: false` for keeping `vitest@4` behavior using `vitest@5` ([038b952](https://github.com/ndonfris/fish-lsp/commit/038b952))
 
 ## <small>1.1.5-pre.2 (2026-09-12)</small>
 

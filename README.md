@@ -1030,6 +1030,7 @@ Contributions of any kind are welcome! Special thanks to anyone who contributed 
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/rmehri01"><img src="https://avatars.githubusercontent.com/u/52933714?v=4?s=50" width="50px;" alt="Ryan Mehri"/><br /><sub><b>Ryan Mehri</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=rmehri01" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/alysson-souza"><img src="https://avatars.githubusercontent.com/u/297559?v=4?s=50" width="50px;" alt="Alysson Souza e Silva"/><br /><sub><b>Alysson Souza e Silva</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=alysson-souza" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://poz.pet/"><img src="https://avatars.githubusercontent.com/u/64381190?v=4?s=50" width="50px;" alt="poz"/><br /><sub><b>poz</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=imnotpoz" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://gravatar.com/emilygraceseville7cf"><img src="https://avatars.githubusercontent.com/u/42812113?v=4?s=50" width="50px;" alt="Emily Grace Seville"/><br /><sub><b>Emily Grace Seville</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=EmilyGraceSeville7cf" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>
