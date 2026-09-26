@@ -7,6 +7,8 @@ export namespace ErrorCodes {
   export const zeroIndexedArray = 1003;
   export const sourceFileDoesNotExist = 1004;
   export const dotSourceCommand = 1005;
+  export const leadingConditionalOperator = 1006;
+  export const missingOptionValue = 1007;
 
   export const singleQuoteVariableExpansion = 2001;
   export const usedWrapperFunction = 2002;
@@ -40,7 +42,7 @@ export namespace ErrorCodes {
   export const syntaxError = 9999;
 
   export type CodeTypes =
-    1001 | 1002 | 1003 | 1004 | 1005 |
+    1001 | 1002 | 1003 | 1004 | 1005 | 1006 | 1007 |
     2001 | 2002 | 2003 | 2004 |
     3001 | 3002 | 3003 |
     4001 | 4002 | 4003 | 4004 | 4005 | 4006 | 4007 | 4008 | 4009 |
@@ -98,6 +100,20 @@ export namespace ErrorCodes {
       codeDescription: { href: 'https://fishshell.com/docs/current/cmds/source.html' },
       source: 'fish-lsp',
       message: '`.` source command not allowed, use `source` instead',
+    },
+    [leadingConditionalOperator]: {
+      severity: DiagnosticSeverity.Error,
+      code: leadingConditionalOperator,
+      codeDescription: { href: 'https://fishshell.com/docs/current/language.html#combiners-and-or-not' },
+      source: 'fish-lsp',
+      message: 'Conditional operator cannot start a statement',
+    },
+    [missingOptionValue]: {
+      severity: DiagnosticSeverity.Error,
+      code: missingOptionValue,
+      codeDescription: { href: 'https://fishshell.com/docs/current/language.html#argument-handling' },
+      source: 'fish-lsp',
+      message: 'Missing required option value',
     },
     /** consider disabling this */
     [singleQuoteVariableExpansion]: {

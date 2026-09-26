@@ -1,9 +1,9 @@
-import { ChangeAnnotation, CodeAction, Diagnostic, RenameFile, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
+import { ChangeAnnotation, CodeAction, Diagnostic, Position, RenameFile, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
 import { LspDocument } from '../document';
 import { ErrorCodes } from '../diagnostics/error-codes';
 import { equalRanges, getChildNodes } from '../utils/tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
-import { ErrorNodeTypes, getFishBuiltinEquivalentCommandName, isFishStatusDeprecatedFlag } from '../diagnostics/node-types';
+import { ErrorNodeTypes, findMissingClosers, findUnclosedBlocks, getFishBuiltinEquivalentCommandName, hasMissingClosingToken, isFishStatusDeprecatedFlag, isTestBracketWithoutClose } from '../diagnostics/node-types';
 import { SupportedCodeActionKinds } from './action-kinds';
 import { logger } from '../logger';
 import { analyzer, Analyzer } from '../analyze';
@@ -12,6 +12,9 @@ import { pathToRelativeFunctionName, uriToPath, uriToReadablePath } from '../uti
 import { FishString } from '../parsing/string';
 import { findParentCommand, isAliasDefinitionName, isArgparseVariableDefinitionName, isConditionalCommand, isFunctionDefinition, isFunctionDefinitionName, isVariableDefinitionName } from '../utils/node-types';
 import { StatusArgs } from '../diagnostics/deprecated-flags';
+import { CommandNames } from '../command';
+import { server } from '../server';
+import { configHandlers } from '../config';
 
 /**
  * These quick-fixes are separated from the other diagnostic quick-fixes because
@@ -56,6 +59,7 @@ export function createFixAllAction(
   if (fixableActions.length === 0) return undefined;
   const resultEdits: { [uri: string]: TextEdit[]; } = {};
   const diagnostics: Diagnostic[] = [];
+  const diagnosticStarts = new Map<TextEdit, Position>();
   for (const action of fixableActions) {
     if (!action.edit || !action.edit.changes) continue;
     const changes = action.edit.changes;
@@ -75,12 +79,20 @@ export function createFixAllAction(
           );
           if (!isDuplicate) {
             oldEdits.push(newEdit);
+            const start = action.diagnostics?.[0]?.range.start;
+            if (start) diagnosticStarts.set(newEdit, start);
           }
         }
         resultEdits[uri] = oldEdits;
         diagnostics.push(...action.diagnostics || []);
       }
     }
+  }
+  // Inserts at one position land in array order. Closers sharing a position
+  // come from nested openers, so the innermost (latest diagnostic) goes first.
+  const compare = (a?: Position, b?: Position) => a && b ? a.line - b.line || a.character - b.character : 0;
+  for (const uri in resultEdits) {
+    resultEdits[uri]!.sort((a, b) => compare(a.range.start, b.range.start) || compare(diagnosticStarts.get(b), diagnosticStarts.get(a)));
   }
   const allEdits: TextEdit[] = [];
   for (const uri in resultEdits) {
@@ -175,12 +187,146 @@ function getErrorNodeToken(node: SyntaxNode): string | undefined {
   return undefined;
 }
 
+const enclosingBlockTypes = [
+  'function_definition', 'for_statement', 'while_statement', 'if_statement', 'begin_statement', 'switch_statement',
+  'else_if_clause', 'else_clause', 'case_clause',
+];
+
+/**
+ * The first blank line from `from` that separates commands of an unfinished
+ * block, or undefined. Recovery often leaves only the opening keyword, so the
+ * condition and body are grouped through the first blank line, rather than
+ * closing the block immediately after that keyword.
+ */
+function findBlankLineForEnd(document: LspDocument, root: SyntaxNode, lines: string[], openerRow: number, from: number, to = lines.length): number | undefined {
+  for (let line = from; line < to; line++) {
+    if (!/^[\t ]*\r?$/.test(lines[line]!)) continue;
+    const offset = document.offsetAt({ line, character: 0 });
+    let containingNode: SyntaxNode | null = root.descendantForIndex(offset);
+    // A blank line inside a parsed string or a complete nested block is not
+    // a boundary between commands in the unfinished block. A block whose `end`
+    // is indented unlike its keyword took an `end` meant for an outer block,
+    // and a block or branch already open on the keyword's line holds it.
+    let insideCompleteNode = false;
+    while (containingNode && !containingNode.equals(root)) {
+      const end = containingNode.lastChild;
+      const misindentedBlock = end?.type === 'end' && containingNode.firstChild
+        && end.startPosition.column !== (lines[containingNode.startPosition.row]!.match(/^[\t ]*/)?.[0].length ?? 0);
+      const enclosesOpener = containingNode.startPosition.row <= openerRow && enclosingBlockTypes.includes(containingNode.type);
+      if (containingNode.isNamed && containingNode.startIndex < offset && containingNode.endIndex > offset && !containingNode.hasError && !misindentedBlock && !enclosesOpener) {
+        insideCompleteNode = true;
+        break;
+      }
+      containingNode = containingNode.parent;
+    }
+    if (insideCompleteNode) continue;
+    const previousNewline = root.descendantForIndex(Math.max(0, offset - 1));
+    if (previousNewline.type === 'escape_sequence') continue;
+    return line;
+  }
+  return undefined;
+}
+
+/**
+ * Inserts the `end` of the block starting on `blocks[0].row`, indented like
+ * it. `blocks` continues with the unclosed blocks nested in it, innermost
+ * last: each one's `end` takes a blank line first, so this one goes after
+ * theirs. A block whose enclosing block's `end` is on `beforeRow` closes
+ * before that line. Past the last blank line, every `end` is inserted at the
+ * end of the file; fix-all orders `end`s sharing a position innermost first.
+ */
+function missingEndEdit(document: LspDocument, root: SyntaxNode, blocks: { row: number; beforeRow?: number; }[]): TextEdit {
+  const text = document.getText();
+  const lines = text.split('\n');
+  const newline = text.includes('\r\n') ? '\r\n' : '\n';
+  const indent = lines[blocks[0]!.row]!.match(/^[\t ]*/)?.[0] ?? '';
+  // the blank line replaced with `end`, or the line `end` is inserted above;
+  // neither means the end of the file
+  let blankLine: number | undefined;
+  let aboveLine: number | undefined;
+  let after = -1;
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const { row, beforeRow } = blocks[i]!;
+    blankLine = after === Infinity ? undefined
+      : findBlankLineForEnd(document, root, lines, row, Math.max(row + 1, after + 1), beforeRow);
+    aboveLine = undefined;
+    // the trailing empty line of a file ending in a newline is its end
+    if (blankLine === lines.length - 1) blankLine = undefined;
+    if (blankLine !== undefined) {
+      after = blankLine;
+    } else if (beforeRow !== undefined && after !== Infinity) {
+      aboveLine = beforeRow;
+      after = beforeRow;
+    } else {
+      after = Infinity;
+    }
+  }
+  if (blankLine !== undefined) {
+    const content = lines[blankLine]!.replace(/\r$/, '');
+    return TextEdit.replace({ start: { line: blankLine, character: 0 }, end: { line: blankLine, character: content.length } }, `${indent}end`);
+  }
+  if (aboveLine !== undefined) {
+    return TextEdit.insert({ line: aboveLine, character: 0 }, `${indent}end${newline}`);
+  }
+  if (/\n[\t ]*$/.test(text)) {
+    return TextEdit.insert({ line: lines.length - 1, character: 0 }, `${indent}end${newline}`);
+  }
+  return TextEdit.insert(document.positionAt(text.length), `${newline}${indent}end`);
+}
+
 export function handleMissingEndFix(
   document: LspDocument,
   diagnostic: Diagnostic,
   analyzer: Analyzer,
 ): CodeAction | undefined {
   const root = analyzer.getTree(document.uri)!.rootNode;
+
+  const recoveryNode = root.descendantForPosition(
+    { row: diagnostic.range.start.line, column: diagnostic.range.start.character },
+    { row: diagnostic.range.end.line, column: diagnostic.range.end.character },
+  );
+  // `[ -n "$str"` parsed as a command, so only its final argument is missing.
+  // A lone `[` command spans the same range as its name word and `[` token.
+  let testCommand: SyntaxNode | null = recoveryNode;
+  while (testCommand && testCommand.startIndex === recoveryNode.startIndex && !isTestBracketWithoutClose(testCommand)) {
+    testCommand = testCommand.parent;
+  }
+  if (testCommand && !isTestBracketWithoutClose(testCommand)) testCommand = null;
+  if (testCommand) {
+    return createQuickFix('Add missing "]"', diagnostic, {
+      [document.uri]: [TextEdit.insert(document.positionAt(testCommand.endIndex), ' ]')],
+    });
+  }
+  // `$var[1 2` above another line: recovery already marks where the closer goes
+  const missingCloser = hasMissingClosingToken(recoveryNode) ? recoveryNode.children.find(child => child.isMissing) : undefined;
+  if (missingCloser) {
+    return createQuickFix(`Add missing "${missingCloser.type}"`, diagnostic, {
+      [document.uri]: [TextEdit.insert(document.positionAt(missingCloser.startIndex), missingCloser.type)],
+    });
+  }
+  // Each group of unclosed openers is its own diagnostic, anchored on them.
+  // Find it again from the outermost ERROR node, as diagnostics do.
+  let outermostError: SyntaxNode | null = null;
+  for (let node: SyntaxNode | null = recoveryNode; node; node = node.parent) {
+    if (node.isError) outermostError = node;
+  }
+  if (outermostError) {
+    const start = document.offsetAt(diagnostic.range.start);
+    const closer = findMissingClosers(outermostError, document).find(c => c.openers[0]!.startIndex === start);
+    if (closer) {
+      return createQuickFix(`Add missing "${closer.tokens}"`, diagnostic, {
+        [document.uri]: [TextEdit.insert(document.positionAt(closer.offset), closer.newText)],
+      });
+    }
+    // An unclosed block keyword: its `end` goes after those of the blocks inside it
+    const blocks = findUnclosedBlocks(outermostError, document);
+    const index = blocks.findIndex(({ keyword }) => keyword.startIndex === start);
+    if (index !== -1) {
+      return createQuickFix('Add missing "end"', diagnostic, {
+        [document.uri]: [missingEndEdit(document, root, blocks.slice(index).map(({ keyword, beforeRow }) => ({ row: keyword.startPosition.row, beforeRow })))],
+      });
+    }
+  }
 
   let errNode = root.descendantForPosition({ row: diagnostic.range.start.line, column: diagnostic.range.start.character })!;
 
@@ -197,8 +343,14 @@ export function handleMissingEndFix(
 
   if (!rawErrorNodeToken) return undefined;
 
+  if (rawErrorNodeToken === 'end') {
+    return createQuickFix('Add missing "end"', diagnostic, {
+      [document.uri]: [missingEndEdit(document, root, [{ row: errNode.startPosition.row }])],
+    });
+  }
+
   // Determine the appropriate insertion position and text based on token type
-  const insertionData = getTokenInsertionData(errNode, rawErrorNodeToken, document);
+  const insertionData = getTokenInsertionData(errNode, rawErrorNodeToken);
 
   return {
     title: `Add missing "${rawErrorNodeToken}"`,
@@ -240,21 +392,10 @@ function findErrorCauseFromNode(errorNode: SyntaxNode): SyntaxNode | null {
 /**
  * Determines the appropriate insertion position and text for different token types
  */
-function getTokenInsertionData(errNode: SyntaxNode, closingToken: string, document: LspDocument): {
+function getTokenInsertionData(errNode: SyntaxNode, closingToken: string): {
   position: { line: number; character: number; };
   text: string;
 } {
-  // Handle 'end' tokens (function, while, if, for, begin, switch)
-  if (closingToken === 'end') {
-    // For block statements, add 'end' on a new line with proper indentation
-    const line = errNode.endPosition.row;
-    const indentLevel = document.getIndentAtLine(errNode.startPosition.row);
-    return {
-      position: { line: line, character: errNode.endPosition.column },
-      text: `\n${indentLevel}end`,
-    };
-  }
-
   // Handle quotes (', ")
   if (closingToken === "'" || closingToken === '"') {
     // For quotes, add the closing quote immediately after the current position
@@ -778,6 +919,33 @@ export async function getQuickFixes(
   logger.info('getQuickFixes', { code: diagnostic.code, message: diagnostic.message, node: node?.text });
 
   switch (diagnostic.code) {
+    case ErrorCodes.leadingConditionalOperator: {
+      const operator = document.getText(diagnostic.range);
+      if (operator !== '&&' && operator !== '||') return [];
+      const replacement = operator === '&&' ? 'and' : 'or';
+      return [createQuickFix(`Replace '${operator}' with '${replacement}'`, diagnostic, {
+        [document.uri]: [TextEdit.replace(diagnostic.range, replacement)],
+      })];
+    }
+
+    case ErrorCodes.missingOptionValue: {
+      const option = document.getText(diagnostic.range);
+      if (option !== '--description' && !/^-[^-]*d$/.test(option)) return [];
+      const action = createQuickFix('Add an empty description', diagnostic, {
+        [document.uri]: [TextEdit.insert(diagnostic.range.end, ' ""')],
+      });
+      // A standard WorkspaceEdit cannot contain snippet tabstops. Clients that
+      // support showDocument can place the cursor after applying the edit.
+      if (server?.clientSupportsShowDocument && configHandlers.executeCommand) {
+        action.command = {
+          title: 'Edit description',
+          command: CommandNames.SELECT_QUICK_FIX_POSITION,
+          arguments: [document.uri, { ...diagnostic.range.end, character: diagnostic.range.end.character + 2 }],
+        };
+      }
+      return [action];
+    }
+
     case ErrorCodes.missingEnd:
       action = handleMissingEndFix(document, diagnostic, analyzer);
       if (action) actions.push(action);
