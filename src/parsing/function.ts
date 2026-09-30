@@ -9,6 +9,7 @@ import { isAutoloadedUriLoadsFunctionName } from '../utils/translation';
 import { getRange } from '../utils/tree-sitter';
 import { md } from '../utils/markdown-builder';
 import { FishSymbolKindMap } from './symbol-kinds';
+import { CommandWordReferenceRules } from './word-references';
 
 export const FunctionOptions = [
   Option.create('-a', '--argument-names').withMultipleValues(),
@@ -53,6 +54,25 @@ const FunctionsValuesCantContainCommand = [
   Option.create('', '--color').withValue(),
   Option.create('-d', '--description').withValue(),
 ];
+
+/** `function NAME …` header flags that name another symbol. */
+export const FunctionWordReferences: CommandWordReferenceRules = {
+  options: FunctionOptions,
+  rules: [
+    { option: FunctionOptions.filter(o => o.equalsRawOption('-w', '--wraps')), kind: 'function' },
+    { option: FunctionOptions.filter(o => o.equalsRawOption('-v', '--on-variable')), kind: 'variable' },
+    { option: FunctionOptions.filter(o => o.equalsRawOption('-e', '--on-event')), kind: 'emit' },
+  ],
+};
+
+/** `functions [-q|-e] NAME …`: every name is a function. */
+export const FunctionsWordReferences: CommandWordReferenceRules = {
+  options: FunctionsOptions,
+  rules: [
+    { option: FunctionsValuesCouldContainCommand, kind: 'function' },
+    { positional: 'all', kind: 'function' },
+  ],
+};
 
 /**
  * `type`/`functions` support

@@ -4,6 +4,7 @@ import { Option, findOptions, findOptionsSet, isMatchingOption } from './options
 import { LspDocument } from '../document';
 import { FishSymbol, ModifierScopeTag, SetModifierToScopeTag } from './symbol';
 import { DefinitionScope, ScopeTag } from '../utils/definition-scope';
+import { CommandWordReferenceRules } from './word-references';
 
 export const SetOptions = [
   Option.create('-U', '--universal'),
@@ -24,6 +25,14 @@ export const SetOptions = [
   Option.create('-L', '--long'),
   Option.create('-h', '--help'),
 ];
+
+/** `set -q/-e/-S NAME …`: every name is a variable reference. */
+export const SetWordReferences: CommandWordReferenceRules = {
+  options: SetOptions,
+  rules: [
+    { positional: 'all', kind: 'variable', when: SetOptions.filter(o => o.equalsRawOption('-q', '--query', '-e', '--erase', '-S', '--show')) },
+  ],
+};
 
 // const setModifiers = SetOptions.filter(option => option.equalsRawLongOption('--universal', '--global', '--function', '--local'));
 export const SetModifiers = [

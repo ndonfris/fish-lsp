@@ -7,6 +7,7 @@ import { findParentWithFallback, getCommandNameNode, isCommandWithName, isConcat
 import { isBuiltin } from '../utils/builtins';
 import { md } from '../utils/markdown-builder';
 import { flattenNested } from '../utils/flatten';
+import { CommandWordReferenceRules } from './word-references';
 
 export type FishAliasInfoType = {
   name: string;
@@ -271,6 +272,13 @@ export function isAliasDefinitionName(node: SyntaxNode) {
     : args.at(0);
   return !!aliasName && aliasName.equals(node);
 }
+
+/** `alias NAME VALUE` / `alias NAME=VALUE`: the value is a command line. */
+export const AliasWordReferences: CommandWordReferenceRules = {
+  rules: [
+    { match: isAliasDefinitionValue, kind: 'function' },
+  ],
+};
 
 export function isAliasDefinitionValue(node: SyntaxNode) {
   if (!node.parent) return false;

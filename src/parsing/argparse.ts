@@ -11,6 +11,7 @@ import { SyncFileHelper } from '../utils/file-operations';
 import { pathToUri, uriToPath } from '../utils/translation';
 import { workspaceManager } from '../utils/workspace-manager';
 import { logger } from '../logger';
+import { CommandWordReferenceRules } from './word-references';
 
 export const ArgparseOptions = [
   Option.create('-n', '--name').withValue(),
@@ -24,6 +25,19 @@ export const ArgparseOptions = [
   Option.create('-s', '--stop-nonopt'),
   Option.create('-h', '--help'),
 ];
+
+/**
+ * `argparse --name CMD`: the command whose arguments are parsed. The flag specs
+ * are variable definitions (not references), and everything after `--` is the
+ * argument list being parsed — literal text.
+ */
+export const ArgparseWordReferences: CommandWordReferenceRules = {
+  options: ArgparseOptions,
+  stopAtDoubleDash: true,
+  rules: [
+    { option: ArgparseOptions.filter(o => o.equalsRawOption('-n', '--name')), kind: 'function' },
+  ],
+};
 
 const ArgparseOptsWithValues = ArgparseOptions.filter(opt =>
   opt.equalsRawOption('-n', '--name') ||
