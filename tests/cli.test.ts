@@ -9,7 +9,10 @@ import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { Analyzer } from '../src/analyze';
 import vfs from '../src/virtual-fs';
 import { promisify } from 'util';
-import { exec, spawn } from 'child_process';
+import { exec, execFile, spawn, spawnSync } from 'child_process';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { SyncFileHelper } from '../src/utils/file-operations';
 import { fail } from 'assert';
 import PackageJSON from '../package.json';
@@ -534,3 +537,43 @@ describe.skipIf(!cliExists)('cli tests', () => {
     }); // 10 second timeout for the test
   });
 }, 60000); // 60 second timeout for the entire suite)
+
+const bun = spawnSync('bun', ['--version'], { encoding: 'utf8' });
+const bunMissing = (bun.error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT';
+
+// CI installs Bun and builds dist first; local Node-only development can skip it.
+describe.skipIf(!process.env.CI && (bunMissing || !existsSync('./dist/fish-lsp')))('Bun CLI compatibility', () => {
+  it('bun --bun ./dist/fish-lsp info --time-only prints timings and exits successfully', async () => {
+    expect(bun.status, bun.stderr).toBe(0);
+    expect(existsSync('./dist/fish-lsp')).toBe(true);
+    const home = mkdtempSync(join(tmpdir(), 'fish-lsp-bun-cli-'));
+    const config = join(home, '.config');
+    const workspace = join(config, 'fish');
+    mkdirSync(workspace, { recursive: true });
+    writeFileSync(join(workspace, 'config.fish'), 'function bun_smoke_test\n    echo ok\nend\n');
+    try {
+      // execFile rejects on nonzero exit, signal, or timeout, including a worker
+      // that crashes during initialization or keeps the CLI alive indefinitely.
+      const { stdout, stderr } = await promisify(execFile)(
+        'bun', ['--bun', './dist/fish-lsp', 'info', '--time-only'], {
+          timeout: 20_000,
+          killSignal: 'SIGKILL',
+          env: {
+            PATH: process.env.PATH,
+            HOME: home,
+            XDG_CONFIG_HOME: config,
+            XDG_DATA_HOME: join(home, '.local', 'share'),
+            fish_lsp_all_indexed_paths: workspace,
+            NO_COLOR: '1',
+          },
+        },
+      );
+      expect(stderr).toBe('');
+      expect(stdout).toMatch(/Server Start Time:\s+\d+(?:\.\d+)? ms/);
+      expect(stdout).toMatch(/Background Analysis Time:\s+\d+(?:\.\d+)? ms/);
+      expect(stdout).toMatch(/Total Files Indexed:\s+\d+ files?/);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  }, 25_000);
+});
