@@ -4,7 +4,7 @@ import { containsRange, findEnclosingScope, getChildNodes, getRange } from '../s
 import { isCommandName, isCommandWithName, isComment, isFunctionDefinitionName, isIfStatement, isMatchingOption, isOption, isString, isTopLevelFunctionDefinition } from '../src/utils/node-types';
 import { Option } from '../src/parsing/options';
 import { convertIfToCombinersString } from '../src/code-actions/combiner';
-import { setLogger } from './helpers';
+import { createFakeLspDocument, setLogger } from './helpers';
 import { initializeParser } from '../src/parser';
 import { findReturnNodes, getReturnStatusValue } from '../src/inlay-hints';
 import { TextDocumentItem } from 'vscode-languageserver';
@@ -16,13 +16,16 @@ import { CompleteFlag, findFlagsToComplete, buildCompleteString } from '../src/c
 import { analyzer } from '../src/analyze';
 import TestWorkspace, { TestFile } from './test-workspace-utils';
 import { codeActionHandlers } from '../src/code-actions/code-action-handler';
-import { testOpenDocument } from './document-test-helpers';
+import { testCloseDocument, testOpenDocument } from './document-test-helpers';
 import { connection } from '../src/utils/startup';
 import { logger } from '../src/logger';
 import { Workspace } from '../src/utils/workspace';
 import { getDiagnosticsAsync } from '../src/diagnostics/validate';
 import { fail } from 'assert';
 import { rangesEqual } from '../src/parsing/equality-utils';
+import { ErrorCodes } from '../src/diagnostics/error-codes';
+import { SupportedCodeActionKinds } from '../src/code-actions/action-kinds';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 let parser: Parser;
 
@@ -763,6 +766,33 @@ end`;
         expect(text).toContain('if set -ql');
         expect(text).toContain('end');
       });
+    });
+
+    // Editors send only the diagnostics under the cursor in `context.diagnostics`;
+    // fix-all must still close every missing token in the document.
+    it.each([[0, 0], [0, 9]])('fix-all from the cursor at %i:%i fixes the whole document', async (line, character) => {
+      const doc = createFakeLspDocument('/tmp/fix-all-context.fish', 'for i in {1,2,3');
+      testOpenDocument(doc);
+      try {
+        analyzer.analyze(doc);
+        const diagnostics = (await getDiagnosticsAsync(analyzer.getRootNode(doc.uri)!, doc))
+          .filter(d => d.code === ErrorCodes.missingEnd);
+        expect(diagnostics).toHaveLength(2);
+        analyzer.diagnostics.setForTesting(doc.uri, diagnostics);
+        const range = { start: { line, character }, end: { line, character } };
+        const actions = await codeActionHandlers().onCodeActionCallback({
+          textDocument: { uri: doc.uri },
+          range,
+          context: { diagnostics: diagnostics.filter(d => d.range.start.character === character), only: ['quickfix'] },
+        });
+        const fixAll = actions.find(action => action.kind === SupportedCodeActionKinds.QuickFixAll)!;
+        expect(fixAll).toBeDefined();
+        expect(fixAll.title).toBe('Fix all auto-fixable quickfixes: 2 problems (1001)');
+        expect(fixAll.diagnostics).toHaveLength(2);
+        expect(TextDocument.applyEdits(doc, fixAll.edit!.changes![doc.uri]!)).toBe('for i in {1,2,3}\nend');
+      } finally {
+        testCloseDocument(doc.uri);
+      }
     });
   });
 });

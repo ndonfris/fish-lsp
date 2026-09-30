@@ -84,7 +84,12 @@ export function createFixAllAction(
           }
         }
         resultEdits[uri] = oldEdits;
-        diagnostics.push(...action.diagnostics || []);
+        // the same diagnostic can arrive through several actions (the cursor's
+        // fixes and the document's), so each is listed once
+        for (const diagnostic of action.diagnostics || []) {
+          const isListed = diagnostics.some(d => d.code === diagnostic.code && equalRanges(d.range, diagnostic.range));
+          if (!isListed) diagnostics.push(diagnostic);
+        }
       }
     }
   }
@@ -101,7 +106,7 @@ export function createFixAllAction(
     allEdits.push(...edits);
   }
   return {
-    title: `Fix all auto-fixable quickfixes (total fixes: ${allEdits.length}) (codes: ${diagnostics.map(d => d.code).join(', ')})`,
+    title: fixAllTitle(diagnostics),
     kind: SupportedCodeActionKinds.QuickFixAll,
     diagnostics,
     edit: {
@@ -114,6 +119,17 @@ export function createFixAllAction(
       uris: Array.from(new Set(Object.keys(resultEdits))),
     },
   };
+}
+
+/**
+ * `Fix all auto-fixable quickfixes: 3 problems (1001, 4004)` — each code once, in
+ * order, after the number of diagnostics fixed.
+ */
+function fixAllTitle(diagnostics: Diagnostic[]): string {
+  const codes = [...new Set(diagnostics.map(d => d.code).filter(code => code !== undefined))]
+    .sort((a, b) => Number(a) - Number(b) || String(a).localeCompare(String(b)));
+  const problems = `${diagnostics.length} ${diagnostics.length === 1 ? 'problem' : 'problems'}`;
+  return `Fix all auto-fixable quickfixes: ${problems}${codes.length ? ` (${codes.join(', ')})` : ''}`;
 }
 
 /**

@@ -155,6 +155,18 @@ export function createCodeActionHandler() {
   }
 
   /**
+   * `quickfix.fixAll` for every fish-lsp diagnostic in the document. The client
+   * only sends the diagnostics under the cursor in `context.diagnostics`, so
+   * `for i in {1,2,3` would otherwise fix just the `{` or just the `for`.
+   */
+  async function createDocumentFixAllAction(document: LspDocument, results: CodeAction[], contextDiagnostics: Diagnostic[]) {
+    const documentDiagnostics = (analyzer.diagnostics.get(document.uri) ?? contextDiagnostics)
+      .filter(d => !!d?.severity && d.source === 'fish-lsp');
+    const documentFixes = await processQuickFixes(document, documentDiagnostics, analyzer);
+    return createFixAllAction(document, [...results, ...documentFixes]);
+  }
+
+  /**
    * Process refactors for the given document and range
    */
   async function processRefactors(document: LspDocument, range: Range) {
@@ -272,7 +284,7 @@ export function createCodeActionHandler() {
       logger.log('Processing onlyQuickFixes');
       results.push(...await processQuickFixes(document, diagnostics, analyzer));
       results.push(...await getSelectionCodeActions(document, params.range));
-      const allAction = createFixAllAction(document, results);
+      const allAction = await createDocumentFixAllAction(document, results, diagnostics);
       if (allAction) results.push(allAction);
       logger.log('CodeAction results', results.map(r => r.title));
       return sortCodeActionsByKind(results);
@@ -290,7 +302,7 @@ export function createCodeActionHandler() {
     results.push(...await processQuickFixes(document, diagnostics, analyzer));
     results.push(...await getSelectionCodeActions(document, params.range));
     results.push(...await processRefactors(document, params.range));
-    const allAction = createFixAllAction(document, results);
+    const allAction = await createDocumentFixAllAction(document, results, diagnostics);
     if (allAction) {
       logger.log({
         name: 'allAction',
