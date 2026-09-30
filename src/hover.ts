@@ -6,7 +6,7 @@ import { documentationHoverProvider, enrichCommandWithFlags, enrichToCodeBlockMa
 import { DocumentationCache } from './utils/documentation-cache';
 import { execCommandDocs, execCompletions, execSubCommandCompletions } from './utils/exec';
 import { subcommandCache } from './utils/subcommand-cache';
-import { findParent, findParentCommand, getCommandNameNode, getCommandNameText, getRedirectOperatorText, isCommand, isFunctionDefinition, isOption, isProgram, isReturnStatusNumber, isVariable, isVariableDefinitionName, isVariableExpansion, isVariableExpansionWithName } from './utils/node-types';
+import { findParent, findParentCommand, getCommandNameNode, getCommandNameText, getRedirectOperatorText, isCommand, isFunctionDefinition, isOption, isProgram, isReturnStatusNumber, isVariableDefinitionName, isVariableExpansion, isVariableExpansionWithName } from './utils/node-types';
 import { findFirstParent, nodeLogFormatter } from './utils/tree-sitter';
 import { getNestedCommandReferenceAtPoint } from './utils/nested-command-point';
 import { symbolKindsFromNode, uriToPath } from './utils/translation';
@@ -14,6 +14,8 @@ import { logger } from './logger';
 import { findPrebuiltDoc, formatPrebuiltDocMarkdown, getSpecialVariableHoverDoc, PrebuiltDocumentationMap } from './utils/snippets';
 import { md } from './utils/markdown-builder';
 import { AutoloadedPathVariables } from './utils/process-env';
+import { findReferenceSymbolType } from './parsing/reference-candidates';
+import { isCommandArgument } from './parsing/word-references';
 
 export async function handleHover(
   analyzer: Analyzer,
@@ -46,25 +48,17 @@ export async function handleHover(
   const resolvedItem = await cache.resolve(lookupText, document.uri, symbolType);
   const item = symbolType ? cache.find(lookupText, symbolType) : cache.getItem(lookupText);
   const docsItem = item || resolvedItem;
-  // A bare command argument (e.g. `theme` in `fish_config theme`) is a `word`
-  // node, never a variable reference (those start with `$`). The DocumentationCache
-  // is keyed only by name, so a same-named global variable would otherwise match
-  // and leak its docs. Only honor a Variable-typed hit when the node is a variable.
-  const isVariableDocsMismatch = docsItem?.type === LSP.SymbolKind.Variable && !isVariable(current);
-  // A bare `word` that is the VALUE of a preceding option — e.g. `time` in
-  // `command ls --sort time -1` — is not a command/keyword reference even though
-  // its name matches one. Because the cache is name-keyed, honoring the hit
-  // would show the wrong man page (`man time` instead of documentation for the
-  // `ls` invocation it belongs to). Wrapped commands like `ls` in `command ls`
-  // are unaffected: their previous sibling is the `command` decorator, not an
-  // option.
-  const prevNamedSibling = current.previousNamedSibling;
-  const isOptionValueDocsMismatch =
-    !isVariable(current)
-    && !isOption(current)
-    && !!prevNamedSibling
-    && isOption(prevNamedSibling);
-  if (docsItem && docsItem.docs && !isVariableDocsMismatch && !isOptionValueDocsMismatch) {
+  // The DocumentationCache is keyed only by name, so a hit only applies where the
+  // hovered node can reference that kind of symbol. Variable docs need a variable
+  // usage (`theme` in `fish_config theme` is not `$theme`). Command docs on an
+  // argument need a position its command's word-reference rules read as a command:
+  // `ls` in `sudo ls` or `complete -w ls`, but not `echo ls`, `set x ls`, or the
+  // `time` in `ls --sort time`. Command names and keywords aren't arguments.
+  const category = nestedCommand ? 'function' : findReferenceSymbolType(current);
+  const isDocsKindMismatch = docsItem?.type === LSP.SymbolKind.Variable
+    ? category !== 'variable'
+    : !nestedCommand && isCommandArgument(current) && category !== 'function';
+  if (docsItem && docsItem.docs && !isDocsKindMismatch) {
     return {
       contents: {
         kind: LSP.MarkupKind.Markdown,
