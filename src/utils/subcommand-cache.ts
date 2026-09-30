@@ -16,6 +16,10 @@ const skipCommands: Set<string> = new Set([
   'funcsave',
   'funced',
   'man',
+  'time',
+  'exec',
+  'sudo',
+  'eval',
 ]);
 
 /**
@@ -31,6 +35,7 @@ class SubcommandCache {
 
   /** Sync O(1) lookup — hot path for semantic tokens */
   hasSubcommand(command: string, subcommand: string): boolean {
+    if (skipCommands.has(command)) return false;
     return this._cache.get(command)?.has(subcommand) ?? false;
   }
 
