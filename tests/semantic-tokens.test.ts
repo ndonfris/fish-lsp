@@ -2271,6 +2271,56 @@ echo $my_var`;
       expectTokenExists(tokens, { text: 'commit', tokenType: 'function' });
     });
 
+    it('should not highlight the command run by `time`, `exec` or `sudo` as a subcommand', () => {
+      // `time`/`exec`/`sudo` complete command names, so a cache filled by completion
+      // resolution would otherwise list `foo` as their subcommand
+      subcommandCache.setSubcommands('time', ['foo']);
+      subcommandCache.setSubcommands('exec', ['foo']);
+      subcommandCache.setSubcommands('sudo', ['foo']);
+      const content = [
+        'time foo',
+        'exec foo',
+        'sudo foo',
+      ].join('\n');
+      const tokens = getTokensForContent(content, 'test://subcmd-time-exec.fish');
+
+      expectTokenExists(tokens, { text: 'time', tokenType: 'function', line: 0 });
+      expectTokenExists(tokens, { text: 'exec', tokenType: 'function', line: 1 });
+      expectTokenExists(tokens, { text: 'sudo', tokenType: 'function', line: 2 });
+      const fooTokens = findTokensByText(tokens, 'foo').filter(t => t.tokenType === 'function');
+      expect(fooTokens.length).toBe(0);
+    });
+
+    it('should not highlight the command `eval` runs', () => {
+      // even a function defined in the document is left unhighlighted after `eval`
+      subcommandCache.setSubcommands('eval', ['foo', 'bar']);
+      const content = [
+        'function foo',
+        '    echo foo',
+        'end',
+        'eval foo bar',
+      ].join('\n');
+      const tokens = getTokensForContent(content, 'test://eval-word.fish');
+
+      expectTokenExists(tokens, { text: 'eval', tokenType: 'function', line: 3 });
+      const argTokens = tokens.filter(t => t.line === 3 && t.text !== 'eval');
+      expect(argTokens.length).toBe(0);
+    });
+
+    it('should highlight `eval $var` as the variable `var`', () => {
+      subcommandCache.setSubcommands('eval', ['foo']);
+      const content = [
+        'set -l var foo',
+        'eval $var',
+      ].join('\n');
+      const tokens = getTokensForContent(content, 'test://eval-var.fish');
+
+      expectTokenExists(tokens, { text: 'eval', tokenType: 'function', line: 1 });
+      expectTokenExists(tokens, { text: 'var', tokenType: 'variable', line: 1 });
+      const functionTokens = tokens.filter(t => t.line === 1 && t.tokenType === 'function' && t.text !== 'eval');
+      expect(functionTokens.length).toBe(0);
+    });
+
     it('should handle multiple subcommand lines independently', () => {
       subcommandCache.setSubcommands('string', ['split', 'match', 'join']);
       subcommandCache.setSubcommands('path', ['normalize', 'resolve']);
