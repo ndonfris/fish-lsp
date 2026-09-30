@@ -7,6 +7,7 @@ import { getRange } from '../utils/tree-sitter';
 import { md } from '../utils/markdown-builder';
 import { unindentNestedSyntaxNode } from './symbol-detail';
 import { findFunctionOptionNamedArguments } from './function';
+import { CommandWordReferenceRules } from './word-references';
 
 /**
  * Check if a SyntaxNode is an emitted/fired event definition name
@@ -17,6 +18,13 @@ import { findFunctionOptionNamedArguments } from './function';
  * @param node - The SyntaxNode to check
  * @return {boolean} - True if the node is an emitted event definition name, false otherwise
  */
+/** `emit EVENT …`: the first argument is the event name. */
+export const EmitWordReferences: CommandWordReferenceRules = {
+  rules: [
+    { positional: { at: 0 }, kind: 'emit' },
+  ],
+};
+
 export function isEmittedEventDefinitionName(node: SyntaxNode): boolean {
   if (!node.parent || !node.isNamed) return false;
 

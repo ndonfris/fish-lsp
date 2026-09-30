@@ -173,6 +173,11 @@ export class Option {
     return !this.requiresArgument && !this.optionalArgument;
   }
 
+  /** Whether the flag consumes the next argument as its value (`-M insert`). */
+  requiresValue(): boolean {
+    return this.requiresArgument;
+  }
+
   matchesValue(node: SyntaxNode): boolean {
     if (this.isSwitch()) {
       return false;

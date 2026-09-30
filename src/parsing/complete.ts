@@ -1,12 +1,13 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { isCommand, isCommandWithName, isOption, isString } from '../utils/node-types';
 import { FishString } from './string';
-import { Flag, isMatchingOption, Option } from './options';
+import { Flag, isMatchingOption, isMatchingOptionValue, Option } from './options';
 import { LspDocument } from '../document';
 import { getChildNodes, getRange, pointToPosition } from '../utils/tree-sitter';
 import { FishSymbol } from './symbol';
 import { Location, Range } from 'vscode-languageserver';
 import { logger } from '../logger';
+import { CommandWordReferenceRules } from './word-references';
 
 export const CompleteOptions = [
   Option.create('-c', '--command').withValue(),
@@ -28,6 +29,26 @@ export const CompleteOptions = [
   Option.long('--escape').withValue(),
   Option.create('-h', '--help'),
 ];
+
+/** A `complete -a` value fish evaluates: it contains a `(command substitution)`. */
+function isCompleteArgumentsSubstitution(node: SyntaxNode): boolean {
+  return isMatchingOptionValue(node, Option.create('-a', '--arguments').withValue())
+    && /\(.*\)/.test(node.text);
+}
+
+/**
+ * `complete -c CMD -w CMD -n 'COND'` name commands; `-s/-l/-o FLAG` name the
+ * argparse flag variables (`_flag_FLAG`) of the completed command. A plain
+ * `-a 'candidates'` value is literal text.
+ */
+export const CompleteWordReferences: CommandWordReferenceRules = {
+  options: CompleteOptions,
+  rules: [
+    { option: CompleteOptions.filter(o => o.equalsRawOption('-c', '--command', '-w', '--wraps', '-n', '--condition')), kind: 'function' },
+    { option: CompleteOptions.filter(o => o.equalsRawOption('-s', '--short-option', '-l', '--long-option', '-o', '--old-option')), kind: 'variable' },
+    { match: isCompleteArgumentsSubstitution, kind: 'function' },
+  ],
+};
 
 export function isCompletionCommandDefinition(node: SyntaxNode) {
   return isCommandWithName(node, 'complete');

@@ -93,6 +93,7 @@ describe('findReferenceSymbolType()', () => {
     ['`functions -q cmd`', 'functions -q ‸mycmd', 'function'],
     ['`type cmd`', 'type ‸mycmd', 'function'],
     ['`abbr --function cmd`', 'abbr -a x --function ‸mycmd', 'function'],
+    ['`abbr -a name cmd` expansion command', 'abbr -a gco ‸git checkout', 'function'],
     ['`alias name value` space form', "alias myalias '‸realcmd --flag'", 'function'],
 
     // ---- argparse <-> complete flags (variable category) ----
@@ -165,7 +166,7 @@ describe('findReferenceSymbolType()', () => {
     // ---- negatives: descriptions / literals are not references ----
     ['`function f -d desc` description', 'function f -d ‸mydesc\n  echo hi\nend', null],
     ['`complete -d desc` description', 'complete -c foo -d ‸mydesc', null],
-    ['`abbr -a name expansion` literal text', 'abbr -a gco ‸checkout', null],
+    ['`abbr -a name cmd arg` expansion argument', 'abbr -a gco git ‸checkout', null],
 
     // ---- emit ----
     ['`emit hook`', 'emit ‸my_event', 'emit'],
@@ -403,6 +404,70 @@ describe('narrowing: a node resolves only to its own symbol category', () => {
     await Analyzer.initialize();
   });
   afterEach(() => workspaceManager.clear());
+
+  it.each([
+    ['echo "$(foo)"', true],
+    ['echo foo', false],
+    ['functions -a foo', true],
+    ['type -a foo', true],
+    ['command -a foo', true],
+    ['functions -q other foo', true],
+    ['type -a other foo', true],
+    ['command -a other foo', true],
+    ['argparse h/help -- foo', false],
+    ['argparse h/help -- $(foo)', true],
+    ['argparse h/help -- (foo)', true],
+    ['argparse h/help -- "$(foo)"', true],
+    ['argparse h/help -- (echo foo)', false],
+    ['argparse foo -- $argv', false],
+    ['argparse --name foo h/help -- $argv', true],
+    ['argparse h/help -- -w foo', false],
+    ['set value foo', false],
+    ['test foo = foo', false],
+    ['some_command foo', false],
+    ['some_command -w foo', false],
+    ['command echo foo', false],
+    ['builtin echo foo', false],
+    ['complete -c foo', true],
+    ['complete -c other -w foo', true],
+    ['complete -c other -n foo', true],
+    ['complete -c other -a foo', false],
+    ['alias other foo', true],
+    ['bind ctrl-a foo', true],
+    ['abbr -a other --function foo', true],
+    ['function other --wraps foo; end', true],
+  ])('matches function word references by syntax: %s (%s)', (command, reference) => {
+    const doc = createFakeLspDocument('/tmp/function-word-references.fish', `function foo\nend\n${command}`);
+    analyzer.analyze(doc);
+    const position = { line: 2, character: command.lastIndexOf('foo') };
+    const fn = analyzer.getFlatDocumentSymbols(doc.uri).find(symbol => symbol.isFunction() && symbol.name === 'foo')!;
+    expect(analyzer.getReferences(doc, fn.selectionRange.start, { localOnly: true, includeDefinitions: false })
+      .some(ref => ref.range.start.line === 2)).toBe(reference);
+    expect(analyzer.getDefinition(doc, position)?.equals(fn) ?? false).toBe(reference);
+    const node = analyzer.nodeAtPoint(doc.uri, 2, position.character)!;
+    if (node.type === 'word') {
+      expect(isPotentialReferenceNode(fn, node)).toBe(reference);
+      expect(analyzer.findSymbolsForPosition(doc, position).some(symbol => symbol.equals(fn))).toBe(reference);
+    }
+  });
+
+  it.each(['echo foo', 'printf foo', 'printf "%s\\n" foo', 'echo "foo"', "echo 'foo'"])(
+    'does not resolve literal output arguments: %s', (command) => {
+      const text = `function foo\nend\nset -g foo value\n${command}\nfoo\necho $foo\necho (foo)`;
+      const doc = createFakeLspDocument('/tmp/foo.fish', text);
+      analyzer.analyze(doc);
+      const position = { line: 3, character: command.lastIndexOf('foo') };
+      expect(analyzer.findSymbolsForPosition(doc, position)).toEqual([]);
+      expect(analyzer.getDefinition(doc, position)).toBeNull();
+      const functions = analyzer.getReferences(doc, { line: 0, character: 9 }, { localOnly: true });
+      expect(functions.map(ref => ref.range.start.line)).toEqual([0, 4, 6]);
+      const fn = analyzer.getFlatDocumentSymbols(doc.uri).find(symbol => symbol.isFunction() && symbol.name === 'foo')!;
+      expect(isPotentialReferenceNode(fn, analyzer.nodeAtPoint(doc.uri, 5, 6)!)).toBe(false);
+      expect(fn.isReference(doc, analyzer.nodeAtPoint(doc.uri, 3, position.character)!)).toBe(false);
+      const variables = analyzer.getReferences(doc, { line: 2, character: 7 }, { localOnly: true });
+      expect(variables.map(ref => ref.range.start.line)).toEqual([2, 5]);
+    },
+  );
 
   function symbolsAt(srcWithCaret: string) {
     const { text, line, character } = caret(srcWithCaret);

@@ -10,7 +10,7 @@ import { logger } from './logger';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol, processCompletion } from './parsing/complete';
 import { FishSymbolCaches } from './parsing/fish-symbol-caches';
-import { FishReferenceCandidate, FishReferenceCandidateCache, findReferenceSymbolType, isPotentialReferenceNode, ReferenceSymbolType, symbolReferenceType } from './parsing/reference-candidates';
+import { FishReferenceCandidate, FishReferenceCandidateCache, findReferenceSymbolType, isPotentialReferenceNode, isReferenceWordOfKind, ReferenceSymbolType, symbolReferenceType } from './parsing/reference-candidates';
 import { createSourceResources, getExpandedSourcedFilenameNode, isSourceCommandArgumentName, isSourceCommandWithArgument, symbolsFromResource } from './parsing/source';
 import { filterFirstPerScopeSymbol, FishSymbol, processNestedTree, SKIPPABLE_VARIABLE_REFERENCE_NAMES } from './parsing/symbol';
 import { isSetVariableDefinitionName } from './parsing/set';
@@ -964,13 +964,14 @@ export class Analyzer {
   /**
    * Name-matched symbols at a position, filtered by the *node context* so a
    * candidate that merely shares the word's text but is the wrong kind for the
-   * node is dropped. This replaces a bare `allSymbolsByName.find(word)`: a
-   * variable definition is only a candidate when the node is an actual variable
-   * usage (`$var` / `variable_name`, a variable definition name, or a
-   * `set -q/-e/-S NAME` target), so a bare command argument like `theme` in
-   * `fish_config theme` no longer matches a `set -g theme` definition. Non-
-   * variable symbols (functions/aliases/events) keep their broad matching —
-   * they are referenced by bare command names and inside string carriers
+   * node is dropped. This replaces a bare `allSymbolsByName.find(word)`: a bare
+   * argument word only matches a symbol whose kind its command's word-reference
+   * rules allow at that position (`src/parsing/word-references.ts`), so `theme`
+   * in `fish_config theme` matches neither a `set -g theme` variable nor a
+   * `theme` function, and `foo` in `echo foo` matches no function `foo`.
+   * Variables additionally require an actual variable usage (`$var` /
+   * `variable_name`, a definition name, or a `set -q/-e/-S NAME` target).
+   * Functions and events are also referenced from inside strings
    * (alias/`complete` values), with `isReference` arbitrating downstream.
    */
   public findSymbolsForPosition(document: LspDocument, position: Position): FishSymbol[] {
@@ -2643,14 +2644,14 @@ class AnalyzedDocumentCache {
  * for the syntax node at a request position (used by
  * {@link Analyzer.findSymbolsForPosition}).
  *
- * The only kind-sensitive rule is for variables: fish only references a
- * variable through a `$var` expansion / `variable_name`, a variable definition
- * name, or a `set -q/-e/-S NAME` target. A plain word — e.g. the `theme`
- * argument in `fish_config theme` — is therefore NOT a reference to a
- * `set -g theme` variable, even though the text matches. Every other symbol
- * kind (functions, aliases, events, …) keeps broad name matching, because they
- * are legitimately referenced by bare command names and inside string carriers
- * (`alias`/`complete` values); `isReference` validates those downstream.
+ * A bare argument word only matches a symbol whose kind its command's
+ * word-reference rules allow at that position (`src/parsing/word-references.ts`):
+ * the `theme` in `fish_config theme` references neither a `set -g theme`
+ * variable nor a `theme` function. Variables are stricter still — fish only
+ * references one through a `$var` expansion / `variable_name`, a definition
+ * name, or a `set -q/-e/-S NAME` target, never a string carrier. Functions and
+ * events are also referenced from inside strings (`alias`/`complete` values),
+ * which `isReference` validates downstream.
  */
 function symbolMatchesNodeContext(
   symbol: FishSymbol,
@@ -2659,6 +2660,9 @@ function symbolMatchesNodeContext(
 ): boolean {
   if (!node) return true;
   const symbolType = symbolReferenceType(symbol);
+  // A bare argument word (`echo foo`, `set x foo`) only references a symbol
+  // where its command's word-reference rules say so.
+  if (!isReferenceWordOfKind(node, symbolType)) return false;
   // Variables must sit at an actual variable usage (`$var`, a definition name, a
   // `set -q/-e/-S` target) — never a carrier word/string. This keeps a bare
   // command argument (`theme` in `fish_config theme`) from resolving to a

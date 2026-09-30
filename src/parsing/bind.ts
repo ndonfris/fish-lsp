@@ -1,6 +1,7 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { findOptions, Option } from './options';
 import { findParentCommand, isCommandWithName, isFunctionDefinitionName } from '../utils/node-types';
+import { CommandWordReferenceRules } from './word-references';
 
 export const BindOptions = [
   Option.create('-f', '--function-names'),
@@ -14,6 +15,14 @@ export const BindOptions = [
   Option.create('-s', '--silent'),
   Option.create('-h', '--help'),
 ];
+
+/** `bind [-M MODE] KEYS COMMAND…`: every argument after the key sequence is a command. */
+export const BindWordReferences: CommandWordReferenceRules = {
+  options: BindOptions,
+  rules: [
+    { positional: { from: 1 }, kind: 'function' },
+  ],
+};
 
 /**
  * Checks if a node is a bind command. `bind ...`

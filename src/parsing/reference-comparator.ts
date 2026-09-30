@@ -13,7 +13,7 @@ import { getSetCommandScopeTag, isSetQueryDefinition, isSetVariableDefinitionNam
 import { FishString } from './string';
 import { isAbbrDefinitionName, isMatchingAbbrFunction } from '../diagnostics/node-types';
 import { isBindFunctionCall } from './bind';
-import { isSetReferenceTargetNode } from './reference-candidates';
+import { isReferenceWordOfKind, isSetReferenceTargetNode, symbolReferenceType } from './reference-candidates';
 import { isAliasDefinitionValue } from './alias';
 import { isFunctionsReference } from './function';
 import { stringVariables } from './string-variables';
@@ -302,7 +302,9 @@ const checkFunctionReference: ReferenceCheck = ({ symbol, node }) => {
   }
 
   // Wrapped functions
-  if (prevNode && isMatchingOption(prevNode, Option.create('-w', '--wraps')) ||
+  const wrapsOwner = node.parent?.type === 'concatenation' ? node.parent.parent : node.parent;
+  if (prevNode && isMatchingOption(prevNode, Option.create('-w', '--wraps'))
+    && (wrapsOwner && isFunctionDefinition(wrapsOwner) || parentNode && isCommandWithName(parentNode, 'complete')) ||
     node.parent && isFunctionDefinition(node.parent) &&
     isMatchingOptionOrOptionValue(node, Option.create('-w', '--wraps'))) {
     return FishString.extractCommands(node).some(cmd => cmd === symbol.name);
@@ -598,6 +600,8 @@ export const isSymbolReference = (
 
   // Early exits
   if (shouldSkipNode(ctx)) return false;
+  if (!isReferenceWordOfKind(node, symbolReferenceType(symbol))) return false;
+  if (symbol.isFunction() && isVariable(node)) return false;
 
   // Check event references first (they have special handling)
   if (symbol.isEvent()) {
