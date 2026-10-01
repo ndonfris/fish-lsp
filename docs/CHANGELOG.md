@@ -1,3 +1,17 @@
+## <small>1.1.5-pre.4 (2026-10-01)</small>
+
+* chore: bump docs for release 1.1.5-pre.4 ([71cc269](https://github.com/ndonfris/fish-lsp/commit/71cc269))
+* fix: `src/completions/fish-worker.ts` unref sockets for bun ([2b4d8b4](https://github.com/ndonfris/fish-lsp/commit/2b4d8b4))
+* fix(code-action): `quickfix.fixAll` covers every diagnostic in the document ([d887c8c](https://github.com/ndonfris/fish-lsp/commit/d887c8c))
+* fix(diagnostic): `1001` ranges + quickfixes for `missing end token` ([199016c](https://github.com/ndonfris/fish-lsp/commit/199016c))
+* fix(hover): only show a command's docs where the word is a command ([0907d61](https://github.com/ndonfris/fish-lsp/commit/0907d61))
+* fix(semantic-tokens): no subcommand highlight for the command `time`/`exec`/`sudo`/`eval` run ([acd5e00](https://github.com/ndonfris/fish-lsp/commit/acd5e00))
+* feat(diagnostic): `1006` check for leading conditional operator ([704cd58](https://github.com/ndonfris/fish-lsp/commit/704cd58))
+* feat(diagnostic): `1007` ensure supported flags are passed a value ([c81cc73](https://github.com/ndonfris/fish-lsp/commit/c81cc73))
+* feat(references): per-command word-reference rules ([f87f3f8](https://github.com/ndonfris/fish-lsp/commit/f87f3f8))
+* test(cli): bun compatibility smoke test for `info --time-only` ([a3f508f](https://github.com/ndonfris/fish-lsp/commit/a3f508f))
+* lint: fix `tests/completion-snippet.test.ts` replace usage ([616a7d7](https://github.com/ndonfris/fish-lsp/commit/616a7d7))
+
 ## <small>1.1.5-pre.3 (2026-09-25)</small>
 
 * fix: `fish-lsp complete` is not truncated on pipe ([600a77f](https://github.com/ndonfris/fish-lsp/commit/600a77f))
