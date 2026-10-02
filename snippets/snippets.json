@@ -1,0 +1,784 @@
+{
+  "shebang": {
+    "prefix": "#!",
+    "description": "shebang",
+    "body": "#!/usr/bin/env fish"
+  },
+  "shebang-with-arguments": {
+    "prefix": ["#! ", "#!  "],
+    "description": "shebang with arguments",
+    "body": "#!/usr/bin/env ${1|-S,--split-string|} fish ${2|argument ...|}"
+  },
+  "and": {
+    "prefix": ["and", "&&"],
+    "description": "run the second command just if the first one succeded",
+    "body": "${1:first-expression}${2|; and, &&|} ${3:second-expression}"
+  },
+  "or": {
+    "prefix": ["or", "||"],
+    "description": "run the second command just if the first one failed",
+    "body": "${1:first-expression}${2|; or, \\|\\||} ${3:second-expression}"
+  },
+  "if": {
+    "prefix": "if",
+    "description": "check if the condition is true and run the specified commands",
+    "body": [
+      "if ${1:condition}",
+      "\t${2:command ...}$0",
+      "end"
+    ]
+  },
+  "if-else": {
+    "prefix": ["if else", "ife"],
+    "description": "check if the condition is true and run the first set of commands, and the second one oth[e]rwise",
+    "body": [
+      "if ${1:condition}",
+      "\t${2:command ...}",
+      "else",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "if-file-newer-than": {
+    "prefix": ["if file newer than", "ifnt"],
+    "description": "check if the first file is [n]ewer [t]han the second one, or the first file exists and the second doesn't, and if true run the specified set of commands",
+    "body": [
+      "if test \"${1:first-file}\" -nt \"${2:second-file}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "if-file-older-than": {
+    "prefix": ["if file older than", "ifot"],
+    "description": "check if the first file is [o]lder [t]han the second one, or the first file doesn't exist and the second does, and if true run the specified set of commands",
+    "body": [
+      "if test \"${1:first-file}\" -ot \"${2:second-file}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "if-file-equal-to": {
+    "prefix": ["if file equal to", "ifef"],
+    "description": "check if two [f]ile references are [e]qual (refer to the same file), and if true run the specified set of commands",
+    "body": [
+      "if test \"${1:first-file}\" -ef \"${2:second-file}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "if-less-than": {
+    "prefix": ["if less than", "iflt"],
+    "description": "check if the first number is [l]ess [t]han the second one and if true run the specified set of commands",
+    "body": [
+      "if test \"${1:first-number}\" -lt \"${2:second-number}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "if-greater-than": {
+    "prefix": ["if greater than", "ifgt"],
+    "description": "check if the first number is [g]reater [t]han the second one and if true run the specified set of commands",
+    "body": [
+      "if test \"${1:first-number}\" -gt \"${2:second-number}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "if-less-or-equal": {
+    "prefix": ["if less or equal", "ifle"],
+    "description": "check if the first number is [l]ess than or [e]qual to the second one and if true run the specified set of commands",
+    "body": [
+      "if test \"${1:first-number}\" -le \"${2:second-number}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "if-greater-or-equal": {
+    "prefix": ["if greater or equal", "ifge"],
+    "description": "check if the first number is [g]reater than or [e]qual to the second one and if true run the specified set of commands",
+    "body": [
+      "if test \"${1:first-number}\" -ge \"${2:second-number}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "if-equal-to": {
+    "prefix": ["if equal to", "ifeq"],
+    "description": "check if the first number is [eq]ual to the second one and if true run the specified set of commands",
+    "body": [
+      "if test \"${1:first-number}\" -eq \"${2:second-number}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "if-not-equal-to": {
+    "prefix": ["if not equal to", "ifne"],
+    "description": "check if the first number is [n]ot [e]qual to the second one and if true run the specified set of commands",
+    "body": [
+      "if test \"${1:first-number}\" -ne \"${2:second-number}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "if-string-equal-to": {
+    "prefix": ["if string equal to", "ifseq"],
+    "description": "check if the first [s]tring is [eq]ual to the second one and if true run the specified set of commands",
+    "body": [
+      "if test \"${1:first-string}\" = \"${2:second-string}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "if-string-not-equal-to": {
+    "prefix": ["if string not equal to", "ifsne"],
+    "description": "check if the first [s]tring is [n]ot [e]qual to the second one and if true run the specified set of commands",
+    "body": [
+      "if test \"${1:first-string}\" != \"${2:second-string}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "if-string-empty": {
+    "prefix": ["if string empty", "ifz"],
+    "description": "check if the string has [z]ero characters inside it (empty) and if true run the specified set of commands",
+    "body": [
+      "if test -z \"${1:string}\"",
+      "\t${2:command ...}$0",
+      "end"
+    ]
+  },
+  "if-string-not-empty": {
+    "prefix": ["if string not empty", "ifn"],
+    "description": "check if the string is [n]ot empty and if true run the specified set of commands",
+    "body": [
+      "if test -n \"${1:string}\"",
+      "\t${2:command ...}$0",
+      "end"
+    ]
+  },
+  "if-defined": {
+    "prefix": ["if defined", "ifd"],
+    "description": "check if the variable [d]efined and if true run the specified set of commands",
+    "body": [
+      "if set ${1|-q,--query|} \"${2:variable}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "if-not-defined": {
+    "prefix": ["if not defined", "ifnd"],
+    "description": "check if the variable [n]ot [d]efined and if true run the specified set of commands",
+    "body": [
+      "if not set ${1|-q,--query|} \"${2:variable}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "while": {
+    "prefix": "while",
+    "description": "while the condition is true run the specified commands",
+    "body": [
+      "while ${1:condition}",
+      "\t${2:command ...}$0",
+      "end"
+    ]
+  },
+  "while-file-newer-than": {
+    "prefix": ["while file newer than", "whilent"],
+    "description": "while the first file is [n]ewer [t]han the second one, or the first file exists and the second doesn't, run the specified set of commands",
+    "body": [
+      "while test \"${1:first-file}\" -nt \"${2:second-file}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "while-file-older-than": {
+    "prefix": ["while file older than", "whileot"],
+    "description": "while the first file is [o]lder [t]han the second one, or the first file doesn't exist and the second does, run the specified set of commands",
+    "body": [
+      "while test \"${1:first-file}\" -ot \"${2:second-file}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "while-file-equal-to": {
+    "prefix": ["while file equal to", "whileef"],
+    "description": "while two [f]ile references are [e]qual (refer to the same file), run the specified set of commands",
+    "body": [
+      "while test \"${1:first-file}\" -ef \"${2:second-file}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "while-less-than": {
+    "prefix": ["while less than", "whilelt"],
+    "description": "while the first number is [l]ess [t]han the second one run the specified set of commands",
+    "body": [
+      "while test \"${1:first-number}\" -lt \"${2:second-number}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "while-greater-than": {
+    "prefix": ["while greater than", "whilegt"],
+    "description": "while the first number is [g]reater [t]han the second one run the specified set of commands",
+    "body": [
+      "while test \"${1:first-number}\" -gt \"${2:second-number}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "while-less-or-equal": {
+    "prefix": ["while less or equal", "whilele"],
+    "description": "while the first number is [l]ess than or [e]qual to the second one run the specified set of commands",
+    "body": [
+      "while test \"${1:first-number}\" -le \"${2:second-number}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "while-greater-or-equal": {
+    "prefix": ["while greater or equal", "whilege"],
+    "description": "while the first number is [g]reater than or [e]qual to the second one run the specified set of commands",
+    "body": [
+      "while test \"${1:first-number}\" -ge \"${2:second-number}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "while-equal-to": {
+    "prefix": ["while equal to", "whileeq"],
+    "description": "while the first number is [eq]ual to the second one run the specified set of commands",
+    "body": [
+      "while test \"${1:first-number}\" -eq \"${2:second-number}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "while-not-equal-to": {
+    "prefix": ["while not equal to", "whilene"],
+    "description": "while the first number is [n]ot [e]qual to the second one run the specified set of commands",
+    "body": [
+      "while test \"${1:first-number}\" -ne \"${2:second-number}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "while-string-equal-to": {
+    "prefix": ["while string equal to", "whileseq"],
+    "description": "while the first [s]tring is [eq]ual to the second one run the specified set of commands",
+    "body": [
+      "while test \"${1:first-string}\" = \"${2:second-string}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "while-string-not-equal-to": {
+    "prefix": ["while string not equal to", "whilesne"],
+    "description": "while the first [s]tring is [n]ot [e]qual to the second one run the specified set of commands",
+    "body": [
+      "while test \"${1:first-string}\" != \"${2:second-string}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "while-string-empty": {
+    "prefix": ["while string empty", "whilez"],
+    "description": "while the string has [z]ero characters inside it (empty) run the specified set of commands",
+    "body": [
+      "while test -z \"${1:string}\"",
+      "\t${2:command ...}$0",
+      "end"
+    ]
+  },
+  "while-string-not-empty": {
+    "prefix": ["while string not empty", "whilen"],
+    "description": "while the string is [n]ot empty run the specified set of commands",
+    "body": [
+      "while test -n \"${1:string}\"",
+      "\t${2:command ...}$0",
+      "end"
+    ]
+  },
+  "while-defined": {
+    "prefix": ["while defined", "whiled"],
+    "description": "while the variable [d]efined run the specified set of commands",
+    "body": [
+      "while set ${1|-q,--query|} \"${2:variable}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "while-not-defined": {
+    "prefix": ["while not defined", "whilend"],
+    "description": "while the variable [n]ot [d]efined run the specified set of commands",
+    "body": [
+      "while not set ${1|-q,--query|} \"${2:variable}\"",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "for": {
+    "prefix": "for",
+    "description": "run the specified commands iterating thought items",
+    "body": [
+      "for ${1:item} in ${2:expression}",
+      "\t${3:command ...}$0",
+     "end"
+    ]
+  },
+  "for-range": {
+    "prefix": ["for range", "forr"],
+    "description": "run the specified set of commands iterating over the number [r]ange",
+    "body": [
+      "for ${1:item} in $(seq ${2:from} ${3:to})",
+      "\t${4:command ...}$0",
+      "end"
+    ]
+  },
+  "for-stepped-range": {
+    "prefix": ["for stepped range", "forsr"],
+    "description": "run the specified set of commands iterating over the [s]tepped number [r]ange",
+    "body": [
+      "for ${1:item} in $(seq ${2:from} ${3:step} ${4:to})",
+      "\t${5:command ...}$0",
+      "end"
+    ]
+  },
+  "for-files": {
+    "prefix": ["for files", "forf"],
+    "description": "run the specified set of commands iterating over [f]iles",
+    "body": [
+      "for ${1:item} in *.${2:extension}",
+      "\t${3:command ...}$0",
+      "end"
+    ]
+  },
+  "switch": {
+    "prefix": "switch2",
+    "description": "find the first matching pattern out of 2 available (including the default fallback) and run the specified commands corresponding to it",
+    "body": [
+      "switch \"${1:expression}\"",
+      "\tcase ${2:pattern}",
+      "\t\t${3:command ...}",
+      "\tcase '*'",
+      "\t\t${4:command ...}",
+      "end"
+    ]
+  },
+  "switch3": {
+    "prefix": "switch3",
+    "description": "find the first matching pattern out of 3 available (including the default fallback) and run the specified commands corresponding to it",
+    "body": [
+      "switch \"${1:expression}\"",
+      "\tcase ${2:pattern}",
+      "\t\t${3:command ...}",
+      "\tcase ${4:pattern}",
+      "\t\t${5:command ...}",
+      "\tcase '*'",
+      "\t\t${6:command ...}",
+      "end"
+    ]
+  },
+  "switch4": {
+    "prefix": "switch4",
+    "description": "find the first matching pattern out of 4 available (including the default fallback) and run the specified commands corresponding to it",
+    "body": [
+      "switch \"${1:expression}\"",
+      "\tcase ${2:pattern}",
+      "\t\t${3:command ...}",
+      "\tcase ${4:pattern}",
+      "\t\t${5:command ...}",
+      "\tcase ${6:pattern}",
+      "\t\t${7:command ...}",
+      "\tcase '*'",
+      "\t\t${8:command ...}",
+      "end"
+    ]
+  },
+  "switch5": {
+    "prefix": "switch5",
+    "description": "find the first matching pattern out of 5 available (including the default fallback) and run the specified commands corresponding to it",
+    "body": [
+      "switch \"${1:expression}\"",
+      "\tcase ${2:pattern}",
+      "\t\t${3:command ...}",
+      "\tcase ${4:pattern}",
+      "\t\t${5:command ...}",
+      "\tcase ${6:pattern}",
+      "\t\t${7:command ...}",
+      "\tcase ${8:pattern}",
+      "\t\t${9:command ...}",
+      "\tcase '*'",
+      "\t\t${10:command ...}",
+      "end"
+    ]
+  },
+  "switch6": {
+    "prefix": "switch6",
+    "description": "find the first matching pattern out of 6 available (including the default fallback) and run the specified commands corresponding to it",
+    "body": [
+      "switch \"${1:expression}\"",
+      "\tcase ${2:pattern}",
+      "\t\t${3:command ...}",
+      "\tcase ${4:pattern}",
+      "\t\t${5:command ...}",
+      "\tcase ${6:pattern}",
+      "\t\t${7:command ...}",
+      "\tcase ${8:pattern}",
+      "\t\t${9:command ...}",
+      "\tcase ${10:pattern}",
+      "\t\t${11:command ...}",
+      "\tcase '*'",
+      "\t\t${12:command ...}",
+      "end"
+    ]
+  },
+  "function": {
+    "prefix": ["function", "fu"],
+    "description": "define the [fu]nction",
+    "body": [
+      "function ${1:name}",
+      "\t${2:command ...}$0",
+      "end"
+    ]
+  },
+  "function-described": {
+    "prefix": ["function described", "fd"],
+    "description": "define the [f]unction with the specified [d]escription",
+    "body": [
+      "function ${1:name} ${2|-d,--description|} ${3:explanation}",
+      "\t${4:command ...}$0",
+      "end"
+    ]
+  },
+  "function-with-arguments": {
+    "prefix": ["function with arguments", "fa"],
+    "description": "define the [f]unction with the specified [a]rguments",
+    "body": [
+      "function ${1:name} ${2|-a,--argument-names|} ${3:argument ...}",
+      "\t${4:command ...}$0",
+      "end"
+    ]
+  },
+  "function-described-with-arguments": {
+    "prefix": ["function described with arguments", "fda"],
+    "description": "define the [f]unction with the specified [d]escription and [a]rguments",
+    "body": [
+      "function ${1:name} ${2|-d,--description|} ${3:explanation} ${4|-a,--argument-names|} ${5:argument ...}",
+      "\t${6:command ...}$0",
+      "end"
+    ]
+  },
+  "begin": {
+    "prefix": ["begin", "be"],
+    "description": "group commands",
+    "body": [
+      "begin",
+      "\t${1:command ...}$0",
+      "end"
+    ]
+  },
+  "begin-redirected": {
+    "prefix": ["begin redirected", "ber"],
+    "description": "group commands and redirect their output",
+    "body": [
+      "begin",
+      "\t${1:command ...}",
+      "end ${2|>,2>|} ${3:file}"
+    ]
+  },
+  "set": {
+    "prefix": "set",
+    "description": "define or set a variable with the specified value",
+    "body": "set ${1:variable} ${2:value}"
+  },
+  "set-index": {
+    "prefix": ["set index", "seti"],
+    "description": "define or set a variable value with the specified [i]ndex",
+    "body": "set ${1:variable}[${2:index}] ${3:value}"
+  },
+  "set-append": {
+    "prefix": ["set append", "seta"],
+    "description": "append the value to the specified variable",
+    "body": "set ${1|-a,--append|} ${2:variable} ${3:value}"
+  },
+  "set-prepend": {
+    "prefix": ["set prepend", "setp"],
+    "description": "prepend the value to the specified variable",
+    "body": "set ${1|-p,--prepend|} ${2:variable} ${3:value}"
+  },
+  "string": {
+    "prefix": "string",
+    "description": "string builtin",
+    "body": "string ${1|collect,escape,join,join0,length,lower,match,pad,repeat,replace,split,split0,sub,trim,unescape,upper|} -- ${2:argument ...}"
+  },
+  "string-match": {
+    "prefix": "string match",
+    "description": "string filtering",
+    "body": "string match -- '${1:pattern}' ${2:argument ...}"
+  },
+  "string-match-all": {
+    "prefix": "string match all",
+    "description": "string filtering ([a]ll)",
+    "body": "string match ${1|-a,--all|} -- '${2:pattern}' ${3:argument ...}"
+  },
+  "string-not-match": {
+    "prefix": "string not match",
+    "description": "string filtering (in[v]ert)",
+    "body": "string match ${1|-v,--invert|} -- '${2:pattern}' ${3:argument ...}"
+  },
+  "string-regex-match": {
+    "prefix": "string regex match",
+    "description": "string filtering with [r]egex",
+    "body": "string match ${1|-r,--regex|} -- '${2:pattern}' ${3:argument ...}"
+  },
+  "string-regex-match-all": {
+    "prefix": "string regex match all",
+    "description": "string filtering with [r]egex ([a]ll)",
+    "body": "string match ${1|-a,--all|} ${2|-r,--regex|} -- '${3:pattern}' ${4:argument ...}"
+  },
+  "string-not-regex-match": {
+    "prefix": "string not regex match",
+    "description": "string filtering with [r]egex (in[v]ert)",
+    "body": "string match ${1|-v,--invert|} ${2|-r,--regex|} -- '${3:pattern}' ${4:argument ...}"
+  },
+  "string-replace": {
+    "prefix": "string replace",
+    "description": "string replacement",
+    "body": "string replace -- '${1:pattern}' '${2:replacement}' ${2:argument ...}"
+  },
+  "string-regex-replace": {
+    "prefix": "string regex replace",
+    "description": "string replacement with [r]egex",
+    "body": "string replace ${1|-r,--regex|} -- '${2:pattern}' '${3:replacement}' ${4:argument ...}"
+  },
+  "string-regex-replace-all": {
+    "prefix": "string regex replace all",
+    "description": "string replacement with [r]egex ([a]ll)",
+    "body": "string replace ${1|-a,--all|} ${2|-r,--regex|} -- '${3:pattern}' '${4:replacement}' ${5:argument ...}"
+  },
+  "file-newer-than": {
+    "prefix": ["file newer than", "nt"],
+    "description": "test if the first file is [n]ewer [t]han the second one, or the first file exists and the second doesn't",
+    "body": ["test \"${1:first-file}\" -nt \"${2:second-file}\""]
+  },
+  "file-older-than": {
+    "prefix": ["file older than", "ot"],
+    "description": "test if the first file is [o]lder [t]han the second one, or the first file doesn't exist and the second does",
+    "body": ["test \"${1:first-file}\" -ot \"${2:second-file}\""]
+  },
+  "file-equal-to": {
+    "prefix": ["file equal to", "ef"],
+    "description": "test if two [f]ile references are [e]qual (refer to the same file)",
+    "body": ["test \"${1:first-file}\" -ef \"${2:second-file}\""]
+  },
+  "less-than": {
+    "prefix": ["less than", "lt"],
+    "description": "test if the first number is [l]ess [t]han the second one",
+    "body": "test \"${1:first-number}\" -lt \"${2:second-number}\""
+  },
+  "greater-than": {
+    "prefix": ["greater than", "gt"],
+    "description": "test if the first number is [g]reater [t]han the second one",
+    "body": "test \"${1:first-number}\" -gt \"${2:second-number}\""
+  },
+  "less-or-equal": {
+    "prefix": ["less or equal", "le"],
+    "description": "test if the first number is [l]ess than or [e]qual to the second one",
+    "body": "test \"${1:first-number}\" -le \"${2:second-number}\""
+  },
+  "greater-or-equal": {
+    "prefix": ["greater or equal", "ge"],
+    "description": "test if the first number is [g]reater than or [e]qual to the second one",
+    "body": "test \"${1:first-number}\" -ge \"${2:second-number}\""
+  },
+  "equal-to": {
+    "prefix": ["equal to", "eq"],
+    "description": "test if the first number is [eq]ual to the second one",
+    "body": "test \"${1:first-number}\" -eq \"${2:second-number}\""
+  },
+  "not-equal-to": {
+    "prefix": ["not equal to", "ne"],
+    "description": "test if the first number is [n]ot [e]qual to the second one",
+    "body": "test \"${1:first-number}\" -ne \"${2:second-number}\""
+  },
+  "string-equal-to": {
+    "prefix": ["string equal to", "seq"],
+    "description": "test if the first [s]tring is [eq]ual to the second one",
+    "body": "test \"${1:first-string}\" = \"${2:second-string}\""
+  },
+  "string-not-equal-to": {
+    "prefix": ["string not equal to", "sne"],
+    "description": "test if the first [s]tring is [n]ot [e]qual to the second one",
+    "body": "test \"${1:first-string}\" != \"${2:second-string}\""
+  },
+  "string-empty": {
+    "prefix": ["string empty", "z"],
+    "description": "test if the string has [z]ero characters inside it (empty)",
+    "body": "test -z \"${1:string}\""
+  },
+  "string-not-empty": {
+    "prefix": ["string not empty", "n"],
+    "description": "test if the string is [n]ot empty",
+    "body": "test -n \"${1:string}\""
+  },
+  "defined": {
+    "prefix": ["defined", "d"],
+    "description": "test if the variable [d]efined",
+    "body": "set ${1|-q,--query|} \"${2:variable}\""
+  },
+  "not-defined": {
+    "prefix": ["not defined", "nd"],
+    "description": "test if the variable [n]ot [d]efined",
+    "body": "not set ${1|-q,--query|} \"${2:variable}\""
+  },
+  "parse": {
+    "prefix": "parse",
+    "description": "parse options with h/help and v/version included and brief program or function explanation",
+    "body": [
+      "argparse ${1|-n,--name|} ${2:name} 'h/help' 'v/version' ${3:option ...} -- \\$argv${4|; or, \\|\\||} return",
+      "",
+      "if set ${5|-q,--query|} _flag_help",
+      "\techo ${6:help}",
+      "\treturn 0",
+      "end",
+      "if set $5 _flag_version",
+      "\techo '${7:major}.${8:minor}.${9:patch}'",
+      "\treturn 0",
+      "end"
+    ]
+  },
+  "parse-with-functions": {
+    "prefix": ["parse with functions", "parsef"],
+    "description": "parse options with h/help and v/version included via [f]unctions and detailed program or function explanation",
+    "body": [
+      "function help",
+      "\techo 'Usage: ${6:explanation}",
+      "",
+      "Options:",
+      "\t--help|-h  Print help.",
+      "\t--version|-v  Print version.",
+      "\t${7:option ...}'",
+      "end",
+      "",
+      "function version",
+      "\techo '${8:major}.${9:minor}.${10:patch}'",
+      "end",
+      "",
+      "argparse ${1|-n,--name|} ${2:name} 'h/help' 'v/version' ${3:option ...} -- \\$argv${4|; or, \\|\\||} exit",
+      "",
+      "if set ${5|-q,--query|} _flag_help",
+      "\thelp",
+      "\texit 0",
+      "end",
+      "if set $5 _flag_version",
+      "\tversion",
+      "\texit 0",
+      "end"
+    ]
+  },
+  "_flag": {
+    "prefix": ["_flag", "_f"],
+    "description": "refer to the specified flag",
+    "body": ["_flag_${1:flag}"]
+  },
+  "complete": {
+    "prefix": "complete",
+    "description": "complete option",
+    "body": "complete ${1|-c,--command|} ${2:executable} ${3|-s,-l,-o,--short-option,--long-option,--old-option|} ${4:option} ${5|-d,--description|} '${6:explanation}'"
+  },
+  "complete-required": {
+    "prefix": "complete required",
+    "description": "complete option with [r]equired value",
+    "body": "complete ${1|-c,--command|} ${2:executable} ${3|-s,-l,-o,--short-option,--long-option,--old-option|} ${4:option} ${5|-r,--require-parameter|} ${6|-d,--description|} '${7:explanation}'"
+  },
+  "complete-with-arguments": {
+    "prefix": "complete with arguments",
+    "description": "complete option with [a]rguments",
+    "body": "complete ${1|-c,--command|} ${2:executable} ${3|-s,-l,-o,--short-option,--long-option,--old-option|} ${4:option} ${5|-a,--arguments|} '${6:list}' ${7|-d,--description|} '${8:explanation}'"
+  },
+  "complete-required-with-arguments": {
+    "prefix": "complete required with arguments",
+    "description": "complete option with [r]equired value and [a]rguments",
+    "body": "complete ${1|-c,--command|} ${2:executable} ${3|-s,-l,-o,--short-option,--long-option,--old-option|} ${4:option} ${5|-a,--arguments|} '${6:list}' ${7|-r,--require-parameter|} ${8|-d,--description|} '${9:explanation}'"
+  },
+  "complete-if": {
+    "prefix": "complete if",
+    "description": "complete option if",
+    "body": "complete ${1|-c,--command|} ${2:executable} ${3|-s,-l,-o,--short-option,--long-option,--old-option|} ${4:option} ${5|-n,--condition|} '${6:expression}' ${7|-d,--description|} '${8:explanation}'"
+  },
+  "complete-required-if": {
+    "prefix": "complete required if",
+    "description": "complete option with [r]equired value if",
+    "body": "complete ${1|-c,--command|} ${2:executable} ${3|-s,-l,-o,--short-option,--long-option,--old-option|} ${4:option} ${5|-r,--require-parameter|} ${6|-n,--condition|} '${7:expression}' ${8|-d,--description|} '${9:explanation}'"
+  },
+  "complete-with-arguments-if": {
+    "prefix": "complete with arguments if",
+    "description": "complete option with [a]rguments if",
+    "body": "complete ${1|-c,--command|} ${2:executable} ${3|-s,-l,-o,--short-option,--long-option,--old-option|} ${4:option} ${5|-a,--arguments|} '${6:list}' ${7|-n,--condition|} '${8:expression}' ${9|-d,--description|} '${10:explanation}'"
+  },
+  "complete-required-with-arguments-if": {
+    "prefix": "complete required with arguments if",
+    "description": "complete option with [r]equired value and [a]rguments if",
+    "body": "complete ${1|-c,--command|} ${2:executable} ${3|-s,-l,-o,--short-option,--long-option,--old-option|} ${4:option} ${5|-a,--arguments|} '${6:list}' ${7|-r,--require-parameter|} ${8|-n,--condition|} '${9:expression}' ${10|-d,--description|} '${11:explanation}'"
+  },
+  "complete-help": {
+    "prefix": "complete help",
+    "description": "complete -h/--help and -v/--version",
+    "body": [
+      "complete ${1|-c,--command|} ${2:executable} ${3|-s,--short-option|} h ${4|-l,-o,--long-option,--old-option|} help ${5|-d,--description|} 'Show help'",
+      "complete $1 $2 $3 v $4 version $5 'Show version'"
+    ]
+  },
+  "skip-first": {
+    "prefix": ["skip first", "skf"],
+    "description": "[sk]ip the first li[n]es or [b]ytes",
+    "body": "tail ${1|-n,-c,--lines,--bytes|} +${2:count}"
+  },
+  "skip-last": {
+    "prefix": ["skip last", "skl"],
+    "description": "[sk]ip the last li[n]es or [b]ytes",
+    "body": "head ${1|-n,-c,--lines,--bytes|} -${2:count}"
+  },
+  "take-first": {
+    "prefix": ["take first", "taf"],
+    "description": "[ta]ke the first li[n]es or [b]ytes",
+    "body": "head ${1|-n,-c,--lines,--bytes|} ${2:count}"
+  },
+  "take-last": {
+    "prefix": ["take last", "tal"],
+    "description": "[ta]ke the last li[n]es or [b]ytes",
+    "body": "tail ${1|-n,-c,--lines,--bytes|} ${2:count}"
+  },
+  "take-range": {
+    "prefix": ["take range", "tar"],
+    "description": "[ta]ke the specified line range",
+    "body": "sed ${1|-n,--quiet|} '${2:from},${3:to}p'"
+  },
+  "take-stepped-range": {
+    "prefix": ["take stepped range", "tasr"],
+    "description": "[ta]ke each n-th line in the specified range",
+    "body": "sed ${1|-n,--quiet|} '${2:from},${3:to}p' | sed $1 '1~${4:step}p'"
+  },
+  "set-color": {
+    "prefix": ["set color", "color"],
+    "description": "color the following text",
+    "body": "(set_color ${1|black,red,green,yellow,blue,magenta,cyan,white,brblack,brred,brgreen,bryellow,brblue,brmagenta,brcyan,brwhite|})"
+  },
+  "set-background-color": {
+    "prefix": ["set background color", "bgcolor"],
+    "description": "color the following text [b]ack[g]round",
+    "body": "(set_color ${1|-b,--background|} ${2|black,red,green,yellow,blue,magenta,cyan,white,brblack,brred,brgreen,bryellow,brblue,brmagenta,brcyan,brwhite|})"
+  },
+  "reset-color": {
+    "prefix": ["reset color", "recolor"],
+    "description": "reset the following text color to its default",
+    "body": "(set_color normal)"
+  },
+  "comment": {
+    "prefix": "comment",
+    "description": "add a comment",
+    "body": "# ${1:description}"
+  }
+}
