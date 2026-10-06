@@ -466,6 +466,65 @@ describe('completion handler', () => {
     expect((await complete(content)).items).toEqual([]);
   });
 
+  describe('`echo -e` escape sequences', () => {
+    const escapes = async (content: string) =>
+      (await complete(content)).items.filter(item => (item as { fishKind?: string; }).fishKind === 'esc_chars');
+
+    it.each([
+      ['echo -e \\', '\\n', '\\n'],
+      ['echo -ne \\', '\\t', '\\t'],
+      ['echo -n -e \\', '\\e', '\\e'],
+      ['echo -e foo\\', '\\n', 'foo\\n'],
+      ['echo -e foo\\\\', '\\\\', 'foo\\\\'],
+      ['echo -e "Hello\\', '\\n', 'Hello\\n'],
+      ["echo -e 'Hello\\", '\\t', 'Hello\\t'],
+      // a snippet's template escapes the kept text
+      ['echo -e {a}\\', '\\xxx', '{a\\}\\x${1:xx}'],
+    ])('%j: %j inserts %j', async (content, label, newText) => {
+      const item = (await escapes(content)).find(item => item.label === label);
+      const edit = item?.textEdit as TextEdit;
+      expect(edit).toBeDefined();
+      expect(edit.newText).toBe(newText);
+      // the client filters the replaced word by `filterText`
+      const typed = content.slice(content.lastIndexOf(' ') + 1).replace(/^['"]/, '');
+      expect((item!.filterText ?? item!.label).startsWith(typed)).toBe(true);
+    });
+
+    it.each([
+      'echo -e ',
+      'echo -ne ',
+      'echo -sne ',
+      'echo -en ',
+      'echo -n -e ',
+      'echo -e -n ',
+      'echo -E -e ',
+      'echo -e foo\\n ',
+      'echo -e "',
+      "echo -e '",
+    ])('offers every escape at an empty word: %j', async (content) => {
+      const items = await escapes(content);
+      expect(items.map(item => item.label)).toEqual(expect.arrayContaining(['\\n', '\\t', '\\e', '\\xxx']));
+      const item = items.find(item => item.label === '\\n')!;
+      const edit = item.textEdit as TextEdit | undefined;
+      expect(edit?.newText ?? item.insertText ?? item.label).toBe('\\n');
+    });
+
+    it.each([
+      'echo \\',
+      'echo -E \\',
+      'echo -e -E \\',
+      'echo -eE \\',
+      'echo -- -e \\',
+      'echo foo -e \\',
+      'echo -E ',
+      'echo -e -E ',
+      'echo foo -e ',
+      'echo -e foo',
+    ])('offers no escapes: %j', async (content) => {
+      expect(await escapes(content)).toEqual([]);
+    });
+  });
+
   it.each(["complete -c foo -a '(", "complete -c foo -xn '", "alias foo='"])('still completes the commandline in %j', async (content) => {
     const result = await complete(content);
     expect(result.items.length).toBeGreaterThan(0);

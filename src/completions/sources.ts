@@ -1,7 +1,7 @@
 import { readdir } from 'fs/promises';
 import { homedir } from 'os';
 import { basename, dirname, isAbsolute, join } from 'path';
-import { CompletionItemKind, SymbolKind } from 'vscode-languageserver';
+import { CompletionItemKind, InsertTextFormat, SymbolKind } from 'vscode-languageserver';
 import { CompletionContext, openIndexTerm, tokenizeCommandline } from './context';
 import { CompletionItemMap } from './startup-cache';
 import { cloneCompletionItem, FishCompletionItem, FishCompletionItemKind, getCompletionDocumentationValue } from './types';
@@ -375,10 +375,48 @@ const LATER_ARGUMENT_KINDS: Record<string, (args: string[]) => FishCompletionIte
   string: (args) => hasFlag(args, 'r', 'regex') ? ['regex', 'esc_chars'] : ['esc_chars'],
 };
 
+/**
+ * `echo -e` interprets backslash escapes: the last `-e`/`-E` among its leading
+ * options decides (`-ne`, `-e -E`). The first other word, or `--`, ends them.
+ */
+function echoInterpretsEscapes(args: string[]): boolean {
+  let escapes = false;
+  for (const arg of args) {
+    if (!/^-[nsEe]+$/.test(arg)) break;
+    const last = arg.replace(/[^eE]/g, '').at(-1);
+    if (last) escapes = last === 'e';
+  }
+  return escapes;
+}
+
+/**
+ * Escape sequences for an empty `echo -e` word, or one holding a `\` (`\`, `"Hello\`,
+ * `a\t`). Each item replaces the whole word, so the text before the escape being
+ * typed stays in front of it, and in the text the client filters by.
+ */
+function echoEscapeItems(ctx: CompletionContext, map: CompletionItemMap): Items {
+  if (ctx.command !== 'echo' || !echoInterpretsEscapes(ctx.args)) return [];
+  // the start of the last escape: `\\` is one escape, so `a\\` keeps `a`
+  let start = -1;
+  for (let i = 0; i < ctx.word.length; i++) {
+    if (ctx.word[i] === '\\') start = i++;
+  }
+  // `echo -e foo`: a plain word isn't starting an escape
+  if (start === -1 && ctx.word) return [];
+  const before = start === -1 ? '' : ctx.word.slice(0, start);
+  return fromMap(map.allOfKinds('esc_chars'), 25).map(item => {
+    const snippet = item.insertTextFormat === InsertTextFormat.Snippet;
+    item.insertText = (snippet ? before.replace(/[$}\\]/g, '\\$&') : before) + (item.insertText ?? item.label);
+    item.filterText = before + item.label;
+    return item;
+  });
+}
+
 /** fish syntax items for the current command: status codes, events, regex and printf templates, operators */
 export const commandSyntaxItems: CompletionSource = (ctx, map) => {
   const command = ctx.command;
   if (!command) return [];
+  if (command === 'echo') return echoEscapeItems(ctx, map);
   const items = ctx.argIndex === 1
     ? fromMap(map.allOfKinds(...FIRST_ARGUMENT_KINDS[command] ?? []), 25)
     : fromMap(map.allOfKinds(...LATER_ARGUMENT_KINDS[command]?.(ctx.args) ?? []), 24);
@@ -405,9 +443,11 @@ export const argparseValidationVariables: CompletionSource = (ctx) => {
 
 /**
  * Single-quoted text reaches the command unexpanded, so only a command that reads
- * its own syntax from it gets items: `string -r '` regexes, `printf '` templates.
+ * its own syntax from it gets items: `string -r '` regexes, `printf '` templates,
+ * `echo -e '` escapes.
  */
 export const quotedSyntaxItems: CompletionSource = (ctx, map) => {
+  if (ctx.command === 'echo') return echoEscapeItems(ctx, map);
   const kinds: FishCompletionItemKind[] =
     ctx.command === 'string' && hasFlag(ctx.args, 'r', 'regex') ? ['regex', 'esc_chars']
       : ctx.command === 'printf' && ctx.argIndex === 1 ? ['format_str', 'esc_chars']
