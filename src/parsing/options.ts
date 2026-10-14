@@ -23,6 +23,36 @@ export type ShortFlag = `-${Character}`;
 export type UnixFlag = `-${string}`;
 export type LongFlag = `--${string}`;
 export type Flag = ShortFlag | UnixFlag | LongFlag;
+export type FlagArray = Array<ShortFlag | UnixFlag | LongFlag>;
+
+export const isFlagArray = (arr: string[]): arr is FlagArray => {
+  for (const item of arr) {
+    if (!FlagUtil.stringIsAnyFlag(item)) return false;
+  }
+  return true;
+};
+
+export namespace FlagUtil {
+  export type Short = `-${Character}`;
+  export type Unix = `-${string}`;
+  export type Long = `--${string}`;
+
+  export type FlagUnion = ShortFlag | UnixFlag | LongFlag;
+  export type FlagArray = Array<ShortFlag | UnixFlag | LongFlag>;
+
+  export const stringIsShortFlag = (str: string): str is ShortFlag => str.startsWith('-') && str.length === 2;
+  export const stringIsLongFlag = (str: string): str is LongFlag => str.startsWith('--');
+  export const stringIsUnixFlag = (str: string): str is UnixFlag => str.startsWith('-') && str.length > 2 && !str.startsWith('--');
+
+  export const stringIsAnyFlag = (str: string): str is FlagUnion => str.startsWith('-');
+
+  export const stringArrayIsFlagCombo = (arr: string[]): arr is FlagArray => {
+    for (const item of arr) {
+      if (!stringIsAnyFlag(item)) return false;
+    }
+    return true;
+  };
+}
 
 /**
  * Type Guard for converting a option string into the correct flag type.
@@ -52,6 +82,9 @@ export class Option {
   private requiresArgument: boolean = false;
   private acceptsMultipleArguments: boolean = false;
   private optionalArgument: boolean = false;
+  private conflicts: Set<Option> = new Set();
+  private description: string | undefined;
+  private groups: Set<string> = new Set();
 
   static create(shortOption: ShortFlag | '', longOption: LongFlag | ''): Option {
     const option = new Option();
@@ -94,6 +127,87 @@ export class Option {
       }
     }
     return option;
+  }
+
+  /**
+   * Marks every option given as unable to be combined with any of the others.
+   * Returns the same options, so the result can be spread into a flag list:
+   *
+   * ```typescript
+   * BaseCmd.create('set',
+   *   ...Option.mutuallyExclusive(Option.create('-l', '--local'), Option.create('-g', '--global')),
+   * );
+   * ```
+   */
+  static mutuallyExclusive(...options: Option[]): Option[] {
+    options.forEach((option, idx) => option.conflictsWith(...options.slice(idx + 1)));
+    return options;
+  }
+
+  /**
+   * Marks this option as unable to be combined with `others` (e.g., `set --erase --query`).
+   * The relationship is symmetric: `others` are also marked as conflicting with this option.
+   */
+  conflictsWith(...others: Option[]): Option {
+    for (const other of others) {
+      if (other === this) continue;
+      this.conflicts.add(other);
+      other.conflicts.add(this);
+    }
+    return this;
+  }
+
+  /**
+   * Check if this option can't be used together with `other`
+   */
+  isConflictingWith(other: Option): boolean {
+    if (other === this) return false;
+    return this.conflicts.has(other) || other.conflicts.has(this);
+  }
+
+  getConflicts(): Option[] {
+    return Array.from(this.conflicts);
+  }
+
+  /**
+   * Store a short description of the flag (e.g., `'Make variable scope global'`)
+   */
+  withDescription(description: string): Option {
+    this.description = description;
+    return this;
+  }
+
+  getDescription(): string | undefined {
+    return this.description;
+  }
+
+  /**
+   * Label this option as part of one or more named groups, so related flags can be looked up
+   * together (e.g., `set`'s `-l/-g/-U/-f` flags are all in the `'scope'` group).
+   *
+   * A group is only a label. To only allow one flag of a group per command, see
+   * `BaseCmd.withExclusiveGroups()`.
+   */
+  inGroup(...groups: string[]): Option {
+    groups.forEach(group => this.groups.add(group));
+    return this;
+  }
+
+  isInGroup(group: string): boolean {
+    return this.groups.has(group);
+  }
+
+  getGroups(): string[] {
+    return Array.from(this.groups);
+  }
+
+  /**
+   * Check if the raw flag string (`-g`, `--global`, `-name`) is any of this option's flags
+   */
+  hasFlag(flag: string): boolean {
+    return this.shortOptions.includes(flag as ShortFlag)
+      || this.unixOptions.includes(flag as UnixFlag)
+      || this.longOptions.includes(flag as LongFlag);
   }
 
   addUnixFlag(...options: UnixFlag[]): Option {
@@ -339,6 +453,28 @@ export class Option {
       return this.shortOptions[0]!.replace(/^-/, '');
     }
     return '';
+  }
+
+  /**
+   * Type guard for checking if an unknown value is an `Option`.
+   *
+   * Falls back to a structural check when `instanceof` fails, so that `Option`
+   * objects created by a separate copy of this module (or cloned/spread
+   * objects that kept the prototype's methods) are still recognized.
+   *
+   * ```typescript
+   * if (Option.is(obj)) obj.matches(node);
+   * ```
+   */
+  static is(arg: unknown): arg is Option {
+    if (arg instanceof Option) return true;
+    if (typeof arg !== 'object' || arg === null) return false;
+    const obj = arg as Partial<Record<keyof Option, unknown>>;
+    return Array.isArray(obj.shortOptions)
+      && Array.isArray(obj.unixOptions)
+      && Array.isArray(obj.longOptions)
+      && typeof obj.matches === 'function'
+      && typeof obj.isSwitch === 'function';
   }
 }
 

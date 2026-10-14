@@ -116,6 +116,7 @@
     "generate:commands": "tsx ./scripts/fish-commands-scrapper.ts --write-to-snippets || true",
     "generate:commands:check": "tsx ./scripts/fish-commands-scrapper.ts",
     "generate:snippets": "tsx ./scripts/fish-commands-scrapper.ts",
+    "generate:builtin": "tsx ./scripts/gen-builtin.ts",
     "create:man:dir": "mkdir -p ./man",
     "marked-man": "npx -y marked-man",
     "generate:man": "run-s create:man:dir generate:man:actual",
