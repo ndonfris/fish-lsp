@@ -1,4 +1,4 @@
-import * as fastGlob from 'fast-glob';
+import { glob, globSync } from 'tinyglobby';
 import fs from 'fs';
 import path, { basename, dirname, join } from 'path';
 import * as LSP from 'vscode-languageserver';
@@ -66,19 +66,26 @@ export function getWorkspacePathsFromInitializationParams(params: LSP.Initialize
   return Array.from(new Set(result));
 }
 
+/**
+ * `fish_lsp_max_workspace_depth` counts the workspace root as depth 1 (the
+ * behavior inherited from fast-glob), while tinyglobby counts it as depth 0.
+ */
+function toGlobDepth(maxDepth: number) {
+  return Math.max(0, maxDepth - 1);
+}
+
 export async function getFileUriSet(path: string) {
   try {
-    const stream = fastGlob.stream('**/*.fish', {
+    const entries = await glob('**/*.fish', {
       cwd: path,
       absolute: true,
-      suppressErrors: true,
       ignore: config.fish_lsp_ignore_paths,
-      deep: config.fish_lsp_max_workspace_depth,
+      deep: toGlobDepth(config.fish_lsp_max_workspace_depth),
       onlyFiles: true,
+      expandDirectories: false,
     });
     const result: Set<DocumentUri> = new Set();
-    for await (const entry of stream) {
-      const absPath = entry.toString();
+    for (const absPath of entries) {
       if (SyncFileHelper.isDirectory(absPath) || !SyncFileHelper.read(absPath)) {
         continue;
       }
@@ -95,16 +102,15 @@ export async function getFileUriSet(path: string) {
 export function syncGetFileUriSet(path: string) {
   try {
     const result: Set<string> = new Set();
-    const entries = fastGlob.sync('**/*.fish', {
+    const entries = globSync('**/*.fish', {
       cwd: path,
       absolute: true,
-      suppressErrors: true,
-      deep: config.fish_lsp_max_workspace_depth,
+      deep: toGlobDepth(config.fish_lsp_max_workspace_depth),
       ignore: config.fish_lsp_ignore_paths,
       onlyFiles: true,
+      expandDirectories: false,
     });
-    for (const entry of entries) {
-      const absPath = entry.toString();
+    for (const absPath of entries) {
       if (SyncFileHelper.isDirectory(absPath) || !SyncFileHelper.read(absPath)) {
         continue;
       }

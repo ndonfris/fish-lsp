@@ -62,7 +62,7 @@ import { logger, Time } from '../src/logger';
 import { SyncFileHelper } from '../src/utils/file-operations';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { execFileSync, execSync } from 'child_process';
-import fastGlob from 'fast-glob';
+import { globSync } from 'tinyglobby';
 import { Command } from 'commander';
 import { testOpenDocument, testCloseDocument, testClearDocuments, testChangeDocument, testGetDocumentCount } from './document-test-helpers';
 
@@ -598,10 +598,11 @@ export class TestWorkspace {
     }
 
     const workspace = new TestWorkspace({ debug: config.debug, addEnclosingFishFolder: config.includeEnclosingFishFolder });
-    fastGlob.sync(['**/*.fish'], {
+    globSync(['**/*.fish'], {
       cwd: absPath,
       absolute: true,
       onlyFiles: true,
+      expandDirectories: false,
     }).forEach(filePath => {
       let relPath = path.relative(absPath, filePath);
       if (basePath.endsWith('fish') && relPath.startsWith('fish/')) {
@@ -1677,7 +1678,8 @@ export function cliModule() {
   const inputIsSnapshot = options.input && options.input.endsWith('.snapshot');
 
   if (options.name) {
-    wsPath = fastGlob.globSync([`${options.name}*.snapshot`, `${options.name}*`], { cwd: path.resolve('./tests/workspaces'), deep: 1 })[0] || '';
+    const matches = globSync([`${options.name}*.snapshot`, `${options.name}*`], { cwd: path.resolve('./tests/workspaces'), deep: 0, expandDirectories: false });
+    wsPath = matches.find(m => m.endsWith('.snapshot')) || matches[0] || '';
   } else if (options.input) {
     wsPath = path.resolve(options.input);
   } else {
