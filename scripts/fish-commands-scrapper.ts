@@ -1,6 +1,5 @@
 
-import { JSDOM } from 'jsdom';
-import fetch from 'node-fetch';
+import { parse } from 'node-html-parser';
 import * as fs from 'fs/promises';
 import * as fsSync from 'fs';
 import * as path from 'path';
@@ -311,9 +310,8 @@ async function fetchFishCommands(): Promise<FishCommand[]> {
     const response = await fetch('https://fishshell.com/docs/current/commands.html');
     const html = await response.text();
 
-    // Parse the HTML using JSDOM
-    const dom = new JSDOM(html);
-    const document = dom.window.document;
+    // Parse the HTML
+    const document = parse(html);
 
     // Find all list items that contain command references
     const commandItems = document.querySelectorAll('li.toctree-l1 a.reference.internal');
@@ -350,9 +348,8 @@ async function fetchSpecialVariables(...keys: ('special-variables' | 'env-variab
     const response = await fetch(url);
     const html = await response.text();
 
-    // Parse the HTML using JSDOM
-    const dom = new JSDOM(html);
-    const document = dom.window.document;
+    // Parse the HTML
+    const document = parse(html);
 
     const specialVariables: FishCommand[] = [];
 
@@ -368,7 +365,8 @@ async function fetchSpecialVariables(...keys: ('special-variables' | 'env-variab
 
     // Special variables are typically documented as a Definition List (<dl>)
     // with <dt> for the variable name and <dd> for the description.
-    const definitionTerms = specialVariablesSection.querySelectorAll('section#special-variables>dl');
+    // `:scope` because node-html-parser never matches the queried element itself
+    const definitionTerms = specialVariablesSection.querySelectorAll(':scope>dl');
 
     definitionTerms.forEach((dt) => {
       // `section#special-variables>dl dt > span` is the name key
