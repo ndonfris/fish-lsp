@@ -2,7 +2,7 @@ import { spawn, ChildProcess } from 'child_process';
 import { colorize, colors, logger } from './colors';
 import { WatchMode, TargetInfo, getTarget, findTarget, keyboardTargets } from './types';
 import chokidar from 'chokidar';
-import fastGlob from 'fast-glob';
+import { globSync } from 'tinyglobby';
 
 // Utility to kill process tree (handles child processes)
 function killProcessTree(pid: number, signal: string = 'SIGTERM'): void {
@@ -256,7 +256,7 @@ class FileWatcher {
     // Resolve globs to actual file paths
     this.config.watchPaths.forEach(pattern => {
       try {
-        const matches = fastGlob.sync(pattern, { ignore: this.config.ignorePatterns });
+        const matches = globSync(pattern, { ignore: this.config.ignorePatterns, expandDirectories: false });
         console.log(logger.dim(`  ${pattern} -> ${matches.length} files`));
         matches.forEach((m: string) => {
           if (!toAdd.includes(m)) {
@@ -274,7 +274,7 @@ class FileWatcher {
       ignoreInitial: true,
       persistent: false,
       // @ts-ignore
-      disableGlobbing: true, // We already resolved globs with fast-glob
+      disableGlobbing: true, // We already resolved globs with tinyglobby
       usePolling: false,
       useFsEvents: true, // Use native filesystem events for better case sensitivity
       interval: 1000,

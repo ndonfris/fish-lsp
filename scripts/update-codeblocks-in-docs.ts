@@ -27,7 +27,7 @@ import { execSync } from 'child_process';
 import { readFileSync, writeFileSync, existsSync, statSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import fg from 'fast-glob';
+import { globSync } from 'tinyglobby';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -192,18 +192,20 @@ function getMarkdownFiles(targetPath?: string): string[] {
       return [targetPath];
     } else if (stats.isDirectory()) {
       // Directory - find all markdown files
-      return fg.sync('**/*.md', {
+      return globSync('**/*.md', {
         cwd: targetPath,
         absolute: true,
+        expandDirectories: false,
         ignore: ['**/node_modules/**', '**/.git/**'],
       });
     }
   }
 
   // No path provided - search workspace
-  return fg.sync('**/*.md', {
+  return globSync('**/*.md', {
     cwd: WORKSPACE_ROOT,
     absolute: true,
+    expandDirectories: false,
     ignore: ['**/node_modules/**', '**/.git/**'],
   });
 }

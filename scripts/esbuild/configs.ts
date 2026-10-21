@@ -91,7 +91,7 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
     external: [
       'tree-sitter-fish',
       'commander',
-      'fast-glob',
+      'tinyglobby',
       'fs-extra',
       'vscode-languageserver',
       'vscode-languageserver-protocol',
