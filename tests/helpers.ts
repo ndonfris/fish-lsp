@@ -1,5 +1,5 @@
 import { execSync, spawnSync } from 'child_process';
-import { glob } from 'fast-glob';
+import { globSync } from 'tinyglobby';
 import fs, { readFileSync } from 'fs';
 import { homedir } from 'os';
 import * as path from 'path';
@@ -732,7 +732,7 @@ export function getAllFilesInDir(dir: string): {
     allFiles: [] as string[],
     allUris: [] as string[],
   };
-  glob.sync('**/*.fish', { cwd: dir, absolute: true }).forEach(file => {
+  globSync('**/*.fish', { cwd: dir, absolute: true, expandDirectories: false }).forEach(file => {
     const fileUri = pathToUri(file);
     const doc = LspDocument.createFromUri(fileUri);
     if (dir.endsWith('functions')) {

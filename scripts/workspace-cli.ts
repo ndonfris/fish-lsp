@@ -4,7 +4,7 @@ import { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as child_process from 'child_process';
-import fastGlob from 'fast-glob';
+import { globSync } from 'tinyglobby';
 import chalk from 'chalk';
 
 // Minimal types for CLI usage (no LSP dependencies)
@@ -77,7 +77,7 @@ class WorkspaceCLI {
       searchPath = path.join(absPath, 'fish');
     }
 
-    const files = fastGlob.sync(['**/*.fish'], { cwd: searchPath });
+    const files = globSync(['**/*.fish'], { cwd: searchPath, expandDirectories: false });
     return { path: absPath, files };
   }
 
