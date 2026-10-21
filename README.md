@@ -567,8 +567,8 @@ set -gx fish_lsp_ignore_paths '**/.git/**' '**/node_modules/**' '**/containerize
 # $fish_lsp_max_workspace_depth <NUMBER>
 # The maximum depth for the lsp to search when starting up.
 # (Example Options: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20)
-# (Default: 5)
-set -gx fish_lsp_max_workspace_depth 3
+# (Default: 4)
+set -gx fish_lsp_max_workspace_depth 4
 
 # $fish_lsp_fish_path <STRING>
 # A path to the fish executable to use exposing fish binary to use in server's spawned child_processes.
@@ -755,7 +755,7 @@ set -gx fish_lsp_ignore_paths
 # $fish_lsp_max_workspace_depth <NUMBER>
 # The maximum depth for the lsp to search when starting up.
 # (Example Options: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20)
-# (Default: 5)
+# (Default: 4)
 set -gx fish_lsp_max_workspace_depth 
 
 # $fish_lsp_fish_path <STRING>
@@ -828,7 +828,7 @@ set -gx fish_lsp_show_subcommand_semantic_tokens
     "**/containerized/**",
     "**/docker/**"
   ],
-  "fish_lsp_max_workspace_depth": 3,
+  "fish_lsp_max_workspace_depth": 4,
   "fish_lsp_fish_path": "fish",
   "fish_lsp_tree_sitter_wasm_path": "",
   "fish_lsp_show_subcommand_semantic_tokens": true
