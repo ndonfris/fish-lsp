@@ -1,3 +1,9 @@
+## <small>1.1.6-pre.0 (2026-10-21)</small>
+
+* refactor: replace `fast-glob` with `tinyglobby` ([cdf1738](https://github.com/ndonfris/fish-lsp/commit/cdf1738))
+* build(deps): slim development dependencies and `yarn.lock` file size ([9b0acf9](https://github.com/ndonfris/fish-lsp/commit/9b0acf9))
+* chore: bump version 1.1.6-pre.0 + tree-sitter-fish@3.7.6 + align workspace depth docs ([0ac13b7](https://github.com/ndonfris/fish-lsp/commit/0ac13b7))
+
 ## <small>1.1.5 (2026-10-01)</small>
 
 * chore: bump docs for release 1.1.5-pre.4 ([8e6a12f](https://github.com/ndonfris/fish-lsp/commit/8e6a12f))
