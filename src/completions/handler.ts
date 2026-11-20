@@ -12,6 +12,7 @@ import {
   commentDirectives,
   commentItems,
   CompletionSource,
+  fishAbbreviations,
   globalVariables,
   localFunctions,
   localSymbols,
@@ -39,18 +40,18 @@ const ROUTES: Partial<Record<RouteKey, CompletionSource[]>> = {
   comment: [commentItems],
   variable: [argparseValidationVariables, localVariables, globalVariables, snippets],
   blocked: [pipes],
-  empty: [localSymbols, builtins, shellCommandNames, commentDirectives, mapFunctions, snippets],
-  command: [paths, shellMatches, localFunctions, wordPrefixItems, snippets],
-  argument: [paths, shellMatches, localVariables, commandSyntaxItems, wordPrefixItems, snippets],
+  empty: [fishAbbreviations, localSymbols, builtins, shellCommandNames, commentDirectives, mapFunctions, snippets],
+  command: [fishAbbreviations, paths, shellMatches, localFunctions, wordPrefixItems, snippets],
+  argument: [fishAbbreviations, paths, shellMatches, localVariables, commandSyntaxItems, wordPrefixItems, snippets],
   // single-quoted literal text (`echo '$v`), except a command's own syntax (`string -r '`)
   // and the paths the typed text starts (`cat '/tm`)
   quoted: [quotedSyntaxItems, quotedPaths],
 
   // a command position inside quotes (`complete -a '(`) takes the same names as one outside them
-  'embedded:empty': [localSymbols, builtins, mapCommands, snippets],
+  'embedded:empty': [fishAbbreviations, localSymbols, builtins, mapCommands, snippets],
   // fish already filters a partial name (`complete -n 'not __f`), as it does outside quotes
-  'embedded:command': [paths, shellMatches, localFunctions, localVariables, snippets],
-  'embedded:argument': [argparseValidationVariables, paths, shellMatches, localVariables, globalVariables, commandSyntaxItems, wordPrefixItems, snippets],
+  'embedded:command': [fishAbbreviations, paths, shellMatches, localFunctions, localVariables, snippets],
+  'embedded:argument': [fishAbbreviations, argparseValidationVariables, paths, shellMatches, localVariables, globalVariables, commandSyntaxItems, wordPrefixItems, snippets],
   // a `complete -a '…` word list (`jack $na`) outside any `(…)` only expands variables
   'embedded:variable': [localVariables, globalVariables],
 };
@@ -131,8 +132,15 @@ export function toCompletionList(
   // Clients sort by `sortText`, falling back to the label, so without it they would
   // list `&&` before `string`'s subcommands. Record this order for ties in their scoring.
   const width = String(unique.length).length;
+  const hasAbbreviation = unique.some(item => item.fishKind === FishCompletionItemKind.ABBR);
   unique.forEach((item, index) => {
-    item.sortText = String(index).padStart(width, '0');
+    if (item.fishKind === FishCompletionItemKind.ABBR) {
+      if (!item.sortText?.startsWith('0_abbr_')) item.sortText = `0_abbr_${item.label}`;
+      return;
+    }
+    const ordinal = String(index).padStart(width, '0');
+    // `1_` sorts after `0_abbr_` and keeps the previous order when no abbreviation is present.
+    item.sortText = hasAbbreviation ? `1_${ordinal}` : ordinal;
   });
 
   // items are per-request copies, so adjusting them never touches the completion map
@@ -279,6 +287,10 @@ function fallbackPriority(item: FishCompletionItem): number {
  * distinct while every other item dedupes by label.
  */
 function dedupeKey(item: FishCompletionItem): string {
+  // The same abbreviation name can expand differently for different commands.
+  if (item.fishKind === FishCompletionItemKind.ABBR) {
+    return [item.label, item.fishKind, item.sortText ?? '', item.insertText ?? ''].join('\0');
+  }
   if (item.fishKind !== FishCompletionItemKind.SNIPPET) return item.label;
   return [item.label, item.fishKind, item.insertText ?? ''].join('\0');
 }
@@ -350,12 +362,23 @@ function argumentSlotTier(item: FishCompletionItem): number {
   }
 }
 
+/** Abbreviations sort before every other item so `0_abbr_` stays ahead of later sort keys. */
+function compareAbbreviations(a: FishCompletionItem, b: FishCompletionItem): number {
+  const aAbbr = a.fishKind === FishCompletionItemKind.ABBR;
+  const bAbbr = b.fishKind === FishCompletionItemKind.ABBR;
+  if (aAbbr !== bAbbr) return aAbbr ? -1 : 1;
+  if (!aAbbr) return 0;
+  return (a.sortText ?? '').localeCompare(b.sortText ?? '');
+}
+
 /**
- * In an argument slot, by `argumentSlotTier()` first. Then snippets whose trigger
- * matches `word`, then lower priority, then alphabetical.
+ * Abbreviations first. In an argument slot, by `argumentSlotTier()` next. Then
+ * snippets whose trigger matches `word`, then lower priority, then alphabetical.
  */
 function sortByPriority(items: FishCompletionItem[], word: string, argumentSlot: boolean): FishCompletionItem[] {
   return items.sort((a, b) => {
+    const abbreviationOrder = compareAbbreviations(a, b);
+    if (abbreviationOrder !== 0) return abbreviationOrder;
     if (argumentSlot) {
       const tierA = argumentSlotTier(a);
       const tierB = argumentSlotTier(b);

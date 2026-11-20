@@ -75,6 +75,11 @@ export type FishCompletionData = {
   useDocAsDetail?: boolean;
   /** where a local symbol is defined; `onCompletionResolve` reads its docs from there */
   symbol?: { uri: string; line: number; character: number; };
+  /** command-position and `--command` limits for an abbreviation completion */
+  abbreviation?: {
+    position: 'command' | 'anywhere';
+    commands: string[];
+  };
 };
 
 export interface FishCompletionItem extends CompletionItem {

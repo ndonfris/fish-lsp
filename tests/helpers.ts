@@ -59,6 +59,7 @@ export function createMockConnection(): LSP.Connection {
     onDidChangeTextDocument: vi.fn(),
     onDidCloseTextDocument: vi.fn(),
     onDidSaveTextDocument: vi.fn(),
+    onDidChangeWatchedFiles: vi.fn(),
     onWillSaveTextDocument: vi.fn(),
     onWillSaveTextDocumentWaitUntil: vi.fn(),
     onCompletion: vi.fn(),

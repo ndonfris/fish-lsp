@@ -204,6 +204,11 @@ export class CompletionItemMap {
   shouldSkipMatch(label: string): boolean {
     return this._skippedMatches.has(label);
   }
+
+  /** Replace cached abbreviation completions after a config reload. */
+  setAbbreviations(items: FishCompletionItem[]): void {
+    this._items[FishCompletionItemKind.ABBR] = items;
+  }
 }
 
 export function splitLine(line: string): { label: string; value?: string; } {
