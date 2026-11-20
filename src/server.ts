@@ -10,7 +10,7 @@ import { LspDocument, documents, rangeOverlapsLineSpan } from './document';
 import { formatDocumentWithIndentComments, formatDocumentContent } from './formatting';
 import { logger, Time } from './logger';
 import { connection, setExternalConnection } from './utils/startup';
-import { formatTextWithIndents, symbolKindsFromNode, uriToPath } from './utils/translation';
+import { formatTextWithIndents, pathToUri, symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes } from './utils/tree-sitter';
 import { getMultiReferenceHover, getPrebuiltHover, handleHover } from './hover';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentation-cache';
@@ -28,12 +28,20 @@ import { enrichToMarkdown, handleBraceExpansionHover, handleEndStdinHover, handl
 import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getDefaultSignatures, getFunctionSignatureHelp, isRegexStringSignature } from './signature';
 import { CompletionItemMap } from './completions/startup-cache';
 import { runSetupItems } from './completions/startup-config';
+import {
+  AbbreviationStore,
+  abbreviationToCompletionItem,
+  isFishConfigPath,
+  readAbbreviationFile,
+  resolveFishConfigDir,
+} from './completions/abbreviations';
 import { getDocumentHighlights } from './document-highlight';
 import { isSetQueryEraseOrShowTargetNode, semanticTokenHandler } from './semantic-tokens';
 import { codeActionHandlers } from './code-actions/code-action-handler';
 import { createExecuteCommandHandler } from './command';
 import { getAllInlayHints } from './inlay-hints';
 import { setupProcessEnvExecFile } from './utils/process-env';
+import { env } from './utils/env-manager';
 import { flattenNested } from './utils/flatten';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { isSourceCommandArgumentName } from './parsing/source';
@@ -79,6 +87,13 @@ export let currentDocument: LspDocument | null = null;
 
 export let cachedDocumentation: DocumentationCache;
 export let cachedCompletionMap: CompletionItemMap;
+
+/** Prefer the open buffer, which may be unsaved, then the file on disk. */
+function readAbbreviationSource(filePath: string): string | undefined {
+  const open = documents.get(pathToUri(filePath));
+  if (open) return open.getText();
+  return readAbbreviationFile(filePath);
+}
 
 export default class FishServer {
   /**
@@ -202,6 +217,10 @@ export default class FishServer {
       cache,
       params,
     );
+    // Tests skip the user's config so completion order stays independent of it.
+    if (process.env.NODE_ENV !== 'test') {
+      await server.reloadAbbreviations();
+    }
     server.register(connection);
 
     subcommandCache.onPopulated(() => {
@@ -224,6 +243,10 @@ export default class FishServer {
   // connection — the same one the client talks to — rather than the module-level
   // `connection`, which in tests is a separate mock that never sees the request.
   private registeredConnection: Connection | undefined;
+  private abbreviationStore = new AbbreviationStore();
+  private abbreviationReloadTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Serializes reloads so an older read cannot overwrite a newer one. */
+  private abbreviationReloadChain: Promise<void> = Promise.resolve();
 
   constructor(
     private completion: CompletionHandler,
@@ -275,6 +298,12 @@ export default class FishServer {
 
     // register the handlers
     connection.onDidSaveTextDocument(this.didSaveTextDocument.bind(this));
+    // Some test connections only implement the handlers they exercise.
+    connection.onDidChangeWatchedFiles?.(params => {
+      if (params.changes.some(change => isFishConfigPath(String(uriToPath(change.uri))))) {
+        this.scheduleAbbreviationReload();
+      }
+    });
 
     connection.onCompletion(this.onCompletion.bind(this));
     connection.onCompletionResolve(this.onCompletionResolve.bind(this));
@@ -344,6 +373,9 @@ export default class FishServer {
       });
 
       const { uri } = this.analyzeDocument(document);
+      if (process.env.NODE_ENV !== 'test' && isFishConfigPath(String(uriToPath(uri)))) {
+        this.scheduleAbbreviationReload();
+      }
       const diagnostics = analyzer.diagnostics.get(uri) || [];
       const changeSpan = document.lastChangedLineSpan;
       const overlapExists =
@@ -361,6 +393,11 @@ export default class FishServer {
       workspaceManager.handleCloseDocument(uri);
       analyzer.diagnostics.delete(uri);
       analyzer.removeDocumentSymbols(uri);
+      // The document is already gone from the open set, so a reload reads disk
+      // and drops abbreviations that existed only in an unsaved buffer.
+      if (isFishConfigPath(String(uriToPath(uri)))) {
+        this.scheduleAbbreviationReload();
+      }
     }));
 
     logger.log({ 'server.register': 'registered' });
@@ -375,11 +412,60 @@ export default class FishServer {
    * state; `onShutdown()` handles that broader process-level cleanup.
    */
   public dispose(): void {
+    if (this.abbreviationReloadTimer) {
+      clearTimeout(this.abbreviationReloadTimer);
+      this.abbreviationReloadTimer = undefined;
+    }
     this.documentListeners.forEach(listener => listener.dispose());
     this.documentListeners = [];
     // Cancel the subcommand cache's pending debounced `semanticTokens/refresh`
     // and detach its callback so it can't fire on this torn-down connection.
     subcommandCache.dispose();
+  }
+
+  /**
+   * Re-read `config.fish` and `conf.d/*.fish`. A failed read keeps the previous
+   * abbreviations. Skipped under test so suites do not depend on the user's config.
+   */
+  private reloadAbbreviations(): Promise<void> {
+    const run = this.abbreviationReloadChain.then(() => this.loadAbbreviations());
+    this.abbreviationReloadChain = run.catch(() => undefined);
+    return run;
+  }
+
+  private async loadAbbreviations(): Promise<void> {
+    if (process.env.NODE_ENV === 'test') return;
+    const dir = resolveFishConfigDir(env.get('__fish_config_dir'));
+    if (!dir) return;
+    await this.abbreviationStore.reload(dir, readAbbreviationSource);
+    this.completionMap.setAbbreviations(
+      this.abbreviationStore.abbreviations.map(abbreviationToCompletionItem),
+    );
+  }
+
+  private scheduleAbbreviationReload(): void {
+    if (process.env.NODE_ENV === 'test') return;
+    if (this.abbreviationReloadTimer) clearTimeout(this.abbreviationReloadTimer);
+    this.abbreviationReloadTimer = setTimeout(() => {
+      this.abbreviationReloadTimer = undefined;
+      void this.reloadAbbreviations();
+    }, 200);
+    this.abbreviationReloadTimer.unref?.();
+  }
+
+  private registerAbbreviationWatchers(): void {
+    const connection = this.registeredConnection;
+    const dynamic = this.initializeParams.capabilities?.workspace?.didChangeWatchedFiles?.dynamicRegistration;
+    if (!connection || !dynamic) return;
+    void connection.client.register(LSP.DidChangeWatchedFilesNotification.type, {
+      watchers: [
+        { globPattern: '**/config.fish' },
+        { globPattern: '**/conf.d/*.fish' },
+        { globPattern: '**/conf.d/**/*.fish' },
+      ],
+    }).catch(error => {
+      logger.debug('abbreviation file watchers were not registered', error);
+    });
   }
 
   async didSaveTextDocument(params: LSP.DidSaveTextDocumentParams): Promise<void> {
@@ -391,6 +477,9 @@ export default class FishServer {
     const { uri } = this.analyzeDocument(document);
     // the completion fish keeps what it loaded: the saved file may be a function or completion
     refreshShellCompletions();
+    if (isFishConfigPath(String(uriToPath(uri)))) {
+      await this.reloadAbbreviations();
+    }
 
     await workspaceManager.analyzePendingDocuments();
     analyzer.diagnostics.requestUpdate(uri, true); // immediate on save
@@ -447,6 +536,7 @@ export default class FishServer {
       buildTime: PkgJson.buildTime,
       executedAt: Time.now,
     });
+    this.registerAbbreviationWatchers();
     if (hasWorkspaceFolderCapability) {
       try {
         connection.workspace.onDidChangeWorkspaceFolders(event => {

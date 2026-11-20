@@ -2,6 +2,7 @@ import { readdir } from 'fs/promises';
 import { homedir } from 'os';
 import { basename, dirname, isAbsolute, join } from 'path';
 import { CompletionItemKind, SymbolKind } from 'vscode-languageserver';
+import { abbreviationCompletions } from './abbreviations';
 import { CompletionContext, openIndexTerm, tokenizeCommandline } from './context';
 import { CompletionItemMap } from './startup-cache';
 import { cloneCompletionItem, FishCompletionItem, FishCompletionItemKind, getCompletionDocumentationValue } from './types';
@@ -151,6 +152,13 @@ function findLastUnmatchedQuoteIndex(line: string): number {
  * command position, so clients that cap the list (coc.nvim shows 256) still show them.
  */
 const LOCAL_FUNCTION_PRIORITY = 5;
+
+/**
+ * Fish abbreviations parsed from config. Filtered by command position and
+ * `--command`, and sorted ahead of other completions via `0_abbr_`.
+ */
+export const fishAbbreviations: CompletionSource = (ctx, map) =>
+  abbreviationCompletions(map.get('abbr'), ctx.mode, ctx.command);
 
 /** every local symbol (command position) */
 export const localSymbols: CompletionSource = (ctx) =>
