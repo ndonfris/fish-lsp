@@ -70,7 +70,17 @@ jobs:
           sudo apt-get install -y --reinstall \
             man-db \
             manpages \
-            manpages-dev
+            manpages-dev \
+            git-man
+
+          # Minimized images (e.g. act's catthehacker/ubuntu) divert /usr/bin/man to
+          # man.REAL and leave a stub script; reinstalling man-db installs the real
+          # binary behind the diversion. Remove the diversion so `man` is real.
+          if dpkg-divert --list /usr/bin/man | grep -q man.REAL; then
+            sudo rm -f /usr/bin/man
+            sudo dpkg-divert --quiet --local --rename --remove /usr/bin/man
+          fi
+          file /usr/bin/man
 
       - name: Install Fish Shell (latest stable, auto-detect PPA)
         shell: bash
@@ -167,9 +177,16 @@ jobs:
       - name: Verify Fish Manpages
         shell: fish {0}
         run: |
-          man string-split | col -bx
-          man status | col -bx 
-          man path | col -bx 
+          # Fail here, not in the test suite, when `man` is a minimized-image stub
+          # or a page is missing.
+          for page in string-split status path
+              set -l out (man $page | col -bx | string collect)
+              if string match -q '*This system has been minimized*' -- $out; or test -z "$out"
+                  echo "man $page is not available" >&2
+                  exit 1
+              end
+              printf '%s\n' $out | head -n 3
+          end
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

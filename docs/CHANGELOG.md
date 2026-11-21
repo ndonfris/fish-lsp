@@ -1,3 +1,10 @@
+## <small>1.1.6-pre.1 (2026-11-21)</small>
+
+* ci: unmimized `.github/workflows/test-suite.yml` manpages so tests pass ([418bb55](https://github.com/ndonfris/fish-lsp/commit/418bb55))
+* fix(parsing): inline-variable for issue #198 ([c4a55ae](https://github.com/ndonfris/fish-lsp/commit/c4a55ae)), closes [#198](https://github.com/ndonfris/fish-lsp/issues/198)
+* chore: bump version to `v1.1.6-pre.1` ([ce7d479](https://github.com/ndonfris/fish-lsp/commit/ce7d479))
+* docs: bump `docs/CHANGELOG.md` and `man/fish-lsp.1` for `1.1.6-pre.0` ([5c21de2](https://github.com/ndonfris/fish-lsp/commit/5c21de2))
+
 ## <small>1.1.6-pre.0 (2026-10-21)</small>
 
 * refactor: replace `fast-glob` with `tinyglobby` ([cdf1738](https://github.com/ndonfris/fish-lsp/commit/cdf1738))
