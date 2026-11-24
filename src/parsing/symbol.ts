@@ -1113,6 +1113,12 @@ function buildNested(document: LspDocument, node: SyntaxNode, children: FishSymb
     case 'for_statement':
       newSymbols.push(...processForDefinition(document, node, children));
       break;
+    case 'override_statement':
+      // `A=1 begin ... end`, `A=1 { ... }`, `A=1 function f ... end`, etc.
+      // Emit the inline variables, then keep the wrapped block's symbols:
+      // returning anything here replaces the bubbled-up `children`.
+      newSymbols.push(...processInlineVariables(document, node), ...children);
+      break;
     case 'command':
       // A command can carry leading `VAR=value` inline-variable prefixes
       // (post tree-sitter-fish PR #41 these are `override_variable` children of

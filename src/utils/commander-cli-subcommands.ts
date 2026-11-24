@@ -591,7 +591,7 @@ export namespace CommanderSubcommand {
 
   // Define the subcommands and their schemas
   export namespace start {
-    export const schema = z.record(z.unknown()).and(
+    export const schema = z.record(z.string(), z.unknown()).and(
       z.object({
         enable: z.array(z.string()).optional().default([]),
         disable: z.array(z.string()).optional().default([]),
@@ -614,7 +614,7 @@ export namespace CommanderSubcommand {
     export const defaultSchema: schemaType = schema.parse({});
   }
   export namespace info {
-    export const schema = z.record(z.unknown()).and(
+    export const schema = z.record(z.string(), z.unknown()).and(
       z.object({
         bin: z.boolean().optional().default(false),
         path: z.boolean().optional().default(false),
@@ -928,7 +928,7 @@ export namespace CommanderSubcommand {
     }
   }
   export namespace url {
-    export const schema = z.record(z.unknown()).and(
+    export const schema = z.record(z.string(), z.unknown()).and(
       z.object({
         repo: z.boolean().optional().default(false),
         discussions: z.boolean().optional().default(false),
@@ -951,7 +951,7 @@ export namespace CommanderSubcommand {
   }
 
   export namespace complete {
-    export const schema = z.record(z.unknown()).and(
+    export const schema = z.record(z.string(), z.unknown()).and(
       z.object({
         names: z.boolean().optional().default(false),
         namesWithSummary: z.boolean().optional().default(false),
@@ -972,7 +972,7 @@ export namespace CommanderSubcommand {
   }
 
   export namespace env {
-    export const schema = z.record(z.unknown()).and(
+    export const schema = z.record(z.string(), z.unknown()).and(
       z.object({
         create: z.boolean().optional().default(false),
         show: z.boolean().optional().default(false),

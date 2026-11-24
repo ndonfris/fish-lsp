@@ -16,13 +16,27 @@ import { DefinitionScope } from '../utils/definition-scope';
  *
  * These are temporary environment variable assignments that only apply
  * to the specific command being executed.
+ *
+ * Block statements can carry them too (`A=1 begin ... end`, `A=1 { ... }`,
+ * `A=1 if ...`). tree-sitter-fish wraps those as
+ * `(override_statement override: (override_variable) ... (begin_statement ...))`,
+ * and the override applies only to the wrapped block.
  */
 
 /**
- * Check if a command node contains inline environment variable assignments
+ * Check if a node can own inline variable assignments: a `command`, or an
+ * `override_statement` wrapping a block statement.
+ */
+export function isInlineVariableOwner(node: SyntaxNode): boolean {
+  return isCommand(node) || node.type === 'override_statement';
+}
+
+/**
+ * Check if a command (or `override_statement`) node contains inline
+ * environment variable assignments
  */
 export function hasInlineVariables(commandNode: SyntaxNode): boolean {
-  if (!isCommand(commandNode)) return false;
+  if (!isInlineVariableOwner(commandNode)) return false;
 
   // Look for assignment patterns in command arguments
   for (let i = 0; i < commandNode.namedChildCount; i++) {
@@ -91,10 +105,12 @@ export function parseInlineVariableAssignment(node: SyntaxNode): { name: string;
 }
 
 /**
- * Extract all inline variable assignments from a command node
+ * Extract all inline variable assignments from a command (or
+ * `override_statement`) node. For an `override_statement`, the symbols are
+ * scoped to the wrapper node, so they cover only the wrapped block.
  */
 export function processInlineVariables(document: LspDocument, commandNode: SyntaxNode): FishSymbol[] {
-  if (!isCommand(commandNode)) return [];
+  if (!isInlineVariableOwner(commandNode)) return [];
 
   const symbols: FishSymbol[] = [];
 
@@ -162,7 +178,7 @@ export function findAllInlineVariables(document: LspDocument, tree: SyntaxNode):
   const symbols: FishSymbol[] = [];
 
   function walkTree(node: SyntaxNode) {
-    if (isCommand(node) && hasInlineVariables(node)) {
+    if (isInlineVariableOwner(node) && hasInlineVariables(node)) {
       symbols.push(...processInlineVariables(document, node));
     }
 
