@@ -12,7 +12,9 @@ export async function getDocumentationResolver(item: FishCompletionItem): Promis
   if (!item.local) {
     switch (item.fishKind) {
       case FishCompletionItemKind.ABBR:
-        docString = await getAbbrDocString(item.label) ?? docString;
+        // Prefer the docs captured when the abbreviation was parsed. `abbr --show`
+        // only sees the live shell and cannot tell command-scoped names apart.
+        docString = docValue || await getAbbrDocString(item.label) || docString;
         break;
       case FishCompletionItemKind.ALIAS:
         docString = await getAliasDocString(item.label, docValue || `alias ${item.label}`) ?? docString;

@@ -28,12 +28,8 @@ export type SetupItem = {
 };
 
 export const SetupItemsFromCommandConfig: SetupItem[] = [
-  // {
-  //   command: `[ (abbr --show | count) -eq 0 ] ||  abbr --show | string split ' -- ' -m1 -f2 | string unescape`,
-  //   detail: 'abbreviation',
-  //   fishKind: FishCompletionItemKind.ABBR,
-  //   topLevel: true,
-  // },
+  // Abbreviations are not loaded here. `abbr --show` only yielded expansion text and
+  // dropped `--position`, `--command`, and `--set-cursor`. See `abbreviations.ts`.
   {
     command: 'builtin --names',
     detail: 'builtin',
